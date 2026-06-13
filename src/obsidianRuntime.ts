@@ -18,6 +18,7 @@ interface ObsidianRuntime {
 }
 
 let configuredRuntime: ObsidianRuntime | null = null;
+let chromiumVersionReader: (() => string | null) | null = null;
 
 function getRuntime(): ObsidianRuntime {
 	return configuredRuntime ?? {};
@@ -25,6 +26,19 @@ function getRuntime(): ObsidianRuntime {
 
 export function configureObsidianRuntime(runtime: ObsidianRuntime): void {
 	configuredRuntime = runtime;
+}
+
+/** Wired from the plugin on load; desktop Electron exposes Chromium via process.versions. */
+export function configureChromiumVersionReader(read: () => string | null): void {
+	chromiumVersionReader = read;
+}
+
+export function getChromiumVersion(): string | null {
+	try {
+		return chromiumVersionReader?.() ?? null;
+	} catch {
+		return null;
+	}
 }
 
 export class Notice {

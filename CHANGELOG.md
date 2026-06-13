@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] - 2026-06-12
+
+### Fixed
+
+- Community plugin review: stop reading Chromium version from `navigator.userAgent`;
+  desktop builds now resolve it via `Platform.isDesktop` and Electron
+  `process.versions.chrome`, wired through `configureChromiumVersionReader`.
+
 ## [1.0.17] - 2026-06-12
 
 ### Fixed
@@ -135,7 +143,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.17...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.18...HEAD
+[1.0.18]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.17...1.0.18
 [1.0.17]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.16...1.0.17
 [1.0.16]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.15...1.0.16
 [1.0.15]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.15

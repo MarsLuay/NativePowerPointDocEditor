@@ -66,9 +66,9 @@ import {
 } from './powerpoint/constants';
 import {
   cleanError,
-  getChromiumVersion,
   isWasmGcUnsupportedError
 } from './powerpoint/runtimeCompat';
+import { getChromiumVersion } from './obsidianRuntime';
 import { FindReplaceController, type FindReplaceHost } from './powerpoint/findReplaceController';
 import { HistoryController, type HistoryHost } from './powerpoint/historyController';
 import { ExportController, type ExportHost } from './powerpoint/exportController';

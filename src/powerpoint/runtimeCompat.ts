@@ -17,15 +17,3 @@ export function isWasmGcUnsupportedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || '');
   return /WebAssembly GC support|Wasm init failed/i.test(message);
 }
-
-export function getChromiumVersion(): string | null {
-  try {
-    if (typeof navigator === 'undefined') {
-      return null;
-    }
-    const match = navigator.userAgent.match(/Chrom(?:e|ium)\/([\d.]+)/);
-    return match?.[1] ?? null;
-  } catch {
-    return null;
-  }
-}

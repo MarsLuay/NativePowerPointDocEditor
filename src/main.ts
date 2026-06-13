@@ -19,7 +19,7 @@ import {
 import { configureDocxEditorChunkPaths } from './docxEditorLoader';
 import { DocxSearchIndex } from './docxSearchIndex';
 import { configureDocxidianLogger, errorLog, getDocxidianLogSnapshot, infoLog, setDocxidianLogSink } from './logger';
-import { configureObsidianRuntime } from './obsidianRuntime';
+import { configureObsidianRuntime, configureChromiumVersionReader } from './obsidianRuntime';
 import { getDocxEditorLocale, normalizeDocxidianLanguage } from './locales';
 import { configureForceJsBackendOverrideReader } from './PresentationEngine';
 
@@ -59,6 +59,16 @@ export default class DocxidianPlugin extends Plugin {
 			editorLanguage: this.settings.editorLanguage,
 		});
 		configureObsidianRuntime({ Notice, Platform, setIcon });
+		configureChromiumVersionReader(() => {
+			if (!Platform.isDesktop) {
+				return null;
+			}
+			try {
+				return typeof process !== 'undefined' ? process.versions?.chrome ?? null : null;
+			} catch {
+				return null;
+			}
+		});
 		configureForceJsBackendOverrideReader(() => this.forceJsBackendDevOverride);
 
 		if (!this.settings.disableDocxFiles) {
