@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Bump dev-only `esbuild` to 0.28.1 and `electron` to 39.8.10 to clear Dependabot
+  alerts (build/smoke tooling only; not bundled in the release plugin).
+
 ## [1.0.18] - 2026-06-12
 
 ### Fixed
