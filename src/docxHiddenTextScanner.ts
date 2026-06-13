@@ -213,6 +213,11 @@ function parseStyles(stylesXml: string): Map<string, ParsedStyle> {
 	return styles;
 }
 
+function parseDocDefaultRunProps(stylesXml: string): TextVisibilityProps {
+	const docDefaults = getElementWithBody(stylesXml, 'docDefaults');
+	return docDefaults ? parseTextVisibilityProps(getRunProperties(docDefaults)) : {};
+}
+
 function resolveStyleProps(styles: Map<string, ParsedStyle>, styleId: string | null, seen = new Set<string>()): TextVisibilityProps {
 	if (!styleId || seen.has(styleId)) {
 		return {};
@@ -299,6 +304,7 @@ function scanParagraph(
 	partPath: string,
 	paragraphNumber: number,
 	styles: Map<string, ParsedStyle>,
+	defaultRunProps: TextVisibilityProps,
 ): HiddenTextFinding[] {
 	const pPr = getParagraphProperties(paragraphXml);
 	const paragraphStyleProps = resolveStyleProps(styles, getElementVal(pPr, 'pStyle'));
@@ -318,9 +324,19 @@ function scanParagraph(
 
 		const rPr = getRunProperties(runXml);
 		const styleProps = resolveStyleProps(styles, getElementVal(rPr, 'rStyle'));
-		const props = mergeProps(mergeProps(paragraphStyleProps, styleProps), parseTextVisibilityProps(rPr));
+		const props = mergeProps(
+			mergeProps(mergeProps(defaultRunProps, paragraphStyleProps), styleProps),
+			parseTextVisibilityProps(rPr),
+		);
 		const reasons = getVisibilityReasons(props);
 		const promptInjectionSignals = getPromptInjectionSignals(text);
+
+		// Surface prompt-injection phrases even when the run is plainly visible.
+		// The injection patterns are specific instruction-style phrases, so this
+		// stays conservative while no longer hiding attacks placed in normal text.
+		if (reasons.length === 0 && promptInjectionSignals.length > 0) {
+			reasons.push('Prompt-injection phrase in visible text');
+		}
 
 		if (reasons.length === 0) {
 			continue;
@@ -340,7 +356,12 @@ function scanParagraph(
 	return findings;
 }
 
-function scanTextPart(partPath: string, xml: string, styles: Map<string, ParsedStyle>): HiddenTextFinding[] {
+function scanTextPart(
+	partPath: string,
+	xml: string,
+	styles: Map<string, ParsedStyle>,
+	defaultRunProps: TextVisibilityProps,
+): HiddenTextFinding[] {
 	const findings: HiddenTextFinding[] = [];
 	let paragraphNumber = 0;
 	let match: RegExpExecArray | null;
@@ -349,7 +370,7 @@ function scanTextPart(partPath: string, xml: string, styles: Map<string, ParsedS
 
 	while ((match = PARAGRAPH_PATTERN.exec(xml)) !== null) {
 		paragraphNumber += 1;
-		findings.push(...scanParagraph(match[0], partPath, paragraphNumber, styles));
+		findings.push(...scanParagraph(match[0], partPath, paragraphNumber, styles, defaultRunProps));
 	}
 
 	return findings;
@@ -359,6 +380,7 @@ export async function findHiddenDocxText(buffer: ArrayBuffer): Promise<HiddenTex
 	const zip = await JSZip.loadAsync(buffer.slice(0));
 	const stylesXml = await zip.file('word/styles.xml')?.async('string') ?? '';
 	const styles = parseStyles(stylesXml);
+	const defaultRunProps = parseDocDefaultRunProps(stylesXml);
 	const partPaths = Object.keys(zip.files)
 		.filter(isTextPart)
 		.sort(sortTextParts);
@@ -370,7 +392,7 @@ export async function findHiddenDocxText(buffer: ArrayBuffer): Promise<HiddenTex
 			continue;
 		}
 
-		findings.push(...scanTextPart(partPath, xml, styles));
+		findings.push(...scanTextPart(partPath, xml, styles, defaultRunProps));
 	}
 
 	return {

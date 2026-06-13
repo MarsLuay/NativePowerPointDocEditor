@@ -4,6 +4,7 @@ import path from "node:path";
 import Module, { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { patchPptxRendererSource } from "../../scripts/lib/patch-pptx-renderer.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const require = createRequire(import.meta.url);
@@ -13,6 +14,9 @@ let packageModulePromise;
 let presentationEngineModulePromise;
 let shapeClipboardModulePromise;
 let viewModulePromise;
+let docxTextExtractorModulePromise;
+let docxReviewMarkupModulePromise;
+let docxHiddenTextScannerModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -21,10 +25,7 @@ const inlinePptxSvgWasmPlugin = {
   name: "inline-pptx-svg-wasm",
   setup(buildContext) {
     buildContext.onLoad({ filter: /pptx-renderer\.js$/ }, async ({ path: modulePath }) => {
-      const contents = (await readFile(modulePath, "utf8")).replace(
-        "const DEFAULT_WASM_URL = new URL('./main.wasm', import.meta.url).href;",
-        "const DEFAULT_WASM_URL = undefined;",
-      );
+      const contents = patchPptxRendererSource(await readFile(modulePath, "utf8"));
       return { contents, loader: "js" };
     });
   },
@@ -49,6 +50,69 @@ async function bundleSource(entry, outputName, external = []) {
     target: "node22",
   });
   return outfile;
+}
+
+let textUtilsModulePromise;
+
+const stubObsidianPlugin = {
+  name: "stub-obsidian",
+  setup(buildContext) {
+    buildContext.onResolve({ filter: /^obsidian$/ }, () => ({ path: "obsidian", namespace: "stub-obsidian" }));
+    buildContext.onLoad({ filter: /.*/, namespace: "stub-obsidian" }, () => ({
+      contents: "export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };",
+      loader: "js",
+    }));
+  },
+};
+
+let annotateTextOffsetsModulePromise;
+
+export function loadAnnotateTextOffsetsModule() {
+  annotateTextOffsetsModulePromise ??= (async () => {
+    const outputDirectory = await getTempDirectory();
+    const outfile = path.join(outputDirectory, "annotate-text-offsets.cjs");
+    await build({
+      entryPoints: [path.join(projectRoot, "src/powerpoint/annotateTextOffsets.ts")],
+      bundle: true,
+      format: "cjs",
+      logLevel: "silent",
+      outfile,
+      platform: "node",
+      plugins: [stubObsidianPlugin],
+      target: "node22",
+    });
+    return require(outfile);
+  })();
+  return annotateTextOffsetsModulePromise;
+}
+
+export function loadTextUtilsModule() {
+  textUtilsModulePromise ??= (async () => {
+    const outputDirectory = await getTempDirectory();
+    const outfile = path.join(outputDirectory, "text-utils.cjs");
+    await build({
+      entryPoints: [path.join(projectRoot, "src/powerpoint/textUtils.ts")],
+      bundle: true,
+      format: "cjs",
+      logLevel: "silent",
+      outfile,
+      platform: "node",
+      plugins: [stubObsidianPlugin],
+      target: "node22",
+    });
+    return require(outfile);
+  })();
+  return textUtilsModulePromise;
+}
+
+let inlineTextGeometryModulePromise;
+
+export function loadInlineTextGeometryModule() {
+  inlineTextGeometryModulePromise ??= bundleSource(
+    "src/powerpoint/inlineTextGeometry.ts",
+    "inline-text-geometry.cjs",
+  ).then((outfile) => require(outfile));
+  return inlineTextGeometryModulePromise;
 }
 
 export function loadPowerPointPackageModule() {
@@ -98,6 +162,27 @@ export function loadShapeClipboardModule() {
   return shapeClipboardModulePromise;
 }
 
+export function loadDocxTextExtractorModule() {
+  docxTextExtractorModulePromise ??= bundleSource("src/docxTextExtractor.ts", "docx-text-extractor.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxTextExtractorModulePromise;
+}
+
+export function loadDocxReviewMarkupModule() {
+  docxReviewMarkupModulePromise ??= bundleSource("src/docxReviewMarkup.ts", "docx-review-markup.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxReviewMarkupModulePromise;
+}
+
+export function loadDocxHiddenTextScannerModule() {
+  docxHiddenTextScannerModulePromise ??= bundleSource("src/docxHiddenTextScanner.ts", "docx-hidden-text-scanner.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxHiddenTextScannerModulePromise;
+}
+
 export function loadNativePowerPointViewModule() {
   viewModulePromise ??= bundleSource(
     "src/NativePowerPointView.ts",
@@ -119,22 +204,42 @@ export function loadNativePowerPointViewModule() {
       }
     }
 
-    class FileView {
+    class Component {
+      load() {}
+      unload() {}
+      onload() {}
+      onunload() {}
+      register() {
+        return () => {};
+      }
+      registerDomEvent() {
+        return () => {};
+      }
+      registerInterval() {
+        return () => {};
+      }
+      addChild() {
+        return this;
+      }
+      removeChild() {}
+    }
+
+    class FileView extends Component {
       constructor(leaf = {}) {
+        super();
         this.leaf = leaf;
         this.app = leaf.app ?? { vault: {} };
         this.file = null;
         this.contentEl = leaf.contentEl ?? createElementStub();
         this.containerEl = leaf.containerEl ?? { isShown: () => true };
       }
-
-      registerDomEvent() {}
     }
 
     class Menu {
       addItem(callback) {
         callback?.({
           onClick() { return this; },
+          setDisabled() { return this; },
           setIcon() { return this; },
           setTitle() { return this; },
         });
@@ -169,11 +274,12 @@ export function loadNativePowerPointViewModule() {
             body: { classList: { add() {}, remove() {}, toggle() {} } },
             removeEventListener() {},
           },
+          Component,
           FileView,
           Menu,
           Modal,
           Notice,
-          Platform: { isDesktop: true, isMobile: false },
+          Platform: { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false },
           normalizePath: (value) => value.replace(/\\/g, "/").replace(/\/{2,}/g, "/"),
           setIcon: () => undefined,
         };

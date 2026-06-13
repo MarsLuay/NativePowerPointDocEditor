@@ -28,6 +28,12 @@ jobs:
       - name: Build plugin
         run: npm run build
 
+      - name: Smoke-test the pure-JS PPTX engine fallback
+        run: npm run smoke:pptx-js
+
+      - name: Smoke-test the mobile PPTX path (JS fallback via PresentationEngine)
+        run: npm run smoke:mobile-pptx
+
       - name: Generate artifact attestation for main.js
         uses: actions/attest-build-provenance@v4
         with:

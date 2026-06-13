@@ -32,7 +32,7 @@ function findChrome() {
 }
 
 function runChrome(chromePath, args, options = {}) {
-  const timeoutMs = options.timeoutMs ?? 15000;
+  const timeoutMs = options.timeoutMs ?? 90000;
   return new Promise((resolve, reject) => {
     const child = spawn(chromePath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';

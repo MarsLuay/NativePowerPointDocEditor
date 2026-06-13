@@ -37,8 +37,93 @@ npm run smoke:generated-text
 npm run smoke:chart-data
 npm run smoke:objects
 npm run smoke:fonts
+npm run smoke:pptx-js
+npm run smoke:mobile-pptx
 npm run visual:caret
 ```
+
+## PowerPoint engine backends
+
+PPTX rendering uses the `pptx-svg` WebAssembly (wasm-gc) engine, with a pure-JS
+engine fallback (`src/vendor/pptx-js-engine.mjs`) for runtimes that lack
+WebAssembly GC (Obsidian installer < 1.5.8 / Chromium < 119). Because the
+fallback normally only runs on old installers, it is easy to break without
+noticing. Two guards keep it honest:
+
+- `npm run smoke:pptx-js` renders a deck through the JS engine (runs in CI and
+  before every release).
+- To exercise the fallback on a modern machine, open Obsidian's developer
+  console and run `localStorage.setItem('native-powerpoint-force-js-engine', '1')`,
+  then reopen the PPTX. Remove the key to return to the Wasm engine. In Node, set
+  `globalThis.__NATIVE_PPTX_FORCE_JS__ = true` instead.
+
+### Regenerating the JS fallback
+
+The `pptx-svg` npm package ships only the wasm-gc binary, so the pure-JS engine
+is built from source and vendored. When you bump `pptx-svg`, regenerate the
+fallback so it matches the installed version:
+
+```bash
+npm run regen:pptx-js
+```
+
+This one command clones the `pptx-svg` source at the tag matching the installed
+version, patches its `moon.pkg` to emit a JS build, compiles it with MoonBit,
+rewraps the output into `src/vendor/pptx-js-engine.mjs`, and verifies it with
+`smoke:pptx-js`. Commit the regenerated `src/vendor/pptx-js-engine.mjs` alongside
+the dependency bump.
+
+Notes:
+
+- It requires the MoonBit toolchain. If `moon` is not installed, the script
+  prints the one-line installer; re-run with `INSTALL_MOONBIT=1` to install it
+  automatically.
+- To regenerate from a specific ref instead of the version-matched tag, set
+  `PPTX_SVG_REF` (for example `PPTX_SVG_REF=v0.6.0 npm run regen:pptx-js`).
+- The lower-level `node scripts/build-pptx-js-engine.mjs <moonbit-js-output>` step
+  is still available if you already have a MoonBit JS build in hand.
+
+## Mobile (iOS / Android)
+
+`manifest.json` sets `isDesktopOnly: false`, so the plugin is expected to load on
+Obsidian Mobile. Mobile uses WKWebView (iOS) or the Android System WebView — no
+Node.js or Electron APIs. The build runs `check-mobile-compat.mjs` after every
+`npm run build` to reject static `require("electron")` / Node builtin imports in
+`main.js`.
+
+### What CI verifies automatically
+
+| Check | What it proves |
+| --- | --- |
+| `npm run check:mobile` | Plugin bundle won't crash on load due to desktop-only `require()` calls |
+| `npm run smoke:mobile-pptx` | `PresentationEngine` can open and render a deck through the **JS fallback** — the path mobile WebViews use when WebAssembly GC is unavailable |
+| `npm run smoke:pptx-js` | The vendored JS engine itself renders SVG in isolation |
+
+The JS fallback activates automatically when Wasm init fails (common on older
+mobile WebViews). On modern devices with WasmGC, the faster Wasm engine is used
+instead.
+
+### Clipboard behavior
+
+- **DOCX** (`DocxReactView.tsx`): tries Electron's clipboard on desktop via
+  `window.require('electron')`, then falls back to `navigator.clipboard`. Mobile
+  always uses the web clipboard APIs.
+- **PPTX**: shape copy/paste is in-memory inside the plugin. Plain-text paste
+  uses `navigator.clipboard.readText()` (may require a user gesture on mobile).
+
+### Manual verification (required before claiming mobile support)
+
+CI cannot run Obsidian on a device. Before a release that touches PPTX loading,
+rendering, touch interaction, or save paths, spot-check on at least one iOS and
+one Android device:
+
+1. Open `tests/fixtures/decks/features.pptx` (or any small deck in the vault).
+2. Confirm slides render (not a blank slide or runtime error).
+3. Tap a text box, edit, and confirm autosave.
+4. Pinch/zoom or toolbar zoom if available; switch slides via thumbnails.
+
+To force the JS fallback on a modern desktop install (same path many mobile
+devices use), see [PowerPoint engine backends](#powerpoint-engine-backends).
 
 ## Development Notes
 

@@ -996,9 +996,19 @@ export function ensureEditorStyles() {
 		return;
 	}
 
-	const styleSheet = new CSSStyleSheet();
-	styleSheet.replaceSync(editorStyles);
-	activeDocument.adoptedStyleSheets = [...activeDocument.adoptedStyleSheets, styleSheet];
+	if (
+		typeof CSSStyleSheet !== 'undefined'
+		&& 'adoptedStyleSheets' in activeDocument
+		&& Array.isArray(activeDocument.adoptedStyleSheets)
+	) {
+		const styleSheet = new CSSStyleSheet();
+		styleSheet.replaceSync(editorStyles);
+		activeDocument.adoptedStyleSheets = [...activeDocument.adoptedStyleSheets, styleSheet];
+	} else {
+		const styleEl = activeDocument.createElement('style');
+		styleEl.textContent = editorStyles;
+		(activeDocument.head ?? activeDocument.body).appendChild(styleEl);
+	}
 	stylesInjected = true;
 }
 
@@ -1267,7 +1277,7 @@ export interface DocxReactViewProps {
 	reserveReviewSidebar: boolean;
 	onDirtyChange: (isDirty: boolean) => void;
 	onSave: (buffer: ArrayBuffer) => Promise<void>;
-	onDocumentNameChange: (name: string) => Promise<void>;
+	onDocumentNameChange: (name: string, expectedPath?: string | null) => Promise<void>;
 }
 
 export interface DocxReactViewHandle {
@@ -1307,6 +1317,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const dirtyTrackingEnabledRef = useRef(false);
 	const dirtyVersionRef = useRef(0);
 	const isSavingRef = useRef(false);
+	const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
+	const activeSaveIdRef = useRef(0);
+	const queuedSaveRequestRef = useRef<{ output: ArrayBuffer; options?: SaveDocumentOptions } | null>(null);
+	const queuedSavePromiseRef = useRef<Promise<boolean> | null>(null);
 	const autosaveTimeoutRef = useRef<number | null>(null);
 	const renameTimeoutRef = useRef<number | null>(null);
 	const pendingSaveModeRef = useRef<'save' | 'export'>('save');
@@ -1486,7 +1500,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
 			const key = evt.key.toLowerCase();
 			const isFindShortcut = isPrimaryShortcut(evt, 'f');
-			const isReplaceShortcut = !Platform.isMacOS && key === 'h' && evt.ctrlKey && !evt.metaKey && !evt.altKey && !evt.shiftKey;
+			const isMacReplaceShortcut = Platform.isMacOS && key === 'f' && evt.metaKey && !evt.ctrlKey && evt.altKey && !evt.shiftKey;
+			const isWinReplaceShortcut = !Platform.isMacOS && key === 'h' && evt.ctrlKey && !evt.metaKey && !evt.altKey && !evt.shiftKey;
+			const isReplaceShortcut = isMacReplaceShortcut || isWinReplaceShortcut;
 			if (
 				!editorRoot
 				|| (!isFindShortcut && !isReplaceShortcut)
@@ -1647,6 +1663,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			renameTimeoutRef.current = null;
 		}
 	}, []);
+
+	useEffect(() => {
+		clearRenameTimeout();
+	}, [clearRenameTimeout, filePath]);
 
 	const syncVerticalRulerMarkers = useCallback((docxDocument: DocxDocumentWithSectionProperties | null | undefined) => {
 		if (!showRuler || !docxDocument) {
@@ -2043,40 +2063,65 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 	}, [clearAutosaveTimeout, clearInitialDocumentCenter, clearRenameTimeout]);
 
-	const persistDocument = useCallback(async (output: ArrayBuffer, options?: SaveDocumentOptions) => {
+	const persistDocument = useCallback((output: ArrayBuffer, options?: SaveDocumentOptions) => {
 		if (!file) {
-			return false;
+			return Promise.resolve(false);
 		}
 
-		if (isSavingRef.current) {
-			return false;
-		}
-		isSavingRef.current = true;
-		setSaveStatus('saving');
-		const saveVersion = options?.dirtyVersion ?? dirtyVersionRef.current;
+		const runSave = (nextOutput: ArrayBuffer, nextOptions?: SaveDocumentOptions): Promise<boolean> => {
+			isSavingRef.current = true;
+			setSaveStatus('saving');
+			const saveVersion = nextOptions?.dirtyVersion ?? dirtyVersionRef.current;
+			const saveId = activeSaveIdRef.current + 1;
+			activeSaveIdRef.current = saveId;
 
-		try {
-			await onSave(output);
-			if (dirtyVersionRef.current === saveVersion) {
-				onDirtyChange(false);
-				setSaveStatus('saved');
-			} else {
-				setSaveStatus('unsaved');
+			const savePromise = (async () => {
+				try {
+					await onSave(nextOutput);
+					if (dirtyVersionRef.current === saveVersion) {
+						onDirtyChange(false);
+						setSaveStatus('saved');
+					} else {
+						setSaveStatus('unsaved');
+					}
+					if (!nextOptions?.silent) {
+						new Notice(`Saved ${file.name}`);
+					}
+					return true;
+				} catch (saveError) {
+					const message = saveError instanceof Error ? saveError.message : 'Unknown save error';
+					setSaveStatus('failed');
+					new Notice(`Could not save ${file.name}: ${message}`);
+					return false;
+				} finally {
+					if (activeSaveIdRef.current === saveId) {
+						activeSavePromiseRef.current = null;
+					}
+					isSavingRef.current = false;
+				}
+			})();
+
+			activeSavePromiseRef.current = savePromise;
+			return savePromise;
+		};
+
+		const activeSave = activeSavePromiseRef.current;
+		if (activeSave) {
+			queuedSaveRequestRef.current = { output, options };
+			if (!queuedSavePromiseRef.current) {
+				queuedSavePromiseRef.current = activeSave
+					.catch(() => false)
+					.then(() => {
+						const queued = queuedSaveRequestRef.current;
+						queuedSaveRequestRef.current = null;
+						queuedSavePromiseRef.current = null;
+						return queued ? runSave(queued.output, queued.options) : true;
+					});
 			}
-			if (!options?.silent) {
-				new Notice(`Saved ${file.name}`);
-			}
-			return true;
-		} catch (saveError) {
-			const message = saveError instanceof Error ? saveError.message : 'Unknown save error';
-			setSaveStatus('failed');
-			new Notice(`Could not save ${file.name}: ${message}`);
-			return false;
-		} finally {
-			window.setTimeout(() => {
-				isSavingRef.current = false;
-			}, 300);
+			return queuedSavePromiseRef.current;
 		}
+
+		return runSave(output, options);
 	}, [file, onDirtyChange, onSave]);
 
 	const saveDocument = useCallback(async (options?: SaveDocumentOptions) => {
@@ -2197,11 +2242,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	const scheduleRename = useCallback((name: string) => {
 		clearRenameTimeout();
+		const scheduledFilePath = file?.path ?? null;
 		renameTimeoutRef.current = window.setTimeout(() => {
 			renameTimeoutRef.current = null;
 			void (async () => {
 				try {
-					await onDocumentNameChange(name);
+					await onDocumentNameChange(name, scheduledFilePath);
 				} catch (renameError) {
 					const message = renameError instanceof Error ? renameError.message : 'Unknown rename error';
 					new Notice(`Could not rename ${file?.name ?? 'document'}: ${message}`);

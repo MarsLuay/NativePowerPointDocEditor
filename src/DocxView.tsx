@@ -3,7 +3,7 @@ import type { Translations } from '@eigenpal/docx-editor-i18n';
 import { createEditorTranslator } from './editorTranslations';
 import { loadDocxEditorChunk } from './docxEditorLoader';
 import { findHiddenDocxText, type HiddenTextFinding } from './docxHiddenTextScanner';
-import { extractDocxText } from './docxTextExtractor';
+import { extractDocxMarkdown, extractDocxText } from './docxTextExtractor';
 import { isElement, isHTMLElement, isNode } from './domGuards';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
 import { DOCXIDIAN_LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, normalizeDocxidianLanguage, type DocxidianLanguage } from './locales';
@@ -13,7 +13,7 @@ import type { DocxReactViewHandle, DocxReactViewProps } from './DocxReactView';
 
 export const VIEW_TYPE_DOCX = 'docxidian-docx-view';
 
-type UnsavedDocxChoice = 'save' | 'discard';
+type UnsavedDocxChoice = 'save' | 'discard' | 'cancel';
 type DocxPathChoice = string | null;
 type DocxExportFormatId = 'pdf' | 'docx' | 'html' | 'txt' | 'md' | 'rtf';
 type DocxExportChoice = { name: string; format: DocxExportFormatId } | null;
@@ -237,29 +237,55 @@ function createPlainTextHtml(text: string, title: string): string {
 	].join('\n');
 }
 
+function toSignedRtfUnit(unit: number): number {
+	// RTF \uN expects a signed 16-bit integer, so code units above 32767
+	// must be expressed in their negative two's-complement form.
+	return unit > 32767 ? unit - 65536 : unit;
+}
+
 function escapeRtf(value: string): string {
-	return Array.from(value).map((char) => {
+	let result = '';
+
+	// Iterating with for..of yields whole code points, so astral characters
+	// (emoji, anything above U+FFFF) arrive as a single `char` here.
+	for (const char of value) {
 		if (char === '\\') {
-			return '\\\\';
+			result += '\\\\';
+			continue;
 		}
 		if (char === '{') {
-			return '\\{';
+			result += '\\{';
+			continue;
 		}
 		if (char === '}') {
-			return '\\}';
+			result += '\\}';
+			continue;
 		}
 		if (char === '\n') {
-			return '\\par\n';
+			result += '\\par\n';
+			continue;
 		}
 
 		const codePoint = char.codePointAt(0) ?? 0;
-		if (codePoint > 127) {
-			const signedCodePoint = codePoint > 32767 ? codePoint - 65536 : codePoint;
-			return `\\u${signedCodePoint}?`;
+		if (codePoint <= 127) {
+			result += char;
+			continue;
 		}
 
-		return char;
-	}).join('');
+		if (codePoint > 0xFFFF) {
+			// RTF has no astral escape; emit the UTF-16 surrogate pair so
+			// readers reconstruct the original code point.
+			const offset = codePoint - 0x10000;
+			const highSurrogate = 0xD800 + (offset >> 10);
+			const lowSurrogate = 0xDC00 + (offset & 0x3FF);
+			result += `\\u${toSignedRtfUnit(highSurrogate)}?\\u${toSignedRtfUnit(lowSurrogate)}?`;
+			continue;
+		}
+
+		result += `\\u${toSignedRtfUnit(codePoint)}?`;
+	}
+
+	return result;
 }
 
 function createPlainTextRtf(text: string): string {
@@ -304,10 +330,12 @@ class UnsavedDocxModal extends Modal {
 		contentEl.createEl('p', { text: `${this.fileName} has unsaved changes.` });
 
 		const buttonRow = contentEl.createDiv({ cls: 'docxidian-unsaved-actions' });
+		const cancelButton = buttonRow.createEl('button', { text: 'Cancel' });
 		const discardButton = buttonRow.createEl('button', { text: 'Discard' });
 		const saveButton = buttonRow.createEl('button', { text: 'Save' });
 		saveButton.addClass('mod-cta');
 
+		cancelButton.addEventListener('click', () => this.choose('cancel'));
 		discardButton.addEventListener('click', () => this.choose('discard'));
 		saveButton.addEventListener('click', () => this.choose('save'));
 	}
@@ -315,7 +343,7 @@ class UnsavedDocxModal extends Modal {
 	onClose() {
 		this.contentEl.empty();
 		if (!this.resolved) {
-			this.choose('discard');
+			this.choose('cancel');
 		}
 	}
 
@@ -868,7 +896,10 @@ export class DocxView extends FileView {
 
 	async onClose() {
 		debugLog('view', 'Closing DOCX view', { file: this.file?.path });
-		await this.promptToSaveIfDirty();
+		if (!await this.promptToSaveIfDirty()) {
+			warnLog('view', 'Canceled DOCX view close because unsaved changes were kept', { file: this.file?.path });
+			return;
+		}
 		this.reactMount?.unmount();
 		this.reactMount = null;
 		this.reactMountLoading = false;
@@ -909,7 +940,10 @@ export class DocxView extends FileView {
 			mtime: file.stat.mtime,
 			size: file.stat.size,
 		});
-		await this.promptToSaveIfDirty();
+		if (!await this.promptToSaveIfDirty()) {
+			warnLog('file', `Canceled loading ${file.path} because the current DOCX has unsaved changes`);
+			return;
+		}
 		this.isLoading = true;
 		this.error = null;
 		this.buffer = null;
@@ -941,7 +975,10 @@ export class DocxView extends FileView {
 
 	async onUnloadFile(_file: TFile) {
 		debugLog('file', `Unloading ${_file.path}`);
-		await this.promptToSaveIfDirty();
+		if (!await this.promptToSaveIfDirty()) {
+			warnLog('file', `Canceled unloading ${_file.path} because unsaved changes were kept`);
+			return;
+		}
 		this.buffer = null;
 		this.error = null;
 		this.isDirty = false;
@@ -1001,7 +1038,7 @@ export class DocxView extends FileView {
 			new DocxPathModal(
 				this.app,
 				'Save as',
-				'Create a new DOCX in this vault. Existing files will not be overwritten.',
+				'Create a new DOCX in this vault. If a file with that name already exists, you can replace it or keep both.',
 				initialPath,
 				'Save as',
 				resolve,
@@ -1651,6 +1688,11 @@ export class DocxView extends FileView {
 			return buffer;
 		}
 
+		if (formatId === 'md') {
+			const markdown = await extractDocxMarkdown(buffer);
+			return `${markdown || title}\n`;
+		}
+
 		const text = await extractDocxText(buffer);
 		const exportText = text || title;
 
@@ -1658,8 +1700,6 @@ export class DocxView extends FileView {
 			case 'html':
 				return createPlainTextHtml(exportText, title);
 			case 'txt':
-				return `${exportText}\n`;
-			case 'md':
 				return `${exportText}\n`;
 			case 'rtf':
 				return createPlainTextRtf(exportText);
@@ -1713,10 +1753,17 @@ export class DocxView extends FileView {
 		return normalizePath(`${folderPrefix}${baseName} ${Date.now()}${extension}`);
 	}
 
-	private async renameFile(name: string) {
+	private async renameFile(name: string, expectedPath?: string | null) {
 		const file = this.file;
 		if (!file) {
 			throw new Error('No docx file is open.');
+		}
+		if (expectedPath && file.path !== expectedPath) {
+			debugLog('file', `Discarded stale DOCX title rename for ${expectedPath}`, {
+				currentPath: file.path,
+				requestedName: name,
+			});
+			return;
 		}
 
 		const normalizedName = this.normalizeDocxFileName(name);
@@ -1943,9 +1990,9 @@ export class DocxView extends FileView {
 		}
 	}
 
-	private async promptToSaveIfDirty() {
+	private async promptToSaveIfDirty(): Promise<boolean> {
 		if (!this.isDirty || !this.file) {
-			return;
+			return true;
 		}
 
 		warnLog('save', `Prompting for unsaved changes in ${this.file.path}`);
@@ -1955,10 +2002,21 @@ export class DocxView extends FileView {
 
 		if (choice === 'save') {
 			infoLog('save', `Saving dirty document before closing ${this.file.path}`);
-			await this.saveCurrentDocument();
-		} else {
-			warnLog('save', `Discarding unsaved changes in ${this.file.path}`);
+			const saved = await this.saveCurrentDocument();
+			if (!saved) {
+				warnLog('save', `Keeping ${this.file.path} open because save did not complete`);
+				new Notice('Save did not complete. Your DOCX edits are still open.');
+				return false;
+			}
+			return true;
 		}
+		if (choice === 'discard') {
+			warnLog('save', `Discarding unsaved changes in ${this.file.path}`);
+			return true;
+		}
+
+		warnLog('save', `Canceled close for unsaved DOCX ${this.file.path}`);
+		return false;
 	}
 
 	private prepareViewHost() {
@@ -2652,7 +2710,9 @@ export class DocxView extends FileView {
 				optionEl.selected = zoom === selectedZoom;
 			}
 			zoomSelect.addEventListener('change', () => {
-				void this.settingsController.setDefaultZoom(Number(zoomSelect.value));
+				const zoom = Number(zoomSelect.value);
+				void this.settingsController.setDefaultZoom(zoom);
+				this.getReactHandle()?.setZoom(normalizeDefaultZoom(zoom));
 			});
 
 			addSection('Saving');
@@ -3175,7 +3235,7 @@ export class DocxView extends FileView {
 				this.isDirty = isDirty;
 			},
 			onSave: (buffer) => this.saveFile(buffer),
-			onDocumentNameChange: (name) => this.renameFile(name),
+			onDocumentNameChange: (name, expectedPath) => this.renameFile(name, expectedPath),
 		};
 	}
 

@@ -18,7 +18,7 @@ import {
 } from './NativePowerPointView';
 import { configureDocxEditorChunkPaths } from './docxEditorLoader';
 import { DocxSearchIndex } from './docxSearchIndex';
-import { configureDocxidianLogger, errorLog, getDocxidianLogSnapshot, infoLog } from './logger';
+import { configureDocxidianLogger, errorLog, getDocxidianLogSnapshot, infoLog, setDocxidianLogSink } from './logger';
 import { getDocxEditorLocale, normalizeDocxidianLanguage } from './locales';
 import { configureObsidianRuntime } from './obsidianRuntime';
 
@@ -79,10 +79,133 @@ export default class DocxidianPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new DocxidianSettingTab(this.app, this));
+
+		void this.setupDevHotReload();
 	}
 
 	onunload() {
+		setDocxidianLogSink(null);
 		infoLog('plugin', 'Plugin unloaded');
+	}
+
+	/**
+	 * Dev-only: mirror every log entry to `dev-debug.log` inside the plugin
+	 * folder so the running diagnostics can be inspected from outside Obsidian.
+	 * Only used when the `.hotreload` marker is present.
+	 */
+	private async setupDevFileLog(pluginDir: string): Promise<void> {
+		const adapter = this.app.vault.adapter;
+		const logPath = `${pluginDir}/dev-debug.log`;
+		const appendable = adapter as typeof adapter & {
+			append?: (path: string, data: string) => Promise<void>;
+		};
+
+		try {
+			await adapter.write(logPath, `# session ${new Date().toISOString()}\n`);
+		} catch {
+			return;
+		}
+
+		let queue: Promise<void> = Promise.resolve();
+		setDocxidianLogSink((entry) => {
+			const line = `${JSON.stringify(entry)}\n`;
+			queue = queue
+				.then(async () => {
+					if (appendable.append) {
+						await appendable.append(logPath, line);
+					}
+				})
+				.catch(() => undefined);
+		});
+		infoLog('plugin', 'Dev file log enabled', { logPath });
+	}
+
+	/**
+	 * Dev-only self reload. When a `.hotreload` marker file exists in this
+	 * plugin's folder, poll the built `main.js` modification time and reload the
+	 * plugin whenever it changes (i.e. after a rebuild). This is completely inert
+	 * for normal users because the marker file is never shipped — it is only
+	 * created in a development vault. Mirrors the convention used by the
+	 * community "Hot Reload" plugin without requiring it to be installed.
+	 */
+	private async setupDevHotReload(): Promise<void> {
+		const adapter = this.app.vault.adapter;
+		const pluginDir = this.manifest.dir;
+		if (!pluginDir) {
+			return;
+		}
+
+		const markerPath = `${pluginDir}/.hotreload`;
+		try {
+			if (!(await adapter.exists(markerPath))) {
+				return;
+			}
+		} catch {
+			return;
+		}
+
+		await this.setupDevFileLog(pluginDir);
+
+		const mainPath = `${pluginDir}/main.js`;
+		const stampPath = `${pluginDir}/.build-stamp`;
+		// Prefer a content-based build stamp (written by the esbuild deploy step);
+		// fall back to main.js mtime when the stamp file is absent.
+		const readStamp = async (): Promise<string | null> => {
+			try {
+				if (await adapter.exists(stampPath)) {
+					return (await adapter.read(stampPath)).trim();
+				}
+			} catch {
+				// fall through to mtime
+			}
+			try {
+				const stat = await adapter.stat(mainPath);
+				return stat?.mtime != null ? String(stat.mtime) : null;
+			} catch {
+				return null;
+			}
+		};
+
+		let lastStamp = await readStamp();
+		let reloading = false;
+		infoLog('plugin', 'Dev hot reload enabled', { mainPath, stampPath, lastStamp });
+
+		const interval = window.setInterval(async () => {
+			if (reloading) {
+				return;
+			}
+			const stamp = await readStamp();
+			if (stamp === null || lastStamp === null) {
+				lastStamp = stamp;
+				return;
+			}
+			if (stamp === lastStamp) {
+				return;
+			}
+
+			lastStamp = stamp;
+			reloading = true;
+			const pluginId = this.manifest.id;
+			infoLog('plugin', 'Detected rebuild; reloading plugin', { pluginId });
+			try {
+				const plugins = (this.app as unknown as {
+					plugins?: {
+						disablePlugin(id: string): Promise<void>;
+						enablePlugin(id: string): Promise<void>;
+					};
+				}).plugins;
+				if (plugins) {
+					await plugins.disablePlugin(pluginId);
+					await plugins.enablePlugin(pluginId);
+					new Notice('Native PowerPoint Doc Editor reloaded.');
+				}
+			} catch (error) {
+				reloading = false;
+				errorLog('plugin', 'Hot reload failed', error);
+			}
+		}, 1000);
+
+		this.registerInterval(interval);
 	}
 
 	async loadSettings() {
@@ -186,7 +309,7 @@ export default class DocxidianPlugin extends Plugin {
 			},
 			setAutosave: async (value) => {
 				this.settings.autosave = value;
-				await saveDocxSettings();
+				await saveDocxSettings(true);
 			},
 			setCreateBackupsBeforeSave: async (value) => {
 				this.settings.createBackupsBeforeSave = value;
@@ -477,10 +600,13 @@ export default class DocxidianPlugin extends Plugin {
 			name: 'Open PowerPoint file',
 			callback: () => {
 				const file = this.app.workspace.getActiveFile();
-				if (file && isPowerPointExtension(file.extension)) {
-					const leaf = this.app.workspace.getLeaf('tab');
-					void leaf.openFile(file, { active: true });
+				if (!file || !isPowerPointExtension(file.extension)) {
+					new Notice('Select a PowerPoint file to open it.');
+					return;
 				}
+
+				const leaf = this.app.workspace.getLeaf('tab');
+				void leaf.openFile(file, { active: true });
 			},
 		});
 		this.addCommand({

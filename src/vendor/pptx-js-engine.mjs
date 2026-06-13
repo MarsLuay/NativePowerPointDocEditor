@@ -730,41 +730,6 @@ export function createPptxJsEngine() {
     this.cats = param1;
     this.vals = param2;
   }
-  function _M0TP210pptx_2dsvg8renderer6RunBox(param0, param1, param2, param3, param4, param5, param6) {
-    this.para_idx = param0;
-    this.run_idx = param1;
-    this.x = param2;
-    this.w = param3;
-    this.run_char_start = param4;
-    this.para_char_start = param5;
-    this.chars = param6;
-  }
-  function _M0TP210pptx_2dsvg8renderer10TextLayout(param0, param1, param2, param3, param4) {
-    this.box_x = param0;
-    this.box_y = param1;
-    this.box_cx = param2;
-    this.box_cy = param3;
-    this.lines = param4;
-  }
-  function _M0TPB8MutLocalGiE(param0) {
-    this.val = param0;
-  }
-  function _M0TP210pptx_2dsvg8renderer7LineBox(param0, param1, param2, param3) {
-    this.para_idx = param0;
-    this.y = param1;
-    this.h = param2;
-    this.runs = param3;
-  }
-  function _M0TPB8MutLocalGdE(param0) {
-    this.val = param0;
-  }
-  function _M0TPB8MutLocalGRPB5ArrayGRP210pptx_2dsvg8renderer8GlyphBoxEE(param0) {
-    this.val = param0;
-  }
-  function _M0TP210pptx_2dsvg8renderer8GlyphBox(param0, param1) {
-    this.x = param0;
-    this.w = param1;
-  }
   function _M0TP210pptx_2dsvg8renderer8GuideEnv(param0, param1) {
     this.names = param0;
     this.values = param1;
@@ -773,14 +738,14 @@ export function createPptxJsEngine() {
   const _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt = 127;
   const _M0FP210pptx_2dsvg5ooxml20max__outline__levels = 9;
   const _M0FP210pptx_2dsvg5ooxml18cust__dash__prefix = "custDash:";
+  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2402 = "";
+  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2403 = "";
   const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2404 = "";
   const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2405 = "";
-  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2406 = "";
-  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2407 = "";
+  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2409 = "";
+  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2410 = "";
   const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2411 = "";
-  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2412 = "";
-  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2413 = "";
-  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2419 = "";
+  const _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2417 = "";
   const _M0FP210pptx_2dsvg5ooxml25round__rect__default__adj = 16667;
   const _M0FP210pptx_2dsvg5ooxml18default__stroke__w = 12700;
   const _M0FP210pptx_2dsvg5ooxml17rot__to__centideg = 600;
@@ -789,25 +754,25 @@ export function createPptxJsEngine() {
   const _M0FP210pptx_2dsvg5ooxml24hundredth__pt__per__inch = 7200;
   const _M0FP210pptx_2dsvg5ooxml19default__outline__w = 12700;
   const _M0FP210pptx_2dsvg5ooxml23cust__dash__prefix__len = 9;
-  const _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405 = new _M0TP210pptx_2dsvg5ooxml5Color(0, 0, 0, 255);
-  const _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406 = new _M0TP210pptx_2dsvg5ooxml8ColorMap("lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink");
-  const _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407 = new _M0TP210pptx_2dsvg5ooxml5Color(255, 255, 255, 255);
-  const _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 = new _M0TP210pptx_2dsvg5ooxml5Color(-1, -1, -1, 255);
-  const _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4419 = new _M0TP210pptx_2dsvg5ooxml9BodyProps("", -1, -1, -1, -1, false, -1, -1, "", 0, "", 0, 0, "", -1, -1);
-  const _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4420 = new _M0TP210pptx_2dsvg5ooxml4Blur(0);
-  const _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4421 = new _M0TP210pptx_2dsvg5ooxml10Reflection(0, 0, 0, 0, 0, 0, 0, 0, "", true);
-  const _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4422 = new _M0TP210pptx_2dsvg5ooxml8SoftEdge(0);
-  const _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4423 = new _M0TP210pptx_2dsvg5ooxml7Scene3d("", "", "");
-  const _M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4424 = new _M0TP210pptx_2dsvg5ooxml5Bevel(0, 0, "");
-  const _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4425 = new _M0TP210pptx_2dsvg5ooxml14ShapeTransform(0, 0, 0, 0, 0, false, false);
-  const _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4426 = new _M0TP210pptx_2dsvg5ooxml11ChartLegend("r", false, false);
-  const _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4427 = new _M0TP210pptx_2dsvg5ooxml11ChartView3D(15, 20, 100, true, 30);
-  const _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430 = new _M0TP210pptx_2dsvg5ooxml9SlideSize(9144000, 6858000);
-  const _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4431 = new _M0TP210pptx_2dsvg5ooxml15ChartDataLabels(false, false, false, false, false, ", ");
+  const _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403 = new _M0TP210pptx_2dsvg5ooxml5Color(0, 0, 0, 255);
+  const _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404 = new _M0TP210pptx_2dsvg5ooxml8ColorMap("lt1", "dk1", "lt2", "dk2", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "hlink", "folHlink");
+  const _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405 = new _M0TP210pptx_2dsvg5ooxml5Color(255, 255, 255, 255);
+  const _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 = new _M0TP210pptx_2dsvg5ooxml5Color(-1, -1, -1, 255);
+  const _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4417 = new _M0TP210pptx_2dsvg5ooxml9BodyProps("", -1, -1, -1, -1, false, -1, -1, "", 0, "", 0, 0, "", -1, -1);
+  const _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4418 = new _M0TP210pptx_2dsvg5ooxml4Blur(0);
+  const _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4419 = new _M0TP210pptx_2dsvg5ooxml10Reflection(0, 0, 0, 0, 0, 0, 0, 0, "", true);
+  const _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4420 = new _M0TP210pptx_2dsvg5ooxml8SoftEdge(0);
+  const _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4421 = new _M0TP210pptx_2dsvg5ooxml7Scene3d("", "", "");
+  const _M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4422 = new _M0TP210pptx_2dsvg5ooxml5Bevel(0, 0, "");
+  const _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4423 = new _M0TP210pptx_2dsvg5ooxml14ShapeTransform(0, 0, 0, 0, 0, false, false);
+  const _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4424 = new _M0TP210pptx_2dsvg5ooxml11ChartLegend("r", false, false);
+  const _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4425 = new _M0TP210pptx_2dsvg5ooxml11ChartView3D(15, 20, 100, true, 30);
+  const _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428 = new _M0TP210pptx_2dsvg5ooxml9SlideSize(9144000, 6858000);
+  const _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4429 = new _M0TP210pptx_2dsvg5ooxml15ChartDataLabels(false, false, false, false, false, ", ");
   const _M0FP210pptx_2dsvg8renderer19default__text__fill = "black";
   const _M0FP210pptx_2dsvg8renderer16math__empty__box = new _M0TP210pptx_2dsvg8renderer7MathBox("", 0, 0, 0);
   const _M0FP210pptx_2dsvg8renderer18math__font__family = "Cambria Math, Cambria, serif";
-  const _M0FP210pptx_2dsvg8renderer18render__warp__textN8baselineS2898 = " dominant-baseline=\"central\"";
+  const _M0FP210pptx_2dsvg8renderer18render__warp__textN8baselineS2747 = " dominant-baseline=\"central\"";
   const _M0FP210pptx_2dsvg8renderer20table__border__color = "#999999";
   const _M0FP210pptx_2dsvg8renderer16chart__bg__color = "white";
   const _M0FP210pptx_2dsvg8renderer20chart__border__color = "#cccccc";
@@ -821,278 +786,278 @@ export function createPptxJsEngine() {
   const _M0FP210pptx_2dsvg8renderer23min__stroke__width__str = "0.3";
   const _M0FP210pptx_2dsvg8renderer18render__bent__pathN1sS227 = " ";
   const _M0FP210pptx_2dsvg8renderer20render__curved__pathN1sS203 = " ";
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4236 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;x1=*/ w a 100000;x2=*/ w a 200000", "M l b L x1 t L r b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4237 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4236;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4238 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l b L l t L r b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4239 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4238;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4240 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r hd2 L wd2 b L l hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4241 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4240;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4242 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 100000;x1=*/ w a 100000;dx1=+- r 0 x1", "M x1 t L r t L dx1 b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4243 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4242;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4244 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1", "M l b L x1 t L dx1 t L r b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4245 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4244;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4246 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "cx1=cos 20520000 wd2;cy1=sin 20520000 hd2;cx2=cos 3240000 wd2;cy2=sin 3240000 hd2;cx3=cos 7560000 wd2;cy3=sin 7560000 hd2;cx4=cos 11880000 wd2;cy4=sin 11880000 hd2;vx1=+- wd2 cx1 0;vy1=+- hd2 cy1 0;vx2=+- wd2 cx2 0;vy2=+- hd2 cy2 0;vx3=+- wd2 cx3 0;vy3=+- hd2 cy3 0;vx4=+- wd2 cx4 0;vy4=+- hd2 cy4 0", "M wd2 t L vx1 vy1 L vx2 vy2 L vx3 vy3 L vx4 vy4 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4247 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4246;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4248 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1", "M x1 t L dx1 t L r hd2 L dx1 b L x1 b L l hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4249 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4248;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4250 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=29290", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1;y1=*/ h a 100000;dy1=+- b 0 y1", "M x1 t L dx1 t L r y1 L r dy1 L dx1 b L x1 b L l dy1 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4251 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4250;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4252 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 4;x2=*/ w 1 4;y1=*/ h 1 5;y2=*/ h 4 5", "M wd2 t L x1 y1 L r hd2 L x1 y2 L x2 y2 L l hd2 L x2 y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4253 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4252;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4254 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1;y1=*/ h a 100000;dy1=+- b 0 y1", "M x1 t L dx1 t L dx1 y1 L r y1 L r dy1 L dx1 dy1 L dx1 b L x1 b L x1 dy1 L l dy1 L l y1 L x1 y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4255 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4254;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4256 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr", "M l hd2 A wd2 hd2 10800000 21600000 Z|M iwd2 hd2 A iwd2 ihd2 0 -21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4257 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4256;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4258 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=18750", "a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr", "M l hd2 A wd2 hd2 10800000 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4259 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4258;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4260 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=10800000;adj2=0;adj3=25000", "a3=pin 0 adj3 50000;dr=*/ ss a3 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;sa=*/ adj1 1 1;ea=*/ adj2 1 1;csa=cos sa wd2;ssa=sin sa hd2;cea=cos ea wd2;sea=sin ea hd2;x1=+- wd2 csa 0;y1=+- hd2 ssa 0;x2=+- wd2 cea 0;y2=+- hd2 sea 0;icsa=cos sa iwd2;issa=sin sa ihd2;icea=cos ea iwd2;isea=sin ea ihd2;ix1=+- wd2 icsa 0;iy1=+- hd2 issa 0;ix2=+- wd2 icea 0;iy2=+- hd2 isea 0;sw=+- ea 0 sa", "M x1 y1 A wd2 hd2 sa sw L ix2 iy2 A iwd2 ihd2 ea 0 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4261 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4260;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4262 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- r 0 dx;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M l y1 L x1 y1 L x1 t L r hd2 L x1 b L x1 y2 L l y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4263 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4262;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4264 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- l dx 0;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M r y1 L x1 y1 L x1 t L l hd2 L x1 b L x1 y2 L r y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4265 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4264;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4266 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy=*/ ss a2 100000;y1=+- t dy 0;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M x1 b L x1 y1 L l y1 L wd2 t L r y1 L x2 y1 L x2 b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4267 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4266;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4268 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy=*/ ss a2 100000;y1=+- b 0 dy;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M x1 t L x1 y1 L l y1 L wd2 b L r y1 L x2 y1 L x2 t Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4269 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4268;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4270 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 50000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- l dx 0;x2=+- r 0 dx;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M l hd2 L x1 t L x1 y1 L x2 y1 L x2 t L r hd2 L x2 b L x2 y2 L x1 y2 L x1 b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4271 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4270;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4272 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 50000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy=*/ ss a2 100000;y1=+- t dy 0;y2=+- b 0 dy;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M wd2 t L r y1 L x2 y1 L x2 y2 L r y2 L wd2 b L l y2 L x1 y2 L x1 y1 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4273 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4272;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4274 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=22500;adj2=22500;adj3=22500", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;dx=*/ w a2 100000;dy=*/ h a2 100000;dh=*/ w a1 200000;dv=*/ h a1 200000;ah=*/ w a3 100000;av=*/ h a3 100000;x1=+- wd2 0 dh;x2=+- wd2 dh 0;y1=+- hd2 0 dv;y2=+- hd2 dv 0;xe=+- r 0 dx;ye=+- b 0 dy", "M wd2 t L r dy L x2 dy L x2 y1 L xe y1 L xe hd2 L r hd2|M xe hd2 L xe y2 L x2 y2 L x2 ye L wd2 b L l ye L x1 ye L x1 y2 L dx y2 L dx hd2|M l hd2 L dx y1 L x1 y1 L x1 dy L wd2 t Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4275 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4274;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4276 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M wd2 t L x2 y1 L r hd2 L x2 y2 L wd2 b L x1 y2 L l hd2 L x1 y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4277 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4276;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4278 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=19098", "a=pin 0 adj 50000;swd2=*/ wd2 a 50000;shd2=*/ hd2 a 50000;co1=cos 20520000 wd2;so1=sin 20520000 hd2;co2=cos 3240000 wd2;so2=sin 3240000 hd2;co3=cos 7560000 wd2;so3=sin 7560000 hd2;co4=cos 11880000 wd2;so4=sin 11880000 hd2;ox1=+- wd2 co1 0;oy1=+- hd2 so1 0;ox2=+- wd2 co2 0;oy2=+- hd2 so2 0;ox3=+- wd2 co3 0;oy3=+- hd2 so3 0;ox4=+- wd2 co4 0;oy4=+- hd2 so4 0;ci1=cos 18360000 swd2;si1=sin 18360000 shd2;ci2=cos 1080000 swd2;si2=sin 1080000 shd2;ci3=cos 5400000 swd2;si3=sin 5400000 shd2;ci4=cos 9720000 swd2;si4=sin 9720000 shd2;ci5=cos 14040000 swd2;si5=sin 14040000 shd2;ix1=+- wd2 ci1 0;iy1=+- hd2 si1 0;ix2=+- wd2 ci2 0;iy2=+- hd2 si2 0;ix3=+- wd2 ci3 0;iy3=+- hd2 si3 0;ix4=+- wd2 ci4 0;iy4=+- hd2 si4 0;ix5=+- wd2 ci5 0;iy5=+- hd2 si5 0", "M wd2 t L ix1 iy1 L ox1 oy1 L ix2 iy2 L ox2 oy2 L ix3 iy3 L ox3 oy3 L ix4 iy4 L ox4 oy4 L ix5 iy5 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4279 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4278;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4280 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=28868", "a=pin 0 adj 50000;swd2=*/ wd2 a 50000;x1=+- wd2 0 swd2;x2=+- wd2 swd2 0;oy=*/ h 1 4;by=*/ h 3 4", "M wd2 t L x2 oy L r oy L x2 hd2 L r by L x2 by L wd2 b L x1 by L l by L x1 hd2 L l oy L x1 oy Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4281 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4280;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4282 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dxa=*/ wd2 7071 10000;dya=*/ hd2 7071 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0;idxa=*/ dx 7071 10000;idya=*/ dy 7071 10000;ix1=+- wd2 0 idxa;ix2=+- wd2 idxa 0;iy1=+- hd2 0 idya;iy2=+- hd2 idya 0", "M wd2 t L ix2 iy1 L xb ya L x2 y1 L r hd2 L x2 y2 L xb yb L ix2 iy2 L wd2 b L ix1 iy2 L xa yb L x1 y2 L l hd2 L x1 y1 L xa ya L ix1 iy1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4283 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4282;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4284 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4285 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4284;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4286 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r hd2 L wd2 b L l hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4287 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4286;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4288 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "ir=*/ w 18 21;il=*/ w 3 21", "M il t A il hd2 10800000 10800000 L ir b A il hd2 0 10800000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4289 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4288;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4290 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 8;x2=*/ w 7 8", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x2 t L x2 b");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4291 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4290;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4292 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 17 20;cy1=*/ h 19 20", "M l t L r t L r y1 C r cy1 wd2 b wd2 y1 C wd2 cy1 l b l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4293 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4292;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4294 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;dx1=+- r 0 x1", "M x1 t L r t L dx1 b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4295 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4294;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4296 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;dx1=+- r 0 x1", "M x1 t L dx1 t L r hd2 L dx1 b L x1 b L l hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4297 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4296;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4298 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 1 5", "M l y1 L r t L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4299 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4298;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4300 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;dx1=+- r 0 x1", "M l t L r t L dx1 b L x1 b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4301 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4300;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4302 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 4 5", "M l t L r t L r y1 L wd2 b L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4303 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4302;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4304 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l hd2 A wd2 hd2 10800000 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4305 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4304;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4306 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r hd2 L wd2 b L l hd2 Z|M l hd2 L r hd2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4307 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4306;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4308 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L wd2 b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4309 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4308;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4310 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4311 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4310;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4312 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L wd2 t A wd2 hd2 16200000 10800000 L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4313 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4312;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4314 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0;dx1=+- wd2 0 wd8;dx2=+- wd2 wd8 0", "M l t L r t L r b L dx2 b L x1 y1 L dx1 b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4315 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4314;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4316 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0;cr=*/ ss 1 12;dx1=+- wd2 0 wd8;dx2=+- wd2 wd8 0;dcr=+- r 0 cr;dbcr=+- b 0 cr", "M cr t L dcr t A cr cr 16200000 5400000 L r dbcr A cr cr 0 5400000 L dx2 b L x1 y1 L dx1 b L cr b A cr cr 5400000 5400000 L l cr A cr cr 10800000 5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4317 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4316;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4318 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0", "M l hd2 A wd2 hd2 10800000 21600000 Z|M wd2 b L x1 y1 L wd2 b");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4319 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4318;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4320 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx1=*/ w 49 48;dx2=*/ w 10 48;cx1=*/ w 1 6;cx2=*/ w 5 6;cy2=*/ h 1 6;cx3=*/ w 1 3;cx4=*/ w 2 3;cy4=*/ h 5 6", "M wd2 b C cx3 cy4 l hd2 l hd4 C l 0 wd2 0 wd2 hd4 C wd2 0 r 0 r hd4 C r hd2 cx4 cy4 wd2 b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4321 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4320;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4322 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 4269 21600;y1=*/ h 3 21;x2=*/ w 8640 21600;y2=*/ h 8 21;x3=*/ w 5765 21600;y3=*/ h 9 21;x4=*/ w 12960 21600;y4=*/ h 13 21;x5=*/ w 8323 21600;y5=*/ h 14 21;x6=*/ w 14400 21600;y6=*/ h 17 21;x7=*/ w 4320 21600", "M x1 t L x2 y2 L x3 y3 L x4 y4 L x5 y5 L r y6 L x7 b L x5 y5 L x1 y3 L x3 y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4323 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4322;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4324 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 12500 adj 46875;cir=*/ ss a 100000;ir=+- wd2 0 cir;ib=+- hd2 0 cir;or2=+- wd2 cir 0;ob2=+- hd2 cir 0", "M wd2 t L or2 ib L r hd2 L or2 ob2 L wd2 b L ir ob2 L l hd2 L ir ib Z|M ir hd2 A cir cir 10800000 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4325 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4324;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4326 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 87500;x1=*/ w a 100000", "M r t C x1 hd4 x1 hd2 C x1 hd2 x1 b r b A wd2 hd2 0 -10800000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4327 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4326;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4328 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=4653", "a=pin -4653 adj 4653;ey=*/ h 3 4;cx1=*/ w 3 10;cx2=*/ w 7 10;ey2=+- ey 0 hd10;er=*/ w 3 20;sy=+- ey 0 hd10;sdy=*/ h a 100000;sy1=+- ey sdy 0;sy2=+- ey sdy 0", "M l hd2 A wd2 hd2 10800000 21600000 Z|M cx1 ey A er er 0 21600000 Z|M cx2 ey A er er 0 21600000 Z|M cx1 sy1 C cx1 sy2 cx2 sy2 cx2 sy1");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4329 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4328;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4330 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- b 0 dy;dx=*/ w a 100000;x1=+- r 0 dx", "M l t L r t L r y1 L x1 b L l b Z|M r y1 L x1 y1 L x1 b");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4331 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4330;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4332 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=12500", "a=pin 0 adj1 50000;dx=*/ w a 100000;dy=*/ h a 100000;dx1=+- r 0 dx;dy1=+- b 0 dy", "M l t L r t L r b L l b Z|M dx dy L dx1 dy L dx1 dy1 L dx dy1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4333 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4332;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4334 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 50000;dx=*/ w a 100000;dy=*/ h a 100000;dx1=+- r 0 dx;dy1=+- b 0 dy", "M l t L r t L dx1 dy L dx dy Z|M r t L r b L dx1 dy1 L dx1 dy Z|M r b L l b L dx dy1 L dx1 dy1 Z|M l b L l t L dx dy L dx dy1 Z|M dx dy L dx1 dy L dx1 dy1 L dx dy1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4335 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4334;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4336 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 A wd2 dy 10800000 -10800000 L r y2 A wd2 dy 0 10800000 Z|M l y1 A wd2 dy 10800000 10800000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4337 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4336;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4338 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 100000;dx=*/ w a 100000;y1=*/ h a 100000;dx1=+- r 0 dx", "M l y1 L dx t L r t L r b L dx1 b L l b Z|M l y1 L dx y1 L dx t|M dx y1 L r b");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4339 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4338;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4340 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=50000", "a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;dy=*/ h a1 100000;y1=+- t dy 0;dx=*/ w a2 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy2=*/ dy 1 2;y2=+- b 0 dy;y3=+- b 0 dy2", "M l y1 L x1 y1 L x1 t L x2 t L x2 y1 L r y1 L r y3 L x2 b L x2 y2 L x1 y2 L x1 b L l y3 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4341 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4340;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4342 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=50000", "a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;dy=*/ h a1 100000;y1=+- b 0 dy;dx=*/ w a2 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy2=*/ dy 1 2;y2=+- t dy 0;y3=+- t dy2 0", "M l y3 L x1 t L x1 y2 L x2 y2 L x2 t L r y3 L r y1 L x2 y1 L x2 b L x1 b L x1 y1 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4343 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4342;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4344 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;dx=*/ w a 100000;x1=+- r 0 dx", "M l t L x1 t L r hd2 L x1 b L l b L dx hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4345 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4344;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4346 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;dx=*/ ss a 100000;x1=+- r 0 dx", "M l t L x1 t L r hd2 L x1 b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4347 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4346;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4348 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- r 0 dx;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx1=*/ h a2 200000;nx1=+- l dx1 0", "M l y1 L x1 y1 L x1 t L r hd2 L x1 b L x1 y2 L l y2 L nx1 hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4349 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4348;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4350 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 84375 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;x4=*/ ss 5 32;dx5=*/ ss a2 100000;x5=+- r 0 dx5;dy1=*/ h a1 200000;y1=+- hd2 0 dy1;y2=+- hd2 dy1 0;dx2=*/ ss 1 32;x1=+- l dx2 0;dx3=*/ ss 1 16;x2=+- l dx3 0;x3=+- x2 dx2 0", "M l y1 L x1 y1 L x1 y2 L l y2 Z|M x2 y1 L x3 y1 L x3 y2 L x2 y2 Z|M x4 y1 L x5 y1 L x5 t L r hd2 L x5 b L x5 y2 L x4 y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4351 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4350;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4352 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=48123", "a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;q2=*/ a3 ss w;maxAdj1=+- 100000 0 q2;a1=pin 0 adj1 maxAdj1;dy2=*/ h a2 100000;dy1=*/ h a1 200000;y1=+- hd2 0 dy1;y2=+- hd2 0 dy2;y3=+- hd2 dy2 0;y4=+- hd2 dy1 0;a4=pin 0 adj4 100000;x1=*/ w a3 100000;x4=+- r 0 x1;dx2=*/ w a4 200000;x2=+- wd2 0 dx2;x3=+- wd2 dx2 0", "M l hd2 L x1 y1 L x1 y2 L x2 y2 L x2 t L x3 t L x3 y2 L x4 y2 L x4 y1 L r hd2 L x4 y4 L x4 y3 L x3 y3 L x3 b L x2 b L x2 y3 L x1 y3 L x1 y4 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4353 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4352;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4354 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520", "a=pin 0 adj1 73490;dy=*/ h a 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M x1 y1 L x2 y1 L x2 t L r y1 L r y2 L x2 y2 L x2 b L x1 b L x1 y2 L l y2 L l y1 L x1 y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4355 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4354;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4356 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520", "a=pin 0 adj1 100000;dy=*/ h a 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M l y1 L r y1 L r y2 L l y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4357 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4356;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4358 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520", "a=pin 0 adj1 51965;dx=*/ wd2 a 100000;dy=*/ hd2 a 100000;ix1=+- wd2 0 dx;ix2=+- wd2 dx 0;iy1=+- hd2 0 dy;iy2=+- hd2 dy 0", "M ix1 t L wd2 iy1 L ix2 t L r iy1 L ix2 hd2 L r iy2 L ix2 b L wd2 iy2 L ix1 b L l iy2 L ix1 hd2 L l iy1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4359 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4358;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4360 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520;adj2=5765;adj3=11760", "a1=pin 0 adj1 100000;a2=pin 0 adj2 100000;a3=pin 0 adj3 100000;dy1=*/ h a1 200000;y1=+- hd2 0 dy1;y2=+- hd2 dy1 0;dr=*/ ss a2 200000;dy2=*/ h a3 100000;y3=+- y1 0 dy2;y4=+- y2 dy2 0", "M l y1 L r y1 L r y2 L l y2 Z|M wd2 y3 A dr dr 0 21600000 Z|M wd2 y4 A dr dr 0 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4361 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4360;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4362 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520;adj2=11760", "a1=pin 0 adj1 100000;a2=pin 0 adj2 100000;dy1=*/ h a1 200000;dy2=*/ h a2 200000;y1=+- hd2 0 dy2;y2=+- y1 0 dy1;y3=+- hd2 dy2 0;y4=+- y3 dy1 0", "M l y2 L r y2 L r y1 L l y1 Z|M l y3 L r y3 L r y4 L l y4 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4363 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4362;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4364 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx", "M l t L x1 t L r dx L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4365 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4364;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4366 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=0", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y2=+- b 0 dx2", "M dx1 t L x1 t L r dx1 L r y2 L x2 b L dx2 b L l y2 L l dx1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4367 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4366;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4368 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx", "M l t L x1 t A dx dx 16200000 5400000 L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4369 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4368;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4370 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=0", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y2=+- b 0 dx2", "M dx1 t L x1 t A dx1 dx1 16200000 5400000 L r y2 A dx2 dx2 0 5400000 L dx2 b A dx2 dx2 5400000 5400000 L l dx1 A dx1 dx1 10800000 5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4371 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4370;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4372 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=0", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y1=+- b 0 dx1;y2=+- b 0 dx2", "M dx2 t L x1 t A dx1 dx1 16200000 5400000 L r y2 A dx2 dx2 0 5400000 L dx1 b A dx1 dx1 5400000 5400000 L l dx2 A dx2 dx2 10800000 5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4373 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4372;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4374 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=16667", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2", "M dx1 t L x2 t L r dx2 L r b L l b L l dx1 A dx1 dx1 10800000 5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4375 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4374;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4376 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=100000", "a=pin 0 adj 200000;r2=*/ ss a 200000;ox=+- wd2 r2 0;oy=+- hd2 0 r2", "M l hd2 A wd2 hd2 10800000 5400000 L ox oy L wd2 t A wd2 hd2 16200000 -5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4377 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4376;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4378 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=0;adj2=16200000", "sa=*/ adj1 1 1;ea=*/ adj2 1 1;sw=+- ea 0 sa;csa=cos sa wd2;ssa=sin sa hd2;cea=cos ea wd2;sea=sin ea hd2;x1=+- wd2 csa 0;y1=+- hd2 ssa 0;x2=+- wd2 cea 0;y2=+- hd2 sea 0", "M wd2 hd2 L x1 y1 A wd2 hd2 sa sw L wd2 hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4379 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4378;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4380 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=2700000;adj2=16200000", "sa=*/ adj1 1 1;ea=*/ adj2 1 1;sw=+- ea 0 sa;csa=cos sa wd2;ssa=sin sa hd2;cea=cos ea wd2;sea=sin ea hd2;x1=+- wd2 csa 0;y1=+- hd2 ssa 0;x2=+- wd2 cea 0;y2=+- hd2 sea 0", "M x1 y1 A wd2 hd2 sa sw Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4381 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4380;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4382 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;x2=*/ w 4 5;y1=*/ h 3 20;y2=*/ h 17 20;x3=*/ w 1 10;x4=*/ w 9 10", "M wd2 t L x4 y1 L r hd3 L r hd2 L x4 y2 L wd2 b L x3 y2 L l hd2 L l hd3 L x3 y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4383 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4382;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4384 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;dy=*/ h a 100000;dx=*/ w a 100000", "M l dy L dx t L r t L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4385 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4384;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4386 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "a1=pin 0 adj1 100000;a2=pin 0 adj2 100000;x1=*/ w a2 100000;y1=*/ h a1 100000", "M l t L x1 t L x1 y1 L r y1 L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4387 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4386;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4388 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx;y1=+- b 0 dx", "M l dx A dx dx 5400000 -5400000 L x1 t A dx dx 10800000 -5400000 L r y1 A dx dx 16200000 -5400000 L dx b A dx dx 0 -5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4389 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4388;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4390 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=75000", "a=pin 10000 adj 99000;ir=*/ wd2 a 100000;irh=*/ hd2 a 100000;c00=cos 20700000 wd2;s00=sin 20700000 hd2;mx=+- wd2 c00 0;my=+- hd2 s00 0;ci0=cos 900000 ir;si0=sin 900000 irh;px0=+- wd2 ci0 0;py0=+- hd2 si0 0;co1=cos 2700000 wd2;so1=sin 2700000 hd2;qx1=+- wd2 co1 0;qy1=+- hd2 so1 0;ci1=cos 4500000 ir;si1=sin 4500000 irh;px1=+- wd2 ci1 0;py1=+- hd2 si1 0;co2=cos 6300000 wd2;so2=sin 6300000 hd2;qx2=+- wd2 co2 0;qy2=+- hd2 so2 0;ci2=cos 8100000 ir;si2=sin 8100000 irh;px2=+- wd2 ci2 0;py2=+- hd2 si2 0;co3=cos 9900000 wd2;so3=sin 9900000 hd2;qx3=+- wd2 co3 0;qy3=+- hd2 so3 0;ci3=cos 11700000 ir;si3=sin 11700000 irh;px3=+- wd2 ci3 0;py3=+- hd2 si3 0;co4=cos 13500000 wd2;so4=sin 13500000 hd2;qx4=+- wd2 co4 0;qy4=+- hd2 so4 0;ci4=cos 15300000 ir;si4=sin 15300000 irh;px4=+- wd2 ci4 0;py4=+- hd2 si4 0;co5=cos 17100000 wd2;so5=sin 17100000 hd2;qx5=+- wd2 co5 0;qy5=+- hd2 so5 0;ci5=cos 18900000 ir;si5=sin 18900000 irh;px5=+- wd2 ci5 0;py5=+- hd2 si5 0;hr=*/ wd2 30000 100000;hrh=*/ hd2 30000 100000;hx=+- wd2 hr 0", "M mx my A wd2 hd2 20700000 1800000 L px0 py0 A ir irh 900000 1800000 L qx1 qy1 A wd2 hd2 2700000 1800000 L px1 py1 A ir irh 4500000 1800000 L qx2 qy2 A wd2 hd2 6300000 1800000 L px2 py2 A ir irh 8100000 1800000 L qx3 qy3 A wd2 hd2 9900000 1800000 L px3 py3 A ir irh 11700000 1800000 L qx4 qy4 A wd2 hd2 13500000 1800000 L px4 py4 A ir irh 15300000 1800000 L qx5 qy5 A wd2 hd2 17100000 1800000 L px5 py5 A ir irh 18900000 1800000 Z|M hx hd2 A hr hrh 0 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4391 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4390;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4392 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=75000", "a=pin 10000 adj 99000;ir=*/ wd2 a 100000;irh=*/ hd2 a 100000;c00=cos 21000000 wd2;s00=sin 21000000 hd2;mx=+- wd2 c00 0;my=+- hd2 s00 0;ci0=cos 600000 ir;si0=sin 600000 irh;px0=+- wd2 ci0 0;py0=+- hd2 si0 0;co1=cos 1800000 wd2;so1=sin 1800000 hd2;qx1=+- wd2 co1 0;qy1=+- hd2 so1 0;ci1=cos 3000000 ir;si1=sin 3000000 irh;px1=+- wd2 ci1 0;py1=+- hd2 si1 0;co2=cos 4200000 wd2;so2=sin 4200000 hd2;qx2=+- wd2 co2 0;qy2=+- hd2 so2 0;ci2=cos 5400000 ir;si2=sin 5400000 irh;px2=+- wd2 ci2 0;py2=+- hd2 si2 0;co3=cos 6600000 wd2;so3=sin 6600000 hd2;qx3=+- wd2 co3 0;qy3=+- hd2 so3 0;ci3=cos 7800000 ir;si3=sin 7800000 irh;px3=+- wd2 ci3 0;py3=+- hd2 si3 0;co4=cos 9000000 wd2;so4=sin 9000000 hd2;qx4=+- wd2 co4 0;qy4=+- hd2 so4 0;ci4=cos 10200000 ir;si4=sin 10200000 irh;px4=+- wd2 ci4 0;py4=+- hd2 si4 0;co5=cos 11400000 wd2;so5=sin 11400000 hd2;qx5=+- wd2 co5 0;qy5=+- hd2 so5 0;ci5=cos 12600000 ir;si5=sin 12600000 irh;px5=+- wd2 ci5 0;py5=+- hd2 si5 0;co6=cos 13800000 wd2;so6=sin 13800000 hd2;qx6=+- wd2 co6 0;qy6=+- hd2 so6 0;ci6=cos 15000000 ir;si6=sin 15000000 irh;px6=+- wd2 ci6 0;py6=+- hd2 si6 0;co7=cos 16200000 wd2;so7=sin 16200000 hd2;qx7=+- wd2 co7 0;qy7=+- hd2 so7 0;ci7=cos 17400000 ir;si7=sin 17400000 irh;px7=+- wd2 ci7 0;py7=+- hd2 si7 0;co8=cos 18600000 wd2;so8=sin 18600000 hd2;qx8=+- wd2 co8 0;qy8=+- hd2 so8 0;ci8=cos 19800000 ir;si8=sin 19800000 irh;px8=+- wd2 ci8 0;py8=+- hd2 si8 0;hr=*/ wd2 25000 100000;hrh=*/ hd2 25000 100000;hx=+- wd2 hr 0", "M mx my A wd2 hd2 21000000 1200000 L px0 py0 A ir irh 600000 1200000 L qx1 qy1 A wd2 hd2 1800000 1200000 L px1 py1 A ir irh 3000000 1200000 L qx2 qy2 A wd2 hd2 4200000 1200000 L px2 py2 A ir irh 5400000 1200000 L qx3 qy3 A wd2 hd2 6600000 1200000 L px3 py3 A ir irh 7800000 1200000 L qx4 qy4 A wd2 hd2 9000000 1200000 L px4 py4 A ir irh 10200000 1200000 L qx5 qy5 A wd2 hd2 11400000 1200000 L px5 py5 A ir irh 12600000 1200000 L qx6 qy6 A wd2 hd2 13800000 1200000 L px6 py6 A ir irh 15000000 1200000 L qx7 qy7 A wd2 hd2 16200000 1200000 L px7 py7 A ir irh 17400000 1200000 L qx8 qy8 A wd2 hd2 18600000 1200000 L px8 py8 A ir irh 19800000 1200000 Z|M hx hd2 A hr hrh 0 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4393 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4392;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4394 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 1 4;x1=*/ w 1 4;x2=*/ w 3 4", "M l t A wd2 y1 10800000 -10800000 L x2 y1 L x2 b L x1 b L x1 y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4395 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4394;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4396 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;x2=*/ w 2 5;x3=*/ w 3 5;x4=*/ w 4 5;y1=*/ h 1 5;y2=*/ h 2 5;y3=*/ h 3 5;y4=*/ h 4 5", "M x2 t L x4 y1 L r y2 L x4 y3 L r y4 L x3 b L x1 y4 L l y3 L x1 y2 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4397 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4396;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4398 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=12500;adj2=0", "a1=pin 0 adj1 50000;dy=*/ h a1 100000;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 C wd4 t wd2 y1 r t L r y2 C wd2 b wd4 y2 l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4399 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4398;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4400 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=6250;adj2=0", "a1=pin 0 adj1 50000;dy=*/ h a1 100000;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 C wd6 t wd3 y1 wd2 t C wd3 y1 wd6 t r y1 L r y2 C wd3 b wd6 y2 wd2 b C wd6 y2 wd3 b l y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4401 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4400;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4402 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx;y1=+- b 0 dx", "M l dx A dx dx 10800000 5400000 L l y1 A dx dx 5400000 5400000|M x1 t A dx dx 16200000 5400000 L r y1 A dx dx 0 5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4403 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4402;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4404 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=8333", "a=pin 0 adj 25000;dx=*/ ss a 100000;dx2=*/ dx 1 2;x1=+- r 0 dx;y1=+- hd2 0 dx2;y2=+- hd2 dx2 0;y3=+- b 0 dx", "M dx t A dx dx 10800000 5400000 L l y1 A dx2 dx2 16200000 -5400000 L l y2 A dx2 dx2 5400000 -5400000 L l y3 A dx dx 5400000 5400000|M x1 t A dx dx 16200000 5400000 L r y1 A dx2 dx2 10800000 -5400000 L r y2 A dx2 dx2 0 -5400000 L r y3 A dx dx 0 5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4405 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4404;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4406 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=38268", "a=pin 0 adj 50000;swd2=*/ wd2 a 50000;shd2=*/ hd2 a 50000;co0=cos 16200000 wd2;so0=sin 16200000 hd2;co1=cos 19800000 wd2;so1=sin 19800000 hd2;co2=cos 1800000 wd2;so2=sin 1800000 hd2;co3=cos 5400000 wd2;so3=sin 5400000 hd2;co4=cos 9000000 wd2;so4=sin 9000000 hd2;ox0=+- wd2 co0 0;oy0=+- hd2 so0 0;ox1=+- wd2 co1 0;oy1=+- hd2 so1 0;ox2=+- wd2 co2 0;oy2=+- hd2 so2 0;ox3=+- wd2 co3 0;oy3=+- hd2 so3 0;ox4=+- wd2 co4 0;oy4=+- hd2 so4 0;ci0=cos 18000000 swd2;si0=sin 18000000 shd2;ci1=cos 21600000 swd2;si1=sin 21600000 shd2;ci2=cos 3600000 swd2;si2=sin 3600000 shd2;ci3=cos 7200000 swd2;si3=sin 7200000 shd2;ci4=cos 10800000 swd2;si4=sin 10800000 shd2;ix0=+- wd2 ci0 0;iy0=+- hd2 si0 0;ix1=+- wd2 ci1 0;iy1=+- hd2 si1 0;ix2=+- wd2 ci2 0;iy2=+- hd2 si2 0;ix3=+- wd2 ci3 0;iy3=+- hd2 si3 0;ix4=+- wd2 ci4 0;iy4=+- hd2 si4 0", "M ox0 oy0 L ix0 iy0 L ox1 oy1 L ix1 iy1 L ox2 oy2 L ix2 iy2 L ox3 oy3 L ix3 iy3 L ox4 oy4 L ix4 iy4 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4407 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4406;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4408 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dxa=*/ wd2 8660 10000;dya=*/ hd2 8660 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0;idxa=*/ dx 8660 10000;idya=*/ dy 8660 10000;ix1=+- wd2 0 idxa;ix2=+- wd2 idxa 0;iy1=+- hd2 0 idya;iy2=+- hd2 idya 0", "M wd2 t L ix2 iy1 L xb ya L x2 y1 L r hd2 L x2 y2 L xb yb L ix2 iy2 L wd2 b L ix1 iy2 L xa yb L x1 y2 L l hd2 L x1 y1 L xa ya L ix1 iy1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4409 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4408;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4410 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dxa=*/ wd2 9239 10000;dya=*/ hd2 9239 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0;dxb=*/ wd2 7071 10000;dyb=*/ hd2 7071 10000;xc=+- wd2 0 dxb;xd=+- wd2 dxb 0;yc=+- hd2 0 dyb;yd=+- hd2 dyb 0;dxc=*/ wd2 3827 10000;dyc=*/ hd2 3827 10000;xe=+- wd2 0 dxc;xf=+- wd2 dxc 0;ye=+- hd2 0 dyc;yf=+- hd2 dyc 0;idx=*/ dx 9239 10000;idy=*/ dy 9239 10000;ix1=+- wd2 0 idx;ix2=+- wd2 idx 0;iy1=+- hd2 0 idy;iy2=+- hd2 idy 0;idc=*/ dx 7071 10000;idd=*/ dy 7071 10000;ixc=+- wd2 0 idc;ixd=+- wd2 idc 0;iyc=+- hd2 0 idd;iyd=+- hd2 idd 0;ide=*/ dx 3827 10000;idf=*/ dy 3827 10000;ixe=+- wd2 0 ide;ixf=+- wd2 ide 0;iye=+- hd2 0 idf;iyf=+- hd2 idf 0", "M wd2 t L ixf iye L xf ye L ix2 iy1 L xb ya L ix2 iy1 L r hd2 L ix2 iy2 L xb yb L ixf iyf L xf yf L ix2 iy2 L wd2 b L ixe iyf L xe yf L ix1 iy2 L xa yb L ix1 iy2 L l hd2 L ix1 iy1 L xa ya L ixe iye L xe ye L ix1 iy1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4411 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4410;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4412 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;ir=*/ wd2 a 50000;ihr=*/ hd2 a 50000", "M wd2 t L ir hd2 A wd2 hd2 16200000 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4413 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4412;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4414 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;ir=*/ wd2 a 50000;ihr=*/ hd2 a 50000", "M wd2 t L ir hd2 A wd2 hd2 16200000 21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4415 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4414;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4416 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "cr=*/ ss 1 10;dcr=+- r 0 cr;dbcr=+- b 0 cr", "M cr t L dcr t A cr cr 16200000 5400000 L r dbcr A cr cr 0 5400000 L cr b A cr cr 5400000 5400000 L l cr A cr cr 10800000 5400000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4417 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4416;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4418 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 10;x2=*/ w 9 10;y1=*/ h 1 10;y2=*/ h 2 10;y3=*/ h 8 10;cy=*/ h 9 10", "M l y2 L x2 y2 L x2 y1 L r y1 L r y3 C r cy wd2 b wd2 y3 C wd2 cy l b l y3 Z|M x2 y2 L x2 y1|M x1 y1 L x1 t L r t L r y1");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4419 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4418;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4420 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 8;y1=*/ h 1 8", "M l t L r t L r b L l b Z|M x1 t L x1 b|M l y1 L r y1");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4421 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4420;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4422 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dy=*/ h 1 6;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 A wd2 dy 10800000 -10800000 L r y2 A wd2 dy 0 10800000 Z|M l y1 A wd2 dy 10800000 10800000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4423 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4422;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4424 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 6;x1=+- l dx 0;x2=+- r 0 dx", "M x1 t L x2 t A dx hd2 16200000 -10800000 L x1 b A dx hd2 5400000 10800000 Z|M x2 t A dx hd2 16200000 10800000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4425 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4424;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4426 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 9 10", "M wd2 b L r b L r y1 A wd2 hd2 0 -21600000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4427 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4426;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4428 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 6;x1=+- r 0 dx", "M dx t L r t A dx hd2 16200000 -10800000 L dx b A dx hd2 5400000 -10800000 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4429 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4428;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4430 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 6;x2=*/ w 5 6", "M x1 t L x2 t A x1 hd2 16200000 10800000 L x1 b L l hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4431 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4430;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4432 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;y1=*/ h 1 5", "M l y1 L x1 t L r t L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4433 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4432;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4434 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 1 10;y2=*/ h 9 10;cy1=*/ h 1 5;cy2=*/ h 4 5", "M l y1 C wd4 0 wd2 cy1 r y1 L r y2 C wd2 b wd4 cy2 l y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4435 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4434;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4436 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dxa=*/ wd2 7071 10000;dya=*/ hd2 7071 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0", "M l hd2 A wd2 hd2 10800000 21600000 Z|M xa ya L xb yb|M xb ya L xa yb");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4437 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4436;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4438 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l hd2 A wd2 hd2 10800000 21600000 Z|M wd2 t L wd2 b|M l hd2 L r hd2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4439 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4438;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4440 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L l b L r b Z|M l hd2 L r hd2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4441 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4440;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4442 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0;cr=*/ ss 1 6", "M l hd2 A wd2 hd2 10800000 21600000 Z|M wd2 b L x1 y1 L wd2 b");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4443 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4442;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4444 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=112500;adj4=-38333", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0", "M l t L r t L r b L l b Z|M x1 y1 L x2 y2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4445 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4444;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4446 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=112500;adj6=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0", "M l t L r t L r b L l b Z|M x1 y1 L x2 y2 L x3 y3");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4447 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4446;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4448 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=100000;adj6=-16667;adj7=112500;adj8=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;a7=*/ h adj7 100000;a8=*/ w adj8 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0;y4=+- hd2 a7 0;x4=+- wd2 a8 0", "M l t L r t L r b L l b Z|M x1 y1 L x2 y2 L x3 y3 L x4 y4");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4449 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4448;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4450 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=112500;adj4=-38333", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x1 y1 L x2 y2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4451 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4450;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4452 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=112500;adj6=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x1 y1 L x2 y2 L x3 y3");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4453 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4452;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4454 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=100000;adj6=-16667;adj7=112500;adj8=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;a7=*/ h adj7 100000;a8=*/ w adj8 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0;y4=+- hd2 a7 0;x4=+- wd2 a8 0", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x1 y1 L x2 y2 L x3 y3 L x4 y4");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4455 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4454;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4456 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=43750", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;a4=pin 0 adj4 100000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a2 100000;x1=+- r 0 dx;x2=*/ w a4 100000;dy2=*/ h a3 100000;y3=+- t dy2 0", "M l y2 L x2 y2 L x2 y1 L x1 y1 L x1 t L r y3 L x1 dy2 L x1 y2 L l y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4457 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4456;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4458 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy=*/ h a2 100000;y1=+- b 0 dy;dx2=*/ w a3 100000;x3=+- r 0 dx2", "M l y1 L x3 y1 L x3 x1 L x1 x1 L x1 t L r x1 L x1 dy L x1 y1 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4459 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4458;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4460 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=50000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;a3=pin 0 adj3 50000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a3 100000;x1=+- r 0 dx", "M l y1 C wd2 t r t r hd2 L x1 hd2 L x1 t L r hd2 L x1 b L x1 hd2 C r hd2 r b wd2 b L l y2 C l y2 l hd2 l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4461 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4460;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4462 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=50000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;a3=pin 0 adj3 50000;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy=*/ h a3 100000;y1=+- b 0 dy", "M x1 b C t l t wd2 wd2 t L wd2 y1 L l y1 L wd2 b L r y1 L wd2 y1 C wd2 t r t r wd2 L x2 b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4463 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4462;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4464 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "ir=*/ ss 3 8;or=*/ ss 1 2;y1=+- hd2 0 or;x1=+- wd2 or 0", "M wd2 y1 A or or 16200000 18900000 L x1 hd2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4465 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4464;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4466 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=43750;adj5=75000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a5=pin 0 adj5 100000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a2 100000;x1=+- l dx 0;y3=*/ h a5 100000", "M l y3 L l y1 C l t x1 t x1 y1 L x1 y2 L x1 y3 L dx y3 L wd4 b L l y3 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4467 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4466;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4468 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a2 100000;x1=+- l dx 0;dx2=*/ w a3 100000;x2=+- l dx2 0", "M l y1 L x2 t L x2 y1 L x1 y1 L x1 y2 L r y2 L r b L x1 b L x1 y2 L l y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4469 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4468;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4470 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=48123", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;a4=pin 0 adj4 50000;dy1=*/ h a2 100000;y1=+- t dy1 0;y2=+- b 0 dy1;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy2=*/ h a4 100000;y3=+- t dy2 0;y4=+- b 0 dy2;dx2=*/ w a3 200000;x3=+- wd2 0 dx2;x4=+- wd2 dx2 0", "M wd2 t L r y1 L x2 y1 L x2 y3 L x4 y3 L x4 y4 L x2 y4 L x2 y2 L r y2 L wd2 b L l y2 L x1 y2 L x1 y4 L x3 y4 L x3 y3 L x1 y3 L x1 y1 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4471 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4470;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4472 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18515;adj2=18515;adj3=18515;adj4=48123", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;a4=pin 0 adj4 50000;dx=*/ w a2 100000;dy=*/ h a2 100000;dh=*/ w a1 200000;dv=*/ h a1 200000;ah=*/ w a3 100000;av=*/ h a3 100000;x1=+- wd2 0 dh;x2=+- wd2 dh 0;y1=+- hd2 0 dv;y2=+- hd2 dv 0;xe=+- r 0 dx;ye=+- b 0 dy;ddx=*/ w a4 200000;ddy=*/ h a4 200000;x3=+- wd2 0 ddx;x4=+- wd2 ddx 0;y3=+- hd2 0 ddy;y4=+- hd2 ddy 0", "M wd2 t L r dy L x2 dy L x2 y3 L x4 y3 L x4 y1 L xe y1 L xe hd2 L r hd2 L xe y2 L x4 y2 L x4 y4 L x2 y4 L x2 ye L wd2 b L l ye L x1 ye L x1 y4 L x3 y4 L x3 y2 L dx y2 L dx hd2 L l hd2 L dx y1 L x3 y1 L x3 y3 L x1 y3 L x1 dy L wd2 t Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4473 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4472;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4474 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd4 hd2 C wd4 hd4 wd3 hd5 wd2 hd4 C wd2 hd5 wd3 hd4 wd4 hd4 C wd6 hd6 wd8 hd4 l hd2 C l hd3 wd8 hd2 wd4 hd2 Z|M wd2 hd4 C wd2 hd6 wd4 0 wd2 0 C wd2 hd6 r hd6 r hd4 C r hd3 r hd2 wd2 hd2 L wd4 hd2 C wd4 hd3 wd2 hd3 wd2 hd4 Z|M wd4 hd2 C wd4 hd2 wd6 b wd4 b C wd3 b wd2 b wd2 hd2 L r hd2 C r hd2 r b wd2 b C wd3 b wd4 hd2 wd4 hd2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4475 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4474;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4476 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=8333", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- b 0 dy", "M r t A wd2 dy 16200000 -5400000 L l y1 A wd2 dy 5400000 -5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4477 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4476;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4478 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=8333", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- b 0 dy", "M l t A wd2 dy 16200000 5400000 L r y1 A wd2 dy 5400000 5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4479 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4478;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4480 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=8333;adj2=50000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;dy=*/ h a1 100000;dy2=*/ dy 1 2;ym=*/ h a2 100000;y1=+- ym 0 dy2;y2=+- ym dy2 0;y3=+- b 0 dy", "M r t A wd2 dy 16200000 -5400000 L l y1 A wd4 dy2 0 -5400000 L l y2 A wd4 dy2 10800000 -5400000 L l y3 A wd2 dy 5400000 -5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4481 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4480;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4482 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=8333;adj2=50000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;dy=*/ h a1 100000;dy2=*/ dy 1 2;ym=*/ h a2 100000;y1=+- ym 0 dy2;y2=+- ym dy2 0;y3=+- b 0 dy", "M l t A wd2 dy 16200000 5400000 L r y1 A wd4 dy2 10800000 5400000 L r y2 A wd4 dy2 0 5400000 L r y3 A wd2 dy 5400000 5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4483 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4482;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4484 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 25000;dx=*/ w a 100000;x1=+- r 0 dx;dx2=*/ dx 1 2;x2=+- l dx2 0;x3=+- r 0 dx2;y1=+- t dx 0;y2=+- b 0 dx;y3=+- t dx2 0;y4=+- b 0 dx2", "M x2 y1 L x1 y1 A dx2 dx2 16200000 5400000 L r y4 A dx2 dx2 0 -5400000 L dx y2 A dx2 dx2 5400000 5400000 L l y3 A dx2 dx2 10800000 -5400000 Z|M l y3 A dx2 dx2 10800000 10800000|M x1 y1 A dx2 dx2 16200000 -10800000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4485 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4484;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4486 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 25000;dy=*/ h a 100000;y1=+- b 0 dy;dy2=*/ dy 1 2;x1=+- l dy 0;x2=+- r 0 dy;x3=+- l dy2 0;x4=+- r 0 dy2;y2=+- t dy2 0;y3=+- b 0 dy2", "M x1 t L x1 y1 A dy2 dy2 5400000 5400000 L x3 b A dy2 dy2 10800000 -5400000 L x2 b L x2 dy A dy2 dy2 16200000 5400000 L x4 t A dy2 dy2 0 -5400000 Z|M x4 t A dy2 dy2 0 10800000|M x1 y1 A dy2 dy2 5400000 -10800000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4487 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4486;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4488 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=0;adj2=16667", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y2=+- b 0 dx2;y1=+- b 0 dx1", "M dx1 t L x2 t L r dx2 L r y1 L x1 b L dx2 b L l y2 L l dx1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4489 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4488;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4490 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 5;dy=*/ h 1 5;x1=+- r 0 dx;y1=+- b 0 dy", "M l t A dx dy 10800000 -5400000|M x1 t A dx dy 16200000 5400000|M l y1 A dx dy 5400000 -5400000|M x1 y1 A dx dy 0 5400000");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4491 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4490;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4492 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520;adj2=6600;adj3=11760", "a1=pin 0 adj1 100000;a2=pin 0 adj2 50000;a3=pin 0 adj3 100000;dy1=*/ h a1 200000;dy2=*/ h a2 100000;dy3=*/ h a3 200000;y1=+- hd2 0 dy3;y2=+- y1 0 dy1;y3=+- hd2 dy3 0;y4=+- y3 dy1 0;dx=*/ w 1 8", "M l y2 L r y2 L r y1 L l y1 Z|M l y3 L r y3 L r y4 L l y4 Z|M dx t L r y3 L r y4 L dx hd2 L l y2 L l y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4493 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4492;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4494 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L r b L l b Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4495 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4494;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4496 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10;x3=*/ w 4 10;x4=*/ w 6 10;y3=*/ h 45 100;y4=*/ h 55 100", "M l t L r t L r b L l b Z|M wd2 y1 L x2 hd2 L x2 y2 L x1 y2 L x1 hd2 Z|M x3 y3 L x4 y3 L x4 y2 L x3 y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4497 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4496;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4498 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x2 hd2 L x1 y1 L x1 y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4499 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4498;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4500 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x1 y1 L x2 hd2 L x1 y2 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4501 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4500;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4502 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 35 100;x3=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x3 hd2 L x2 y1 L x2 y2 Z|M x2 y1 L x1 y1 L x1 y2 L x2 y2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4503 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4502;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4504 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 65 100;x3=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x1 y1 L x2 hd2 L x1 y2 Z|M x2 y1 L x3 y1 L x3 y2 L x2 y2");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4505 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4504;
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4506 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 20;dy=*/ h 1 20;x1=+- r 0 dx;y1=+- b 0 dy", "M l t L r t L r b L l b Z|M dx dy L x1 dy L x1 y1 L dx y1 Z");
-  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4507 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4506;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4025 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;x1=*/ w a 100000;x2=*/ w a 200000", "M l b L x1 t L r b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4026 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4025;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4027 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l b L l t L r b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4028 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4027;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4029 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r hd2 L wd2 b L l hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4030 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4029;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4031 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 100000;x1=*/ w a 100000;dx1=+- r 0 x1", "M x1 t L r t L dx1 b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4032 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4031;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4033 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1", "M l b L x1 t L dx1 t L r b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4034 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4033;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4035 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "cx1=cos 20520000 wd2;cy1=sin 20520000 hd2;cx2=cos 3240000 wd2;cy2=sin 3240000 hd2;cx3=cos 7560000 wd2;cy3=sin 7560000 hd2;cx4=cos 11880000 wd2;cy4=sin 11880000 hd2;vx1=+- wd2 cx1 0;vy1=+- hd2 cy1 0;vx2=+- wd2 cx2 0;vy2=+- hd2 cy2 0;vx3=+- wd2 cx3 0;vy3=+- hd2 cy3 0;vx4=+- wd2 cx4 0;vy4=+- hd2 cy4 0", "M wd2 t L vx1 vy1 L vx2 vy2 L vx3 vy3 L vx4 vy4 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4036 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4035;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4037 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1", "M x1 t L dx1 t L r hd2 L dx1 b L x1 b L l hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4038 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4037;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4039 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=29290", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1;y1=*/ h a 100000;dy1=+- b 0 y1", "M x1 t L dx1 t L r y1 L r dy1 L dx1 b L x1 b L l dy1 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4040 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4039;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4041 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 4;x2=*/ w 1 4;y1=*/ h 1 5;y2=*/ h 4 5", "M wd2 t L x1 y1 L r hd2 L x1 y2 L x2 y2 L l hd2 L x2 y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4042 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4041;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4043 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;x1=*/ w a 100000;dx1=+- r 0 x1;y1=*/ h a 100000;dy1=+- b 0 y1", "M x1 t L dx1 t L dx1 y1 L r y1 L r dy1 L dx1 dy1 L dx1 b L x1 b L x1 dy1 L l dy1 L l y1 L x1 y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4044 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4043;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4045 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr", "M l hd2 A wd2 hd2 10800000 21600000 Z|M iwd2 hd2 A iwd2 ihd2 0 -21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4046 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4045;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4047 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=18750", "a=pin 0 adj 50000;dr=*/ ss a 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr", "M l hd2 A wd2 hd2 10800000 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4048 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4047;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4049 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=10800000;adj2=0;adj3=25000", "a3=pin 0 adj3 50000;dr=*/ ss a3 100000;iwd2=+- wd2 0 dr;ihd2=+- hd2 0 dr;sa=*/ adj1 1 1;ea=*/ adj2 1 1;csa=cos sa wd2;ssa=sin sa hd2;cea=cos ea wd2;sea=sin ea hd2;x1=+- wd2 csa 0;y1=+- hd2 ssa 0;x2=+- wd2 cea 0;y2=+- hd2 sea 0;icsa=cos sa iwd2;issa=sin sa ihd2;icea=cos ea iwd2;isea=sin ea ihd2;ix1=+- wd2 icsa 0;iy1=+- hd2 issa 0;ix2=+- wd2 icea 0;iy2=+- hd2 isea 0;sw=+- ea 0 sa", "M x1 y1 A wd2 hd2 sa sw L ix2 iy2 A iwd2 ihd2 ea 0 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4050 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4049;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4051 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- r 0 dx;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M l y1 L x1 y1 L x1 t L r hd2 L x1 b L x1 y2 L l y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4052 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4051;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4053 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- l dx 0;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M r y1 L x1 y1 L x1 t L l hd2 L x1 b L x1 y2 L r y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4054 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4053;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4055 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy=*/ ss a2 100000;y1=+- t dy 0;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M x1 b L x1 y1 L l y1 L wd2 t L r y1 L x2 y1 L x2 b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4056 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4055;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4057 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy=*/ ss a2 100000;y1=+- b 0 dy;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M x1 t L x1 y1 L l y1 L wd2 b L r y1 L x2 y1 L x2 t Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4058 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4057;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4059 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 50000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- l dx 0;x2=+- r 0 dx;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M l hd2 L x1 t L x1 y1 L x2 y1 L x2 t L r hd2 L x2 b L x2 y2 L x1 y2 L x1 b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4060 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4059;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4061 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 50000 h ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dy=*/ ss a2 100000;y1=+- t dy 0;y2=+- b 0 dy;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M wd2 t L r y1 L x2 y1 L x2 y2 L r y2 L wd2 b L l y2 L x1 y2 L x1 y1 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4062 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4061;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4063 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=22500;adj2=22500;adj3=22500", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;dx=*/ w a2 100000;dy=*/ h a2 100000;dh=*/ w a1 200000;dv=*/ h a1 200000;ah=*/ w a3 100000;av=*/ h a3 100000;x1=+- wd2 0 dh;x2=+- wd2 dh 0;y1=+- hd2 0 dv;y2=+- hd2 dv 0;xe=+- r 0 dx;ye=+- b 0 dy", "M wd2 t L r dy L x2 dy L x2 y1 L xe y1 L xe hd2 L r hd2|M xe hd2 L xe y2 L x2 y2 L x2 ye L wd2 b L l ye L x1 ye L x1 y2 L dx y2 L dx hd2|M l hd2 L dx y1 L x1 y1 L x1 dy L wd2 t Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4064 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4063;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4065 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M wd2 t L x2 y1 L r hd2 L x2 y2 L wd2 b L x1 y2 L l hd2 L x1 y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4066 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4065;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4067 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=19098", "a=pin 0 adj 50000;swd2=*/ wd2 a 50000;shd2=*/ hd2 a 50000;co1=cos 20520000 wd2;so1=sin 20520000 hd2;co2=cos 3240000 wd2;so2=sin 3240000 hd2;co3=cos 7560000 wd2;so3=sin 7560000 hd2;co4=cos 11880000 wd2;so4=sin 11880000 hd2;ox1=+- wd2 co1 0;oy1=+- hd2 so1 0;ox2=+- wd2 co2 0;oy2=+- hd2 so2 0;ox3=+- wd2 co3 0;oy3=+- hd2 so3 0;ox4=+- wd2 co4 0;oy4=+- hd2 so4 0;ci1=cos 18360000 swd2;si1=sin 18360000 shd2;ci2=cos 1080000 swd2;si2=sin 1080000 shd2;ci3=cos 5400000 swd2;si3=sin 5400000 shd2;ci4=cos 9720000 swd2;si4=sin 9720000 shd2;ci5=cos 14040000 swd2;si5=sin 14040000 shd2;ix1=+- wd2 ci1 0;iy1=+- hd2 si1 0;ix2=+- wd2 ci2 0;iy2=+- hd2 si2 0;ix3=+- wd2 ci3 0;iy3=+- hd2 si3 0;ix4=+- wd2 ci4 0;iy4=+- hd2 si4 0;ix5=+- wd2 ci5 0;iy5=+- hd2 si5 0", "M wd2 t L ix1 iy1 L ox1 oy1 L ix2 iy2 L ox2 oy2 L ix3 iy3 L ox3 oy3 L ix4 iy4 L ox4 oy4 L ix5 iy5 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4068 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4067;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4069 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=28868", "a=pin 0 adj 50000;swd2=*/ wd2 a 50000;x1=+- wd2 0 swd2;x2=+- wd2 swd2 0;oy=*/ h 1 4;by=*/ h 3 4", "M wd2 t L x2 oy L r oy L x2 hd2 L r by L x2 by L wd2 b L x1 by L l by L x1 hd2 L l oy L x1 oy Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4070 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4069;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4071 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dxa=*/ wd2 7071 10000;dya=*/ hd2 7071 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0;idxa=*/ dx 7071 10000;idya=*/ dy 7071 10000;ix1=+- wd2 0 idxa;ix2=+- wd2 idxa 0;iy1=+- hd2 0 idya;iy2=+- hd2 idya 0", "M wd2 t L ix2 iy1 L xb ya L x2 y1 L r hd2 L x2 y2 L xb yb L ix2 iy2 L wd2 b L ix1 iy2 L xa yb L x1 y2 L l hd2 L x1 y1 L xa ya L ix1 iy1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4072 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4071;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4073 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4074 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4073;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4075 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r hd2 L wd2 b L l hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4076 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4075;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4077 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "ir=*/ w 18 21;il=*/ w 3 21", "M il t A il hd2 10800000 10800000 L ir b A il hd2 0 10800000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4078 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4077;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4079 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 8;x2=*/ w 7 8", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x2 t L x2 b");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4080 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4079;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4081 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 17 20;cy1=*/ h 19 20", "M l t L r t L r y1 C r cy1 wd2 b wd2 y1 C wd2 cy1 l b l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4082 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4081;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4083 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;dx1=+- r 0 x1", "M x1 t L r t L dx1 b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4084 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4083;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4085 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;dx1=+- r 0 x1", "M x1 t L dx1 t L r hd2 L dx1 b L x1 b L l hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4086 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4085;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4087 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 1 5", "M l y1 L r t L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4088 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4087;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4089 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;dx1=+- r 0 x1", "M l t L r t L dx1 b L x1 b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4090 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4089;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4091 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 4 5", "M l t L r t L r y1 L wd2 b L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4092 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4091;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4093 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l hd2 A wd2 hd2 10800000 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4094 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4093;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4095 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r hd2 L wd2 b L l hd2 Z|M l hd2 L r hd2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4096 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4095;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4097 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L wd2 b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4098 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4097;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4099 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd2 t L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4100 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4099;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4101 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L wd2 t A wd2 hd2 16200000 10800000 L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4102 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4101;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4103 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0;dx1=+- wd2 0 wd8;dx2=+- wd2 wd8 0", "M l t L r t L r b L dx2 b L x1 y1 L dx1 b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4104 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4103;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4105 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0;cr=*/ ss 1 12;dx1=+- wd2 0 wd8;dx2=+- wd2 wd8 0;dcr=+- r 0 cr;dbcr=+- b 0 cr", "M cr t L dcr t A cr cr 16200000 5400000 L r dbcr A cr cr 0 5400000 L dx2 b L x1 y1 L dx1 b L cr b A cr cr 5400000 5400000 L l cr A cr cr 10800000 5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4106 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4105;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4107 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0", "M l hd2 A wd2 hd2 10800000 21600000 Z|M wd2 b L x1 y1 L wd2 b");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4108 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4107;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4109 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx1=*/ w 49 48;dx2=*/ w 10 48;cx1=*/ w 1 6;cx2=*/ w 5 6;cy2=*/ h 1 6;cx3=*/ w 1 3;cx4=*/ w 2 3;cy4=*/ h 5 6", "M wd2 b C cx3 cy4 l hd2 l hd4 C l 0 wd2 0 wd2 hd4 C wd2 0 r 0 r hd4 C r hd2 cx4 cy4 wd2 b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4110 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4109;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4111 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 4269 21600;y1=*/ h 3 21;x2=*/ w 8640 21600;y2=*/ h 8 21;x3=*/ w 5765 21600;y3=*/ h 9 21;x4=*/ w 12960 21600;y4=*/ h 13 21;x5=*/ w 8323 21600;y5=*/ h 14 21;x6=*/ w 14400 21600;y6=*/ h 17 21;x7=*/ w 4320 21600", "M x1 t L x2 y2 L x3 y3 L x4 y4 L x5 y5 L r y6 L x7 b L x5 y5 L x1 y3 L x3 y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4112 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4111;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4113 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 12500 adj 46875;cir=*/ ss a 100000;ir=+- wd2 0 cir;ib=+- hd2 0 cir;or2=+- wd2 cir 0;ob2=+- hd2 cir 0", "M wd2 t L or2 ib L r hd2 L or2 ob2 L wd2 b L ir ob2 L l hd2 L ir ib Z|M ir hd2 A cir cir 10800000 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4114 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4113;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4115 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 87500;x1=*/ w a 100000", "M r t C x1 hd4 x1 hd2 C x1 hd2 x1 b r b A wd2 hd2 0 -10800000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4116 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4115;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4117 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=4653", "a=pin -4653 adj 4653;ey=*/ h 3 4;cx1=*/ w 3 10;cx2=*/ w 7 10;ey2=+- ey 0 hd10;er=*/ w 3 20;sy=+- ey 0 hd10;sdy=*/ h a 100000;sy1=+- ey sdy 0;sy2=+- ey sdy 0", "M l hd2 A wd2 hd2 10800000 21600000 Z|M cx1 ey A er er 0 21600000 Z|M cx2 ey A er er 0 21600000 Z|M cx1 sy1 C cx1 sy2 cx2 sy2 cx2 sy1");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4118 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4117;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4119 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- b 0 dy;dx=*/ w a 100000;x1=+- r 0 dx", "M l t L r t L r y1 L x1 b L l b Z|M r y1 L x1 y1 L x1 b");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4120 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4119;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4121 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=12500", "a=pin 0 adj1 50000;dx=*/ w a 100000;dy=*/ h a 100000;dx1=+- r 0 dx;dy1=+- b 0 dy", "M l t L r t L r b L l b Z|M dx dy L dx1 dy L dx1 dy1 L dx dy1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4122 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4121;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4123 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 50000;dx=*/ w a 100000;dy=*/ h a 100000;dx1=+- r 0 dx;dy1=+- b 0 dy", "M l t L r t L dx1 dy L dx dy Z|M r t L r b L dx1 dy1 L dx1 dy Z|M r b L l b L dx dy1 L dx1 dy1 Z|M l b L l t L dx dy L dx dy1 Z|M dx dy L dx1 dy L dx1 dy1 L dx dy1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4124 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4123;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4125 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 A wd2 dy 10800000 -10800000 L r y2 A wd2 dy 0 10800000 Z|M l y1 A wd2 dy 10800000 10800000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4126 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4125;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4127 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=25000", "a=pin 0 adj 100000;dx=*/ w a 100000;y1=*/ h a 100000;dx1=+- r 0 dx", "M l y1 L dx t L r t L r b L dx1 b L l b Z|M l y1 L dx y1 L dx t|M dx y1 L r b");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4128 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4127;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4129 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=50000", "a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;dy=*/ h a1 100000;y1=+- t dy 0;dx=*/ w a2 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy2=*/ dy 1 2;y2=+- b 0 dy;y3=+- b 0 dy2", "M l y1 L x1 y1 L x1 t L x2 t L x2 y1 L r y1 L r y3 L x2 b L x2 y2 L x1 y2 L x1 b L l y3 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4130 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4129;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4131 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=50000", "a1=pin 0 adj1 33333;a2=pin 25000 adj2 75000;dy=*/ h a1 100000;y1=+- b 0 dy;dx=*/ w a2 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy2=*/ dy 1 2;y2=+- t dy 0;y3=+- t dy2 0", "M l y3 L x1 t L x1 y2 L x2 y2 L x2 t L r y3 L r y1 L x2 y1 L x2 b L x1 b L x1 y1 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4132 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4131;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4133 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;dx=*/ w a 100000;x1=+- r 0 dx", "M l t L x1 t L r hd2 L x1 b L l b L dx hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4134 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4133;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4135 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;dx=*/ ss a 100000;x1=+- r 0 dx", "M l t L x1 t L r hd2 L x1 b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4136 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4135;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4137 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 100000 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;dx=*/ ss a2 100000;x1=+- r 0 dx;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx1=*/ h a2 200000;nx1=+- l dx1 0", "M l y1 L x1 y1 L x1 t L r hd2 L x1 b L x1 y2 L l y2 L nx1 hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4138 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4137;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4139 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "maxAdj2=*/ 84375 w ss;a1=pin 0 adj1 100000;a2=pin 0 adj2 maxAdj2;x4=*/ ss 5 32;dx5=*/ ss a2 100000;x5=+- r 0 dx5;dy1=*/ h a1 200000;y1=+- hd2 0 dy1;y2=+- hd2 dy1 0;dx2=*/ ss 1 32;x1=+- l dx2 0;dx3=*/ ss 1 16;x2=+- l dx3 0;x3=+- x2 dx2 0", "M l y1 L x1 y1 L x1 y2 L l y2 Z|M x2 y1 L x3 y1 L x3 y2 L x2 y2 Z|M x4 y1 L x5 y1 L x5 t L r hd2 L x5 b L x5 y2 L x4 y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4140 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4139;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4141 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=48123", "a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;q2=*/ a3 ss w;maxAdj1=+- 100000 0 q2;a1=pin 0 adj1 maxAdj1;dy2=*/ h a2 100000;dy1=*/ h a1 200000;y1=+- hd2 0 dy1;y2=+- hd2 0 dy2;y3=+- hd2 dy2 0;y4=+- hd2 dy1 0;a4=pin 0 adj4 100000;x1=*/ w a3 100000;x4=+- r 0 x1;dx2=*/ w a4 200000;x2=+- wd2 0 dx2;x3=+- wd2 dx2 0", "M l hd2 L x1 y1 L x1 y2 L x2 y2 L x2 t L x3 t L x3 y2 L x4 y2 L x4 y1 L r hd2 L x4 y4 L x4 y3 L x3 y3 L x3 b L x2 b L x2 y3 L x1 y3 L x1 y4 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4142 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4141;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4143 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520", "a=pin 0 adj1 73490;dy=*/ h a 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0", "M x1 y1 L x2 y1 L x2 t L r y1 L r y2 L x2 y2 L x2 b L x1 b L x1 y2 L l y2 L l y1 L x1 y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4144 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4143;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4145 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520", "a=pin 0 adj1 100000;dy=*/ h a 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0", "M l y1 L r y1 L r y2 L l y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4146 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4145;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4147 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520", "a=pin 0 adj1 51965;dx=*/ wd2 a 100000;dy=*/ hd2 a 100000;ix1=+- wd2 0 dx;ix2=+- wd2 dx 0;iy1=+- hd2 0 dy;iy2=+- hd2 dy 0", "M ix1 t L wd2 iy1 L ix2 t L r iy1 L ix2 hd2 L r iy2 L ix2 b L wd2 iy2 L ix1 b L l iy2 L ix1 hd2 L l iy1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4148 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4147;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4149 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520;adj2=5765;adj3=11760", "a1=pin 0 adj1 100000;a2=pin 0 adj2 100000;a3=pin 0 adj3 100000;dy1=*/ h a1 200000;y1=+- hd2 0 dy1;y2=+- hd2 dy1 0;dr=*/ ss a2 200000;dy2=*/ h a3 100000;y3=+- y1 0 dy2;y4=+- y2 dy2 0", "M l y1 L r y1 L r y2 L l y2 Z|M wd2 y3 A dr dr 0 21600000 Z|M wd2 y4 A dr dr 0 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4150 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4149;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4151 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520;adj2=11760", "a1=pin 0 adj1 100000;a2=pin 0 adj2 100000;dy1=*/ h a1 200000;dy2=*/ h a2 200000;y1=+- hd2 0 dy2;y2=+- y1 0 dy1;y3=+- hd2 dy2 0;y4=+- y3 dy1 0", "M l y2 L r y2 L r y1 L l y1 Z|M l y3 L r y3 L r y4 L l y4 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4152 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4151;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4153 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx", "M l t L x1 t L r dx L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4154 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4153;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4155 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=0", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y2=+- b 0 dx2", "M dx1 t L x1 t L r dx1 L r y2 L x2 b L dx2 b L l y2 L l dx1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4156 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4155;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4157 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx", "M l t L x1 t A dx dx 16200000 5400000 L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4158 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4157;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4159 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=0", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y2=+- b 0 dx2", "M dx1 t L x1 t A dx1 dx1 16200000 5400000 L r y2 A dx2 dx2 0 5400000 L dx2 b A dx2 dx2 5400000 5400000 L l dx1 A dx1 dx1 10800000 5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4160 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4159;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4161 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=0", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y1=+- b 0 dx1;y2=+- b 0 dx2", "M dx2 t L x1 t A dx1 dx1 16200000 5400000 L r y2 A dx2 dx2 0 5400000 L dx1 b A dx1 dx1 5400000 5400000 L l dx2 A dx2 dx2 10800000 5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4162 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4161;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4163 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=16667;adj2=16667", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2", "M dx1 t L x2 t L r dx2 L r b L l b L l dx1 A dx1 dx1 10800000 5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4164 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4163;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4165 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=100000", "a=pin 0 adj 200000;r2=*/ ss a 200000;ox=+- wd2 r2 0;oy=+- hd2 0 r2", "M l hd2 A wd2 hd2 10800000 5400000 L ox oy L wd2 t A wd2 hd2 16200000 -5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4166 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4165;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4167 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=0;adj2=16200000", "sa=*/ adj1 1 1;ea=*/ adj2 1 1;sw=+- ea 0 sa;csa=cos sa wd2;ssa=sin sa hd2;cea=cos ea wd2;sea=sin ea hd2;x1=+- wd2 csa 0;y1=+- hd2 ssa 0;x2=+- wd2 cea 0;y2=+- hd2 sea 0", "M wd2 hd2 L x1 y1 A wd2 hd2 sa sw L wd2 hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4168 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4167;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4169 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=2700000;adj2=16200000", "sa=*/ adj1 1 1;ea=*/ adj2 1 1;sw=+- ea 0 sa;csa=cos sa wd2;ssa=sin sa hd2;cea=cos ea wd2;sea=sin ea hd2;x1=+- wd2 csa 0;y1=+- hd2 ssa 0;x2=+- wd2 cea 0;y2=+- hd2 sea 0", "M x1 y1 A wd2 hd2 sa sw Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4170 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4169;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4171 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;x2=*/ w 4 5;y1=*/ h 3 20;y2=*/ h 17 20;x3=*/ w 1 10;x4=*/ w 9 10", "M wd2 t L x4 y1 L r hd3 L r hd2 L x4 y2 L wd2 b L x3 y2 L l hd2 L l hd3 L x3 y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4172 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4171;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4173 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=50000", "a=pin 0 adj 100000;dy=*/ h a 100000;dx=*/ w a 100000", "M l dy L dx t L r t L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4174 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4173;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4175 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=50000;adj2=50000", "a1=pin 0 adj1 100000;a2=pin 0 adj2 100000;x1=*/ w a2 100000;y1=*/ h a1 100000", "M l t L x1 t L x1 y1 L r y1 L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4176 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4175;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4177 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx;y1=+- b 0 dx", "M l dx A dx dx 5400000 -5400000 L x1 t A dx dx 10800000 -5400000 L r y1 A dx dx 16200000 -5400000 L dx b A dx dx 0 -5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4178 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4177;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4179 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=75000", "a=pin 10000 adj 99000;ir=*/ wd2 a 100000;irh=*/ hd2 a 100000;c00=cos 20700000 wd2;s00=sin 20700000 hd2;mx=+- wd2 c00 0;my=+- hd2 s00 0;ci0=cos 900000 ir;si0=sin 900000 irh;px0=+- wd2 ci0 0;py0=+- hd2 si0 0;co1=cos 2700000 wd2;so1=sin 2700000 hd2;qx1=+- wd2 co1 0;qy1=+- hd2 so1 0;ci1=cos 4500000 ir;si1=sin 4500000 irh;px1=+- wd2 ci1 0;py1=+- hd2 si1 0;co2=cos 6300000 wd2;so2=sin 6300000 hd2;qx2=+- wd2 co2 0;qy2=+- hd2 so2 0;ci2=cos 8100000 ir;si2=sin 8100000 irh;px2=+- wd2 ci2 0;py2=+- hd2 si2 0;co3=cos 9900000 wd2;so3=sin 9900000 hd2;qx3=+- wd2 co3 0;qy3=+- hd2 so3 0;ci3=cos 11700000 ir;si3=sin 11700000 irh;px3=+- wd2 ci3 0;py3=+- hd2 si3 0;co4=cos 13500000 wd2;so4=sin 13500000 hd2;qx4=+- wd2 co4 0;qy4=+- hd2 so4 0;ci4=cos 15300000 ir;si4=sin 15300000 irh;px4=+- wd2 ci4 0;py4=+- hd2 si4 0;co5=cos 17100000 wd2;so5=sin 17100000 hd2;qx5=+- wd2 co5 0;qy5=+- hd2 so5 0;ci5=cos 18900000 ir;si5=sin 18900000 irh;px5=+- wd2 ci5 0;py5=+- hd2 si5 0;hr=*/ wd2 30000 100000;hrh=*/ hd2 30000 100000;hx=+- wd2 hr 0", "M mx my A wd2 hd2 20700000 1800000 L px0 py0 A ir irh 900000 1800000 L qx1 qy1 A wd2 hd2 2700000 1800000 L px1 py1 A ir irh 4500000 1800000 L qx2 qy2 A wd2 hd2 6300000 1800000 L px2 py2 A ir irh 8100000 1800000 L qx3 qy3 A wd2 hd2 9900000 1800000 L px3 py3 A ir irh 11700000 1800000 L qx4 qy4 A wd2 hd2 13500000 1800000 L px4 py4 A ir irh 15300000 1800000 L qx5 qy5 A wd2 hd2 17100000 1800000 L px5 py5 A ir irh 18900000 1800000 Z|M hx hd2 A hr hrh 0 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4180 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4179;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4181 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=75000", "a=pin 10000 adj 99000;ir=*/ wd2 a 100000;irh=*/ hd2 a 100000;c00=cos 21000000 wd2;s00=sin 21000000 hd2;mx=+- wd2 c00 0;my=+- hd2 s00 0;ci0=cos 600000 ir;si0=sin 600000 irh;px0=+- wd2 ci0 0;py0=+- hd2 si0 0;co1=cos 1800000 wd2;so1=sin 1800000 hd2;qx1=+- wd2 co1 0;qy1=+- hd2 so1 0;ci1=cos 3000000 ir;si1=sin 3000000 irh;px1=+- wd2 ci1 0;py1=+- hd2 si1 0;co2=cos 4200000 wd2;so2=sin 4200000 hd2;qx2=+- wd2 co2 0;qy2=+- hd2 so2 0;ci2=cos 5400000 ir;si2=sin 5400000 irh;px2=+- wd2 ci2 0;py2=+- hd2 si2 0;co3=cos 6600000 wd2;so3=sin 6600000 hd2;qx3=+- wd2 co3 0;qy3=+- hd2 so3 0;ci3=cos 7800000 ir;si3=sin 7800000 irh;px3=+- wd2 ci3 0;py3=+- hd2 si3 0;co4=cos 9000000 wd2;so4=sin 9000000 hd2;qx4=+- wd2 co4 0;qy4=+- hd2 so4 0;ci4=cos 10200000 ir;si4=sin 10200000 irh;px4=+- wd2 ci4 0;py4=+- hd2 si4 0;co5=cos 11400000 wd2;so5=sin 11400000 hd2;qx5=+- wd2 co5 0;qy5=+- hd2 so5 0;ci5=cos 12600000 ir;si5=sin 12600000 irh;px5=+- wd2 ci5 0;py5=+- hd2 si5 0;co6=cos 13800000 wd2;so6=sin 13800000 hd2;qx6=+- wd2 co6 0;qy6=+- hd2 so6 0;ci6=cos 15000000 ir;si6=sin 15000000 irh;px6=+- wd2 ci6 0;py6=+- hd2 si6 0;co7=cos 16200000 wd2;so7=sin 16200000 hd2;qx7=+- wd2 co7 0;qy7=+- hd2 so7 0;ci7=cos 17400000 ir;si7=sin 17400000 irh;px7=+- wd2 ci7 0;py7=+- hd2 si7 0;co8=cos 18600000 wd2;so8=sin 18600000 hd2;qx8=+- wd2 co8 0;qy8=+- hd2 so8 0;ci8=cos 19800000 ir;si8=sin 19800000 irh;px8=+- wd2 ci8 0;py8=+- hd2 si8 0;hr=*/ wd2 25000 100000;hrh=*/ hd2 25000 100000;hx=+- wd2 hr 0", "M mx my A wd2 hd2 21000000 1200000 L px0 py0 A ir irh 600000 1200000 L qx1 qy1 A wd2 hd2 1800000 1200000 L px1 py1 A ir irh 3000000 1200000 L qx2 qy2 A wd2 hd2 4200000 1200000 L px2 py2 A ir irh 5400000 1200000 L qx3 qy3 A wd2 hd2 6600000 1200000 L px3 py3 A ir irh 7800000 1200000 L qx4 qy4 A wd2 hd2 9000000 1200000 L px4 py4 A ir irh 10200000 1200000 L qx5 qy5 A wd2 hd2 11400000 1200000 L px5 py5 A ir irh 12600000 1200000 L qx6 qy6 A wd2 hd2 13800000 1200000 L px6 py6 A ir irh 15000000 1200000 L qx7 qy7 A wd2 hd2 16200000 1200000 L px7 py7 A ir irh 17400000 1200000 L qx8 qy8 A wd2 hd2 18600000 1200000 L px8 py8 A ir irh 19800000 1200000 Z|M hx hd2 A hr hrh 0 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4182 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4181;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4183 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 1 4;x1=*/ w 1 4;x2=*/ w 3 4", "M l t A wd2 y1 10800000 -10800000 L x2 y1 L x2 b L x1 b L x1 y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4184 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4183;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4185 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;x2=*/ w 2 5;x3=*/ w 3 5;x4=*/ w 4 5;y1=*/ h 1 5;y2=*/ h 2 5;y3=*/ h 3 5;y4=*/ h 4 5", "M x2 t L x4 y1 L r y2 L x4 y3 L r y4 L x3 b L x1 y4 L l y3 L x1 y2 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4186 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4185;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4187 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=12500;adj2=0", "a1=pin 0 adj1 50000;dy=*/ h a1 100000;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 C wd4 t wd2 y1 r t L r y2 C wd2 b wd4 y2 l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4188 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4187;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4189 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=6250;adj2=0", "a1=pin 0 adj1 50000;dy=*/ h a1 100000;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 C wd6 t wd3 y1 wd2 t C wd3 y1 wd6 t r y1 L r y2 C wd3 b wd6 y2 wd2 b C wd6 y2 wd3 b l y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4190 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4189;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4191 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=16667", "a=pin 0 adj 50000;dx=*/ ss a 100000;x1=+- r 0 dx;y1=+- b 0 dx", "M l dx A dx dx 10800000 5400000 L l y1 A dx dx 5400000 5400000|M x1 t A dx dx 16200000 5400000 L r y1 A dx dx 0 5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4192 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4191;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4193 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=8333", "a=pin 0 adj 25000;dx=*/ ss a 100000;dx2=*/ dx 1 2;x1=+- r 0 dx;y1=+- hd2 0 dx2;y2=+- hd2 dx2 0;y3=+- b 0 dx", "M dx t A dx dx 10800000 5400000 L l y1 A dx2 dx2 16200000 -5400000 L l y2 A dx2 dx2 5400000 -5400000 L l y3 A dx dx 5400000 5400000|M x1 t A dx dx 16200000 5400000 L r y1 A dx2 dx2 10800000 -5400000 L r y2 A dx2 dx2 0 -5400000 L r y3 A dx dx 0 5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4194 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4193;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4195 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=38268", "a=pin 0 adj 50000;swd2=*/ wd2 a 50000;shd2=*/ hd2 a 50000;co0=cos 16200000 wd2;so0=sin 16200000 hd2;co1=cos 19800000 wd2;so1=sin 19800000 hd2;co2=cos 1800000 wd2;so2=sin 1800000 hd2;co3=cos 5400000 wd2;so3=sin 5400000 hd2;co4=cos 9000000 wd2;so4=sin 9000000 hd2;ox0=+- wd2 co0 0;oy0=+- hd2 so0 0;ox1=+- wd2 co1 0;oy1=+- hd2 so1 0;ox2=+- wd2 co2 0;oy2=+- hd2 so2 0;ox3=+- wd2 co3 0;oy3=+- hd2 so3 0;ox4=+- wd2 co4 0;oy4=+- hd2 so4 0;ci0=cos 18000000 swd2;si0=sin 18000000 shd2;ci1=cos 21600000 swd2;si1=sin 21600000 shd2;ci2=cos 3600000 swd2;si2=sin 3600000 shd2;ci3=cos 7200000 swd2;si3=sin 7200000 shd2;ci4=cos 10800000 swd2;si4=sin 10800000 shd2;ix0=+- wd2 ci0 0;iy0=+- hd2 si0 0;ix1=+- wd2 ci1 0;iy1=+- hd2 si1 0;ix2=+- wd2 ci2 0;iy2=+- hd2 si2 0;ix3=+- wd2 ci3 0;iy3=+- hd2 si3 0;ix4=+- wd2 ci4 0;iy4=+- hd2 si4 0", "M ox0 oy0 L ix0 iy0 L ox1 oy1 L ix1 iy1 L ox2 oy2 L ix2 iy2 L ox3 oy3 L ix3 iy3 L ox4 oy4 L ix4 iy4 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4196 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4195;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4197 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dxa=*/ wd2 8660 10000;dya=*/ hd2 8660 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0;idxa=*/ dx 8660 10000;idya=*/ dy 8660 10000;ix1=+- wd2 0 idxa;ix2=+- wd2 idxa 0;iy1=+- hd2 0 idya;iy2=+- hd2 idya 0", "M wd2 t L ix2 iy1 L xb ya L x2 y1 L r hd2 L x2 y2 L xb yb L ix2 iy2 L wd2 b L ix1 iy2 L xa yb L x1 y2 L l hd2 L x1 y1 L xa ya L ix1 iy1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4198 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4197;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4199 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;dx=*/ wd2 a 50000;dy=*/ hd2 a 50000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dxa=*/ wd2 9239 10000;dya=*/ hd2 9239 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0;dxb=*/ wd2 7071 10000;dyb=*/ hd2 7071 10000;xc=+- wd2 0 dxb;xd=+- wd2 dxb 0;yc=+- hd2 0 dyb;yd=+- hd2 dyb 0;dxc=*/ wd2 3827 10000;dyc=*/ hd2 3827 10000;xe=+- wd2 0 dxc;xf=+- wd2 dxc 0;ye=+- hd2 0 dyc;yf=+- hd2 dyc 0;idx=*/ dx 9239 10000;idy=*/ dy 9239 10000;ix1=+- wd2 0 idx;ix2=+- wd2 idx 0;iy1=+- hd2 0 idy;iy2=+- hd2 idy 0;idc=*/ dx 7071 10000;idd=*/ dy 7071 10000;ixc=+- wd2 0 idc;ixd=+- wd2 idc 0;iyc=+- hd2 0 idd;iyd=+- hd2 idd 0;ide=*/ dx 3827 10000;idf=*/ dy 3827 10000;ixe=+- wd2 0 ide;ixf=+- wd2 ide 0;iye=+- hd2 0 idf;iyf=+- hd2 idf 0", "M wd2 t L ixf iye L xf ye L ix2 iy1 L xb ya L ix2 iy1 L r hd2 L ix2 iy2 L xb yb L ixf iyf L xf yf L ix2 iy2 L wd2 b L ixe iyf L xe yf L ix1 iy2 L xa yb L ix1 iy2 L l hd2 L ix1 iy1 L xa ya L ixe iye L xe ye L ix1 iy1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4200 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4199;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4201 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;ir=*/ wd2 a 50000;ihr=*/ hd2 a 50000", "M wd2 t L ir hd2 A wd2 hd2 16200000 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4202 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4201;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4203 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=37500", "a=pin 0 adj 50000;ir=*/ wd2 a 50000;ihr=*/ hd2 a 50000", "M wd2 t L ir hd2 A wd2 hd2 16200000 21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4204 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4203;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4205 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "cr=*/ ss 1 10;dcr=+- r 0 cr;dbcr=+- b 0 cr", "M cr t L dcr t A cr cr 16200000 5400000 L r dbcr A cr cr 0 5400000 L cr b A cr cr 5400000 5400000 L l cr A cr cr 10800000 5400000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4206 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4205;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4207 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 10;x2=*/ w 9 10;y1=*/ h 1 10;y2=*/ h 2 10;y3=*/ h 8 10;cy=*/ h 9 10", "M l y2 L x2 y2 L x2 y1 L r y1 L r y3 C r cy wd2 b wd2 y3 C wd2 cy l b l y3 Z|M x2 y2 L x2 y1|M x1 y1 L x1 t L r t L r y1");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4208 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4207;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4209 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 8;y1=*/ h 1 8", "M l t L r t L r b L l b Z|M x1 t L x1 b|M l y1 L r y1");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4210 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4209;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4211 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dy=*/ h 1 6;y1=+- t dy 0;y2=+- b 0 dy", "M l y1 A wd2 dy 10800000 -10800000 L r y2 A wd2 dy 0 10800000 Z|M l y1 A wd2 dy 10800000 10800000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4212 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4211;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4213 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 6;x1=+- l dx 0;x2=+- r 0 dx", "M x1 t L x2 t A dx hd2 16200000 -10800000 L x1 b A dx hd2 5400000 10800000 Z|M x2 t A dx hd2 16200000 10800000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4214 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4213;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4215 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 9 10", "M wd2 b L r b L r y1 A wd2 hd2 0 -21600000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4216 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4215;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4217 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 6;x1=+- r 0 dx", "M dx t L r t A dx hd2 16200000 -10800000 L dx b A dx hd2 5400000 -10800000 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4218 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4217;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4219 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 6;x2=*/ w 5 6", "M x1 t L x2 t A x1 hd2 16200000 10800000 L x1 b L l hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4220 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4219;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4221 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 1 5;y1=*/ h 1 5", "M l y1 L x1 t L r t L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4222 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4221;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4223 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "y1=*/ h 1 10;y2=*/ h 9 10;cy1=*/ h 1 5;cy2=*/ h 4 5", "M l y1 C wd4 0 wd2 cy1 r y1 L r y2 C wd2 b wd4 cy2 l y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4224 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4223;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4225 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dxa=*/ wd2 7071 10000;dya=*/ hd2 7071 10000;xa=+- wd2 0 dxa;xb=+- wd2 dxa 0;ya=+- hd2 0 dya;yb=+- hd2 dya 0", "M l hd2 A wd2 hd2 10800000 21600000 Z|M xa ya L xb yb|M xb ya L xa yb");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4226 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4225;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4227 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l hd2 A wd2 hd2 10800000 21600000 Z|M wd2 t L wd2 b|M l hd2 L r hd2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4228 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4227;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4229 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L l b L r b Z|M l hd2 L r hd2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4230 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4229;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4231 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=-20833;adj2=62500", "a1=*/ w adj1 100000;a2=*/ h adj2 100000;x1=+- wd2 a1 0;y1=+- hd2 a2 0;cr=*/ ss 1 6", "M l hd2 A wd2 hd2 10800000 21600000 Z|M wd2 b L x1 y1 L wd2 b");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4232 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4231;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4233 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=112500;adj4=-38333", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0", "M l t L r t L r b L l b Z|M x1 y1 L x2 y2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4234 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4233;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4235 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=112500;adj6=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0", "M l t L r t L r b L l b Z|M x1 y1 L x2 y2 L x3 y3");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4236 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4235;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4237 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=100000;adj6=-16667;adj7=112500;adj8=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;a7=*/ h adj7 100000;a8=*/ w adj8 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0;y4=+- hd2 a7 0;x4=+- wd2 a8 0", "M l t L r t L r b L l b Z|M x1 y1 L x2 y2 L x3 y3 L x4 y4");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4238 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4237;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4239 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=112500;adj4=-38333", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x1 y1 L x2 y2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4240 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4239;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4241 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=112500;adj6=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x1 y1 L x2 y2 L x3 y3");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4242 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4241;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4243 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18750;adj2=-8333;adj3=18750;adj4=-16667;adj5=100000;adj6=-16667;adj7=112500;adj8=-46667", "a1=*/ h adj1 100000;a2=*/ w adj2 100000;a3=*/ h adj3 100000;a4=*/ w adj4 100000;a5=*/ h adj5 100000;a6=*/ w adj6 100000;a7=*/ h adj7 100000;a8=*/ w adj8 100000;y1=+- hd2 a1 0;x1=+- wd2 a2 0;y2=+- hd2 a3 0;x2=+- wd2 a4 0;y3=+- hd2 a5 0;x3=+- wd2 a6 0;y4=+- hd2 a7 0;x4=+- wd2 a8 0", "M l t L r t L r b L l b Z|M x1 t L x1 b|M x1 y1 L x2 y2 L x3 y3 L x4 y4");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4244 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4243;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4245 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=43750", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;a4=pin 0 adj4 100000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a2 100000;x1=+- r 0 dx;x2=*/ w a4 100000;dy2=*/ h a3 100000;y3=+- t dy2 0", "M l y2 L x2 y2 L x2 y1 L x1 y1 L x1 t L r y3 L x1 dy2 L x1 y2 L l y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4246 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4245;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4247 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy=*/ h a2 100000;y1=+- b 0 dy;dx2=*/ w a3 100000;x3=+- r 0 dx2", "M l y1 L x3 y1 L x3 x1 L x1 x1 L x1 t L r x1 L x1 dy L x1 y1 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4248 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4247;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4249 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=50000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;a3=pin 0 adj3 50000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a3 100000;x1=+- r 0 dx", "M l y1 C wd2 t r t r hd2 L x1 hd2 L x1 t L r hd2 L x1 b L x1 hd2 C r hd2 r b wd2 b L l y2 C l y2 l hd2 l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4250 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4249;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4251 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=50000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;a3=pin 0 adj3 50000;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy=*/ h a3 100000;y1=+- b 0 dy", "M x1 b C t l t wd2 wd2 t L wd2 y1 L l y1 L wd2 b L r y1 L wd2 y1 C wd2 t r t r wd2 L x2 b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4252 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4251;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4253 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "ir=*/ ss 3 8;or=*/ ss 1 2;y1=+- hd2 0 or;x1=+- wd2 or 0", "M wd2 y1 A or or 16200000 18900000 L x1 hd2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4254 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4253;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4255 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=43750;adj5=75000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a5=pin 0 adj5 100000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a2 100000;x1=+- l dx 0;y3=*/ h a5 100000", "M l y3 L l y1 C l t x1 t x1 y1 L x1 y2 L x1 y3 L dx y3 L wd4 b L l y3 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4256 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4255;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4257 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;dy=*/ h a1 200000;y1=+- hd2 0 dy;y2=+- hd2 dy 0;dx=*/ w a2 100000;x1=+- l dx 0;dx2=*/ w a3 100000;x2=+- l dx2 0", "M l y1 L x2 t L x2 y1 L x1 y1 L x1 y2 L r y2 L r b L x1 b L x1 y2 L l y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4258 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4257;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4259 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=25000;adj2=25000;adj3=25000;adj4=48123", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;a4=pin 0 adj4 50000;dy1=*/ h a2 100000;y1=+- t dy1 0;y2=+- b 0 dy1;dx=*/ w a1 200000;x1=+- wd2 0 dx;x2=+- wd2 dx 0;dy2=*/ h a4 100000;y3=+- t dy2 0;y4=+- b 0 dy2;dx2=*/ w a3 200000;x3=+- wd2 0 dx2;x4=+- wd2 dx2 0", "M wd2 t L r y1 L x2 y1 L x2 y3 L x4 y3 L x4 y4 L x2 y4 L x2 y2 L r y2 L wd2 b L l y2 L x1 y2 L x1 y4 L x3 y4 L x3 y3 L x1 y3 L x1 y1 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4260 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4259;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4261 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=18515;adj2=18515;adj3=18515;adj4=48123", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;a3=pin 0 adj3 50000;a4=pin 0 adj4 50000;dx=*/ w a2 100000;dy=*/ h a2 100000;dh=*/ w a1 200000;dv=*/ h a1 200000;ah=*/ w a3 100000;av=*/ h a3 100000;x1=+- wd2 0 dh;x2=+- wd2 dh 0;y1=+- hd2 0 dv;y2=+- hd2 dv 0;xe=+- r 0 dx;ye=+- b 0 dy;ddx=*/ w a4 200000;ddy=*/ h a4 200000;x3=+- wd2 0 ddx;x4=+- wd2 ddx 0;y3=+- hd2 0 ddy;y4=+- hd2 ddy 0", "M wd2 t L r dy L x2 dy L x2 y3 L x4 y3 L x4 y1 L xe y1 L xe hd2 L r hd2 L xe y2 L x4 y2 L x4 y4 L x2 y4 L x2 ye L wd2 b L l ye L x1 ye L x1 y4 L x3 y4 L x3 y2 L dx y2 L dx hd2 L l hd2 L dx y1 L x3 y1 L x3 y3 L x1 y3 L x1 dy L wd2 t Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4262 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4261;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4263 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M wd4 hd2 C wd4 hd4 wd3 hd5 wd2 hd4 C wd2 hd5 wd3 hd4 wd4 hd4 C wd6 hd6 wd8 hd4 l hd2 C l hd3 wd8 hd2 wd4 hd2 Z|M wd2 hd4 C wd2 hd6 wd4 0 wd2 0 C wd2 hd6 r hd6 r hd4 C r hd3 r hd2 wd2 hd2 L wd4 hd2 C wd4 hd3 wd2 hd3 wd2 hd4 Z|M wd4 hd2 C wd4 hd2 wd6 b wd4 b C wd3 b wd2 b wd2 hd2 L r hd2 C r hd2 r b wd2 b C wd3 b wd4 hd2 wd4 hd2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4264 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4263;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4265 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=8333", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- b 0 dy", "M r t A wd2 dy 16200000 -5400000 L l y1 A wd2 dy 5400000 -5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4266 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4265;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4267 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=8333", "a=pin 0 adj 50000;dy=*/ h a 100000;y1=+- b 0 dy", "M l t A wd2 dy 16200000 5400000 L r y1 A wd2 dy 5400000 5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4268 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4267;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4269 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=8333;adj2=50000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;dy=*/ h a1 100000;dy2=*/ dy 1 2;ym=*/ h a2 100000;y1=+- ym 0 dy2;y2=+- ym dy2 0;y3=+- b 0 dy", "M r t A wd2 dy 16200000 -5400000 L l y1 A wd4 dy2 0 -5400000 L l y2 A wd4 dy2 10800000 -5400000 L l y3 A wd2 dy 5400000 -5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4270 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4269;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4271 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=8333;adj2=50000", "a1=pin 0 adj1 50000;a2=pin 0 adj2 100000;dy=*/ h a1 100000;dy2=*/ dy 1 2;ym=*/ h a2 100000;y1=+- ym 0 dy2;y2=+- ym dy2 0;y3=+- b 0 dy", "M l t A wd2 dy 16200000 5400000 L r y1 A wd4 dy2 10800000 5400000 L r y2 A wd4 dy2 0 5400000 L r y3 A wd2 dy 5400000 5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4272 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4271;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4273 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 25000;dx=*/ w a 100000;x1=+- r 0 dx;dx2=*/ dx 1 2;x2=+- l dx2 0;x3=+- r 0 dx2;y1=+- t dx 0;y2=+- b 0 dx;y3=+- t dx2 0;y4=+- b 0 dx2", "M x2 y1 L x1 y1 A dx2 dx2 16200000 5400000 L r y4 A dx2 dx2 0 -5400000 L dx y2 A dx2 dx2 5400000 5400000 L l y3 A dx2 dx2 10800000 -5400000 Z|M l y3 A dx2 dx2 10800000 10800000|M x1 y1 A dx2 dx2 16200000 -10800000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4274 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4273;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4275 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj=12500", "a=pin 0 adj 25000;dy=*/ h a 100000;y1=+- b 0 dy;dy2=*/ dy 1 2;x1=+- l dy 0;x2=+- r 0 dy;x3=+- l dy2 0;x4=+- r 0 dy2;y2=+- t dy2 0;y3=+- b 0 dy2", "M x1 t L x1 y1 A dy2 dy2 5400000 5400000 L x3 b A dy2 dy2 10800000 -5400000 L x2 b L x2 dy A dy2 dy2 16200000 5400000 L x4 t A dy2 dy2 0 -5400000 Z|M x4 t A dy2 dy2 0 10800000|M x1 y1 A dy2 dy2 5400000 -10800000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4276 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4275;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4277 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=0;adj2=16667", "a1=pin 0 adj1 50000;a2=pin 0 adj2 50000;dx1=*/ ss a1 100000;dx2=*/ ss a2 100000;x1=+- r 0 dx1;x2=+- r 0 dx2;y2=+- b 0 dx2;y1=+- b 0 dx1", "M dx1 t L x2 t L r dx2 L r y1 L x1 b L dx2 b L l y2 L l dx1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4278 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4277;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4279 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 5;dy=*/ h 1 5;x1=+- r 0 dx;y1=+- b 0 dy", "M l t A dx dy 10800000 -5400000|M x1 t A dx dy 16200000 5400000|M l y1 A dx dy 5400000 -5400000|M x1 y1 A dx dy 0 5400000");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4280 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4279;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4281 = new _M0TP210pptx_2dsvg8renderer9PresetDef("adj1=23520;adj2=6600;adj3=11760", "a1=pin 0 adj1 100000;a2=pin 0 adj2 50000;a3=pin 0 adj3 100000;dy1=*/ h a1 200000;dy2=*/ h a2 100000;dy3=*/ h a3 200000;y1=+- hd2 0 dy3;y2=+- y1 0 dy1;y3=+- hd2 dy3 0;y4=+- y3 dy1 0;dx=*/ w 1 8", "M l y2 L r y2 L r y1 L l y1 Z|M l y3 L r y3 L r y4 L l y4 Z|M dx t L r y3 L r y4 L dx hd2 L l y2 L l y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4282 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4281;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4283 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "", "M l t L r t L r b L l b Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4284 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4283;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4285 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10;x3=*/ w 4 10;x4=*/ w 6 10;y3=*/ h 45 100;y4=*/ h 55 100", "M l t L r t L r b L l b Z|M wd2 y1 L x2 hd2 L x2 y2 L x1 y2 L x1 hd2 Z|M x3 y3 L x4 y3 L x4 y2 L x3 y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4286 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4285;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4287 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x2 hd2 L x1 y1 L x1 y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4288 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4287;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4289 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x1 y1 L x2 hd2 L x1 y2 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4290 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4289;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4291 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 35 100;x3=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x3 hd2 L x2 y1 L x2 y2 Z|M x2 y1 L x1 y1 L x1 y2 L x2 y2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4292 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4291;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4293 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "x1=*/ w 3 10;x2=*/ w 65 100;x3=*/ w 7 10;y1=*/ h 3 10;y2=*/ h 7 10", "M l t L r t L r b L l b Z|M x1 y1 L x2 hd2 L x1 y2 Z|M x2 y1 L x3 y1 L x3 y2 L x2 y2");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4294 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4293;
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4295 = new _M0TP210pptx_2dsvg8renderer9PresetDef("", "dx=*/ w 1 20;dy=*/ h 1 20;x1=+- r 0 dx;y1=+- b 0 dy", "M l t L r t L r b L l b Z|M dx dy L x1 dy L x1 y1 L dx y1 Z");
+  const _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4296 = _M0FP210pptx_2dsvg8renderer16get__preset__defN6recordS4295;
   const _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS284 = "";
   const _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS285 = "";
   const _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS286 = "";
@@ -1103,6 +1068,16 @@ export function createPptxJsEngine() {
   const _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS294 = "";
   const _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS295 = "";
   const _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS302 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS736 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS737 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS738 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS739 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS740 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS741 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS745 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS746 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS747 = "";
+  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS754 = "";
   const _M0FP210pptx_2dsvg4main11g__modified = new _M0TPC13ref3RefGRPB5ArrayGbEE([]);
   const _M0FP210pptx_2dsvg4main9g__parsed = new _M0TPC13ref3RefGRPB5ArrayGbEE([]);
   const _M0FP210pptx_2dsvg4main15g__slide__count = new _M0TPC13ref3RefGiE(0);
@@ -1117,38 +1092,27 @@ export function createPptxJsEngine() {
   const _M0FP210pptx_2dsvg4main10g__masters = new _M0TPC13ref3RefGRPB5ArrayGURP210pptx_2dsvg5ooxml15SlideMasterDatasEEE([]);
   const _M0FP210pptx_2dsvg4main15g__master__rels = new _M0TPC13ref3RefGRPB5ArrayGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEEE([]);
   const _M0FP210pptx_2dsvg4main17g__master__themes = new _M0TPC13ref3RefGRPB5ArrayGRP210pptx_2dsvg5ooxml9ThemeDataEE([]);
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS961 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS962 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS963 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS964 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS965 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS966 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS970 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS971 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS972 = "";
-  const _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS979 = "";
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4408 = new _M0TP210pptx_2dsvg5ooxml5Color(68, 84, 106, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4409 = new _M0TP210pptx_2dsvg5ooxml5Color(231, 230, 230, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4410 = new _M0TP210pptx_2dsvg5ooxml5Color(68, 114, 196, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4411 = new _M0TP210pptx_2dsvg5ooxml5Color(237, 125, 49, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4412 = new _M0TP210pptx_2dsvg5ooxml5Color(165, 165, 165, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4413 = new _M0TP210pptx_2dsvg5ooxml5Color(255, 192, 0, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4414 = new _M0TP210pptx_2dsvg5ooxml5Color(91, 155, 213, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4415 = new _M0TP210pptx_2dsvg5ooxml5Color(112, 173, 71, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4416 = new _M0TP210pptx_2dsvg5ooxml5Color(5, 99, 193, 255);
-  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4417 = new _M0TP210pptx_2dsvg5ooxml5Color(149, 79, 163, 255);
+  const _M0FP210pptx_2dsvg4main26try__inherit__from__sourceN5tupleS989 = { _0: false, _1: false };
+  const _M0FP210pptx_2dsvg5ooxml17parse__style__refN5tupleS4427 = { _0: 0, _1: "" };
+  const _M0FP210pptx_2dsvg5ooxml16parse__scene__3dN5tupleS4426 = { _0: "", _1: "" };
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4406 = new _M0TP210pptx_2dsvg5ooxml5Color(68, 84, 106, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4407 = new _M0TP210pptx_2dsvg5ooxml5Color(231, 230, 230, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4408 = new _M0TP210pptx_2dsvg5ooxml5Color(68, 114, 196, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4409 = new _M0TP210pptx_2dsvg5ooxml5Color(237, 125, 49, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4410 = new _M0TP210pptx_2dsvg5ooxml5Color(165, 165, 165, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4411 = new _M0TP210pptx_2dsvg5ooxml5Color(255, 192, 0, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4412 = new _M0TP210pptx_2dsvg5ooxml5Color(91, 155, 213, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4413 = new _M0TP210pptx_2dsvg5ooxml5Color(112, 173, 71, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4414 = new _M0TP210pptx_2dsvg5ooxml5Color(5, 99, 193, 255);
+  const _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4415 = new _M0TP210pptx_2dsvg5ooxml5Color(149, 79, 163, 255);
   const _M0FP210pptx_2dsvg4main8g__theme = new _M0TPC13ref3RefGRP210pptx_2dsvg5ooxml9ThemeDataE(_M0MP210pptx_2dsvg5ooxml9ThemeData7default());
-  const _M0FP210pptx_2dsvg4main26try__inherit__from__sourceN5tupleS1279 = { _0: false, _1: false };
-  const _M0FP210pptx_2dsvg5ooxml17parse__style__refN5tupleS4429 = { _0: 0, _1: "" };
-  const _M0FP210pptx_2dsvg5ooxml16parse__scene__3dN5tupleS4428 = { _0: "", _1: "" };
-  const _M0FP210pptx_2dsvg4main14g__slide__size = new _M0TPC13ref3RefGRP210pptx_2dsvg5ooxml9SlideSizeE(_M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430);
-  const _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extraN5tupleS4233 = { _0: 0, _1: 0 };
-  const _M0FP210pptx_2dsvg8renderer22render__effect__filterN5tupleS4508 = { _0: "", _1: "" };
-  const _M0FP210pptx_2dsvg8renderer18render__math__textN6recordS4234 = new _M0TP210pptx_2dsvg5ooxml5Color(-1, 0, 0, 255);
-  const _M0FP210pptx_2dsvg8renderer19flatten__warp__textN6recordS4232 = new _M0TP210pptx_2dsvg5ooxml5Color(-1, -1, -1, 255);
-  const _M0FP210pptx_2dsvg8renderer20render__blip__filterN5tupleS4509 = { _0: "", _1: "" };
-  const _M0FP210pptx_2dsvg8renderer17hit__test__layoutN5tupleS4235 = { _0: 0, _1: 0, _2: 0, _3: 0 };
-  const _M0FP210pptx_2dsvg4main10add__shapeN6recordS1280 = new _M0TP210pptx_2dsvg5ooxml5Color(0, 0, 0, 255);
+  const _M0FP210pptx_2dsvg4main14g__slide__size = new _M0TPC13ref3RefGRP210pptx_2dsvg5ooxml9SlideSizeE(_M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428);
+  const _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extraN5tupleS4023 = { _0: 0, _1: 0 };
+  const _M0FP210pptx_2dsvg8renderer22render__effect__filterN5tupleS4297 = { _0: "", _1: "" };
+  const _M0FP210pptx_2dsvg8renderer18render__math__textN6recordS4024 = new _M0TP210pptx_2dsvg5ooxml5Color(-1, 0, 0, 255);
+  const _M0FP210pptx_2dsvg8renderer19flatten__warp__textN6recordS4022 = new _M0TP210pptx_2dsvg5ooxml5Color(-1, -1, -1, 255);
+  const _M0FP210pptx_2dsvg8renderer20render__blip__filterN5tupleS4298 = { _0: "", _1: "" };
+  const _M0FP210pptx_2dsvg4main10add__shapeN6recordS990 = new _M0TP210pptx_2dsvg5ooxml5Color(0, 0, 0, 255);
   const _M0FP210pptx_2dsvg11svg__parser21parse__shape__from__gN6constrS369 = new _M0DTP210pptx_2dsvg5ooxml9ShapeKind7Picture("");
   function _M0MPC16uint166UInt1622is__leading__surrogate(self) {
     return _M0IP016_24default__implPB7Compare6op__geGkE(self, 55296) && _M0IP016_24default__implPB7Compare6op__leGkE(self, 56319);
@@ -1274,25 +1238,14 @@ export function createPptxJsEngine() {
   function _M0MPC16double6Double7to__int(self) {
     return self !== self ? 0 : self >= 2147483647 ? 2147483647 : self <= -2147483648 ? -2147483648 : self | 0;
   }
-  function _M0MPC15array5Array11unsafe__popGRP210pptx_2dsvg5ooxml13TextParagraphE(self) {
+  function _M0MPC15array5Array11unsafe__popGRP210pptx_2dsvg5ooxml5ShapeE(self) {
     return _M0MPB7JSArray3pop(self);
   }
-  function _M0MPC15array5Array11unsafe__popGiE(self) {
-    return _M0MPB7JSArray3pop(self);
-  }
-  function _M0MPC15array5Array3popGRP210pptx_2dsvg5ooxml13TextParagraphE(self) {
+  function _M0MPC15array5Array3popGRP210pptx_2dsvg5ooxml5ShapeE(self) {
     if (self.length === 0) {
       return undefined;
     } else {
-      const v = _M0MPC15array5Array11unsafe__popGRP210pptx_2dsvg5ooxml13TextParagraphE(self);
-      return v;
-    }
-  }
-  function _M0MPC15array5Array3popGiE(self) {
-    if (self.length === 0) {
-      return undefined;
-    } else {
-      const v = _M0MPC15array5Array11unsafe__popGiE(self);
+      const v = _M0MPC15array5Array11unsafe__popGRP210pptx_2dsvg5ooxml5ShapeE(self);
       return v;
     }
   }
@@ -1314,7 +1267,7 @@ export function createPptxJsEngine() {
       return $panic();
     }
   }
-  function _M0MPC15array5Array2atGiE(self, index) {
+  function _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(self, index) {
     const len = self.length;
     if (index >= 0 && index < len) {
       $bound_check(self, index);
@@ -1323,7 +1276,7 @@ export function createPptxJsEngine() {
       return $panic();
     }
   }
-  function _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(self, index) {
+  function _M0MPC15array5Array2atGiE(self, index) {
     const len = self.length;
     if (index >= 0 && index < len) {
       $bound_check(self, index);
@@ -2417,7 +2370,7 @@ export function createPptxJsEngine() {
       const a = _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 0);
       return new _M0TP210pptx_2dsvg5ooxml5Color(_M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 2), _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 4), _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 6), a);
     } else {
-      return s.length >= 6 ? new _M0TP210pptx_2dsvg5ooxml5Color(_M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 0), _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 2), _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 4), 255) : _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405;
+      return s.length >= 6 ? new _M0TP210pptx_2dsvg5ooxml5Color(_M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 0), _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 2), _M0FP210pptx_2dsvg5ooxml11parse__hex2(s, 4), 255) : _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403;
     }
   }
   function _M0FP210pptx_2dsvg5ooxml25parse__theme__color__node(nodes, tag) {
@@ -2484,7 +2437,7 @@ export function createPptxJsEngine() {
     }
   }
   function _M0MP210pptx_2dsvg5ooxml9ThemeData7default() {
-    return new _M0TP210pptx_2dsvg5ooxml9ThemeData(_M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405, _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4408, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4409, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4410, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4411, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4412, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4413, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4414, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4415, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4416, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4417, "Calibri Light", "Calibri", "", "", [], [], _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406);
+    return new _M0TP210pptx_2dsvg5ooxml9ThemeData(_M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403, _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4406, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4407, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4408, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4409, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4410, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4411, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4412, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4413, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4414, _M0MP210pptx_2dsvg5ooxml9ThemeData7defaultN6recordS4415, "Calibri Light", "Calibri", "", "", [], [], _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404);
   }
   function _M0FP210pptx_2dsvg5ooxml12parse__theme(xml_str) {
     const def = _M0MP210pptx_2dsvg5ooxml9ThemeData7default();
@@ -2630,7 +2583,7 @@ export function createPptxJsEngine() {
       _M0FP210pptx_2dsvg5ooxml20collect__style__xmls(fmt_ch, "a:fillStyleLst", fill_style_xmls);
       _M0FP210pptx_2dsvg5ooxml20collect__style__xmls(fmt_ch, "a:lnStyleLst", ln_style_xmls);
     }
-    return new _M0TP210pptx_2dsvg5ooxml9ThemeData(dk1, lt1, dk2, lt2, accent1, accent2, accent3, accent4, accent5, accent6, hlink, fol_hlink, major_font, minor_font, major_ea_font, minor_ea_font, fill_style_xmls, ln_style_xmls, _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406);
+    return new _M0TP210pptx_2dsvg5ooxml9ThemeData(dk1, lt1, dk2, lt2, accent1, accent2, accent3, accent4, accent5, accent6, hlink, fol_hlink, major_font, minor_font, major_ea_font, minor_ea_font, fill_style_xmls, ln_style_xmls, _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404);
   }
   function _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, name, default_) {
     const _bind = _M0FP210pptx_2dsvg3xml9get__attr(node, name);
@@ -2642,11 +2595,11 @@ export function createPptxJsEngine() {
     }
   }
   function _M0FP210pptx_2dsvg5ooxml27parse__clr__map__from__node(node) {
-    const d = _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406;
+    const d = _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404;
     return new _M0TP210pptx_2dsvg5ooxml8ColorMap(_M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "bg1", d.bg1), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "tx1", d.tx1), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "bg2", d.bg2), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "tx2", d.tx2), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "accent1", d.accent1), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "accent2", d.accent2), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "accent3", d.accent3), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "accent4", d.accent4), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "accent5", d.accent5), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "accent6", d.accent6), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "hlink", d.hlink), _M0FP210pptx_2dsvg5ooxml13get__attr__or(node, "folHlink", d.fol_hlink));
   }
   function _M0FP210pptx_2dsvg5ooxml13resolve__slot(name, theme) {
-    return name === "dk1" ? theme.dk1 : name === "lt1" ? theme.lt1 : name === "dk2" ? theme.dk2 : name === "lt2" ? theme.lt2 : name === "accent1" ? theme.accent1 : name === "accent2" ? theme.accent2 : name === "accent3" ? theme.accent3 : name === "accent4" ? theme.accent4 : name === "accent5" ? theme.accent5 : name === "accent6" ? theme.accent6 : name === "hlink" ? theme.hlink : name === "folHlink" ? theme.fol_hlink : _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405;
+    return name === "dk1" ? theme.dk1 : name === "lt1" ? theme.lt1 : name === "dk2" ? theme.dk2 : name === "lt2" ? theme.lt2 : name === "accent1" ? theme.accent1 : name === "accent2" ? theme.accent2 : name === "accent3" ? theme.accent3 : name === "accent4" ? theme.accent4 : name === "accent5" ? theme.accent5 : name === "accent6" ? theme.accent6 : name === "hlink" ? theme.hlink : name === "folHlink" ? theme.fol_hlink : _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403;
   }
   function _M0FP210pptx_2dsvg5ooxml17apply__color__map(theme, cmap) {
     return new _M0TP210pptx_2dsvg5ooxml9ThemeData(theme.dk1, theme.lt1, theme.dk2, theme.lt2, theme.accent1, theme.accent2, theme.accent3, theme.accent4, theme.accent5, theme.accent6, theme.hlink, theme.fol_hlink, theme.major_font, theme.minor_font, theme.major_ea_font, theme.minor_ea_font, theme.fill_style_xmls, theme.ln_style_xmls, cmap);
@@ -2943,13 +2896,13 @@ export function createPptxJsEngine() {
     if (_bind === undefined) {
       const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(children, "a:schemeClr");
       if (_bind$2 === undefined) {
-        return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       } else {
         const _Some = _bind$2;
         const _clr = _Some;
         const _bind$3 = _M0FP210pptx_2dsvg3xml9get__attr(_clr, "val");
         if (_bind$3 === undefined) {
-          return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+          return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
         } else {
           const _Some$2 = _bind$3;
           const _v = _Some$2;
@@ -2962,7 +2915,7 @@ export function createPptxJsEngine() {
       const _clr = _Some;
       const _bind$2 = _M0FP210pptx_2dsvg3xml9get__attr(_clr, "val");
       if (_bind$2 === undefined) {
-        return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       } else {
         const _Some$2 = _bind$2;
         const _v = _Some$2;
@@ -2974,7 +2927,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml18parse__solid__fill(nodes, theme) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(nodes, "a:solidFill");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     } else {
       const _Some = _bind;
       const _fill_node = _Some;
@@ -3104,7 +3057,7 @@ export function createPptxJsEngine() {
     const _bind$8 = _M0FP210pptx_2dsvg3xml11find__child(ppr_ch, "a:buClr");
     let bu_color;
     if (_bind$8 === undefined) {
-      bu_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      bu_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     } else {
       const _Some = _bind$8;
       const _bc = _Some;
@@ -3150,7 +3103,7 @@ export function createPptxJsEngine() {
         bold = false;
         italic = false;
         font_size = 0;
-        color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
         font_face = "";
         ea_font = "";
         break _L;
@@ -3194,7 +3147,7 @@ export function createPptxJsEngine() {
     return new _M0TP210pptx_2dsvg5ooxml17LevelTextDefaults(font_size, bold, italic, color, font_face, ea_font, align, mar_l, indent, bu_char, bu_auto, bu_none, bu_font, bu_size, bu_color, lnspc, spc_bef, spc_aft);
   }
   function _M0MP210pptx_2dsvg5ooxml17LevelTextDefaults5empty() {
-    return new _M0TP210pptx_2dsvg5ooxml17LevelTextDefaults(0, false, false, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", "", "", -1, 0, "", "", false, "", 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, 0, 0);
+    return new _M0TP210pptx_2dsvg5ooxml17LevelTextDefaults(0, false, false, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", "", "", -1, 0, "", "", false, "", 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, 0, 0, 0);
   }
   function _M0FP210pptx_2dsvg5ooxml25parse__text__style__group(node, theme) {
     const ch = _M0FP210pptx_2dsvg3xml13get__children(node);
@@ -3286,7 +3239,7 @@ export function createPptxJsEngine() {
             }
           } else {
             if (_tag === "a:schemeClr") {
-              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(colors, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(colors, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
             }
           }
         }
@@ -3301,13 +3254,13 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml19parse__first__color(children) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(children, "a:srgbClr");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     } else {
       const _Some = _bind;
       const _clr = _Some;
       const _bind$2 = _M0FP210pptx_2dsvg3xml9get__attr(_clr, "val");
       if (_bind$2 === undefined) {
-        return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       } else {
         const _Some$2 = _bind$2;
         const _v = _Some$2;
@@ -3316,7 +3269,7 @@ export function createPptxJsEngine() {
     }
   }
   function _M0MP210pptx_2dsvg5ooxml8BlipFill4none() {
-    return new _M0TP210pptx_2dsvg5ooxml8BlipFill("", true, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, "", 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml8BlipFill("", true, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 0, "", 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0FP210pptx_2dsvg5ooxml23parse__blip__fill__node(bf_node) {
     const bf_ch = _M0FP210pptx_2dsvg3xml13get__children(bf_node);
@@ -3325,10 +3278,10 @@ export function createPptxJsEngine() {
     let svg_rid = "";
     let bright = 0;
     let contrast = 0;
-    let duotone_1 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let duotone_2 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let clr_from = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let clr_to = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let duotone_1 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let duotone_2 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let clr_from = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let clr_to = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(bf_ch, "a:blip");
     if (_bind === undefined) {
     } else {
@@ -3606,7 +3559,7 @@ export function createPptxJsEngine() {
     }
   }
   function _M0MP210pptx_2dsvg5ooxml11PatternFill4none() {
-    return new _M0TP210pptx_2dsvg5ooxml11PatternFill("", _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml11PatternFill("", _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0FP210pptx_2dsvg5ooxml20parse__pattern__fill(nodes, theme) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(nodes, "a:pattFill");
@@ -3630,7 +3583,7 @@ export function createPptxJsEngine() {
       const _bind$3 = _M0FP210pptx_2dsvg3xml11find__child(pf_ch, "a:fgClr");
       let fg_color;
       if (_bind$3 === undefined) {
-        fg_color = _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405;
+        fg_color = _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403;
       } else {
         const _Some$2 = _bind$3;
         const _fg = _Some$2;
@@ -3639,7 +3592,7 @@ export function createPptxJsEngine() {
       const _bind$4 = _M0FP210pptx_2dsvg3xml11find__child(pf_ch, "a:bgClr");
       let bg_color;
       if (_bind$4 === undefined) {
-        bg_color = _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407;
+        bg_color = _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405;
       } else {
         const _Some$2 = _bind$4;
         const _bg = _Some$2;
@@ -3651,14 +3604,14 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml28parse__bg__fills__from__csld(csld_ch, theme) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(csld_ch, "p:bg");
     if (_bind === undefined) {
-      return { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
+      return { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
     } else {
       const _Some = _bind;
       const _bg_node = _Some;
       const bg_ch = _M0FP210pptx_2dsvg3xml13get__children(_bg_node);
       const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(bg_ch, "p:bgPr");
       if (_bind$2 === undefined) {
-        return { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
+        return { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
       } else {
         const _Some$2 = _bind$2;
         const _bgpr = _Some$2;
@@ -3672,31 +3625,31 @@ export function createPptxJsEngine() {
     }
   }
   function _M0MP210pptx_2dsvg5ooxml11FillOverlay4none() {
-    return new _M0TP210pptx_2dsvg5ooxml11FillOverlay("", _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml11FillOverlay("", _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0MP210pptx_2dsvg5ooxml4Glow4none() {
-    return new _M0TP210pptx_2dsvg5ooxml4Glow(0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml4Glow(0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0MP210pptx_2dsvg5ooxml11InnerShadow4none() {
-    return new _M0TP210pptx_2dsvg5ooxml11InnerShadow(0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml11InnerShadow(0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0MP210pptx_2dsvg5ooxml11OuterShadow4none() {
-    return new _M0TP210pptx_2dsvg5ooxml11OuterShadow(0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, 0, "", true);
+    return new _M0TP210pptx_2dsvg5ooxml11OuterShadow(0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, 0, 0, "", true);
   }
   function _M0MP210pptx_2dsvg5ooxml12PresetShadow4none() {
-    return new _M0TP210pptx_2dsvg5ooxml12PresetShadow("", 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml12PresetShadow("", 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0MP210pptx_2dsvg5ooxml10EffectList4none() {
-    return new _M0TP210pptx_2dsvg5ooxml10EffectList(_M0MP210pptx_2dsvg5ooxml11OuterShadow4none(), _M0MP210pptx_2dsvg5ooxml11InnerShadow4none(), _M0MP210pptx_2dsvg5ooxml4Glow4none(), _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4422, _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4421, _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4420, _M0MP210pptx_2dsvg5ooxml12PresetShadow4none(), _M0MP210pptx_2dsvg5ooxml11FillOverlay4none());
+    return new _M0TP210pptx_2dsvg5ooxml10EffectList(_M0MP210pptx_2dsvg5ooxml11OuterShadow4none(), _M0MP210pptx_2dsvg5ooxml11InnerShadow4none(), _M0MP210pptx_2dsvg5ooxml4Glow4none(), _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4420, _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4419, _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12PresetShadow4none(), _M0MP210pptx_2dsvg5ooxml11FillOverlay4none());
   }
   function _M0MP210pptx_2dsvg5ooxml7Shape3d4none() {
-    return new _M0TP210pptx_2dsvg5ooxml7Shape3d(_M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4424, _M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4424, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", 0);
+    return new _M0TP210pptx_2dsvg5ooxml7Shape3d(_M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4422, _M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4422, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", 0);
   }
   function _M0MP210pptx_2dsvg5ooxml5Shape13default__with(kind, transform) {
-    return new _M0TP210pptx_2dsvg5ooxml5Shape(kind, transform, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, "", "", "", 0, "", "", "", "", "", "", "", false, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4419, "", -1, -1, -1, -1, -1, "", "", "", "", _M0MP210pptx_2dsvg5ooxml10EffectList4none(), _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4423, _M0MP210pptx_2dsvg5ooxml7Shape3d4none(), _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml5Shape(kind, transform, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, 0, "", "", "", 0, "", "", "", "", "", "", "", false, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4417, "", -1, -1, -1, -1, -1, "", "", "", "", _M0MP210pptx_2dsvg5ooxml10EffectList4none(), _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4421, _M0MP210pptx_2dsvg5ooxml7Shape3d4none(), _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0FP210pptx_2dsvg5ooxml12empty__shape() {
-    return _M0MP210pptx_2dsvg5ooxml5Shape13default__with(_M0DTP210pptx_2dsvg5ooxml9ShapeKind5Other__, _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4425);
+    return _M0MP210pptx_2dsvg5ooxml5Shape13default__with(_M0DTP210pptx_2dsvg5ooxml9ShapeKind5Other__, _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4423);
   }
   function _M0FP210pptx_2dsvg5ooxml12parse__avlst(geom_node) {
     const avs = [];
@@ -3739,7 +3692,7 @@ export function createPptxJsEngine() {
     return _p === "";
   }
   function _M0MP210pptx_2dsvg5ooxml11StrokeProps7default() {
-    return new _M0TP210pptx_2dsvg5ooxml11StrokeProps(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, "", "", "", 0, "", "", "", "", "", "", "", false, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none());
+    return new _M0TP210pptx_2dsvg5ooxml11StrokeProps(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, 0, "", "", "", 0, "", "", "", "", "", "", "", false, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none());
   }
   function _M0FP210pptx_2dsvg5ooxml13parse__stroke(sppr_children, theme) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(sppr_children, "a:ln");
@@ -3776,10 +3729,10 @@ export function createPptxJsEngine() {
       const has_alt_fill = !(ln_gf_early.stops.length === 0) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(ln_pf_early);
       let color;
       if (no_fill) {
-        color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       } else {
         const clr = _M0FP210pptx_2dsvg5ooxml18parse__solid__fill(ln_ch, theme);
-        color = clr.r < 0 ? (has_alt_fill ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405) : clr;
+        color = clr.r < 0 ? (has_alt_fill ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403) : clr;
       }
       const _bind$5 = _M0FP210pptx_2dsvg3xml11find__child(ln_ch, "a:prstDash");
       let dash;
@@ -3957,7 +3910,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml11parse__xfrm(sppr_children) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(sppr_children, "a:xfrm");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4425;
+      return _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4423;
     } else {
       const _Some = _bind;
       const _xfrm = _Some;
@@ -4071,7 +4024,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml17parse__tc__border(tcpr_ch, tag, theme) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(tcpr_ch, tag);
     if (_bind === undefined) {
-      return { _0: 0, _1: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 };
+      return { _0: 0, _1: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 };
     } else {
       const _Some = _bind;
       const _ln_node = _Some;
@@ -4082,16 +4035,16 @@ export function createPptxJsEngine() {
         const color = _M0FP210pptx_2dsvg5ooxml18parse__solid__fill(ln_ch, theme);
         return { _0: w, _1: color };
       } else {
-        return { _0: -1, _1: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 };
+        return { _0: -1, _1: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 };
       }
     }
   }
   function _M0FP210pptx_2dsvg5ooxml18default__text__run(text, def_bold, def_bold_explicit, def_italic, def_font_size, def_color, def_font_face, def_ea_font) {
     const _bind = _M0MP210pptx_2dsvg5ooxml10EffectList4none();
-    const _bind$2 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    const _bind$2 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     const _bind$3 = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
     const _bind$4 = _M0MP210pptx_2dsvg5ooxml11PatternFill4none();
-    return new _M0TP210pptx_2dsvg5ooxml7TextRun(text, def_bold, def_bold_explicit, def_italic, def_font_size, def_color, def_font_face, def_ea_font, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2404, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2405, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2406, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2407, 0, 0, 0, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2411, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2412, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2413, _bind, _bind$2, 0, _bind$3, _bind$4, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2419);
+    return new _M0TP210pptx_2dsvg5ooxml7TextRun(text, def_bold, def_bold_explicit, def_italic, def_font_size, def_color, def_font_face, def_ea_font, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2402, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2403, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2404, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2405, 0, 0, 0, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2409, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2410, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2411, _bind, _bind$2, 0, _bind$3, _bind$4, _M0FP210pptx_2dsvg5ooxml18default__text__runN7_2abindS2417);
   }
   function _M0FP210pptx_2dsvg5ooxml19extract__math__text(node) {
     if (node.$tag === 1) {
@@ -4133,7 +4086,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml18parse__body__props(ch) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(ch, "a:bodyPr");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4419;
+      return _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4417;
     } else {
       const _Some = _bind;
       const _bpr = _Some;
@@ -4333,7 +4286,7 @@ export function createPptxJsEngine() {
     const ppr_ch = _M0FP210pptx_2dsvg3xml13get__children(ppr);
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(ppr_ch, "a:defRPr");
     if (_bind === undefined) {
-      return { _0: false, _1: false, _2: false, _3: 0, _4: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _5: "", _6: "" };
+      return { _0: false, _1: false, _2: false, _3: 0, _4: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _5: "", _6: "" };
     } else {
       const _Some = _bind;
       const _drpr = _Some;
@@ -4505,7 +4458,7 @@ export function createPptxJsEngine() {
     const _bind$12 = _M0FP210pptx_2dsvg3xml11find__child(ppr_ch, "a:buClr");
     let bu_color;
     if (_bind$12 === undefined) {
-      bu_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      bu_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     } else {
       const _Some = _bind$12;
       const _bc = _Some;
@@ -4642,13 +4595,13 @@ export function createPptxJsEngine() {
       const _bind$5 = _M0FP210pptx_2dsvg3xml11find__child(eff_ch, "a:blur");
       let bl;
       if (_bind$5 === undefined) {
-        bl = _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4420;
+        bl = _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4418;
       } else {
         const _Some$2 = _bind$5;
         const _node = _Some$2;
         bl = new _M0TP210pptx_2dsvg5ooxml4Blur(_M0FP210pptx_2dsvg5ooxml9attr__int(_node, "rad"));
       }
-      return new _M0TP210pptx_2dsvg5ooxml10EffectList(os, ishdw, gl, _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4422, _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4421, bl, _M0MP210pptx_2dsvg5ooxml12PresetShadow4none(), _M0MP210pptx_2dsvg5ooxml11FillOverlay4none());
+      return new _M0TP210pptx_2dsvg5ooxml10EffectList(os, ishdw, gl, _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4420, _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4419, bl, _M0MP210pptx_2dsvg5ooxml12PresetShadow4none(), _M0MP210pptx_2dsvg5ooxml11FillOverlay4none());
     }
   }
   function _M0FP210pptx_2dsvg5ooxml17parse__run__props(rpr, def_bold, def_bold_explicit, def_italic, def_font_size, def_color, def_font_face, def_ea_font, theme) {
@@ -4746,7 +4699,7 @@ export function createPptxJsEngine() {
     _L: {
       const _bind$7 = _M0FP210pptx_2dsvg3xml11find__child(rpr_ch, "a:ln");
       if (_bind$7 === undefined) {
-        outline_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        outline_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
         outline_w = 0;
         break _L;
       } else {
@@ -4787,7 +4740,7 @@ export function createPptxJsEngine() {
         const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(p_ch, "a:pPr");
         let _bind$3;
         if (_bind$2 === undefined) {
-          _bind$3 = { _0: "", _1: 0, _2: 0, _3: 0, _4: 0, _5: -1, _6: 0, _7: "", _8: "", _9: false, _10: "", _11: 0, _12: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _13: "", _14: [], _15: false };
+          _bind$3 = { _0: "", _1: 0, _2: 0, _3: 0, _4: 0, _5: -1, _6: 0, _7: "", _8: "", _9: false, _10: "", _11: 0, _12: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _13: "", _14: [], _15: false };
         } else {
           const _Some = _bind$2;
           const _ppr = _Some;
@@ -4812,7 +4765,7 @@ export function createPptxJsEngine() {
         const _bind$4 = _M0FP210pptx_2dsvg3xml11find__child(p_ch, "a:pPr");
         let _bind$5;
         if (_bind$4 === undefined) {
-          _bind$5 = { _0: false, _1: false, _2: false, _3: 0, _4: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _5: "", _6: "" };
+          _bind$5 = { _0: false, _1: false, _2: false, _3: 0, _4: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _5: "", _6: "" };
         } else {
           const _Some = _bind$4;
           const _ppr = _Some;
@@ -4927,7 +4880,7 @@ export function createPptxJsEngine() {
           const _bind$6 = _M0FP210pptx_2dsvg3xml11find__child(p_ch, "a:endParaRPr");
           if (_bind$6 === undefined) {
             epr_font_size = 0;
-            epr_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+            epr_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
             epr_font_face = "";
             epr_ea_font = "";
             break _L;
@@ -5172,14 +5125,14 @@ export function createPptxJsEngine() {
     const _bind$3 = _M0FP210pptx_2dsvg3xml11find__child(ch, "a:txBody");
     let _bind$4;
     if (_bind$3 === undefined) {
-      _bind$4 = { _0: [], _1: _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4419, _2: _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty() };
+      _bind$4 = { _0: [], _1: _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4417, _2: _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty() };
     } else {
       const _Some = _bind$3;
       const _txb = _Some;
       _bind$4 = _M0FP210pptx_2dsvg5ooxml17parse__text__body(_txb, theme);
     }
     const _paragraphs = _bind$4._0;
-    let fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     let grad_fill = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
     let mar_l = -1;
     let mar_r = -1;
@@ -5190,14 +5143,14 @@ export function createPptxJsEngine() {
     let bdr_r_w = 0;
     let bdr_t_w = 0;
     let bdr_b_w = 0;
-    let bdr_l_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let bdr_r_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let bdr_t_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let bdr_b_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let bdr_l_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let bdr_r_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let bdr_t_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let bdr_b_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     let bdr_tl_br_w = 0;
-    let bdr_tl_br_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let bdr_tl_br_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     let bdr_bl_tr_w = 0;
-    let bdr_bl_tr_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let bdr_bl_tr_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     const _bind$5 = _M0FP210pptx_2dsvg3xml11find__child(ch, "a:tcPr");
     if (_bind$5 === undefined) {
     } else {
@@ -5273,7 +5226,7 @@ export function createPptxJsEngine() {
     if (_bind === undefined) {
       const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(nodes, "p:xfrm");
       if (_bind$2 === undefined) {
-        return _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4425;
+        return _M0MP210pptx_2dsvg5ooxml14ShapeTransform7defaultN6recordS4423;
       } else {
         const _Some = _bind$2;
         const _xfrm = _Some;
@@ -5286,7 +5239,7 @@ export function createPptxJsEngine() {
     }
   }
   function _M0MP210pptx_2dsvg5ooxml9ChartData5empty() {
-    return new _M0TP210pptx_2dsvg5ooxml9ChartData([], [], "", _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4426, 0, "", _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4427);
+    return new _M0TP210pptx_2dsvg5ooxml9ChartData([], [], "", _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4424, 0, "", _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4425);
   }
   function _M0FP210pptx_2dsvg5ooxml21parse__graphic__frame(gf, theme) {
     const ch = _M0FP210pptx_2dsvg3xml13get__children(gf);
@@ -6066,7 +6019,7 @@ export function createPptxJsEngine() {
       const _bind$5 = _M0FP210pptx_2dsvg3xml11find__child(eff_ch, "a:softEdge");
       let se;
       if (_bind$5 === undefined) {
-        se = _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4422;
+        se = _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4420;
       } else {
         const _Some$2 = _bind$5;
         const _node = _Some$2;
@@ -6075,7 +6028,7 @@ export function createPptxJsEngine() {
       const _bind$6 = _M0FP210pptx_2dsvg3xml11find__child(eff_ch, "a:reflection");
       let refl;
       if (_bind$6 === undefined) {
-        refl = _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4421;
+        refl = _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4419;
       } else {
         const _Some$2 = _bind$6;
         const _node = _Some$2;
@@ -6111,7 +6064,7 @@ export function createPptxJsEngine() {
       const _bind$7 = _M0FP210pptx_2dsvg3xml11find__child(eff_ch, "a:blur");
       let bl;
       if (_bind$7 === undefined) {
-        bl = _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4420;
+        bl = _M0MP210pptx_2dsvg5ooxml4Blur4noneN6recordS4418;
       } else {
         const _Some$2 = _bind$7;
         const _node = _Some$2;
@@ -6161,7 +6114,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml23parse__font__ref__color(style_ch, theme) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(style_ch, "a:fontRef");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      return _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     } else {
       const _Some = _bind;
       const _fr = _Some;
@@ -6187,7 +6140,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml16parse__scene__3d(sppr_ch) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(sppr_ch, "a:scene3d");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4423;
+      return _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4421;
     } else {
       const _Some = _bind;
       const _scene = _Some;
@@ -6216,7 +6169,7 @@ export function createPptxJsEngine() {
           const _bind$4 = _M0FP210pptx_2dsvg3xml11find__child(sch, "a:lightRig");
           let lr;
           if (_bind$4 === undefined) {
-            lr = _M0FP210pptx_2dsvg5ooxml16parse__scene__3dN5tupleS4428;
+            lr = _M0FP210pptx_2dsvg5ooxml16parse__scene__3dN5tupleS4426;
           } else {
             const _Some$3 = _bind$4;
             const _lr_node = _Some$3;
@@ -6250,7 +6203,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml12parse__bevel(parent_ch, tag) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(parent_ch, tag);
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4424;
+      return _M0MP210pptx_2dsvg5ooxml5Bevel4noneN6recordS4422;
     } else {
       const _Some = _bind;
       const _b = _Some;
@@ -6329,7 +6282,7 @@ export function createPptxJsEngine() {
       const _bind$6 = _M0FP210pptx_2dsvg3xml11find__child(sp_ch, "a:extrusionClr");
       let ext_clr;
       if (_bind$6 === undefined) {
-        ext_clr = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        ext_clr = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       } else {
         const _Some$2 = _bind$6;
         const _ec = _Some$2;
@@ -6338,7 +6291,7 @@ export function createPptxJsEngine() {
       const _bind$7 = _M0FP210pptx_2dsvg3xml11find__child(sp_ch, "a:contourClr");
       let cnt_clr;
       if (_bind$7 === undefined) {
-        cnt_clr = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        cnt_clr = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       } else {
         const _Some$2 = _bind$7;
         const _cc = _Some$2;
@@ -6350,7 +6303,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml17parse__style__ref(style_ch, tag) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(style_ch, tag);
     if (_bind === undefined) {
-      return _M0FP210pptx_2dsvg5ooxml17parse__style__refN5tupleS4429;
+      return _M0FP210pptx_2dsvg5ooxml17parse__style__refN5tupleS4427;
     } else {
       const _Some = _bind;
       const _ref_node = _Some;
@@ -6376,7 +6329,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg5ooxml18resolve__fill__ref(idx, scheme_color_name, theme) {
     if (idx < 1 || idx > theme.fill_style_xmls.length) {
-      return { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
+      return { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
     }
     const raw = _M0MPC15array5Array2atGsE(theme.fill_style_xmls, idx - 1 | 0);
     const substituted = _M0FP210pptx_2dsvg3xml17str__replace__all(raw, "phClr", scheme_color_name);
@@ -6498,7 +6451,7 @@ export function createPptxJsEngine() {
         explicit_no_fill = false;
         break _L;
       } else {
-        fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
         explicit_no_fill = true;
         break _L;
       }
@@ -6514,7 +6467,7 @@ export function createPptxJsEngine() {
     let blip_fill$2 = blip_fill;
     let patt_fill$2 = patt_fill;
     let sp$2 = sp_stroke;
-    let font_ref_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let font_ref_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     let sppr_has_any_fill;
     if (explicit_no_fill) {
       sppr_has_any_fill = true;
@@ -6584,7 +6537,7 @@ export function createPptxJsEngine() {
     const _bind$6 = _M0FP210pptx_2dsvg3xml11find__child(ch, "p:txBody");
     let _bind$7;
     if (_bind$6 === undefined) {
-      _bind$7 = { _0: [], _1: _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4419, _2: _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty() };
+      _bind$7 = { _0: [], _1: _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4417, _2: _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty() };
     } else {
       const _Some = _bind$6;
       const _txb = _Some;
@@ -6718,14 +6671,14 @@ export function createPptxJsEngine() {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(nodes, "p:sldMaster");
     let clr_map;
     if (_bind === undefined) {
-      clr_map = _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406;
+      clr_map = _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404;
     } else {
       const _Some = _bind;
       const _master_node = _Some;
       const master_ch = _M0FP210pptx_2dsvg3xml13get__children(_master_node);
       const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(master_ch, "p:clrMap");
       if (_bind$2 === undefined) {
-        clr_map = _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406;
+        clr_map = _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404;
       } else {
         const _Some$2 = _bind$2;
         const _cm_node = _Some$2;
@@ -6736,7 +6689,7 @@ export function createPptxJsEngine() {
     const csld = _M0FP210pptx_2dsvg3xml10find__path(nodes, ["p:sldMaster", "p:cSld"]);
     let _bind$2;
     if (csld === undefined) {
-      _bind$2 = { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
+      _bind$2 = { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
     } else {
       const _Some = csld;
       const _csld_node = _Some;
@@ -6795,7 +6748,7 @@ export function createPptxJsEngine() {
     const csld = _M0FP210pptx_2dsvg3xml11find__child(root_ch, "p:cSld");
     let _bind$2;
     if (csld === undefined) {
-      _bind$2 = { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
+      _bind$2 = { _0: _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _1: _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _2: _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _3: _M0MP210pptx_2dsvg5ooxml11PatternFill4none() };
     } else {
       const _Some = csld;
       const _csld_node = _Some;
@@ -6919,20 +6872,20 @@ export function createPptxJsEngine() {
     const nodes = _M0FP210pptx_2dsvg3xml10parse__xml(prs_xml);
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(nodes, "p:presentation");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430;
+      return _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428;
     } else {
       const _Some = _bind;
       const _prs = _Some;
       const prs_ch = _M0FP210pptx_2dsvg3xml13get__children(_prs);
       const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(prs_ch, "p:sldSz");
       if (_bind$2 === undefined) {
-        return _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430;
+        return _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428;
       } else {
         const _Some$2 = _bind$2;
         const _sz = _Some$2;
         const cx = _M0FP210pptx_2dsvg5ooxml9attr__int(_sz, "cx");
         const cy = _M0FP210pptx_2dsvg5ooxml9attr__int(_sz, "cy");
-        return cx > 0 && cy > 0 ? new _M0TP210pptx_2dsvg5ooxml9SlideSize(cx, cy) : _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430;
+        return cx > 0 && cy > 0 ? new _M0TP210pptx_2dsvg5ooxml9SlideSize(cx, cy) : _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428;
       }
     }
   }
@@ -6987,7 +6940,7 @@ export function createPptxJsEngine() {
     }
     const csld = _M0FP210pptx_2dsvg3xml11find__child(sld_children, "p:cSld");
     if (csld === undefined) {
-      return new _M0TP210pptx_2dsvg5ooxml9SlideData(slide_size, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), shapes, transition_xml, timing_xml, hidden);
+      return new _M0TP210pptx_2dsvg5ooxml9SlideData(slide_size, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), shapes, transition_xml, timing_xml, hidden);
     } else {
       const _Some = csld;
       const _csld_node = _Some;
@@ -6999,7 +6952,7 @@ export function createPptxJsEngine() {
       _L: {
         const _bind$3 = _M0FP210pptx_2dsvg3xml11find__child(csld_ch, "p:bg");
         if (_bind$3 === undefined) {
-          bg = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+          bg = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
           bg_grad = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
           bg_bf = _M0MP210pptx_2dsvg5ooxml8BlipFill4none();
           bg_pf = _M0MP210pptx_2dsvg5ooxml11PatternFill4none();
@@ -7010,7 +6963,7 @@ export function createPptxJsEngine() {
           const bg_ch = _M0FP210pptx_2dsvg3xml13get__children(_bg_node);
           const _bind$4 = _M0FP210pptx_2dsvg3xml11find__child(bg_ch, "p:bgPr");
           if (_bind$4 === undefined) {
-            bg = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+            bg = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
             bg_grad = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
             bg_bf = _M0MP210pptx_2dsvg5ooxml8BlipFill4none();
             bg_pf = _M0MP210pptx_2dsvg5ooxml11PatternFill4none();
@@ -7042,24 +6995,21 @@ export function createPptxJsEngine() {
       }
     }
   }
-  function _M0FP210pptx_2dsvg5ooxml18parse__shapes__xml(xml, theme) {
-    return _M0FP210pptx_2dsvg5ooxml29parse__shapes__from__children(_M0FP210pptx_2dsvg3xml10parse__xml(xml), theme);
-  }
   function _M0FP210pptx_2dsvg5ooxml25parse__table__style__cell(node, theme) {
     const ch = _M0FP210pptx_2dsvg3xml13get__children(node);
-    let fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     let grad_fill = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
     let bold = false;
     let italic = false;
-    let font_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let font_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     let bdr_l_w = 0;
     let bdr_r_w = 0;
     let bdr_t_w = 0;
     let bdr_b_w = 0;
-    let bdr_l_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let bdr_r_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let bdr_t_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let bdr_b_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    let bdr_l_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let bdr_r_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let bdr_t_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let bdr_b_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(ch, "a:tcPr");
     if (_bind === undefined) {
     } else {
@@ -7125,7 +7075,7 @@ export function createPptxJsEngine() {
     return new _M0TP210pptx_2dsvg5ooxml14TableStyleCell(fill, grad_fill, bdr_l_w, bdr_r_w, bdr_t_w, bdr_b_w, bdr_l_color, bdr_r_color, bdr_t_color, bdr_b_color, bold, italic, font_color);
   }
   function _M0MP210pptx_2dsvg5ooxml14TableStyleCell4none() {
-    return new _M0TP210pptx_2dsvg5ooxml14TableStyleCell(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), 0, 0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, false, false, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml14TableStyleCell(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), 0, 0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, false, false, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0FP210pptx_2dsvg5ooxml20parse__table__stylesN5parseS509(_env, tag) {
     const sn_ch = _env._1;
@@ -7176,7 +7126,7 @@ export function createPptxJsEngine() {
     return styles;
   }
   function _M0MP210pptx_2dsvg5ooxml9ChartSpPr4none() {
-    return new _M0TP210pptx_2dsvg5ooxml9ChartSpPr(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, false);
+    return new _M0TP210pptx_2dsvg5ooxml9ChartSpPr(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, 0, false);
   }
   function _M0MP210pptx_2dsvg5ooxml12ChartErrBars4none() {
     return new _M0TP210pptx_2dsvg5ooxml12ChartErrBars("y", "both", "", 0, _M0MP210pptx_2dsvg5ooxml9ChartSpPr4none());
@@ -7192,7 +7142,7 @@ export function createPptxJsEngine() {
     return new _M0TP210pptx_2dsvg5ooxml7StrData([]);
   }
   function _M0MP210pptx_2dsvg5ooxml10ChartGroup7default(ct) {
-    return new _M0TP210pptx_2dsvg5ooxml10ChartGroup(ct, [], "col", "clustered", 150, 0, false, 50, "", [], _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4431, "", 0, false, []);
+    return new _M0TP210pptx_2dsvg5ooxml10ChartGroup(ct, [], "col", "clustered", 150, 0, false, 50, "", [], _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4429, "", 0, false, []);
   }
   function _M0FP210pptx_2dsvg5ooxml16child__attr__val(ch, tag) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(ch, tag);
@@ -7311,7 +7261,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg5ooxml26parse__chart__data__labels(ch) {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(ch, "c:dLbls");
     if (_bind === undefined) {
-      return _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4431;
+      return _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4429;
     } else {
       const _Some = _bind;
       const _n = _Some;
@@ -7468,7 +7418,7 @@ export function createPptxJsEngine() {
     _L: {
       const _bind$2 = _M0FP210pptx_2dsvg3xml11find__child(sppr_ch, "a:ln");
       if (_bind$2 === undefined) {
-        stroke = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+        stroke = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
         stroke_w = 0;
         break _L;
       } else {
@@ -7943,7 +7893,7 @@ export function createPptxJsEngine() {
     const _bind$6 = _M0FP210pptx_2dsvg3xml11find__child(chart_ch, "c:legend");
     let legend;
     if (_bind$6 === undefined) {
-      legend = _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4426;
+      legend = _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4424;
     } else {
       const _Some = _bind$6;
       const _lg = _Some;
@@ -7952,7 +7902,7 @@ export function createPptxJsEngine() {
     const _bind$7 = _M0FP210pptx_2dsvg3xml11find__child(chart_ch, "c:view3D");
     let view_3d;
     if (_bind$7 === undefined) {
-      view_3d = _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4427;
+      view_3d = _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4425;
     } else {
       const _Some = _bind$7;
       const _v = _Some;
@@ -8295,7 +8245,7 @@ export function createPptxJsEngine() {
       sp_pr = _M0FP210pptx_2dsvg5ooxml26parse__chart__sp__pr__node(_sppr, theme);
     }
     const subtotals = _M0FP210pptx_2dsvg5ooxml20parse__cx__subtotals(ch);
-    const series = new _M0TP210pptx_2dsvg5ooxml11ChartSeries(idx, idx, title, sp_pr, data_block.cats, data_block.vals, _M0DTP210pptx_2dsvg5ooxml14AxisDataSource6NoData__, _M0DTP210pptx_2dsvg5ooxml14AxisDataSource6NoData__, _M0DTP210pptx_2dsvg5ooxml14AxisDataSource6NoData__, false, 0, data_points, [], _M0MP210pptx_2dsvg5ooxml12ChartErrBars4none(), _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4431);
+    const series = new _M0TP210pptx_2dsvg5ooxml11ChartSeries(idx, idx, title, sp_pr, data_block.cats, data_block.vals, _M0DTP210pptx_2dsvg5ooxml14AxisDataSource6NoData__, _M0DTP210pptx_2dsvg5ooxml14AxisDataSource6NoData__, _M0DTP210pptx_2dsvg5ooxml14AxisDataSource6NoData__, false, 0, data_points, [], _M0MP210pptx_2dsvg5ooxml12ChartErrBars4none(), _M0MP210pptx_2dsvg5ooxml15ChartDataLabels4noneN6recordS4429);
     const _tmp = _M0MP210pptx_2dsvg5ooxml10ChartGroup7default(chart_kind);
     return new _M0TP210pptx_2dsvg5ooxml10ChartGroup(_tmp.chart_type, [series], _tmp.bar_dir, _tmp.grouping, _tmp.gap_width, _tmp.overlap, _tmp.vary_colors, _tmp.hole_size, _tmp.scatter_style, _tmp.ax_ids, _tmp.data_labels, _tmp.of_pie_type, _tmp.split_pos, _tmp.wireframe, subtotals);
   }
@@ -8417,7 +8367,7 @@ export function createPptxJsEngine() {
     const _bind$5 = _M0FP210pptx_2dsvg3xml11find__child(chart_ch, "cx:legend");
     let legend;
     if (_bind$5 === undefined) {
-      legend = _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4426;
+      legend = _M0MP210pptx_2dsvg5ooxml11ChartLegend4noneN6recordS4424;
     } else {
       const _Some = _bind$5;
       const _lg = _Some;
@@ -8431,7 +8381,7 @@ export function createPptxJsEngine() {
       }
       legend = new _M0TP210pptx_2dsvg5ooxml11ChartLegend(pos, false, true);
     }
-    return new _M0TP210pptx_2dsvg5ooxml9ChartData(_groups, _axes, title, legend, 0, chart_xml, _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4427);
+    return new _M0TP210pptx_2dsvg5ooxml9ChartData(_groups, _axes, title, legend, 0, chart_xml, _M0MP210pptx_2dsvg5ooxml11ChartView3D4noneN6recordS4425);
   }
   function _M0FP210pptx_2dsvg5ooxml19alpha__to__css__str(alpha) {
     const a100 = (Math.imul(alpha, 100) | 0) / 255 | 0;
@@ -8503,9 +8453,6 @@ export function createPptxJsEngine() {
   }
   function _M0MP210pptx_2dsvg5ooxml8BlipFill9has__crop(self) {
     return self.src_l > 0 || (self.src_t > 0 || (self.src_r > 0 || self.src_b > 0));
-  }
-  function _M0MP210pptx_2dsvg5ooxml9TableCell5empty() {
-    return new _M0TP210pptx_2dsvg5ooxml9TableCell([], _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), 1, 1, false, false, 0, 0, 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, -1, -1, -1, -1, "");
   }
   function _M0MP210pptx_2dsvg5ooxml14TableStyleCell8is__none(self) {
     const _p = self.fill;
@@ -8745,7 +8692,7 @@ export function createPptxJsEngine() {
     let text = "";
     let first_font_size = -1;
     let first_ff = "";
-    let first_color = _M0FP210pptx_2dsvg8renderer19flatten__warp__textN6recordS4232;
+    let first_color = _M0FP210pptx_2dsvg8renderer19flatten__warp__textN6recordS4022;
     let first_bold = false;
     let first_italic = false;
     let found_style = false;
@@ -9172,24 +9119,6 @@ export function createPptxJsEngine() {
     }
     return count;
   }
-  function _M0FP210pptx_2dsvg8renderer15run__font__face(run, theme) {
-    const _p = run.ea_font;
-    if (!(_p === "")) {
-      return run.ea_font;
-    } else {
-      const _p$2 = run.font_face;
-      if (!(_p$2 === "")) {
-        return run.font_face;
-      } else {
-        return theme.minor_font;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg8renderer11run__fs__px(run, scale, def_sz, font_scale) {
-    const fs_raw = run.font_size > 0 ? run.font_size : def_sz > 0 ? (Math.imul(def_sz, scale) | 0) / _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt | 0 : 1800;
-    const _p = Math.imul(_M0FP210pptx_2dsvg8renderer18apply__font__scale(fs_raw, font_scale), _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt) | 0;
-    return (scale <= 0 ? 0 : _p / scale | 0) + 0;
-  }
   function _M0FP210pptx_2dsvg8renderer20measure__line__width(vline, para, scale, def_sz, font_scale, theme) {
     let total_w = 0;
     let total_spaces = 0;
@@ -9204,15 +9133,28 @@ export function createPptxJsEngine() {
         const _run_idx = _bind._0;
         const _frag_text = _bind._1;
         const run = _M0MPC15array5Array2atGsE(para.runs, _run_idx);
-        const fs_px = _M0FP210pptx_2dsvg8renderer11run__fs__px(run, scale, def_sz, font_scale);
-        const ff = _M0FP210pptx_2dsvg8renderer15run__font__face(run, theme);
+        const fs_raw = run.font_size > 0 ? run.font_size : def_sz > 0 ? (Math.imul(def_sz, scale) | 0) / _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt | 0 : 1800;
+        const _p = Math.imul(_M0FP210pptx_2dsvg8renderer18apply__font__scale(fs_raw, font_scale), _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt) | 0;
+        const fs_px = (scale <= 0 ? 0 : _p / scale | 0) + 0;
+        let ff;
+        const _p$2 = run.ea_font;
+        if (!(_p$2 === "")) {
+          ff = run.ea_font;
+        } else {
+          const _p$3 = run.font_face;
+          if (!(_p$3 === "")) {
+            ff = run.font_face;
+          } else {
+            ff = theme.minor_font;
+          }
+        }
         const text = run.cap === "all" ? _M0FP210pptx_2dsvg8renderer16to__upper__ascii(_frag_text) : _frag_text;
         total_spaces = total_spaces + _M0FP210pptx_2dsvg8renderer13count__spaces(text) | 0;
         if (ff === accum_ff && fs_px === accum_fs) {
           accum = `${accum}${text}`;
         } else {
-          const _p = accum;
-          if (!(_p === "")) {
+          const _p$3 = accum;
+          if (!(_p$3 === "")) {
             total_w = total_w + _M0FP210pptx_2dsvg3ffi18ffi__measure__text(accum, accum_ff, accum_fs);
           }
           accum = text;
@@ -9298,7 +9240,7 @@ export function createPptxJsEngine() {
       }
     }
     if (!has_super && !has_sub) {
-      return _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extraN5tupleS4233;
+      return _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extraN5tupleS4023;
     }
     const font_emu = _M0FP210pptx_2dsvg8renderer20para__max__font__emu(para);
     const font_px = font_emu > 0 ? (scale <= 0 ? 0 : font_emu / scale | 0) : def_sz;
@@ -10110,7 +10052,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg8renderer18render__math__text(paragraphs, t, scale, _theme, body_props, _rels, _slide_num, _shape_idx) {
     const np = paragraphs.length;
     let all_math_xml = "";
-    let first_run_color = _M0FP210pptx_2dsvg8renderer18render__math__textN6recordS4234;
+    let first_run_color = _M0FP210pptx_2dsvg8renderer18render__math__textN6recordS4024;
     let first_run_fs = 0;
     let first_run_font = "";
     let found_first = false;
@@ -10726,8 +10668,21 @@ export function createPptxJsEngine() {
     while (true) {
       if (ri < nr) {
         const run = _M0MPC15array5Array2atGsE(para.runs, ri);
-        const fs_px = _M0FP210pptx_2dsvg8renderer11run__fs__px(run, scale, def_sz, font_scale);
-        const ff = _M0FP210pptx_2dsvg8renderer15run__font__face(run, theme);
+        const fs_raw = run.font_size > 0 ? run.font_size : def_sz > 0 ? (Math.imul(def_sz, scale) | 0) / _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt | 0 : 1800;
+        const _p = Math.imul(_M0FP210pptx_2dsvg8renderer18apply__font__scale(fs_raw, font_scale), _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt) | 0;
+        const fs_px = (scale <= 0 ? 0 : _p / scale | 0) + 0;
+        let ff;
+        const _p$2 = run.ea_font;
+        if (!(_p$2 === "")) {
+          ff = run.ea_font;
+        } else {
+          const _p$3 = run.font_face;
+          if (!(_p$3 === "")) {
+            ff = run.font_face;
+          } else {
+            ff = theme.minor_font;
+          }
+        }
         const text = run.cap === "all" ? _M0FP210pptx_2dsvg8renderer16to__upper__ascii(run.text) : run.text;
         if (text === "\n") {
           if (cur_line.length > 0) {
@@ -10742,15 +10697,15 @@ export function createPptxJsEngine() {
           continue;
         }
         let _tmp;
-        const _p = run_ff;
-        if (!(ff === _p)) {
+        const _p$3 = run_ff;
+        if (!(ff === _p$3)) {
           _tmp = true;
         } else {
           _tmp = fs_px !== run_fs;
         }
         if (_tmp) {
-          const _p$2 = run_accum;
-          if (!(_p$2 === "")) {
+          const _p$4 = run_accum;
+          if (!(_p$4 === "")) {
             cur_width = cur_width + _M0FP210pptx_2dsvg3ffi18ffi__measure__text(run_accum, run_ff, run_fs);
             run_accum = "";
           }
@@ -10761,8 +10716,8 @@ export function createPptxJsEngine() {
         let seg_start = 0;
         while (true) {
           if (seg_start < text_len) {
-            const _p$2 = _M0MPC16string6String9get__char(text, seg_start);
-            const c = _p$2 === -1 ? $panic() : _p$2;
+            const _p$4 = _M0MPC16string6String9get__char(text, seg_start);
+            const c = _p$4 === -1 ? $panic() : _p$4;
             let seg_end = seg_start;
             if (_M0FP210pptx_2dsvg8renderer7is__cjk(c) || c > 65535) {
               seg_end = seg_start + _M0FP210pptx_2dsvg3xml10char__step(c) | 0;
@@ -10770,8 +10725,8 @@ export function createPptxJsEngine() {
               seg_end = seg_start;
               while (true) {
                 if (seg_end < text_len) {
-                  const _p$3 = _M0MPC16string6String9get__char(text, seg_end);
-                  const sc = _p$3 === -1 ? $panic() : _p$3;
+                  const _p$5 = _M0MPC16string6String9get__char(text, seg_end);
+                  const sc = _p$5 === -1 ? $panic() : _p$5;
                   if (_M0FP210pptx_2dsvg8renderer7is__cjk(sc) || sc > 65535) {
                     break;
                   }
@@ -10790,8 +10745,8 @@ export function createPptxJsEngine() {
             const candidate_w = _M0FP210pptx_2dsvg3ffi18ffi__measure__text(candidate, ff, fs_px);
             const total_w = cur_width + candidate_w;
             if (cur_line.length > 0 && (total_w > max_w && max_w > 0)) {
-              const _p$3 = _M0MPC16string6String9get__char(seg_text, 0);
-              const first_char = _p$3 === -1 ? $panic() : _p$3;
+              const _p$5 = _M0MPC16string6String9get__char(seg_text, 0);
+              const first_char = _p$5 === -1 ? $panic() : _p$5;
               if (_M0FP210pptx_2dsvg8renderer30is__kinsoku__start__prohibited(first_char)) {
                 _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(cur_line, { _0: ri, _1: seg_text });
                 run_accum = candidate;
@@ -10826,110 +10781,6 @@ export function createPptxJsEngine() {
       _M0MPC15array5Array4pushGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(lines, []);
     }
     return lines;
-  }
-  function _M0FP210pptx_2dsvg8renderer20solve__text__autofit(paragraphs, scale, theme, def_sz, def_line_h, init_fs, init_lr, do_wrap, col_w, avail_h) {
-    const np = paragraphs.length;
-    let fs = init_fs;
-    let lr = init_lr;
-    let total_text_h = 0;
-    let last_para_line_h = 0;
-    let last_para_font_sz = 0;
-    let last_para_spc_after = 0;
-    let autofit_pass = 0;
-    while (true) {
-      if (autofit_pass < 6) {
-        total_text_h = 0;
-        last_para_line_h = 0;
-        last_para_font_sz = 0;
-        last_para_spc_after = 0;
-        let ti = 0;
-        while (true) {
-          if (ti < np) {
-            const para = _M0MPC15array5Array2atGsE(paragraphs, ti);
-            const nr = para.runs.length;
-            const para_line_h = _M0FP210pptx_2dsvg8renderer21apply__autofit__scale(_M0FP210pptx_2dsvg8renderer18para__line__height(para, scale, def_line_h), fs, lr);
-            const p_fsz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(_M0FP210pptx_2dsvg8renderer16para__font__size(para, scale, def_sz), fs);
-            if (nr === 0) {
-              total_text_h = total_text_h + para_line_h | 0;
-              last_para_line_h = para_line_h;
-              last_para_font_sz = p_fsz;
-              last_para_spc_after = 0;
-            } else {
-              if (para.spc_before > 0 && ti > 0) {
-                const _tmp = total_text_h;
-                const _p = para.spc_before;
-                total_text_h = _tmp + (scale <= 0 ? 0 : _p / scale | 0) | 0;
-              }
-              const _bind = _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extra(para, scale, def_sz);
-              const _bl_extra_above = _bind._0;
-              const _bl_extra_below = _bind._1;
-              total_text_h = total_text_h + _bl_extra_above | 0;
-              let num_visual_lines;
-              if (do_wrap) {
-                const indent_emu = para.mar_l >= 0 ? para.mar_l : Math.imul(para.level, 342900) | 0;
-                const indent_px = scale <= 0 ? 0 : indent_emu / scale | 0;
-                const wrap_w = col_w - indent_px | 0;
-                const vlines = _M0FP210pptx_2dsvg8renderer15wrap__paragraph(para, wrap_w, scale, def_sz, fs, theme);
-                num_visual_lines = vlines.length;
-              } else {
-                let br_count = 0;
-                let bri = 0;
-                while (true) {
-                  if (bri < nr) {
-                    if (_M0MPC15array5Array2atGsE(para.runs, bri).text === "\n") {
-                      br_count = br_count + 1 | 0;
-                    }
-                    bri = bri + 1 | 0;
-                    continue;
-                  } else {
-                    break;
-                  }
-                }
-                num_visual_lines = 1 + br_count | 0;
-              }
-              total_text_h = total_text_h + (Math.imul(para_line_h, num_visual_lines) | 0) | 0;
-              total_text_h = total_text_h + _bl_extra_below | 0;
-              last_para_line_h = para_line_h;
-              last_para_font_sz = p_fsz;
-              let _tmp;
-              if (para.spc_after > 0) {
-                const _p = para.spc_after;
-                const sa = scale <= 0 ? 0 : _p / scale | 0;
-                total_text_h = total_text_h + sa | 0;
-                _tmp = sa;
-              } else {
-                _tmp = 0;
-              }
-              last_para_spc_after = _tmp;
-            }
-            ti = ti + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        if (total_text_h > avail_h && avail_h > 0) {
-          if (lr < 20000) {
-            lr = lr + 5000 | 0;
-            if (lr > 20000) {
-              lr = 20000;
-            }
-            autofit_pass = autofit_pass + 1 | 0;
-            continue;
-          }
-          const needed_fs = (Math.imul(fs, avail_h) | 0) / total_text_h | 0;
-          if (needed_fs < fs && needed_fs > 25000) {
-            fs = needed_fs;
-            autofit_pass = autofit_pass + 1 | 0;
-            continue;
-          }
-        }
-        break;
-      } else {
-        break;
-      }
-    }
-    return { _0: fs, _1: lr, _2: total_text_h, _3: last_para_line_h, _4: last_para_font_sz, _5: last_para_spc_after };
   }
   function _M0FP210pptx_2dsvg8renderer18render__warp__text(paragraphs, t, scale, theme, body_props, rels, slide_num, shape_idx) {
     const _bind = _M0FP210pptx_2dsvg8renderer19flatten__warp__text(paragraphs, scale, theme, body_props);
@@ -10983,7 +10834,7 @@ export function createPptxJsEngine() {
           }
         }
       }
-      return `<defs><path id=\"${path_id}\" d=\"${d}\" fill=\"none\" transform=\"translate(${_M0FP210pptx_2dsvg8renderer12int__to__str(x_p)},${_M0FP210pptx_2dsvg8renderer12int__to__str(y_p)})\"/></defs><text font-family=\"${_M0FP210pptx_2dsvg8renderer11svg__escape(font_family)}\"${_M0FP210pptx_2dsvg8renderer2ai("font-size", _font_sz)}${fill_attr}${bold_attr}${italic_attr}${_M0FP210pptx_2dsvg8renderer18render__warp__textN8baselineS2898} xml:space=\"preserve\"><textPath href=\"#${path_id}\" startOffset=\"${start_offset}\" text-anchor=\"${text_anchor}\">${_M0FP210pptx_2dsvg8renderer11svg__escape(_text)}</textPath></text>`;
+      return `<defs><path id=\"${path_id}\" d=\"${d}\" fill=\"none\" transform=\"translate(${_M0FP210pptx_2dsvg8renderer12int__to__str(x_p)},${_M0FP210pptx_2dsvg8renderer12int__to__str(y_p)})\"/></defs><text font-family=\"${_M0FP210pptx_2dsvg8renderer11svg__escape(font_family)}\"${_M0FP210pptx_2dsvg8renderer2ai("font-size", _font_sz)}${fill_attr}${bold_attr}${italic_attr}${_M0FP210pptx_2dsvg8renderer18render__warp__textN8baselineS2747} xml:space=\"preserve\"><textPath href=\"#${path_id}\" startOffset=\"${start_offset}\" text-anchor=\"${text_anchor}\">${_M0FP210pptx_2dsvg8renderer11svg__escape(_text)}</textPath></text>`;
     } else {
       const xform = _M0FP210pptx_2dsvg8renderer25generate__warp__transform(prst, w, h, av1_d);
       if (xform === "") {
@@ -10996,15 +10847,15 @@ export function createPptxJsEngine() {
       return `<g transform=\"translate(${_M0FP210pptx_2dsvg8renderer12int__to__str(tcx)},${_M0FP210pptx_2dsvg8renderer12int__to__str(tcy)}) ${xform} translate(${_M0FP210pptx_2dsvg8renderer12int__to__str(-tcx | 0)},${_M0FP210pptx_2dsvg8renderer12int__to__str(-tcy | 0)})\">${inner}</g>`;
     }
   }
-  function _M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2444(_env, tx) {
-    const scaled_def_sz = _env._7;
-    const is_vert = _env._6;
+  function _M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2459(_env, tx) {
+    const is_vert = _env._7;
+    const scale = _env._6;
     const font_face = _env._5;
-    const scale = _env._4;
-    const t = _env._3;
-    const bp_rot = _env._2;
-    const body_props = _env._1;
-    const theme = _env._0;
+    const t = _env._4;
+    const body_props = _env._3;
+    const theme = _env._2;
+    const scaled_def_sz = _env._1;
+    const bp_rot = _env._0;
     let h = `<text${_M0FP210pptx_2dsvg8renderer2ai("x", tx)}${_M0FP210pptx_2dsvg8renderer1a("xml:space", "preserve")}${_M0FP210pptx_2dsvg8renderer1a("font-family", font_face)}${_M0FP210pptx_2dsvg8renderer2ai("font-size", scaled_def_sz)}${_M0FP210pptx_2dsvg8renderer1a("fill", _M0FP210pptx_2dsvg8renderer19default__text__fill)}${_M0FP210pptx_2dsvg8renderer2da("font-face", theme.minor_font)}`;
     if (is_vert) {
       h = `${h}${_M0FP210pptx_2dsvg8renderer1a("writing-mode", "tb")}`;
@@ -11061,8 +10912,8 @@ export function createPptxJsEngine() {
     const _p$3 = 228600;
     const def_sz = scale <= 0 ? 0 : _p$3 / scale | 0;
     const def_line_h = (Math.imul(def_sz, 12) | 0) / 10 | 0;
-    const init_fs = body_props.font_scale;
-    const init_lr = body_props.ln_spc_reduction;
+    let fs = body_props.font_scale;
+    let lr = body_props.ln_spc_reduction;
     const _p$4 = body_props.wrap;
     const _p$5 = "none";
     const do_wrap = !(_p$4 === _p$5);
@@ -11084,25 +10935,116 @@ export function createPptxJsEngine() {
     const pad_b = scale <= 0 ? 0 : b_ins / scale | 0;
     const avail_h = (shape_h - pad_t | 0) - pad_b | 0;
     const np = paragraphs.length;
-    const _bind = _M0FP210pptx_2dsvg8renderer20solve__text__autofit(paragraphs, scale, theme, def_sz, def_line_h, init_fs, init_lr, do_wrap, col_w, avail_h);
-    const _fs = _bind._0;
-    const _lr = _bind._1;
-    const _total_text_h = _bind._2;
-    const _last_para_line_h = _bind._3;
-    const _last_para_font_sz = _bind._4;
-    const _last_para_spc_after = _bind._5;
-    const trailing_space = _last_para_line_h > _last_para_font_sz ? (_last_para_line_h - _last_para_font_sz | 0) + _last_para_spc_after | 0 : _last_para_spc_after;
-    const text_h_for_anchor = _total_text_h - trailing_space | 0;
+    let total_text_h = 0;
+    let last_para_line_h = 0;
+    let last_para_font_sz = 0;
+    let last_para_spc_after = 0;
+    let autofit_pass = 0;
+    while (true) {
+      if (autofit_pass < 6) {
+        total_text_h = 0;
+        last_para_line_h = 0;
+        last_para_font_sz = 0;
+        last_para_spc_after = 0;
+        let ti = 0;
+        while (true) {
+          if (ti < np) {
+            const para = _M0MPC15array5Array2atGsE(paragraphs, ti);
+            const nr = para.runs.length;
+            const para_line_h = _M0FP210pptx_2dsvg8renderer21apply__autofit__scale(_M0FP210pptx_2dsvg8renderer18para__line__height(para, scale, def_line_h), fs, lr);
+            const p_fsz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(_M0FP210pptx_2dsvg8renderer16para__font__size(para, scale, def_sz), fs);
+            if (nr === 0) {
+              total_text_h = total_text_h + para_line_h | 0;
+              last_para_line_h = para_line_h;
+              last_para_font_sz = p_fsz;
+              last_para_spc_after = 0;
+            } else {
+              if (para.spc_before > 0 && ti > 0) {
+                const _tmp$2 = total_text_h;
+                const _p$7 = para.spc_before;
+                total_text_h = _tmp$2 + (scale <= 0 ? 0 : _p$7 / scale | 0) | 0;
+              }
+              const _bind = _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extra(para, scale, def_sz);
+              const _bl_extra_above = _bind._0;
+              const _bl_extra_below = _bind._1;
+              total_text_h = total_text_h + _bl_extra_above | 0;
+              let num_visual_lines;
+              if (do_wrap) {
+                const indent_emu = para.mar_l >= 0 ? para.mar_l : Math.imul(para.level, 342900) | 0;
+                const indent_px = scale <= 0 ? 0 : indent_emu / scale | 0;
+                const wrap_w = col_w - indent_px | 0;
+                const vlines = _M0FP210pptx_2dsvg8renderer15wrap__paragraph(para, wrap_w, scale, def_sz, fs, theme);
+                num_visual_lines = vlines.length;
+              } else {
+                let br_count = 0;
+                let bri = 0;
+                while (true) {
+                  if (bri < nr) {
+                    if (_M0MPC15array5Array2atGsE(para.runs, bri).text === "\n") {
+                      br_count = br_count + 1 | 0;
+                    }
+                    bri = bri + 1 | 0;
+                    continue;
+                  } else {
+                    break;
+                  }
+                }
+                num_visual_lines = 1 + br_count | 0;
+              }
+              total_text_h = total_text_h + (Math.imul(para_line_h, num_visual_lines) | 0) | 0;
+              total_text_h = total_text_h + _bl_extra_below | 0;
+              last_para_line_h = para_line_h;
+              last_para_font_sz = p_fsz;
+              let _tmp$2;
+              if (para.spc_after > 0) {
+                const _p$7 = para.spc_after;
+                const sa = scale <= 0 ? 0 : _p$7 / scale | 0;
+                total_text_h = total_text_h + sa | 0;
+                _tmp$2 = sa;
+              } else {
+                _tmp$2 = 0;
+              }
+              last_para_spc_after = _tmp$2;
+            }
+            ti = ti + 1 | 0;
+            continue;
+          } else {
+            break;
+          }
+        }
+        if (total_text_h > avail_h && avail_h > 0) {
+          if (lr < 20000) {
+            lr = lr + 5000 | 0;
+            if (lr > 20000) {
+              lr = 20000;
+            }
+            autofit_pass = autofit_pass + 1 | 0;
+            continue;
+          }
+          const needed_fs = (Math.imul(fs, avail_h) | 0) / total_text_h | 0;
+          if (needed_fs < fs && needed_fs > 25000) {
+            fs = needed_fs;
+            autofit_pass = autofit_pass + 1 | 0;
+            continue;
+          }
+        }
+        break;
+      } else {
+        break;
+      }
+    }
+    const trailing_space = last_para_line_h > last_para_font_sz ? (last_para_line_h - last_para_font_sz | 0) + last_para_spc_after | 0 : last_para_spc_after;
+    const text_h_for_anchor = total_text_h - trailing_space | 0;
     const anchor_offset = body_props.anchor === "ctr" ? (avail_h - text_h_for_anchor | 0) / 2 | 0 : body_props.anchor === "b" ? avail_h - text_h_for_anchor | 0 : 0;
     const anchor_offset_clamped = body_props.anchor === "ctr" ? (anchor_offset >= (0 - pad_t | 0) ? anchor_offset : 0 - pad_t | 0) : anchor_offset > 0 ? anchor_offset : 0;
     const is_vert = body_props.vert === "vert" || (body_props.vert === "eaVert" || (body_props.vert === "vert270" || body_props.vert === "wordArtVert"));
     const bp_rot = t.rot + body_props.rot | 0;
     let img_bullets_svg = "";
-    const max_col_h = num_cols > 1 ? (_total_text_h / num_cols | 0) + 1 | 0 : 0;
+    const max_col_h = num_cols > 1 ? (total_text_h / num_cols | 0) + 1 | 0 : 0;
     const font_face = `${theme.minor_font}, sans-serif`;
-    const scaled_def_sz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(def_sz, _fs);
-    const _env = { _0: theme, _1: body_props, _2: bp_rot, _3: t, _4: scale, _5: font_face, _6: is_vert, _7: scaled_def_sz };
-    let out = _M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2444(_env, text_x);
+    const scaled_def_sz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(def_sz, fs);
+    const _env = { _0: bp_rot, _1: scaled_def_sz, _2: theme, _3: body_props, _4: t, _5: font_face, _6: scale, _7: is_vert };
+    let out = _M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2459(_env, text_x);
     const _p$7 = t.y;
     const base_y = ((scale <= 0 ? 0 : _p$7 / scale | 0) + pad_t | 0) + anchor_offset_clamped | 0;
     let cur_y = base_y;
@@ -11114,8 +11056,8 @@ export function createPptxJsEngine() {
       if (pi < np) {
         const para = _M0MPC15array5Array2atGsE(paragraphs, pi);
         const nr = para.runs.length;
-        const p_line_h = _M0FP210pptx_2dsvg8renderer21apply__autofit__scale(_M0FP210pptx_2dsvg8renderer18para__line__height(para, scale, def_line_h), _fs, _lr);
-        const p_font_sz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(_M0FP210pptx_2dsvg8renderer16para__font__size(para, scale, def_sz), _fs);
+        const p_line_h = _M0FP210pptx_2dsvg8renderer21apply__autofit__scale(_M0FP210pptx_2dsvg8renderer18para__line__height(para, scale, def_line_h), fs, lr);
+        const p_font_sz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(_M0FP210pptx_2dsvg8renderer16para__font__size(para, scale, def_sz), fs);
         if (para.spc_before > 0 && pi > 0) {
           const _tmp$2 = cur_y;
           const _p$8 = para.spc_before;
@@ -11126,11 +11068,11 @@ export function createPptxJsEngine() {
           cur_col = cur_col + 1 | 0;
           text_x = base_text_x + (Math.imul(col_w + col_spacing_px | 0, cur_col) | 0) | 0;
           cur_y = base_y;
-          out = `${out}${_M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2444(_env, text_x)}`;
+          out = `${out}${_M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2459(_env, text_x)}`;
         }
-        const _bind$2 = _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extra(para, scale, def_sz);
-        const _bl_extra_above = _bind$2._0;
-        const _bl_extra_below = _bind$2._1;
+        const _bind = _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extra(para, scale, def_sz);
+        const _bl_extra_above = _bind._0;
+        const _bl_extra_below = _bind._1;
         cur_y = cur_y + _bl_extra_above | 0;
         cur_y = cur_y + p_font_sz | 0;
         if (nr === 0) {
@@ -11291,7 +11233,7 @@ export function createPptxJsEngine() {
               if (para.bullet_size < 0) {
                 const _p$12 = -para.bullet_size | 0;
                 const bu_fs_emu = Math.imul(_p$12, _M0FP210pptx_2dsvg5ooxml23emu__per__hundredth__pt) | 0;
-                bu_span = `${bu_span}${_M0FP210pptx_2dsvg8renderer2ai("font-size", _M0FP210pptx_2dsvg8renderer18apply__font__scale(scale <= 0 ? 0 : bu_fs_emu / scale | 0, _fs))}`;
+                bu_span = `${bu_span}${_M0FP210pptx_2dsvg8renderer2ai("font-size", _M0FP210pptx_2dsvg8renderer18apply__font__scale(scale <= 0 ? 0 : bu_fs_emu / scale | 0, fs))}`;
               } else {
                 const run_fs = p_font_sz > 0 ? p_font_sz : scaled_def_sz;
                 bu_span = `${bu_span}${_M0FP210pptx_2dsvg8renderer2ai("font-size", run_fs)}`;
@@ -11312,7 +11254,7 @@ export function createPptxJsEngine() {
               if (_tmp$12) {
                 bu_fill_color = _M0MPC15array5Array2atGsE(para.runs, 0).color;
               } else {
-                bu_fill_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+                bu_fill_color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
               }
             }
             if (!(bu_fill_color.r < 0)) {
@@ -11322,7 +11264,7 @@ export function createPptxJsEngine() {
           }
           if (do_wrap) {
             const wrap_w = text_w - indent | 0;
-            const vlines = _M0FP210pptx_2dsvg8renderer15wrap__paragraph(para, wrap_w, scale, def_sz, _fs, theme);
+            const vlines = _M0FP210pptx_2dsvg8renderer15wrap__paragraph(para, wrap_w, scale, def_sz, fs, theme);
             const nvl = vlines.length;
             let vli = 0;
             let tab_idx = 0;
@@ -11339,7 +11281,7 @@ export function createPptxJsEngine() {
                     cur_y = base_y + p_font_sz | 0;
                     cur_anchor_x = effective_align === "ctr" || effective_align === "c" ? (text_x + indent | 0) + ((text_w - indent | 0) / 2 | 0) | 0 : effective_align === "r" ? text_x + text_w | 0 : text_x + indent | 0;
                     cont_anchor_x = cur_anchor_x;
-                    out = `${out}${_M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2444(_env, text_x)}`;
+                    out = `${out}${_M0FP210pptx_2dsvg8renderer12render__textN18make__text__headerS2459(_env, text_x)}`;
                     out = `${out}<tspan${_M0FP210pptx_2dsvg8renderer2ai("x", cur_anchor_x)}${_M0FP210pptx_2dsvg8renderer2ai("y", cur_y)}${anchor_attr}${rtl_attr}${_M0FP210pptx_2dsvg8renderer2da("para-idx", _M0FP210pptx_2dsvg8renderer12int__to__str(pi))}${_M0FP210pptx_2dsvg8renderer2da("para-align", para_align)}>`;
                   } else {
                     cur_anchor_x = cont_anchor_x;
@@ -11352,9 +11294,9 @@ export function createPptxJsEngine() {
                 let justify_ws_attr;
                 if (is_justify && (vli < (nvl - 1 | 0) && vline.length > 0)) {
                   const avail_w = vli === 0 ? text_w - first_line_indent | 0 : text_w - indent | 0;
-                  const _bind$3 = _M0FP210pptx_2dsvg8renderer20measure__line__width(vline, para, scale, def_sz, _fs, theme);
-                  const _line_w = _bind$3._0;
-                  const _space_count = _bind$3._1;
+                  const _bind$2 = _M0FP210pptx_2dsvg8renderer20measure__line__width(vline, para, scale, def_sz, fs, theme);
+                  const _line_w = _bind$2._0;
+                  const _space_count = _bind$2._1;
                   if (_space_count > 0) {
                     const extra_px = avail_w + 0 - _line_w;
                     if (extra_px > 0) {
@@ -11400,13 +11342,13 @@ export function createPptxJsEngine() {
                 let fi = 0;
                 while (true) {
                   if (fi < nf) {
-                    const _bind$3 = _M0MPC15array5Array2atGsE(vline, fi);
-                    const _run_idx = _bind$3._0;
-                    const _frag_text = _bind$3._1;
+                    const _bind$2 = _M0MPC15array5Array2atGsE(vline, fi);
+                    const _run_idx = _bind$2._0;
+                    const _frag_text = _bind$2._1;
                     const run = _M0MPC15array5Array2atGsE(para.runs, _run_idx);
-                    const _bind$4 = _M0FP210pptx_2dsvg8renderer23render__run__with__tabs(run, _run_idx, _frag_text, para.tab_stops, tab_idx, text_x, cur_y, scale, _fs, rels, theme);
-                    const _tab_svg = _bind$4._0;
-                    const _new_ti = _bind$4._1;
+                    const _bind$3 = _M0FP210pptx_2dsvg8renderer23render__run__with__tabs(run, _run_idx, _frag_text, para.tab_stops, tab_idx, text_x, cur_y, scale, fs, rels, theme);
+                    const _tab_svg = _bind$3._0;
+                    const _new_ti = _bind$3._1;
                     out = `${out}${_tab_svg}`;
                     tab_idx = _new_ti;
                     fi = fi + 1 | 0;
@@ -11434,9 +11376,9 @@ export function createPptxJsEngine() {
                   ri = ri + 1 | 0;
                   continue;
                 }
-                const _bind$3 = _M0FP210pptx_2dsvg8renderer23render__run__with__tabs(run, ri, display_text, para.tab_stops, tab_idx, text_x, cur_y, scale, _fs, rels, theme);
-                const _tab_svg = _bind$3._0;
-                const _new_ti = _bind$3._1;
+                const _bind$2 = _M0FP210pptx_2dsvg8renderer23render__run__with__tabs(run, ri, display_text, para.tab_stops, tab_idx, text_x, cur_y, scale, fs, rels, theme);
+                const _tab_svg = _bind$2._0;
+                const _new_ti = _bind$2._1;
                 out = `${out}${_tab_svg}`;
                 tab_idx = _new_ti;
                 ri = ri + 1 | 0;
@@ -11461,372 +11403,6 @@ export function createPptxJsEngine() {
       }
     }
     return `${img_bullets_svg}${out}</text>`;
-  }
-  function _M0FP210pptx_2dsvg8renderer25layout__bullet__width__px(para, p_font_sz, theme) {
-    let _tmp;
-    if (para.bullet_none) {
-      _tmp = true;
-    } else {
-      const _p = para.bullet;
-      _tmp = _p === "";
-    }
-    if (_tmp) {
-      return 0;
-    }
-    let ff;
-    const _p = para.bullet_font;
-    if (!(_p === "")) {
-      ff = para.bullet_font;
-    } else {
-      ff = theme.minor_font;
-    }
-    return _M0FP210pptx_2dsvg3ffi18ffi__measure__text(`${para.bullet} `, ff, p_font_sz + 0);
-  }
-  function _M0FP210pptx_2dsvg8renderer19build__text__layoutN10flush__runS2844(_env) {
-    const cur_chars = _env._8;
-    const cur_box_w = _env._7;
-    const scale_d = _env._6;
-    const cur_run_char_start = _env._5;
-    const run_boxes = _env._4;
-    const run_para_off = _env._3;
-    const cur_box_x = _env._2;
-    const cur_run_idx = _env._1;
-    const pi = _env._0;
-    if (cur_run_idx.val >= 0) {
-      _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(run_boxes, new _M0TP210pptx_2dsvg8renderer6RunBox(pi.val, cur_run_idx.val, _M0MPC16double6Double7to__int(cur_box_x.val * scale_d), _M0MPC16double6Double7to__int(cur_box_w.val * scale_d), cur_run_char_start.val, _M0MPC15array5Array2atGiE(run_para_off, cur_run_idx.val) + cur_run_char_start.val | 0, cur_chars.val));
-      return;
-    } else {
-      return;
-    }
-  }
-  function _M0FP210pptx_2dsvg8renderer19build__text__layout(paragraphs, t, scale, theme, body_props) {
-    const lines = [];
-    const layout = new _M0TP210pptx_2dsvg8renderer10TextLayout(t.x, t.y, t.cx, t.cy, lines);
-    const np = paragraphs.length;
-    const wp = body_props.warp_prst;
-    let is_warp;
-    if (!(wp === "")) {
-      let _tmp;
-      const _p = "textNoShape";
-      if (!(wp === _p)) {
-        const _p$2 = "textPlain";
-        _tmp = !(wp === _p$2);
-      } else {
-        _tmp = false;
-      }
-      is_warp = _tmp;
-    } else {
-      is_warp = false;
-    }
-    const is_vert = body_props.vert === "vert" || (body_props.vert === "eaVert" || (body_props.vert === "vert270" || body_props.vert === "wordArtVert"));
-    if (np === 0 || (is_warp || (is_vert || _M0FP210pptx_2dsvg8renderer13is__all__math(paragraphs)))) {
-      return layout;
-    }
-    const scale_d = scale + 0;
-    const l_ins = body_props.l_ins >= 0 ? body_props.l_ins : 91440;
-    const t_ins = body_props.t_ins >= 0 ? body_props.t_ins : 45720;
-    const r_ins = body_props.r_ins >= 0 ? body_props.r_ins : 91440;
-    const b_ins = body_props.b_ins >= 0 ? body_props.b_ins : 45720;
-    const pad_l = scale <= 0 ? 0 : l_ins / scale | 0;
-    const pad_t = scale <= 0 ? 0 : t_ins / scale | 0;
-    const pad_r = scale <= 0 ? 0 : r_ins / scale | 0;
-    const pad_b = scale <= 0 ? 0 : b_ins / scale | 0;
-    const _p = t.x;
-    const text_x = (scale <= 0 ? 0 : _p / scale | 0) + pad_l | 0;
-    const _p$2 = t.cx;
-    const text_w = ((scale <= 0 ? 0 : _p$2 / scale | 0) - pad_l | 0) - pad_r | 0;
-    const _p$3 = 228600;
-    const def_sz = scale <= 0 ? 0 : _p$3 / scale | 0;
-    const def_line_h = (Math.imul(def_sz, 12) | 0) / 10 | 0;
-    const _p$4 = body_props.wrap;
-    const _p$5 = "none";
-    const do_wrap = !(_p$4 === _p$5);
-    const _p$6 = t.cy;
-    const shape_h = scale <= 0 ? 0 : _p$6 / scale | 0;
-    const avail_h = (shape_h - pad_t | 0) - pad_b | 0;
-    const _bind = _M0FP210pptx_2dsvg8renderer20solve__text__autofit(paragraphs, scale, theme, def_sz, def_line_h, body_props.font_scale, body_props.ln_spc_reduction, do_wrap, text_w, avail_h);
-    const _fs = _bind._0;
-    const _lr = _bind._1;
-    const _total_text_h = _bind._2;
-    const _last_para_line_h = _bind._3;
-    const _last_para_font_sz = _bind._4;
-    const _last_para_spc_after = _bind._5;
-    const trailing_space = _last_para_line_h > _last_para_font_sz ? (_last_para_line_h - _last_para_font_sz | 0) + _last_para_spc_after | 0 : _last_para_spc_after;
-    const text_h_for_anchor = _total_text_h - trailing_space | 0;
-    const anchor_offset = body_props.anchor === "ctr" ? (avail_h - text_h_for_anchor | 0) / 2 | 0 : body_props.anchor === "b" ? avail_h - text_h_for_anchor | 0 : 0;
-    const anchor_offset_clamped = body_props.anchor === "ctr" ? (anchor_offset >= (0 - pad_t | 0) ? anchor_offset : 0 - pad_t | 0) : anchor_offset > 0 ? anchor_offset : 0;
-    const _p$7 = t.y;
-    const base_y = ((scale <= 0 ? 0 : _p$7 / scale | 0) + pad_t | 0) + anchor_offset_clamped | 0;
-    let cur_y = base_y;
-    const pi = new _M0TPB8MutLocalGiE(0);
-    while (true) {
-      if (pi.val < np) {
-        const para = _M0MPC15array5Array2atGsE(paragraphs, pi.val);
-        const nr = para.runs.length;
-        const p_line_h = _M0FP210pptx_2dsvg8renderer21apply__autofit__scale(_M0FP210pptx_2dsvg8renderer18para__line__height(para, scale, def_line_h), _fs, _lr);
-        const p_font_sz = _M0FP210pptx_2dsvg8renderer18apply__font__scale(_M0FP210pptx_2dsvg8renderer16para__font__size(para, scale, def_sz), _fs);
-        if (para.spc_before > 0 && pi.val > 0) {
-          const _tmp = cur_y;
-          const _p$8 = para.spc_before;
-          cur_y = _tmp + (scale <= 0 ? 0 : _p$8 / scale | 0) | 0;
-        }
-        const _bind$2 = _M0FP210pptx_2dsvg8renderer28para__baseline__shift__extra(para, scale, def_sz);
-        const _bl_extra_above = _bind$2._0;
-        const _bl_extra_below = _bind$2._1;
-        cur_y = cur_y + _bl_extra_above | 0;
-        cur_y = cur_y + p_font_sz | 0;
-        if (nr === 0) {
-          const top = cur_y - p_font_sz | 0;
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(lines, new _M0TP210pptx_2dsvg8renderer7LineBox(pi.val, Math.imul(top, scale) | 0, Math.imul(p_line_h, scale) | 0, []));
-          cur_y = cur_y + (p_line_h - p_font_sz | 0) | 0;
-          pi.val = pi.val + 1 | 0;
-          continue;
-        }
-        const mar_l_emu = para.mar_l >= 0 ? para.mar_l : Math.imul(para.level, 342900) | 0;
-        const indent = scale <= 0 ? 0 : mar_l_emu / scale | 0;
-        const first_line_indent_emu = mar_l_emu + para.indent | 0;
-        const first_line_indent = first_line_indent_emu > 0 ? (scale <= 0 ? 0 : first_line_indent_emu / scale | 0) : 0;
-        let effective_align;
-        let _tmp;
-        if (para.rtl) {
-          const _p$8 = para.align;
-          _tmp = _p$8 === "";
-        } else {
-          _tmp = false;
-        }
-        if (_tmp) {
-          effective_align = "r";
-        } else {
-          effective_align = para.align;
-        }
-        const bullet_w = _M0FP210pptx_2dsvg8renderer25layout__bullet__width__px(para, p_font_sz, theme);
-        const run_para_off = [];
-        let acc_off = 0;
-        let ro = 0;
-        while (true) {
-          if (ro < nr) {
-            _M0MPC15array5Array4pushGiE(run_para_off, acc_off);
-            acc_off = acc_off + _M0MPC15array5Array2atGsE(para.runs, ro).text.length | 0;
-            ro = ro + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        const consumed = _M0MPC15array5Array4makeGiE(nr, 0);
-        const wrap_w = do_wrap ? text_w - indent | 0 : 1000000000;
-        const vlines = _M0FP210pptx_2dsvg8renderer15wrap__paragraph(para, wrap_w, scale, def_sz, _fs, theme);
-        const nvl = vlines.length;
-        let vli = 0;
-        while (true) {
-          if (vli < nvl) {
-            if (vli > 0) {
-              cur_y = cur_y + p_line_h | 0;
-            }
-            const baseline = cur_y;
-            const top = baseline - p_font_sz | 0;
-            const vline = _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(vlines, vli);
-            const _bind$3 = _M0FP210pptx_2dsvg8renderer20measure__line__width(vline, para, scale, def_sz, _fs, theme);
-            const _line_w = _bind$3._0;
-            const ind = vli === 0 ? first_line_indent : indent;
-            const bullet_off = vli === 0 ? bullet_w : 0;
-            const line_start = effective_align === "ctr" || effective_align === "c" ? (text_x + ind | 0) + 0 + ((text_w - ind | 0) + 0) / 2 - _line_w / 2 : effective_align === "r" ? (text_x + text_w | 0) + 0 - _line_w : (text_x + ind | 0) + 0 + bullet_off;
-            const run_boxes = [];
-            const cur_run_idx = new _M0TPB8MutLocalGiE(-1);
-            const cur_box_x = new _M0TPB8MutLocalGdE(0);
-            const cur_box_w = new _M0TPB8MutLocalGdE(0);
-            const cur_chars = new _M0TPB8MutLocalGRPB5ArrayGRP210pptx_2dsvg8renderer8GlyphBoxEE([]);
-            const cur_run_char_start = new _M0TPB8MutLocalGiE(0);
-            let x = line_start;
-            const nf = vline.length;
-            let fi = 0;
-            const _env = { _0: pi, _1: cur_run_idx, _2: cur_box_x, _3: run_para_off, _4: run_boxes, _5: cur_run_char_start, _6: scale_d, _7: cur_box_w, _8: cur_chars };
-            while (true) {
-              if (fi < nf) {
-                const _bind$4 = _M0MPC15array5Array2atGsE(vline, fi);
-                const _run_idx = _bind$4._0;
-                const _frag_text = _bind$4._1;
-                const run = _M0MPC15array5Array2atGsE(para.runs, _run_idx);
-                const ff = _M0FP210pptx_2dsvg8renderer15run__font__face(run, theme);
-                const fs_px = _M0FP210pptx_2dsvg8renderer11run__fs__px(run, scale, def_sz, _fs);
-                const text = run.cap === "all" ? _M0FP210pptx_2dsvg8renderer16to__upper__ascii(_frag_text) : _frag_text;
-                const seg_run_char_start = _M0MPC15array5Array2atGiE(consumed, _run_idx);
-                if (_run_idx !== cur_run_idx.val) {
-                  _M0FP210pptx_2dsvg8renderer19build__text__layoutN10flush__runS2844(_env);
-                  cur_run_idx.val = _run_idx;
-                  cur_box_x.val = x;
-                  cur_box_w.val = 0;
-                  cur_chars.val = [];
-                  cur_run_char_start.val = seg_run_char_start;
-                }
-                const tlen = text.length;
-                let ci = 0;
-                let prev_w = 0;
-                while (true) {
-                  if (ci < tlen) {
-                    const _p$8 = _M0MPC16string6String9get__char(text, ci);
-                    const step = _M0FP210pptx_2dsvg3xml10char__step(_p$8 === -1 ? $panic() : _p$8);
-                    const prefix = _M0FP210pptx_2dsvg3xml14str__substring(text, 0, ci + step | 0);
-                    const cum_w = _M0FP210pptx_2dsvg3ffi18ffi__measure__text(prefix, ff, fs_px);
-                    const ch_w = cum_w - prev_w;
-                    const ch_x = x + prev_w;
-                    _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(cur_chars.val, new _M0TP210pptx_2dsvg8renderer8GlyphBox(_M0MPC16double6Double7to__int(ch_x * scale_d), _M0MPC16double6Double7to__int(ch_w * scale_d)));
-                    prev_w = cum_w;
-                    ci = ci + step | 0;
-                    continue;
-                  } else {
-                    break;
-                  }
-                }
-                const seg_w = tlen > 0 ? _M0FP210pptx_2dsvg3ffi18ffi__measure__text(text, ff, fs_px) : 0;
-                x = x + seg_w;
-                cur_box_w.val = cur_box_w.val + seg_w;
-                _M0MPC15array5Array3setGiE(consumed, _run_idx, _M0MPC15array5Array2atGiE(consumed, _run_idx) + _frag_text.length | 0);
-                fi = fi + 1 | 0;
-                continue;
-              } else {
-                break;
-              }
-            }
-            _M0FP210pptx_2dsvg8renderer19build__text__layoutN10flush__runS2844(_env);
-            _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(lines, new _M0TP210pptx_2dsvg8renderer7LineBox(pi.val, Math.imul(top, scale) | 0, Math.imul(p_line_h, scale) | 0, run_boxes));
-            vli = vli + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        cur_y = (cur_y + (p_line_h - p_font_sz | 0) | 0) + _bl_extra_below | 0;
-        if (para.spc_after > 0) {
-          const _tmp$2 = cur_y;
-          const _p$8 = para.spc_after;
-          cur_y = _tmp$2 + (scale <= 0 ? 0 : _p$8 / scale | 0) | 0;
-        }
-        pi.val = pi.val + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return layout;
-  }
-  function _M0FP210pptx_2dsvg8renderer22text__layout__to__json(tl) {
-    let s = `{\"box\":{\"x\":${_M0FP210pptx_2dsvg8renderer12int__to__str(tl.box_x)},\"y\":${_M0FP210pptx_2dsvg8renderer12int__to__str(tl.box_y)},\"cx\":${_M0FP210pptx_2dsvg8renderer12int__to__str(tl.box_cx)},\"cy\":${_M0FP210pptx_2dsvg8renderer12int__to__str(tl.box_cy)}},\"lines\":[`;
-    const nl = tl.lines.length;
-    let li = 0;
-    while (true) {
-      if (li < nl) {
-        const line = _M0MPC15array5Array2atGsE(tl.lines, li);
-        if (li > 0) {
-          s = `${s},`;
-        }
-        s = `${s}{\"paraIdx\":${_M0FP210pptx_2dsvg8renderer12int__to__str(line.para_idx)},\"y\":${_M0FP210pptx_2dsvg8renderer12int__to__str(line.y)},\"h\":${_M0FP210pptx_2dsvg8renderer12int__to__str(line.h)},\"runs\":[`;
-        const nr = line.runs.length;
-        let ri = 0;
-        while (true) {
-          if (ri < nr) {
-            const rb = _M0MPC15array5Array2atGsE(line.runs, ri);
-            if (ri > 0) {
-              s = `${s},`;
-            }
-            s = `${s}{\"paraIdx\":${_M0FP210pptx_2dsvg8renderer12int__to__str(rb.para_idx)},\"runIdx\":${_M0FP210pptx_2dsvg8renderer12int__to__str(rb.run_idx)},\"x\":${_M0FP210pptx_2dsvg8renderer12int__to__str(rb.x)},\"w\":${_M0FP210pptx_2dsvg8renderer12int__to__str(rb.w)},\"runCharStart\":${_M0FP210pptx_2dsvg8renderer12int__to__str(rb.run_char_start)},\"paraCharStart\":${_M0FP210pptx_2dsvg8renderer12int__to__str(rb.para_char_start)},\"chars\":[`;
-            const nc = rb.chars.length;
-            let cj = 0;
-            while (true) {
-              if (cj < nc) {
-                const g = _M0MPC15array5Array2atGsE(rb.chars, cj);
-                if (cj > 0) {
-                  s = `${s},`;
-                }
-                s = `${s}{\"x\":${_M0FP210pptx_2dsvg8renderer12int__to__str(g.x)},\"w\":${_M0FP210pptx_2dsvg8renderer12int__to__str(g.w)}}`;
-                cj = cj + 1 | 0;
-                continue;
-              } else {
-                break;
-              }
-            }
-            s = `${s}]}`;
-            ri = ri + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        s = `${s}]}`;
-        li = li + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return `${s}]}`;
-  }
-  function _M0FP210pptx_2dsvg8renderer17hit__test__layout(tl, x_emu, y_emu) {
-    const nl = tl.lines.length;
-    if (nl === 0) {
-      return _M0FP210pptx_2dsvg8renderer17hit__test__layoutN5tupleS4235;
-    }
-    let line_idx = -1;
-    let li = 0;
-    while (true) {
-      if (li < nl) {
-        const l = _M0MPC15array5Array2atGsE(tl.lines, li);
-        if (y_emu >= l.y && y_emu < (l.y + l.h | 0)) {
-          line_idx = li;
-          break;
-        }
-        li = li + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    if (line_idx < 0) {
-      if (y_emu < _M0MPC15array5Array2atGsE(tl.lines, 0).y) {
-        line_idx = 0;
-      } else {
-        line_idx = nl - 1 | 0;
-      }
-    }
-    const line = _M0MPC15array5Array2atGsE(tl.lines, line_idx);
-    const nr = line.runs.length;
-    if (nr === 0) {
-      return { _0: line.para_idx, _1: 0, _2: 0, _3: 0 };
-    }
-    const first = _M0MPC15array5Array2atGsE(line.runs, 0);
-    if (x_emu <= first.x) {
-      return { _0: line.para_idx, _1: first.run_idx, _2: first.run_char_start, _3: first.para_char_start };
-    }
-    let ri = 0;
-    while (true) {
-      if (ri < nr) {
-        const rb = _M0MPC15array5Array2atGsE(line.runs, ri);
-        if (x_emu <= (rb.x + rb.w | 0)) {
-          const nc = rb.chars.length;
-          let ci = 0;
-          while (true) {
-            if (ci < nc) {
-              const g = _M0MPC15array5Array2atGsE(rb.chars, ci);
-              if (x_emu < (g.x + (g.w / 2 | 0) | 0)) {
-                return { _0: line.para_idx, _1: rb.run_idx, _2: rb.run_char_start + ci | 0, _3: rb.para_char_start + ci | 0 };
-              }
-              ci = ci + 1 | 0;
-              continue;
-            } else {
-              break;
-            }
-          }
-          return { _0: line.para_idx, _1: rb.run_idx, _2: rb.run_char_start + nc | 0, _3: rb.para_char_start + nc | 0 };
-        }
-        ri = ri + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    const last = _M0MPC15array5Array2atGsE(line.runs, nr - 1 | 0);
-    const lc = last.chars.length;
-    return { _0: line.para_idx, _1: last.run_idx, _2: last.run_char_start + lc | 0, _3: last.para_char_start + lc | 0 };
   }
   function _M0FP210pptx_2dsvg8renderer22estimate__text__height(paragraphs, scale, body_props) {
     const _p = 228600;
@@ -12468,7 +12044,7 @@ export function createPptxJsEngine() {
               if (!(_p$21.r < 0)) {
                 eff_fill = style_cell.fill;
               } else {
-                eff_fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+                eff_fill = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
               }
             }
             out = `${out}${_M0FP210pptx_2dsvg8renderer25render__table__cell__text(cell.paragraphs, cx_px, ry, cw, ch, pad_l, pad_r, pad_t, pad_b, cell.anchor, scale, theme, rels, style_cell, eff_fill)}`;
@@ -12830,7 +12406,7 @@ export function createPptxJsEngine() {
     return d;
   }
   function _M0FP210pptx_2dsvg8renderer16get__preset__def(prst) {
-    return prst === "triangle" || prst === "isosTriangle" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4237 : prst === "rtTriangle" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4239 : prst === "diamond" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4241 : prst === "parallelogram" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4243 : prst === "trapezoid" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4245 : prst === "pentagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4247 : prst === "hexagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4249 : prst === "octagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4251 : prst === "heptagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4253 : prst === "plus" || prst === "cross" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4255 : prst === "donut" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4257 : prst === "noSmoking" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4259 : prst === "blockArc" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4261 : prst === "rightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4263 : prst === "leftArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4265 : prst === "upArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4267 : prst === "downArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4269 : prst === "leftRightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4271 : prst === "upDownArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4273 : prst === "quadArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4275 : prst === "star4" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4277 : prst === "star5" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4279 : prst === "star6" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4281 : prst === "star8" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4283 : prst === "flowChartProcess" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4285 : prst === "flowChartDecision" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4287 : prst === "flowChartTerminator" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4289 : prst === "flowChartPredefinedProcess" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4291 : prst === "flowChartDocument" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4293 : prst === "flowChartInputOutput" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4295 : prst === "flowChartPreparation" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4297 : prst === "flowChartManualInput" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4299 : prst === "flowChartManualOperation" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4301 : prst === "flowChartOffpageConnector" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4303 : prst === "flowChartConnector" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4305 : prst === "flowChartSort" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4307 : prst === "flowChartMerge" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4309 : prst === "flowChartExtract" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4311 : prst === "flowChartDelay" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4313 : prst === "wedgeRectCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4315 : prst === "wedgeRoundRectCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4317 : prst === "wedgeEllipseCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4319 : prst === "heart" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4321 : prst === "lightningBolt" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4323 : prst === "sun" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4325 : prst === "moon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4327 : prst === "smileyFace" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4329 : prst === "foldedCorner" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4331 : prst === "frame" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4333 : prst === "bevel" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4335 : prst === "can" || prst === "cylinder" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4337 : prst === "cube" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4339 : prst === "ribbon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4341 : prst === "ribbon2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4343 : prst === "chevron" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4345 : prst === "homePlate" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4347 : prst === "notchedRightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4349 : prst === "stripedRightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4351 : prst === "leftRightArrowCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4353 : prst === "mathPlus" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4355 : prst === "mathMinus" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4357 : prst === "mathMultiply" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4359 : prst === "mathDivide" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4361 : prst === "mathEqual" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4363 : prst === "snip1Rect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4365 : prst === "snip2SameRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4367 : prst === "round1Rect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4369 : prst === "round2SameRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4371 : prst === "round2DiagRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4373 : prst === "snipRoundRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4375 : prst === "teardrop" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4377 : prst === "pie" || prst === "arc" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4379 : prst === "chord" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4381 : prst === "decagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4383 : prst === "diagStripe" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4385 : prst === "corner" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4387 : prst === "plaque" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4389 : prst === "gear6" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4391 : prst === "gear9" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4393 : prst === "funnel" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4395 : prst === "irregularSeal1" || prst === "irregularSeal2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4397 : prst === "wave" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4399 : prst === "doubleWave" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4401 : prst === "bracketPair" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4403 : prst === "bracePair" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4405 : prst === "star10" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4407 : prst === "star12" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4409 : prst === "star16" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4411 : prst === "star24" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4413 : prst === "star32" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4415 : prst === "flowChartAlternateProcess" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4417 : prst === "flowChartMultidocument" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4419 : prst === "flowChartInternalStorage" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4421 : prst === "flowChartMagneticDisk" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4423 : prst === "flowChartMagneticDrum" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4425 : prst === "flowChartMagneticTape" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4427 : prst === "flowChartOnlineStorage" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4429 : prst === "flowChartDisplay" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4431 : prst === "flowChartPunchedCard" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4433 : prst === "flowChartPunchedTape" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4435 : prst === "flowChartSummingJunction" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4437 : prst === "flowChartOr" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4439 : prst === "flowChartCollate" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4441 : prst === "cloudCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4443 : prst === "borderCallout1" || prst === "callout1" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4445 : prst === "borderCallout2" || prst === "callout2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4447 : prst === "borderCallout3" || prst === "callout3" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4449 : prst === "accentCallout1" || prst === "accentBorderCallout1" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4451 : prst === "accentCallout2" || prst === "accentBorderCallout2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4453 : prst === "accentCallout3" || prst === "accentBorderCallout3" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4455 : prst === "bentArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4457 : prst === "bentUpArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4459 : prst === "curvedRightArrow" || prst === "curvedLeftArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4461 : prst === "curvedUpArrow" || prst === "curvedDownArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4463 : prst === "circularArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4465 : prst === "uturnArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4467 : prst === "leftUpArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4469 : prst === "upDownArrowCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4471 : prst === "quadArrowCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4473 : prst === "cloud" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4475 : prst === "leftBracket" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4477 : prst === "rightBracket" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4479 : prst === "leftBrace" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4481 : prst === "rightBrace" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4483 : prst === "horzScroll" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4485 : prst === "vertScroll" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4487 : prst === "snip2DiagRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4489 : prst === "plaqueTabs" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4491 : prst === "mathNotEqual" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4493 : prst === "actionButtonBlank" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4495 : prst === "actionButtonHome" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4497 : prst === "actionButtonBackPrevious" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4499 : prst === "actionButtonForwardNext" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4501 : prst === "actionButtonBeginning" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4503 : prst === "actionButtonEnd" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4505 : prst === "actionButtonReturn" || (prst === "actionButtonMovie" || (prst === "actionButtonDocument" || (prst === "actionButtonSound" || (prst === "actionButtonHelp" || prst === "actionButtonInformation")))) ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4507 : undefined;
+    return prst === "triangle" || prst === "isosTriangle" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4026 : prst === "rtTriangle" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4028 : prst === "diamond" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4030 : prst === "parallelogram" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4032 : prst === "trapezoid" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4034 : prst === "pentagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4036 : prst === "hexagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4038 : prst === "octagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4040 : prst === "heptagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4042 : prst === "plus" || prst === "cross" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4044 : prst === "donut" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4046 : prst === "noSmoking" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4048 : prst === "blockArc" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4050 : prst === "rightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4052 : prst === "leftArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4054 : prst === "upArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4056 : prst === "downArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4058 : prst === "leftRightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4060 : prst === "upDownArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4062 : prst === "quadArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4064 : prst === "star4" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4066 : prst === "star5" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4068 : prst === "star6" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4070 : prst === "star8" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4072 : prst === "flowChartProcess" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4074 : prst === "flowChartDecision" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4076 : prst === "flowChartTerminator" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4078 : prst === "flowChartPredefinedProcess" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4080 : prst === "flowChartDocument" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4082 : prst === "flowChartInputOutput" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4084 : prst === "flowChartPreparation" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4086 : prst === "flowChartManualInput" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4088 : prst === "flowChartManualOperation" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4090 : prst === "flowChartOffpageConnector" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4092 : prst === "flowChartConnector" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4094 : prst === "flowChartSort" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4096 : prst === "flowChartMerge" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4098 : prst === "flowChartExtract" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4100 : prst === "flowChartDelay" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4102 : prst === "wedgeRectCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4104 : prst === "wedgeRoundRectCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4106 : prst === "wedgeEllipseCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4108 : prst === "heart" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4110 : prst === "lightningBolt" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4112 : prst === "sun" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4114 : prst === "moon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4116 : prst === "smileyFace" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4118 : prst === "foldedCorner" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4120 : prst === "frame" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4122 : prst === "bevel" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4124 : prst === "can" || prst === "cylinder" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4126 : prst === "cube" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4128 : prst === "ribbon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4130 : prst === "ribbon2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4132 : prst === "chevron" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4134 : prst === "homePlate" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4136 : prst === "notchedRightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4138 : prst === "stripedRightArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4140 : prst === "leftRightArrowCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4142 : prst === "mathPlus" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4144 : prst === "mathMinus" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4146 : prst === "mathMultiply" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4148 : prst === "mathDivide" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4150 : prst === "mathEqual" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4152 : prst === "snip1Rect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4154 : prst === "snip2SameRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4156 : prst === "round1Rect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4158 : prst === "round2SameRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4160 : prst === "round2DiagRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4162 : prst === "snipRoundRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4164 : prst === "teardrop" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4166 : prst === "pie" || prst === "arc" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4168 : prst === "chord" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4170 : prst === "decagon" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4172 : prst === "diagStripe" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4174 : prst === "corner" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4176 : prst === "plaque" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4178 : prst === "gear6" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4180 : prst === "gear9" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4182 : prst === "funnel" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4184 : prst === "irregularSeal1" || prst === "irregularSeal2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4186 : prst === "wave" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4188 : prst === "doubleWave" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4190 : prst === "bracketPair" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4192 : prst === "bracePair" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4194 : prst === "star10" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4196 : prst === "star12" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4198 : prst === "star16" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4200 : prst === "star24" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4202 : prst === "star32" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4204 : prst === "flowChartAlternateProcess" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4206 : prst === "flowChartMultidocument" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4208 : prst === "flowChartInternalStorage" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4210 : prst === "flowChartMagneticDisk" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4212 : prst === "flowChartMagneticDrum" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4214 : prst === "flowChartMagneticTape" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4216 : prst === "flowChartOnlineStorage" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4218 : prst === "flowChartDisplay" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4220 : prst === "flowChartPunchedCard" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4222 : prst === "flowChartPunchedTape" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4224 : prst === "flowChartSummingJunction" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4226 : prst === "flowChartOr" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4228 : prst === "flowChartCollate" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4230 : prst === "cloudCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4232 : prst === "borderCallout1" || prst === "callout1" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4234 : prst === "borderCallout2" || prst === "callout2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4236 : prst === "borderCallout3" || prst === "callout3" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4238 : prst === "accentCallout1" || prst === "accentBorderCallout1" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4240 : prst === "accentCallout2" || prst === "accentBorderCallout2" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4242 : prst === "accentCallout3" || prst === "accentBorderCallout3" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4244 : prst === "bentArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4246 : prst === "bentUpArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4248 : prst === "curvedRightArrow" || prst === "curvedLeftArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4250 : prst === "curvedUpArrow" || prst === "curvedDownArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4252 : prst === "circularArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4254 : prst === "uturnArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4256 : prst === "leftUpArrow" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4258 : prst === "upDownArrowCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4260 : prst === "quadArrowCallout" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4262 : prst === "cloud" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4264 : prst === "leftBracket" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4266 : prst === "rightBracket" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4268 : prst === "leftBrace" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4270 : prst === "rightBrace" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4272 : prst === "horzScroll" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4274 : prst === "vertScroll" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4276 : prst === "snip2DiagRect" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4278 : prst === "plaqueTabs" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4280 : prst === "mathNotEqual" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4282 : prst === "actionButtonBlank" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4284 : prst === "actionButtonHome" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4286 : prst === "actionButtonBackPrevious" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4288 : prst === "actionButtonForwardNext" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4290 : prst === "actionButtonBeginning" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4292 : prst === "actionButtonEnd" ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4294 : prst === "actionButtonReturn" || (prst === "actionButtonMovie" || (prst === "actionButtonDocument" || (prst === "actionButtonSound" || (prst === "actionButtonHelp" || prst === "actionButtonInformation")))) ? _M0FP210pptx_2dsvg8renderer16get__preset__defN6constrS4296 : undefined;
   }
   function _M0FP210pptx_2dsvg8renderer15parse__one__adj(env, s, start, end_, adj_names) {
     let eq = start;
@@ -13305,7 +12881,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg8renderer22render__effect__filter(eff, filter_id, scale) {
     if (_M0MP210pptx_2dsvg5ooxml10EffectList8is__none(eff)) {
-      return _M0FP210pptx_2dsvg8renderer22render__effect__filterN5tupleS4508;
+      return _M0FP210pptx_2dsvg8renderer22render__effect__filterN5tupleS4297;
     }
     let filters = "";
     if (!_M0MP210pptx_2dsvg5ooxml11OuterShadow8is__none(eff.outer_shadow)) {
@@ -16579,7 +16155,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg8renderer20render__blip__filter(bf, filter_id) {
     if (!_M0FP210pptx_2dsvg8renderer18blip__has__effects(bf)) {
-      return _M0FP210pptx_2dsvg8renderer20render__blip__filterN5tupleS4509;
+      return _M0FP210pptx_2dsvg8renderer20render__blip__filterN5tupleS4298;
     }
     let filters = "";
     let result_name = "SourceGraphic";
@@ -19049,7 +18625,7 @@ export function createPptxJsEngine() {
     return `${out}</${tag}>`;
   }
   function _M0FP210pptx_2dsvg10serializer28serialize__table__text__body(paragraphs) {
-    return _M0FP210pptx_2dsvg10serializer28serialize__text__body__inner(paragraphs, "a:txBody", _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4419);
+    return _M0FP210pptx_2dsvg10serializer28serialize__text__body__inner(paragraphs, "a:txBody", _M0MP210pptx_2dsvg5ooxml9BodyProps7defaultN6recordS4417);
   }
   function _M0FP210pptx_2dsvg10serializer22serialize__table__cell(cell) {
     let out = "<a:tc";
@@ -19391,7 +18967,7 @@ export function createPptxJsEngine() {
     return `${out}</p:sld>`;
   }
   function _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(s) {
-    return s === "none" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg5ooxml17parse__hex__color(s);
+    return s === "none" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg5ooxml17parse__hex__color(s);
   }
   function _M0FP210pptx_2dsvg11svg__parser15get__data__attr(node, name) {
     const _bind = _M0FP210pptx_2dsvg3xml9get__attr(node, name);
@@ -19404,7 +18980,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg11svg__parser15color__or__none(node, attr) {
     const v = _M0FP210pptx_2dsvg11svg__parser15get__data__attr(node, attr);
-    return v === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(v);
+    return v === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(v);
   }
   function _M0FP210pptx_2dsvg11svg__parser14get__data__int(node, name) {
     return _M0FP210pptx_2dsvg3xml10parse__int(_M0FP210pptx_2dsvg11svg__parser15get__data__attr(node, name));
@@ -19436,13 +19012,13 @@ export function createPptxJsEngine() {
     const ishdw = is_clr === "" ? _M0MP210pptx_2dsvg5ooxml11InnerShadow4none() : new _M0TP210pptx_2dsvg5ooxml11InnerShadow(_M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-is-blur"), _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-is-dist"), _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-is-dir"), _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(is_clr));
     const gl_rad = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-gl-rad");
     const gl_clr = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "eff-gl-clr");
-    const gl = gl_rad === 0 && gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml4Glow4none() : new _M0TP210pptx_2dsvg5ooxml4Glow(gl_rad, gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(gl_clr));
+    const gl = gl_rad === 0 && gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml4Glow4none() : new _M0TP210pptx_2dsvg5ooxml4Glow(gl_rad, gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(gl_clr));
     const se_rad = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-se-rad");
     const se = new _M0TP210pptx_2dsvg5ooxml8SoftEdge(se_rad);
     const refl_sta = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-refl-sta");
     let refl;
     if (refl_sta === 0) {
-      refl = _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4421;
+      refl = _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4419;
     } else {
       const _tmp = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-refl-blur");
       const _tmp$2 = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-refl-dist");
@@ -19466,7 +19042,7 @@ export function createPptxJsEngine() {
       const _tmp = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-ps-dist");
       const _tmp$2 = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "eff-ps-dir");
       const clr = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "eff-ps-clr");
-      ps = new _M0TP210pptx_2dsvg5ooxml12PresetShadow(ps_prst, _tmp, _tmp$2, clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(clr));
+      ps = new _M0TP210pptx_2dsvg5ooxml12PresetShadow(ps_prst, _tmp, _tmp$2, clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(clr));
     }
     const fo_blend = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "eff-fo-blend");
     let fo;
@@ -19474,17 +19050,17 @@ export function createPptxJsEngine() {
       fo = _M0MP210pptx_2dsvg5ooxml11FillOverlay4none();
     } else {
       const clr = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "eff-fo-clr");
-      fo = new _M0TP210pptx_2dsvg5ooxml11FillOverlay(fo_blend, clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(clr));
+      fo = new _M0TP210pptx_2dsvg5ooxml11FillOverlay(fo_blend, clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(clr));
     }
     return new _M0TP210pptx_2dsvg5ooxml10EffectList(os, ishdw, gl, se, refl, bl, ps, fo);
   }
   function _M0FP210pptx_2dsvg11svg__parser29parse__run__effects__from__da(node) {
     const os_blur = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-os-blur");
     const os_clr = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "reff-os-clr");
-    const os = os_blur === 0 && os_clr === "" ? _M0MP210pptx_2dsvg5ooxml11OuterShadow4none() : new _M0TP210pptx_2dsvg5ooxml11OuterShadow(os_blur, _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-os-dist"), _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-os-dir"), os_clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(os_clr), 100000, 100000, "b", true);
+    const os = os_blur === 0 && os_clr === "" ? _M0MP210pptx_2dsvg5ooxml11OuterShadow4none() : new _M0TP210pptx_2dsvg5ooxml11OuterShadow(os_blur, _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-os-dist"), _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-os-dir"), os_clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(os_clr), 100000, 100000, "b", true);
     const gl_rad = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-gl-rad");
     const gl_clr = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "reff-gl-clr");
-    const gl = gl_rad === 0 && gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml4Glow4none() : new _M0TP210pptx_2dsvg5ooxml4Glow(gl_rad, gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(gl_clr));
+    const gl = gl_rad === 0 && gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml4Glow4none() : new _M0TP210pptx_2dsvg5ooxml4Glow(gl_rad, gl_clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(gl_clr));
     const blur_rad = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-blur-rad");
     const bl = new _M0TP210pptx_2dsvg5ooxml4Blur(blur_rad);
     const ps_prst = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "reff-ps-prst");
@@ -19495,15 +19071,15 @@ export function createPptxJsEngine() {
       const _tmp = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-ps-dist");
       const _tmp$2 = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "reff-ps-dir");
       const clr = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "reff-ps-clr");
-      ps = new _M0TP210pptx_2dsvg5ooxml12PresetShadow(ps_prst, _tmp, _tmp$2, clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(clr));
+      ps = new _M0TP210pptx_2dsvg5ooxml12PresetShadow(ps_prst, _tmp, _tmp$2, clr === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(clr));
     }
-    return _M0MP210pptx_2dsvg5ooxml11OuterShadow8is__none(os) && (_M0MP210pptx_2dsvg5ooxml4Glow8is__none(gl) && (bl.rad === 0 && _M0MP210pptx_2dsvg5ooxml12PresetShadow8is__none(ps))) ? _M0MP210pptx_2dsvg5ooxml10EffectList4none() : new _M0TP210pptx_2dsvg5ooxml10EffectList(os, _M0MP210pptx_2dsvg5ooxml11InnerShadow4none(), gl, _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4422, _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4421, bl, ps, _M0MP210pptx_2dsvg5ooxml11FillOverlay4none());
+    return _M0MP210pptx_2dsvg5ooxml11OuterShadow8is__none(os) && (_M0MP210pptx_2dsvg5ooxml4Glow8is__none(gl) && (bl.rad === 0 && _M0MP210pptx_2dsvg5ooxml12PresetShadow8is__none(ps))) ? _M0MP210pptx_2dsvg5ooxml10EffectList4none() : new _M0TP210pptx_2dsvg5ooxml10EffectList(os, _M0MP210pptx_2dsvg5ooxml11InnerShadow4none(), gl, _M0MP210pptx_2dsvg5ooxml8SoftEdge4noneN6recordS4420, _M0MP210pptx_2dsvg5ooxml10Reflection4noneN6recordS4419, bl, ps, _M0MP210pptx_2dsvg5ooxml11FillOverlay4none());
   }
   function _M0FP210pptx_2dsvg11svg__parser26parse__scene__3d__from__da(node) {
     const cam = _M0FP210pptx_2dsvg11svg__parser15get__data__attr(node, "3d-cam");
     const rig = _M0FP210pptx_2dsvg11svg__parser15get__data__attr(node, "3d-rig");
     const rig_dir = _M0FP210pptx_2dsvg11svg__parser15get__data__attr(node, "3d-rig-dir");
-    return cam === "" && rig === "" ? _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4423 : new _M0TP210pptx_2dsvg5ooxml7Scene3d(cam, rig, rig_dir);
+    return cam === "" && rig === "" ? _M0MP210pptx_2dsvg5ooxml7Scene3d4noneN6recordS4421 : new _M0TP210pptx_2dsvg5ooxml7Scene3d(cam, rig, rig_dir);
   }
   function _M0FP210pptx_2dsvg11svg__parser23parse__sp__3d__from__da(node) {
     const bt_w = _M0FP210pptx_2dsvg11svg__parser8get__dai(node, "3d-bt-w");
@@ -19614,8 +19190,8 @@ export function createPptxJsEngine() {
     }
     const fg_hex = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "tpatt-fg");
     const bg_hex = _M0FP210pptx_2dsvg11svg__parser7get__da(node, "tpatt-bg");
-    const fg = fg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(fg_hex);
-    const bg = bg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(bg_hex);
+    const fg = fg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(fg_hex);
+    const bg = bg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(bg_hex);
     return new _M0TP210pptx_2dsvg5ooxml11PatternFill(prst, fg, bg);
   }
   function _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svg(text_node) {
@@ -19649,7 +19225,7 @@ export function createPptxJsEngine() {
                     const bold = bold_s === "1";
                     const font_size = _M0FP210pptx_2dsvg11svg__parser8get__dai(run_node, "font-size");
                     const color_hex = _M0FP210pptx_2dsvg11svg__parser7get__da(run_node, "color");
-                    const color = color_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(color_hex);
+                    const color = color_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(color_hex);
                     const italic_s = _M0FP210pptx_2dsvg11svg__parser15get__data__attr(run_node, "font-style");
                     const italic = italic_s === "italic";
                     const font_face = _M0FP210pptx_2dsvg11svg__parser7get__da(run_node, "run-font");
@@ -19676,9 +19252,9 @@ export function createPptxJsEngine() {
                   const _Text = _bind;
                   const _text = _Text._0;
                   if (!(_text === "")) {
-                    const _bind$2 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+                    const _bind$2 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
                     const _bind$3 = _M0MP210pptx_2dsvg5ooxml10EffectList4none();
-                    const _bind$4 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+                    const _bind$4 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
                     const _bind$5 = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
                     const _bind$6 = _M0MP210pptx_2dsvg5ooxml11PatternFill4none();
                     _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(runs, new _M0TP210pptx_2dsvg5ooxml7TextRun(_text, false, false, false, 0, _bind$2, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS284, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS285, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS286, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS287, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS288, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS289, 0, 0, 0, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS293, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS294, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS295, _bind$3, _bind$4, 0, _bind$5, _bind$6, _M0FP210pptx_2dsvg11svg__parser22parse__text__from__svgN7_2abindS302));
@@ -19693,9 +19269,9 @@ export function createPptxJsEngine() {
             const bu_font = _M0FP210pptx_2dsvg11svg__parser7get__da(child, "bu-font");
             const bu_size = _M0FP210pptx_2dsvg11svg__parser8get__dai(child, "bu-size");
             const bu_color_hex = _M0FP210pptx_2dsvg11svg__parser7get__da(child, "bu-color");
-            const bu_color = bu_color_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(bu_color_hex);
+            const bu_color = bu_color_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(bu_color_hex);
             const rtl = _M0FP210pptx_2dsvg11svg__parser7get__da(child, "rtl") === "1";
-            _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(paras, new _M0TP210pptx_2dsvg5ooxml13TextParagraph(runs, align, level, 0, 0, 0, -1, 0, "", "", false, bu_font, bu_size, bu_color, "", [], rtl, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", ""));
+            _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(paras, new _M0TP210pptx_2dsvg5ooxml13TextParagraph(runs, align, level, 0, 0, 0, -1, 0, "", "", false, bu_font, bu_size, bu_color, "", [], rtl, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", ""));
           }
         }
         i = i + 1 | 0;
@@ -19886,11 +19462,11 @@ export function createPptxJsEngine() {
     } else {
       const patt_fg_hex = _M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "patt-fg");
       const patt_bg_hex = _M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "patt-bg");
-      const fg = patt_fg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4405 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(patt_fg_hex);
-      const bg = patt_bg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(patt_bg_hex);
+      const fg = patt_fg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5blackN6recordS4403 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(patt_fg_hex);
+      const bg = patt_bg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(patt_bg_hex);
       patt_fill = new _M0TP210pptx_2dsvg5ooxml11PatternFill(patt_prst, fg, bg);
     }
-    return new _M0TP210pptx_2dsvg5ooxml5Shape(kind, transform, fill, grad_fill, blip_fill, patt_fill, stroke, stroke_w, stroke_dash, stroke_cap, stroke_join, stroke_miter_limit, stroke_head_type, stroke_head_w, stroke_head_len, stroke_tail_type, stroke_tail_w, stroke_tail_len, stroke_cmpd, stroke_no_fill, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), paragraphs, body_props, ph_type, ph_idx, _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "st-cxn-id"), _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "st-cxn-idx"), _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "end-cxn-id"), _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "end-cxn-idx"), _M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "sh-link-rid"), _M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "sh-link-hover-rid"), _M0FP210pptx_2dsvg3xml13xml__unescape(_M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "mc-choice")), _M0FP210pptx_2dsvg3xml13xml__unescape(_M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "ole")), _M0FP210pptx_2dsvg11svg__parser24parse__effects__from__da(g_node), _M0FP210pptx_2dsvg11svg__parser26parse__scene__3d__from__da(g_node), _M0FP210pptx_2dsvg11svg__parser23parse__sp__3d__from__da(g_node), _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    return new _M0TP210pptx_2dsvg5ooxml5Shape(kind, transform, fill, grad_fill, blip_fill, patt_fill, stroke, stroke_w, stroke_dash, stroke_cap, stroke_join, stroke_miter_limit, stroke_head_type, stroke_head_w, stroke_head_len, stroke_tail_type, stroke_tail_w, stroke_tail_len, stroke_cmpd, stroke_no_fill, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), paragraphs, body_props, ph_type, ph_idx, _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "st-cxn-id"), _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "st-cxn-idx"), _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "end-cxn-id"), _M0FP210pptx_2dsvg11svg__parser8get__dai(g_node, "end-cxn-idx"), _M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "sh-link-rid"), _M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "sh-link-hover-rid"), _M0FP210pptx_2dsvg3xml13xml__unescape(_M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "mc-choice")), _M0FP210pptx_2dsvg3xml13xml__unescape(_M0FP210pptx_2dsvg11svg__parser7get__da(g_node, "ole")), _M0FP210pptx_2dsvg11svg__parser24parse__effects__from__da(g_node), _M0FP210pptx_2dsvg11svg__parser26parse__scene__3d__from__da(g_node), _M0FP210pptx_2dsvg11svg__parser23parse__sp__3d__from__da(g_node), _M0MP210pptx_2dsvg5ooxml14TextStyleGroup5empty(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
   }
   function _M0FP210pptx_2dsvg11svg__parser31parse__group__children__from__g(group_g) {
     const children = [];
@@ -19946,7 +19522,7 @@ export function createPptxJsEngine() {
     const _bind = _M0FP210pptx_2dsvg3xml11find__child(nodes, "svg");
     let svg_node;
     if (_bind === undefined) {
-      return new _M0TP210pptx_2dsvg5ooxml9SlideData(_M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430, _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], "", "", false);
+      return new _M0TP210pptx_2dsvg5ooxml9SlideData(_M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428, _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], "", "", false);
     } else {
       const _Some = _bind;
       svg_node = _Some;
@@ -19957,8 +19533,8 @@ export function createPptxJsEngine() {
     const hidden = _M0FP210pptx_2dsvg11svg__parser7get__da(svg_node, "hidden") === "1";
     const transition_xml = _M0FP210pptx_2dsvg11svg__parser7get__da(svg_node, "transition-xml");
     const timing_xml = _M0FP210pptx_2dsvg11svg__parser7get__da(svg_node, "timing-xml");
-    const slide_size = slide_cx > 0 && slide_cy > 0 ? new _M0TP210pptx_2dsvg5ooxml9SlideSize(slide_cx, slide_cy) : _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4430;
-    const background = bg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(bg_hex);
+    const slide_size = slide_cx > 0 && slide_cy > 0 ? new _M0TP210pptx_2dsvg5ooxml9SlideSize(slide_cx, slide_cy) : _M0MP210pptx_2dsvg5ooxml9SlideSize7defaultN6recordS4428;
+    const background = bg_hex === "" ? _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405 : _M0FP210pptx_2dsvg11svg__parser17parse__hex__color(bg_hex);
     const shapes = [];
     const svg_children = _M0FP210pptx_2dsvg3xml13get__children(svg_node);
     const n = svg_children.length;
@@ -19984,135 +19560,27 @@ export function createPptxJsEngine() {
     }
     return new _M0TP210pptx_2dsvg5ooxml9SlideData(slide_size, background, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), shapes, transition_xml, timing_xml, hidden);
   }
-  function _M0FP210pptx_2dsvg4main15para__text__len(para) {
-    let total = 0;
-    const nr = para.runs.length;
+  function _M0FP210pptx_2dsvg4main17find__placeholder(shapes, ph_type, ph_idx) {
+    const n = shapes.length;
     let i = 0;
-    while (true) {
-      if (i < nr) {
-        total = total + _M0MPC15array5Array2atGsE(para.runs, i).text.length | 0;
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return total;
-  }
-  function _M0FP210pptx_2dsvg4main9substring(s, from, to) {
-    return _M0FP210pptx_2dsvg3xml14str__substring(s, from, to);
-  }
-  function _M0FP210pptx_2dsvg4main17split__para__runs(para, char_off) {
-    const left = [];
-    const right = [];
-    const nr = para.runs.length;
-    let acc = 0;
-    let i = 0;
-    while (true) {
-      if (i < nr) {
-        const run = _M0MPC15array5Array2atGsE(para.runs, i);
-        const len = run.text.length;
-        const run_start = acc;
-        const run_end = acc + len | 0;
-        if (char_off <= run_start) {
-          if (len > 0) {
-            _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(right, run);
-          }
-        } else {
-          if (char_off >= run_end) {
-            if (len > 0) {
-              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(left, run);
-            }
-          } else {
-            const cut = char_off - run_start | 0;
-            const left_text = _M0FP210pptx_2dsvg4main9substring(run.text, 0, cut);
-            const right_text = _M0FP210pptx_2dsvg4main9substring(run.text, cut, len);
-            if (!(left_text === "")) {
-              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(left, new _M0TP210pptx_2dsvg5ooxml7TextRun(left_text, run.bold, run.bold_explicit, run.italic, run.font_size, run.color, run.font_face, run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
-            }
-            if (!(right_text === "")) {
-              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(right, new _M0TP210pptx_2dsvg5ooxml7TextRun(right_text, run.bold, run.bold_explicit, run.italic, run.font_size, run.color, run.font_face, run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
-            }
-          }
-        }
-        acc = acc + len | 0;
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return { _0: left, _1: right };
-  }
-  function _M0FP210pptx_2dsvg4main13array__spliceGRP210pptx_2dsvg5ooxml13TextParagraphE(arr, start, end_inclusive, items) {
-    const new_arr = [];
-    const len = arr.length;
-    let i = 0;
-    while (true) {
-      if (i < len) {
-        if (i === start) {
-          let k = 0;
-          while (true) {
-            if (k < items.length) {
-              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_arr, _M0MPC15array5Array2atGsE(items, k));
-              k = k + 1 | 0;
-              continue;
-            } else {
-              break;
-            }
-          }
-        }
-        if (i < start || i > end_inclusive) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_arr, _M0MPC15array5Array2atGsE(arr, i));
-        }
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    if (start >= len) {
-      let k = 0;
+    if (ph_idx >= 0) {
       while (true) {
-        if (k < items.length) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_arr, _M0MPC15array5Array2atGsE(items, k));
-          k = k + 1 | 0;
+        if (i < n) {
+          if (_M0MPC15array5Array2atGsE(shapes, i).ph_idx === ph_idx) {
+            return _M0MPC15array5Array2atGsE(shapes, i);
+          }
+          i = i + 1 | 0;
           continue;
         } else {
           break;
         }
       }
     }
-    while (true) {
-      if (arr.length > 0) {
-        _M0MPC15array5Array3popGRP210pptx_2dsvg5ooxml13TextParagraphE(arr);
-        continue;
-      } else {
-        break;
-      }
-    }
-    let j = 0;
-    while (true) {
-      if (j < new_arr.length) {
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(arr, _M0MPC15array5Array2atGsE(new_arr, j));
-        j = j + 1 | 0;
-        continue;
-      } else {
-        return;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg4main25find__master__for__layout(layout_path) {
-    const pairs = _M0FP210pptx_2dsvg4main21g__layout__to__master.val;
-    const n = pairs.length;
-    let i = 0;
+    i = 0;
     while (true) {
       if (i < n) {
-        const _bind = _M0MPC15array5Array2atGsE(pairs, i);
-        const _lp = _bind._0;
-        const _mp = _bind._1;
-        if (_lp === layout_path) {
-          return _mp;
+        if (_M0MPC15array5Array2atGsE(shapes, i).ph_type === ph_type) {
+          return _M0MPC15array5Array2atGsE(shapes, i);
         }
         i = i + 1 | 0;
         continue;
@@ -20120,238 +19588,93 @@ export function createPptxJsEngine() {
         break;
       }
     }
-    return _M0FP210pptx_2dsvg4main16g__master__paths.val.length > 0 ? _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main16g__master__paths.val, 0) : "";
+    return undefined;
   }
-  function _M0FP210pptx_2dsvg4main16array__index__of(arr, val) {
-    const n = arr.length;
+  function _M0FP210pptx_2dsvg4main26try__inherit__from__source(shapes, idx, shape, source_shapes, needs_transform, needs_body_props) {
+    const _bind = _M0FP210pptx_2dsvg4main17find__placeholder(source_shapes, shape.ph_type, shape.ph_idx);
+    if (_bind === undefined) {
+      return _M0FP210pptx_2dsvg4main26try__inherit__from__sourceN5tupleS989;
+    } else {
+      const _Some = _bind;
+      const _ph = _Some;
+      let new_shape = shape;
+      const got_t = needs_transform && (_ph.transform.cx > 0 && _ph.transform.cy > 0);
+      if (got_t) {
+        const _tmp = new_shape;
+        new_shape = new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _ph.transform, _tmp.fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color);
+      }
+      if (needs_body_props) {
+        const _tmp = new_shape;
+        new_shape = new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _tmp.transform, _tmp.fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _ph.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color);
+      }
+      _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(shapes, idx, new_shape);
+      return { _0: got_t, _1: needs_body_props };
+    }
+  }
+  function _M0FP210pptx_2dsvg4main33resolve__placeholder__inheritance(shapes, layout_opt, master_opt) {
+    const ns = shapes.length;
     let i = 0;
     while (true) {
-      if (i < n) {
-        if (_M0MPC15array5Array2atGsE(arr, i) === val) {
-          return i;
+      if (i < ns) {
+        const shape = _M0MPC15array5Array2atGsE(shapes, i);
+        const _p = shape.ph_type;
+        if (_p === "") {
+          i = i + 1 | 0;
+          continue;
+        }
+        let needs_transform = shape.transform.cx === 0 && shape.transform.cy === 0;
+        let needs_body_props;
+        if (shape.body_props.l_ins < 0) {
+          let _tmp;
+          if (shape.body_props.t_ins < 0) {
+            let _tmp$2;
+            if (shape.body_props.r_ins < 0) {
+              let _tmp$3;
+              if (shape.body_props.b_ins < 0) {
+                const _p$2 = shape.body_props.anchor;
+                _tmp$3 = _p$2 === "";
+              } else {
+                _tmp$3 = false;
+              }
+              _tmp$2 = _tmp$3;
+            } else {
+              _tmp$2 = false;
+            }
+            _tmp = _tmp$2;
+          } else {
+            _tmp = false;
+          }
+          needs_body_props = _tmp;
+        } else {
+          needs_body_props = false;
+        }
+        if (!needs_transform && !needs_body_props) {
+          i = i + 1 | 0;
+          continue;
+        }
+        if (layout_opt === undefined) {
+        } else {
+          const _Some = layout_opt;
+          const _layout = _Some;
+          const _bind = _M0FP210pptx_2dsvg4main26try__inherit__from__source(shapes, i, _M0MPC15array5Array2atGsE(shapes, i), _layout.shapes, needs_transform, needs_body_props);
+          const _got_t = _bind._0;
+          const _got_bp = _bind._1;
+          if (_got_t) {
+            needs_transform = false;
+          }
+          if (_got_bp) {
+            needs_body_props = false;
+          }
+        }
+        if (needs_transform || needs_body_props) {
+          if (master_opt === undefined) {
+          } else {
+            const _Some = master_opt;
+            const _master = _Some;
+            _M0FP210pptx_2dsvg4main26try__inherit__from__source(shapes, i, _M0MPC15array5Array2atGsE(shapes, i), _master.shapes, needs_transform, needs_body_props);
+          }
         }
         i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return -1;
-  }
-  function _M0FP210pptx_2dsvg4main11get__layout(layout_path) {
-    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__layout__paths.val, layout_path);
-    if (idx >= 0) {
-      const _bind = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main10g__layouts.val, idx);
-      const _data = _bind._0;
-      return _data;
-    } else {
-      return undefined;
-    }
-  }
-  function _M0FP210pptx_2dsvg4main17get__layout__rels(layout_path) {
-    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__layout__paths.val, layout_path);
-    return idx >= 0 && idx < _M0FP210pptx_2dsvg4main15g__layout__rels.val.length ? _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(_M0FP210pptx_2dsvg4main15g__layout__rels.val, idx) : [];
-  }
-  function _M0FP210pptx_2dsvg4main11get__master(master_path) {
-    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__master__paths.val, master_path);
-    if (idx >= 0) {
-      const _bind = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main10g__masters.val, idx);
-      const _data = _bind._0;
-      return _data;
-    } else {
-      return undefined;
-    }
-  }
-  function _M0FP210pptx_2dsvg4main17get__master__rels(master_path) {
-    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__master__paths.val, master_path);
-    return idx >= 0 && idx < _M0FP210pptx_2dsvg4main15g__master__rels.val.length ? _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(_M0FP210pptx_2dsvg4main15g__master__rels.val, idx) : [];
-  }
-  function _M0FP210pptx_2dsvg4main18get__master__theme(master_path) {
-    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__master__paths.val, master_path);
-    return idx >= 0 && idx < _M0FP210pptx_2dsvg4main17g__master__themes.val.length ? _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main17g__master__themes.val, idx) : _M0FP210pptx_2dsvg4main8g__theme.val;
-  }
-  function _M0FP210pptx_2dsvg4main12int__to__str(n) {
-    return _M0FP210pptx_2dsvg3xml12int__to__str(n);
-  }
-  function _M0FP210pptx_2dsvg4main21apply__epr__fallbacks(shape) {
-    let fb_fs = 0;
-    let fb_clr = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    let fb_ff = "";
-    let fb_ea = "";
-    const _bind = shape.paragraphs;
-    const _bind$2 = _bind.length;
-    let _tmp = 0;
-    while (true) {
-      const _ = _tmp;
-      if (_ < _bind$2) {
-        const para = _bind[_];
-        if (fb_fs === 0 && para.epr_font_size > 0) {
-          fb_fs = para.epr_font_size;
-        }
-        let _tmp$2;
-        const _p = fb_clr;
-        if (_p.r < 0) {
-          const _p$2 = para.epr_color;
-          _tmp$2 = !(_p$2.r < 0);
-        } else {
-          _tmp$2 = false;
-        }
-        if (_tmp$2) {
-          fb_clr = para.epr_color;
-        }
-        let _tmp$3;
-        const _p$2 = fb_ff;
-        if (_p$2 === "") {
-          const _p$3 = para.epr_font_face;
-          _tmp$3 = !(_p$3 === "");
-        } else {
-          _tmp$3 = false;
-        }
-        if (_tmp$3) {
-          fb_ff = para.epr_font_face;
-        }
-        let _tmp$4;
-        const _p$3 = fb_ea;
-        if (_p$3 === "") {
-          const _p$4 = para.epr_ea_font;
-          _tmp$4 = !(_p$4 === "");
-        } else {
-          _tmp$4 = false;
-        }
-        if (_tmp$4) {
-          fb_ea = para.epr_ea_font;
-        }
-        _tmp = _ + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    let _tmp$2;
-    if (fb_fs === 0) {
-      let _tmp$3;
-      const _p = fb_clr;
-      if (_p.r < 0) {
-        let _tmp$4;
-        const _p$2 = fb_ff;
-        if (_p$2 === "") {
-          const _p$3 = fb_ea;
-          _tmp$4 = _p$3 === "";
-        } else {
-          _tmp$4 = false;
-        }
-        _tmp$3 = _tmp$4;
-      } else {
-        _tmp$3 = false;
-      }
-      _tmp$2 = _tmp$3;
-    } else {
-      _tmp$2 = false;
-    }
-    if (_tmp$2) {
-      return undefined;
-    }
-    const _bind$3 = shape.paragraphs;
-    const _bind$4 = _bind$3.length;
-    let _tmp$3 = 0;
-    while (true) {
-      const _ = _tmp$3;
-      if (_ < _bind$4) {
-        const para = _bind$3[_];
-        const eff_fs = para.epr_font_size > 0 ? para.epr_font_size : fb_fs;
-        let eff_clr;
-        const _p = para.epr_color;
-        if (!(_p.r < 0)) {
-          eff_clr = para.epr_color;
-        } else {
-          eff_clr = fb_clr;
-        }
-        let eff_ff;
-        const _p$2 = para.epr_font_face;
-        if (!(_p$2 === "")) {
-          eff_ff = para.epr_font_face;
-        } else {
-          eff_ff = fb_ff;
-        }
-        let eff_ea;
-        const _p$3 = para.epr_ea_font;
-        if (!(_p$3 === "")) {
-          eff_ea = para.epr_ea_font;
-        } else {
-          eff_ea = fb_ea;
-        }
-        const nr = para.runs.length;
-        let ri = 0;
-        while (true) {
-          if (ri < nr) {
-            const run = _M0MPC15array5Array2atGsE(para.runs, ri);
-            const need_fs = eff_fs > 0 && run.font_size === 0;
-            let need_clr;
-            if (!(eff_clr.r < 0)) {
-              const _p$4 = run.color;
-              need_clr = _p$4.r < 0;
-            } else {
-              need_clr = false;
-            }
-            let need_ff;
-            if (!(eff_ff === "")) {
-              const _p$4 = run.font_face;
-              need_ff = _p$4 === "";
-            } else {
-              need_ff = false;
-            }
-            let need_ea;
-            if (!(eff_ea === "")) {
-              const _p$4 = run.ea_font;
-              need_ea = _p$4 === "";
-            } else {
-              need_ea = false;
-            }
-            if (need_fs || (need_clr || (need_ff || need_ea))) {
-              _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(para.runs, ri, new _M0TP210pptx_2dsvg5ooxml7TextRun(run.text, run.bold, run.bold_explicit, run.italic, need_fs ? eff_fs : run.font_size, need_clr ? eff_clr : run.color, need_ff ? eff_ff : run.font_face, need_ea ? eff_ea : run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
-            }
-            ri = ri + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        _tmp$3 = _ + 1 | 0;
-        continue;
-      } else {
-        return;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg4main26apply__font__ref__fallback(shape) {
-    const _p = shape.font_ref_color;
-    if (_p.r < 0) {
-      return undefined;
-    }
-    const fr_clr = shape.font_ref_color;
-    const _bind = shape.paragraphs;
-    const _bind$2 = _bind.length;
-    let _tmp = 0;
-    while (true) {
-      const _ = _tmp;
-      if (_ < _bind$2) {
-        const para = _bind[_];
-        const nr = para.runs.length;
-        let ri = 0;
-        while (true) {
-          if (ri < nr) {
-            const run = _M0MPC15array5Array2atGsE(para.runs, ri);
-            const _p$2 = run.color;
-            if (_p$2.r < 0) {
-              _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(para.runs, ri, new _M0TP210pptx_2dsvg5ooxml7TextRun(run.text, run.bold, run.bold_explicit, run.italic, run.font_size, fr_clr, run.font_face, run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
-            }
-            ri = ri + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        _tmp = _ + 1 | 0;
         continue;
       } else {
         return;
@@ -20560,36 +19883,6 @@ export function createPptxJsEngine() {
     _M0FP210pptx_2dsvg4main35apply__para__alignment__from__style(shape.paragraphs, style);
     _M0FP210pptx_2dsvg4main33apply__para__spacing__from__style(shape.paragraphs, style);
   }
-  function _M0FP210pptx_2dsvg4main17find__placeholder(shapes, ph_type, ph_idx) {
-    const n = shapes.length;
-    let i = 0;
-    if (ph_idx >= 0) {
-      while (true) {
-        if (i < n) {
-          if (_M0MPC15array5Array2atGsE(shapes, i).ph_idx === ph_idx) {
-            return _M0MPC15array5Array2atGsE(shapes, i);
-          }
-          i = i + 1 | 0;
-          continue;
-        } else {
-          break;
-        }
-      }
-    }
-    i = 0;
-    while (true) {
-      if (i < n) {
-        if (_M0MPC15array5Array2atGsE(shapes, i).ph_type === ph_type) {
-          return _M0MPC15array5Array2atGsE(shapes, i);
-        }
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return undefined;
-  }
   function _M0FP210pptx_2dsvg4main31apply__ph__lst__style__defaults(shape, source_shapes) {
     const _bind = _M0FP210pptx_2dsvg4main17find__placeholder(source_shapes, shape.ph_type, shape.ph_idx);
     if (_bind === undefined) {
@@ -20640,6 +19933,221 @@ export function createPptxJsEngine() {
     const style = ph === "title" || ph === "ctrTitle" ? text_styles.title_style : ph === "body" || (ph === "subTitle" || ph === "obj") ? text_styles.body_style : text_styles.other_style;
     _M0FP210pptx_2dsvg4main28apply__text__style__to__runs(shape.paragraphs, style);
     _M0FP210pptx_2dsvg4main33apply__para__spacing__from__style(shape.paragraphs, style);
+  }
+  function _M0FP210pptx_2dsvg4main21apply__epr__fallbacks(shape) {
+    let fb_fs = 0;
+    let fb_clr = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    let fb_ff = "";
+    let fb_ea = "";
+    const _bind = shape.paragraphs;
+    const _bind$2 = _bind.length;
+    let _tmp = 0;
+    while (true) {
+      const _ = _tmp;
+      if (_ < _bind$2) {
+        const para = _bind[_];
+        if (fb_fs === 0 && para.epr_font_size > 0) {
+          fb_fs = para.epr_font_size;
+        }
+        let _tmp$2;
+        const _p = fb_clr;
+        if (_p.r < 0) {
+          const _p$2 = para.epr_color;
+          _tmp$2 = !(_p$2.r < 0);
+        } else {
+          _tmp$2 = false;
+        }
+        if (_tmp$2) {
+          fb_clr = para.epr_color;
+        }
+        let _tmp$3;
+        const _p$2 = fb_ff;
+        if (_p$2 === "") {
+          const _p$3 = para.epr_font_face;
+          _tmp$3 = !(_p$3 === "");
+        } else {
+          _tmp$3 = false;
+        }
+        if (_tmp$3) {
+          fb_ff = para.epr_font_face;
+        }
+        let _tmp$4;
+        const _p$3 = fb_ea;
+        if (_p$3 === "") {
+          const _p$4 = para.epr_ea_font;
+          _tmp$4 = !(_p$4 === "");
+        } else {
+          _tmp$4 = false;
+        }
+        if (_tmp$4) {
+          fb_ea = para.epr_ea_font;
+        }
+        _tmp = _ + 1 | 0;
+        continue;
+      } else {
+        break;
+      }
+    }
+    let _tmp$2;
+    if (fb_fs === 0) {
+      let _tmp$3;
+      const _p = fb_clr;
+      if (_p.r < 0) {
+        let _tmp$4;
+        const _p$2 = fb_ff;
+        if (_p$2 === "") {
+          const _p$3 = fb_ea;
+          _tmp$4 = _p$3 === "";
+        } else {
+          _tmp$4 = false;
+        }
+        _tmp$3 = _tmp$4;
+      } else {
+        _tmp$3 = false;
+      }
+      _tmp$2 = _tmp$3;
+    } else {
+      _tmp$2 = false;
+    }
+    if (_tmp$2) {
+      return undefined;
+    }
+    const _bind$3 = shape.paragraphs;
+    const _bind$4 = _bind$3.length;
+    let _tmp$3 = 0;
+    while (true) {
+      const _ = _tmp$3;
+      if (_ < _bind$4) {
+        const para = _bind$3[_];
+        const eff_fs = para.epr_font_size > 0 ? para.epr_font_size : fb_fs;
+        let eff_clr;
+        const _p = para.epr_color;
+        if (!(_p.r < 0)) {
+          eff_clr = para.epr_color;
+        } else {
+          eff_clr = fb_clr;
+        }
+        let eff_ff;
+        const _p$2 = para.epr_font_face;
+        if (!(_p$2 === "")) {
+          eff_ff = para.epr_font_face;
+        } else {
+          eff_ff = fb_ff;
+        }
+        let eff_ea;
+        const _p$3 = para.epr_ea_font;
+        if (!(_p$3 === "")) {
+          eff_ea = para.epr_ea_font;
+        } else {
+          eff_ea = fb_ea;
+        }
+        const nr = para.runs.length;
+        let ri = 0;
+        while (true) {
+          if (ri < nr) {
+            const run = _M0MPC15array5Array2atGsE(para.runs, ri);
+            const need_fs = eff_fs > 0 && run.font_size === 0;
+            let need_clr;
+            if (!(eff_clr.r < 0)) {
+              const _p$4 = run.color;
+              need_clr = _p$4.r < 0;
+            } else {
+              need_clr = false;
+            }
+            let need_ff;
+            if (!(eff_ff === "")) {
+              const _p$4 = run.font_face;
+              need_ff = _p$4 === "";
+            } else {
+              need_ff = false;
+            }
+            let need_ea;
+            if (!(eff_ea === "")) {
+              const _p$4 = run.ea_font;
+              need_ea = _p$4 === "";
+            } else {
+              need_ea = false;
+            }
+            if (need_fs || (need_clr || (need_ff || need_ea))) {
+              _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(para.runs, ri, new _M0TP210pptx_2dsvg5ooxml7TextRun(run.text, run.bold, run.bold_explicit, run.italic, need_fs ? eff_fs : run.font_size, need_clr ? eff_clr : run.color, need_ff ? eff_ff : run.font_face, need_ea ? eff_ea : run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
+            }
+            ri = ri + 1 | 0;
+            continue;
+          } else {
+            break;
+          }
+        }
+        _tmp$3 = _ + 1 | 0;
+        continue;
+      } else {
+        return;
+      }
+    }
+  }
+  function _M0FP210pptx_2dsvg4main26apply__font__ref__fallback(shape) {
+    const _p = shape.font_ref_color;
+    if (_p.r < 0) {
+      return undefined;
+    }
+    const fr_clr = shape.font_ref_color;
+    const _bind = shape.paragraphs;
+    const _bind$2 = _bind.length;
+    let _tmp = 0;
+    while (true) {
+      const _ = _tmp;
+      if (_ < _bind$2) {
+        const para = _bind[_];
+        const nr = para.runs.length;
+        let ri = 0;
+        while (true) {
+          if (ri < nr) {
+            const run = _M0MPC15array5Array2atGsE(para.runs, ri);
+            const _p$2 = run.color;
+            if (_p$2.r < 0) {
+              _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(para.runs, ri, new _M0TP210pptx_2dsvg5ooxml7TextRun(run.text, run.bold, run.bold_explicit, run.italic, run.font_size, fr_clr, run.font_face, run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
+            }
+            ri = ri + 1 | 0;
+            continue;
+          } else {
+            break;
+          }
+        }
+        _tmp = _ + 1 | 0;
+        continue;
+      } else {
+        return;
+      }
+    }
+  }
+  function _M0FP210pptx_2dsvg4main13has__no__text(paragraphs) {
+    const np = paragraphs.length;
+    if (np === 0) {
+      return true;
+    }
+    let i = 0;
+    while (true) {
+      if (i < np) {
+        const nr = _M0MPC15array5Array2atGsE(paragraphs, i).runs.length;
+        let j = 0;
+        while (true) {
+          if (j < nr) {
+            const _p = _M0MPC15array5Array2atGsE(_M0MPC15array5Array2atGsE(paragraphs, i).runs, j).text;
+            if (!(_p === "")) {
+              return false;
+            }
+            j = j + 1 | 0;
+            continue;
+          } else {
+            break;
+          }
+        }
+        i = i + 1 | 0;
+        continue;
+      } else {
+        break;
+      }
+    }
+    return true;
   }
   function _M0FP210pptx_2dsvg4main13extract__text(paragraphs) {
     const np = paragraphs.length;
@@ -20697,35 +20205,8 @@ export function createPptxJsEngine() {
       }
     }
   }
-  function _M0FP210pptx_2dsvg4main13has__no__text(paragraphs) {
-    const np = paragraphs.length;
-    if (np === 0) {
-      return true;
-    }
-    let i = 0;
-    while (true) {
-      if (i < np) {
-        const nr = _M0MPC15array5Array2atGsE(paragraphs, i).runs.length;
-        let j = 0;
-        while (true) {
-          if (j < nr) {
-            const _p = _M0MPC15array5Array2atGsE(_M0MPC15array5Array2atGsE(paragraphs, i).runs, j).text;
-            if (!(_p === "")) {
-              return false;
-            }
-            j = j + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    return true;
+  function _M0FP210pptx_2dsvg4main12int__to__str(n) {
+    return _M0FP210pptx_2dsvg3xml12int__to__str(n);
   }
   function _M0FP210pptx_2dsvg4main34inject__placeholder__auto__content(shapes, slide_num, layout_opt, master_opt) {
     const ns = shapes.length;
@@ -20740,13 +20221,13 @@ export function createPptxJsEngine() {
         }
         const auto_text = ph === "sldNum" ? _M0FP210pptx_2dsvg4main12int__to__str(slide_num) : ph === "dt" ? _M0FP210pptx_2dsvg4main14find__ph__text(ph, shape.ph_idx, layout_opt, master_opt) : ph === "ftr" ? _M0FP210pptx_2dsvg4main14find__ph__text(ph, shape.ph_idx, layout_opt, master_opt) : "";
         if (!(auto_text === "")) {
-          const _bind = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+          const _bind = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
           const _bind$2 = _M0MP210pptx_2dsvg5ooxml10EffectList4none();
-          const _bind$3 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+          const _bind$3 = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
           const _bind$4 = _M0MP210pptx_2dsvg5ooxml12GradientFill4none();
           const _bind$5 = _M0MP210pptx_2dsvg5ooxml11PatternFill4none();
-          const run = new _M0TP210pptx_2dsvg5ooxml7TextRun(auto_text, false, false, false, 0, _bind, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS961, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS962, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS963, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS964, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS965, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS966, 0, 0, 0, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS970, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS971, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS972, _bind$2, _bind$3, 0, _bind$4, _bind$5, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS979);
-          const para = new _M0TP210pptx_2dsvg5ooxml13TextParagraph([run], "", 0, 0, 0, 0, 0, 0, "", "", false, "", 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", [], false, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", "");
+          const run = new _M0TP210pptx_2dsvg5ooxml7TextRun(auto_text, false, false, false, 0, _bind, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS736, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS737, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS738, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS739, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS740, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS741, 0, 0, 0, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS745, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS746, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS747, _bind$2, _bind$3, 0, _bind$4, _bind$5, _M0FP210pptx_2dsvg4main34inject__placeholder__auto__contentN7_2abindS754);
+          const para = new _M0TP210pptx_2dsvg5ooxml13TextParagraph([run], "", 0, 0, 0, 0, 0, 0, "", "", false, "", 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", [], false, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", "");
           _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(shapes, i, new _M0TP210pptx_2dsvg5ooxml5Shape(shape.kind, shape.transform, shape.fill, shape.grad_fill, shape.blip_fill, shape.patt_fill, shape.stroke, shape.stroke_w, shape.stroke_dash, shape.stroke_cap, shape.stroke_join, shape.stroke_miter_limit, shape.stroke_head_type, shape.stroke_head_w, shape.stroke_head_len, shape.stroke_tail_type, shape.stroke_tail_w, shape.stroke_tail_len, shape.stroke_cmpd, shape.stroke_no_fill, shape.stroke_grad_fill, shape.stroke_patt_fill, [para], shape.body_props, shape.ph_type, shape.ph_idx, shape.st_cxn_id, shape.st_cxn_idx, shape.end_cxn_id, shape.end_cxn_idx, shape.sh_link_rid, shape.sh_link_hover_rid, shape.mc_choice_xml, shape.ole_xml, shape.effects, shape.scene_3d, shape.sp_3d, shape.lst_style, shape.font_ref_color));
         }
         i = i + 1 | 0;
@@ -20755,6 +20236,99 @@ export function createPptxJsEngine() {
         return;
       }
     }
+  }
+  function _M0FP210pptx_2dsvg4main24resolve__shape__location(slide, composite_idx) {
+    if (composite_idx < 1000) {
+      return composite_idx >= 0 && composite_idx < slide.shapes.length ? { _0: slide.shapes, _1: composite_idx } : undefined;
+    } else {
+      const parent_composite = composite_idx / 1000 | 0;
+      const child_local = composite_idx % 1000 | 0;
+      const _bind = _M0FP210pptx_2dsvg4main24resolve__shape__location(slide, parent_composite);
+      if (_bind === undefined) {
+        return undefined;
+      } else {
+        const _Some = _bind;
+        const _x = _Some;
+        const _parent_arr = _x._0;
+        const _parent_local = _x._1;
+        const _bind$2 = _M0MPC15array5Array2atGsE(_parent_arr, _parent_local).kind;
+        if (_bind$2.$tag === 3) {
+          const _GroupShape = _bind$2;
+          const _grp = _GroupShape._0;
+          return child_local >= 0 && child_local < _grp.children.length ? { _0: _grp.children, _1: child_local } : undefined;
+        } else {
+          return undefined;
+        }
+      }
+    }
+  }
+  function _M0FP210pptx_2dsvg4main25find__master__for__layout(layout_path) {
+    const pairs = _M0FP210pptx_2dsvg4main21g__layout__to__master.val;
+    const n = pairs.length;
+    let i = 0;
+    while (true) {
+      if (i < n) {
+        const _bind = _M0MPC15array5Array2atGsE(pairs, i);
+        const _lp = _bind._0;
+        const _mp = _bind._1;
+        if (_lp === layout_path) {
+          return _mp;
+        }
+        i = i + 1 | 0;
+        continue;
+      } else {
+        break;
+      }
+    }
+    return _M0FP210pptx_2dsvg4main16g__master__paths.val.length > 0 ? _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main16g__master__paths.val, 0) : "";
+  }
+  function _M0FP210pptx_2dsvg4main16array__index__of(arr, val) {
+    const n = arr.length;
+    let i = 0;
+    while (true) {
+      if (i < n) {
+        if (_M0MPC15array5Array2atGsE(arr, i) === val) {
+          return i;
+        }
+        i = i + 1 | 0;
+        continue;
+      } else {
+        break;
+      }
+    }
+    return -1;
+  }
+  function _M0FP210pptx_2dsvg4main11get__layout(layout_path) {
+    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__layout__paths.val, layout_path);
+    if (idx >= 0) {
+      const _bind = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main10g__layouts.val, idx);
+      const _data = _bind._0;
+      return _data;
+    } else {
+      return undefined;
+    }
+  }
+  function _M0FP210pptx_2dsvg4main17get__layout__rels(layout_path) {
+    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__layout__paths.val, layout_path);
+    return idx >= 0 && idx < _M0FP210pptx_2dsvg4main15g__layout__rels.val.length ? _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(_M0FP210pptx_2dsvg4main15g__layout__rels.val, idx) : [];
+  }
+  function _M0FP210pptx_2dsvg4main11get__master(master_path) {
+    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__master__paths.val, master_path);
+    if (idx >= 0) {
+      const _bind = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main10g__masters.val, idx);
+      const _data = _bind._0;
+      return _data;
+    } else {
+      return undefined;
+    }
+  }
+  function _M0FP210pptx_2dsvg4main17get__master__rels(master_path) {
+    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__master__paths.val, master_path);
+    return idx >= 0 && idx < _M0FP210pptx_2dsvg4main15g__master__rels.val.length ? _M0MPC15array5Array2atGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(_M0FP210pptx_2dsvg4main15g__master__rels.val, idx) : [];
+  }
+  function _M0FP210pptx_2dsvg4main18get__master__theme(master_path) {
+    const idx = _M0FP210pptx_2dsvg4main16array__index__of(_M0FP210pptx_2dsvg4main16g__master__paths.val, master_path);
+    return idx >= 0 && idx < _M0FP210pptx_2dsvg4main17g__master__themes.val.length ? _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main17g__master__themes.val, idx) : _M0FP210pptx_2dsvg4main8g__theme.val;
   }
   function _M0FP210pptx_2dsvg4main15last__index__of(s, c) {
     const len = s.length;
@@ -20772,6 +20346,9 @@ export function createPptxJsEngine() {
       }
     }
     return -1;
+  }
+  function _M0FP210pptx_2dsvg4main9substring(s, from, to) {
+    return _M0FP210pptx_2dsvg3xml14str__substring(s, from, to);
   }
   function _M0FP210pptx_2dsvg4main18resolve__rel__path(base_dir, target) {
     if (_M0FP210pptx_2dsvg3xml17str__starts__with(target, "/")) {
@@ -20864,253 +20441,6 @@ export function createPptxJsEngine() {
       }
     }
   }
-  function _M0FP210pptx_2dsvg4main26try__inherit__from__source(shapes, idx, shape, source_shapes, needs_transform, needs_body_props) {
-    const _bind = _M0FP210pptx_2dsvg4main17find__placeholder(source_shapes, shape.ph_type, shape.ph_idx);
-    if (_bind === undefined) {
-      return _M0FP210pptx_2dsvg4main26try__inherit__from__sourceN5tupleS1279;
-    } else {
-      const _Some = _bind;
-      const _ph = _Some;
-      let new_shape = shape;
-      const got_t = needs_transform && (_ph.transform.cx > 0 && _ph.transform.cy > 0);
-      if (got_t) {
-        const _tmp = new_shape;
-        new_shape = new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _ph.transform, _tmp.fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color);
-      }
-      if (needs_body_props) {
-        const _tmp = new_shape;
-        new_shape = new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _tmp.transform, _tmp.fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _ph.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color);
-      }
-      _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(shapes, idx, new_shape);
-      return { _0: got_t, _1: needs_body_props };
-    }
-  }
-  function _M0FP210pptx_2dsvg4main33resolve__placeholder__inheritance(shapes, layout_opt, master_opt) {
-    const ns = shapes.length;
-    let i = 0;
-    while (true) {
-      if (i < ns) {
-        const shape = _M0MPC15array5Array2atGsE(shapes, i);
-        const _p = shape.ph_type;
-        if (_p === "") {
-          i = i + 1 | 0;
-          continue;
-        }
-        let needs_transform = shape.transform.cx === 0 && shape.transform.cy === 0;
-        let needs_body_props;
-        if (shape.body_props.l_ins < 0) {
-          let _tmp;
-          if (shape.body_props.t_ins < 0) {
-            let _tmp$2;
-            if (shape.body_props.r_ins < 0) {
-              let _tmp$3;
-              if (shape.body_props.b_ins < 0) {
-                const _p$2 = shape.body_props.anchor;
-                _tmp$3 = _p$2 === "";
-              } else {
-                _tmp$3 = false;
-              }
-              _tmp$2 = _tmp$3;
-            } else {
-              _tmp$2 = false;
-            }
-            _tmp = _tmp$2;
-          } else {
-            _tmp = false;
-          }
-          needs_body_props = _tmp;
-        } else {
-          needs_body_props = false;
-        }
-        if (!needs_transform && !needs_body_props) {
-          i = i + 1 | 0;
-          continue;
-        }
-        if (layout_opt === undefined) {
-        } else {
-          const _Some = layout_opt;
-          const _layout = _Some;
-          const _bind = _M0FP210pptx_2dsvg4main26try__inherit__from__source(shapes, i, _M0MPC15array5Array2atGsE(shapes, i), _layout.shapes, needs_transform, needs_body_props);
-          const _got_t = _bind._0;
-          const _got_bp = _bind._1;
-          if (_got_t) {
-            needs_transform = false;
-          }
-          if (_got_bp) {
-            needs_body_props = false;
-          }
-        }
-        if (needs_transform || needs_body_props) {
-          if (master_opt === undefined) {
-          } else {
-            const _Some = master_opt;
-            const _master = _Some;
-            _M0FP210pptx_2dsvg4main26try__inherit__from__source(shapes, i, _M0MPC15array5Array2atGsE(shapes, i), _master.shapes, needs_transform, needs_body_props);
-          }
-        }
-        i = i + 1 | 0;
-        continue;
-      } else {
-        return;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg4main20resolve__slide__data(slide_num, slide_xml, rels, layout_opt, master_opt, layout_path, master_path, base_theme) {
-    let eff;
-    if (master_opt === undefined) {
-      eff = base_theme;
-    } else {
-      const _Some = master_opt;
-      const _master = _Some;
-      eff = _M0FP210pptx_2dsvg5ooxml17apply__color__map(base_theme, _master.clr_map);
-    }
-    if (layout_opt === undefined) {
-    } else {
-      const _Some = layout_opt;
-      const _layout = _Some;
-      const _bind = _layout.clr_map_ovr;
-      if (_bind === undefined) {
-      } else {
-        const _Some$2 = _bind;
-        const _ovr = _Some$2;
-        eff = _M0FP210pptx_2dsvg5ooxml17apply__color__map(base_theme, _ovr);
-      }
-    }
-    const slide_nodes = _M0FP210pptx_2dsvg3xml10parse__xml(slide_xml);
-    const _bind = _M0FP210pptx_2dsvg3xml11find__child(slide_nodes, "p:sld");
-    let slide_root_ch;
-    if (_bind === undefined) {
-      slide_root_ch = [];
-    } else {
-      const _Some = _bind;
-      const _n = _Some;
-      slide_root_ch = _M0FP210pptx_2dsvg3xml13get__children(_n);
-    }
-    const _bind$2 = _M0FP210pptx_2dsvg5ooxml35extract__clr__map__ovr__from__nodes(slide_root_ch);
-    if (_bind$2 === undefined) {
-    } else {
-      const _Some = _bind$2;
-      const _ovr = _Some;
-      eff = _M0FP210pptx_2dsvg5ooxml17apply__color__map(base_theme, _ovr);
-    }
-    const effective_theme = eff;
-    const slide_data = _M0FP210pptx_2dsvg5ooxml12parse__slide(slide_xml, _M0FP210pptx_2dsvg4main14g__slide__size.val, effective_theme);
-    _M0FP210pptx_2dsvg4main22resolve__chart__shapes(slide_data.shapes, rels, effective_theme);
-    _M0FP210pptx_2dsvg4main33resolve__placeholder__inheritance(slide_data.shapes, layout_opt, master_opt);
-    _M0FP210pptx_2dsvg4main34inject__placeholder__auto__content(slide_data.shapes, slide_num, layout_opt, master_opt);
-    let bg = slide_data.background;
-    let bg_grad = slide_data.bg_grad;
-    let bg_blip_fill = slide_data.bg_blip_fill;
-    let bg_patt_fill = slide_data.bg_patt_fill;
-    let bg_fill_rels = rels;
-    let slide_has_bg;
-    const _p = bg;
-    if (!(_p.r < 0)) {
-      slide_has_bg = true;
-    } else {
-      let _tmp;
-      const _p$2 = bg_grad;
-      if (!(_p$2.stops.length === 0)) {
-        _tmp = true;
-      } else {
-        _tmp = !_M0MP210pptx_2dsvg5ooxml8BlipFill8is__none(bg_blip_fill) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(bg_patt_fill);
-      }
-      slide_has_bg = _tmp;
-    }
-    if (!slide_has_bg) {
-      let inherited = false;
-      if (layout_opt === undefined) {
-      } else {
-        const _Some = layout_opt;
-        const _layout = _Some;
-        let layout_has_bg;
-        const _p$2 = _layout.background;
-        if (!(_p$2.r < 0)) {
-          layout_has_bg = true;
-        } else {
-          let _tmp;
-          const _p$3 = _layout.bg_grad;
-          if (!(_p$3.stops.length === 0)) {
-            _tmp = true;
-          } else {
-            _tmp = !_M0MP210pptx_2dsvg5ooxml8BlipFill8is__none(_layout.bg_blip_fill) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(_layout.bg_patt_fill);
-          }
-          layout_has_bg = _tmp;
-        }
-        if (layout_has_bg) {
-          bg = _layout.background;
-          bg_grad = _layout.bg_grad;
-          bg_blip_fill = _layout.bg_blip_fill;
-          bg_patt_fill = _layout.bg_patt_fill;
-          bg_fill_rels = !(layout_path === "") ? _M0FP210pptx_2dsvg4main17get__layout__rels(layout_path) : rels;
-          inherited = true;
-        }
-      }
-      if (!inherited) {
-        if (master_opt === undefined) {
-        } else {
-          const _Some = master_opt;
-          const _master = _Some;
-          let master_has_bg;
-          const _p$2 = _master.background;
-          if (!(_p$2.r < 0)) {
-            master_has_bg = true;
-          } else {
-            let _tmp;
-            const _p$3 = _master.bg_grad;
-            if (!(_p$3.stops.length === 0)) {
-              _tmp = true;
-            } else {
-              _tmp = !_M0MP210pptx_2dsvg5ooxml8BlipFill8is__none(_master.bg_blip_fill) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(_master.bg_patt_fill);
-            }
-            master_has_bg = _tmp;
-          }
-          if (master_has_bg) {
-            bg = _master.background;
-            bg_grad = _master.bg_grad;
-            bg_blip_fill = _master.bg_blip_fill;
-            bg_patt_fill = _master.bg_patt_fill;
-            bg_fill_rels = !(master_path === "") ? _M0FP210pptx_2dsvg4main17get__master__rels(master_path) : rels;
-            inherited = true;
-          }
-        }
-      }
-      let _tmp;
-      if (!inherited) {
-        const _p$2 = bg;
-        _tmp = _p$2.r < 0;
-      } else {
-        _tmp = false;
-      }
-      if (_tmp) {
-        bg = _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4407;
-      }
-    }
-    const ns = slide_data.shapes.length;
-    let shape_i = 0;
-    while (true) {
-      if (shape_i < ns) {
-        const shape = _M0MPC15array5Array2atGsE(slide_data.shapes, shape_i);
-        _M0FP210pptx_2dsvg4main25apply__inline__lst__style(shape);
-        _M0FP210pptx_2dsvg4main29apply__layout__text__defaults(shape, layout_opt);
-        _M0FP210pptx_2dsvg4main33apply__master__ph__text__defaults(shape, master_opt);
-        if (master_opt === undefined) {
-        } else {
-          const _Some = master_opt;
-          const _master = _Some;
-          _M0FP210pptx_2dsvg4main21apply__text__defaults(shape, _master.text_styles);
-        }
-        _M0FP210pptx_2dsvg4main21apply__epr__fallbacks(shape);
-        _M0FP210pptx_2dsvg4main26apply__font__ref__fallback(shape);
-        shape_i = shape_i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    bg_fill_rels;
-    return new _M0TP210pptx_2dsvg5ooxml9SlideData(slide_data.slide_size, bg, bg_grad, bg_blip_fill, bg_patt_fill, slide_data.shapes, slide_data.transition_xml, slide_data.timing_xml, slide_data.hidden);
-  }
   function _M0FP210pptx_2dsvg4main18render__slide__svg(slide_idx) {
     const n = _M0FP210pptx_2dsvg4main15g__slide__count.val;
     if (n === 0) {
@@ -21137,9 +20467,162 @@ export function createPptxJsEngine() {
       if (slide_xml === "") {
         return `ERROR:slide XML not found: ${slide_path}`;
       }
-      const s = _M0FP210pptx_2dsvg4main20resolve__slide__data(slide_num, slide_xml, rels, layout_opt, master_opt, layout_path, master_path, base_theme);
+      let eff;
+      if (master_opt === undefined) {
+        eff = base_theme;
+      } else {
+        const _Some = master_opt;
+        const _master = _Some;
+        eff = _M0FP210pptx_2dsvg5ooxml17apply__color__map(base_theme, _master.clr_map);
+      }
+      if (layout_opt === undefined) {
+      } else {
+        const _Some = layout_opt;
+        const _layout = _Some;
+        const _bind = _layout.clr_map_ovr;
+        if (_bind === undefined) {
+        } else {
+          const _Some$2 = _bind;
+          const _ovr = _Some$2;
+          eff = _M0FP210pptx_2dsvg5ooxml17apply__color__map(base_theme, _ovr);
+        }
+      }
+      const slide_nodes = _M0FP210pptx_2dsvg3xml10parse__xml(slide_xml);
+      const _bind = _M0FP210pptx_2dsvg3xml11find__child(slide_nodes, "p:sld");
+      let slide_root_ch;
+      if (_bind === undefined) {
+        slide_root_ch = [];
+      } else {
+        const _Some = _bind;
+        const _n = _Some;
+        slide_root_ch = _M0FP210pptx_2dsvg3xml13get__children(_n);
+      }
+      const _bind$2 = _M0FP210pptx_2dsvg5ooxml35extract__clr__map__ovr__from__nodes(slide_root_ch);
+      if (_bind$2 === undefined) {
+      } else {
+        const _Some = _bind$2;
+        const _ovr = _Some;
+        eff = _M0FP210pptx_2dsvg5ooxml17apply__color__map(base_theme, _ovr);
+      }
+      const effective_theme = eff;
+      const slide_data = _M0FP210pptx_2dsvg5ooxml12parse__slide(slide_xml, _M0FP210pptx_2dsvg4main14g__slide__size.val, effective_theme);
+      _M0FP210pptx_2dsvg4main22resolve__chart__shapes(slide_data.shapes, rels, effective_theme);
+      _M0FP210pptx_2dsvg4main33resolve__placeholder__inheritance(slide_data.shapes, layout_opt, master_opt);
+      _M0FP210pptx_2dsvg4main34inject__placeholder__auto__content(slide_data.shapes, slide_num, layout_opt, master_opt);
+      let bg = slide_data.background;
+      let bg_grad = slide_data.bg_grad;
+      let bg_blip_fill = slide_data.bg_blip_fill;
+      let bg_patt_fill = slide_data.bg_patt_fill;
+      let bg_fill_rels = rels;
+      let slide_has_bg;
+      const _p = bg;
+      if (!(_p.r < 0)) {
+        slide_has_bg = true;
+      } else {
+        let _tmp;
+        const _p$2 = bg_grad;
+        if (!(_p$2.stops.length === 0)) {
+          _tmp = true;
+        } else {
+          _tmp = !_M0MP210pptx_2dsvg5ooxml8BlipFill8is__none(bg_blip_fill) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(bg_patt_fill);
+        }
+        slide_has_bg = _tmp;
+      }
+      if (!slide_has_bg) {
+        let inherited = false;
+        if (layout_opt === undefined) {
+        } else {
+          const _Some = layout_opt;
+          const _layout = _Some;
+          let layout_has_bg;
+          const _p$2 = _layout.background;
+          if (!(_p$2.r < 0)) {
+            layout_has_bg = true;
+          } else {
+            let _tmp;
+            const _p$3 = _layout.bg_grad;
+            if (!(_p$3.stops.length === 0)) {
+              _tmp = true;
+            } else {
+              _tmp = !_M0MP210pptx_2dsvg5ooxml8BlipFill8is__none(_layout.bg_blip_fill) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(_layout.bg_patt_fill);
+            }
+            layout_has_bg = _tmp;
+          }
+          if (layout_has_bg) {
+            bg = _layout.background;
+            bg_grad = _layout.bg_grad;
+            bg_blip_fill = _layout.bg_blip_fill;
+            bg_patt_fill = _layout.bg_patt_fill;
+            bg_fill_rels = !(layout_path === "") ? _M0FP210pptx_2dsvg4main17get__layout__rels(layout_path) : rels;
+            inherited = true;
+          }
+        }
+        if (!inherited) {
+          if (master_opt === undefined) {
+          } else {
+            const _Some = master_opt;
+            const _master = _Some;
+            let master_has_bg;
+            const _p$2 = _master.background;
+            if (!(_p$2.r < 0)) {
+              master_has_bg = true;
+            } else {
+              let _tmp;
+              const _p$3 = _master.bg_grad;
+              if (!(_p$3.stops.length === 0)) {
+                _tmp = true;
+              } else {
+                _tmp = !_M0MP210pptx_2dsvg5ooxml8BlipFill8is__none(_master.bg_blip_fill) || !_M0MP210pptx_2dsvg5ooxml11PatternFill8is__none(_master.bg_patt_fill);
+              }
+              master_has_bg = _tmp;
+            }
+            if (master_has_bg) {
+              bg = _master.background;
+              bg_grad = _master.bg_grad;
+              bg_blip_fill = _master.bg_blip_fill;
+              bg_patt_fill = _master.bg_patt_fill;
+              bg_fill_rels = !(master_path === "") ? _M0FP210pptx_2dsvg4main17get__master__rels(master_path) : rels;
+              inherited = true;
+            }
+          }
+        }
+        let _tmp;
+        if (!inherited) {
+          const _p$2 = bg;
+          _tmp = _p$2.r < 0;
+        } else {
+          _tmp = false;
+        }
+        if (_tmp) {
+          bg = _M0MP210pptx_2dsvg5ooxml5Color5whiteN6recordS4405;
+        }
+      }
+      const ns = slide_data.shapes.length;
+      let shape_i = 0;
+      while (true) {
+        if (shape_i < ns) {
+          const shape = _M0MPC15array5Array2atGsE(slide_data.shapes, shape_i);
+          _M0FP210pptx_2dsvg4main25apply__inline__lst__style(shape);
+          _M0FP210pptx_2dsvg4main29apply__layout__text__defaults(shape, layout_opt);
+          _M0FP210pptx_2dsvg4main33apply__master__ph__text__defaults(shape, master_opt);
+          if (master_opt === undefined) {
+          } else {
+            const _Some = master_opt;
+            const _master = _Some;
+            _M0FP210pptx_2dsvg4main21apply__text__defaults(shape, _master.text_styles);
+          }
+          _M0FP210pptx_2dsvg4main21apply__epr__fallbacks(shape);
+          _M0FP210pptx_2dsvg4main26apply__font__ref__fallback(shape);
+          shape_i = shape_i + 1 | 0;
+          continue;
+        } else {
+          break;
+        }
+      }
+      const s = new _M0TP210pptx_2dsvg5ooxml9SlideData(slide_data.slide_size, bg, bg_grad, bg_blip_fill, bg_patt_fill, slide_data.shapes, slide_data.transition_xml, slide_data.timing_xml, slide_data.hidden);
       _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(_M0FP210pptx_2dsvg4main9g__slides.val, slide_idx, s);
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main9g__parsed.val, slide_idx, true);
+      bg_fill_rels;
       resolved_slide = s;
     }
     let eff;
@@ -21290,31 +20773,6 @@ export function createPptxJsEngine() {
     }
     _M0FP210pptx_2dsvg4main18render__slide__svg(slide_idx);
   }
-  function _M0FP210pptx_2dsvg4main24resolve__shape__location(slide, composite_idx) {
-    if (composite_idx < 1000) {
-      return composite_idx >= 0 && composite_idx < slide.shapes.length ? { _0: slide.shapes, _1: composite_idx } : undefined;
-    } else {
-      const parent_composite = composite_idx / 1000 | 0;
-      const child_local = composite_idx % 1000 | 0;
-      const _bind = _M0FP210pptx_2dsvg4main24resolve__shape__location(slide, parent_composite);
-      if (_bind === undefined) {
-        return undefined;
-      } else {
-        const _Some = _bind;
-        const _x = _Some;
-        const _parent_arr = _x._0;
-        const _parent_local = _x._1;
-        const _bind$2 = _M0MPC15array5Array2atGsE(_parent_arr, _parent_local).kind;
-        if (_bind$2.$tag === 3) {
-          const _GroupShape = _bind$2;
-          const _grp = _GroupShape._0;
-          return child_local >= 0 && child_local < _grp.children.length ? { _0: _grp.children, _1: child_local } : undefined;
-        } else {
-          return undefined;
-        }
-      }
-    }
-  }
   function _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, f) {
     const n = _M0FP210pptx_2dsvg4main15g__slide__count.val;
     if (n === 0) {
@@ -21336,31 +20794,21 @@ export function createPptxJsEngine() {
       return f(_arr, _local_idx);
     }
   }
-  function _M0FP210pptx_2dsvg4main17get__text__layout(slide_idx, shape_idx) {
+  function _M0FP210pptx_2dsvg4main9with__run(slide_idx, shape_idx, para_idx, run_idx, f) {
     return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
       const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
-      const _p = _M0FP210pptx_2dsvg4main14g__slide__size.val.cx;
-      const scale = _p > 0 ? _p / 960 | 0 : 9525;
-      const tl = _M0FP210pptx_2dsvg8renderer19build__text__layout(shape.paragraphs, shape.transform, scale, _M0FP210pptx_2dsvg4main8g__theme.val, shape.body_props);
-      return _M0FP210pptx_2dsvg8renderer22text__layout__to__json(tl);
-    });
-  }
-  function _M0FP210pptx_2dsvg4main15hit__test__text(slide_idx, shape_idx, x_emu, y_emu) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
-      const _p = _M0FP210pptx_2dsvg4main14g__slide__size.val.cx;
-      const scale = _p > 0 ? _p / 960 | 0 : 9525;
-      const tl = _M0FP210pptx_2dsvg8renderer19build__text__layout(shape.paragraphs, shape.transform, scale, _M0FP210pptx_2dsvg4main8g__theme.val, shape.body_props);
-      const _bind = _M0FP210pptx_2dsvg8renderer17hit__test__layout(tl, x_emu, y_emu);
-      const _p$2 = _bind._0;
-      const _r = _bind._1;
-      const _c = _bind._2;
-      const _po = _bind._3;
-      return `{\"paraIdx\":${_M0FP210pptx_2dsvg4main12int__to__str(_p$2)},\"runIdx\":${_M0FP210pptx_2dsvg4main12int__to__str(_r)},\"charOffset\":${_M0FP210pptx_2dsvg4main12int__to__str(_c)},\"paraOffset\":${_M0FP210pptx_2dsvg4main12int__to__str(_po)}}`;
+      if (para_idx < 0 || para_idx >= shape.paragraphs.length) {
+        return "ERROR:paragraph index out of range";
+      }
+      const para = _M0MPC15array5Array2atGsE(shape.paragraphs, para_idx);
+      if (run_idx < 0 || run_idx >= para.runs.length) {
+        return "ERROR:run index out of range";
+      }
+      return f(shape, para, _M0MPC15array5Array2atGsE(para.runs, run_idx));
     });
   }
   function _M0FP210pptx_2dsvg4main26make__default__run_2einner(text, font_size, color) {
-    return new _M0TP210pptx_2dsvg5ooxml7TextRun(text, false, false, false, font_size, color, "", "", "", "", "", "", 0, 0, 0, "", "", "", _M0MP210pptx_2dsvg5ooxml10EffectList4none(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, 0, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), "");
+    return new _M0TP210pptx_2dsvg5ooxml7TextRun(text, false, false, false, font_size, color, "", "", "", "", "", "", 0, 0, 0, "", "", "", _M0MP210pptx_2dsvg5ooxml10EffectList4none(), _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, 0, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), "");
   }
   function _M0FP210pptx_2dsvg4main18make__default__run(text, font_size$46$opt, color$46$opt) {
     let font_size;
@@ -21372,27 +20820,49 @@ export function createPptxJsEngine() {
     }
     let color;
     if (color$46$opt === undefined) {
-      color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      color = _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     } else {
       const _Some = color$46$opt;
       color = _Some;
     }
     return _M0FP210pptx_2dsvg4main26make__default__run_2einner(text, font_size, color);
   }
-  function _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
-      const _p = _M0FP210pptx_2dsvg4main14g__slide__size.val.cx;
-      const scale = _p > 0 ? _p / 960 | 0 : 9525;
-      const slide_num = slide_idx + 1 | 0;
-      const rels_path = `ppt/slides/_rels/slide${_M0FP210pptx_2dsvg4main12int__to__str(slide_num)}.xml.rels`;
-      const rels_xml = _M0FP210pptx_2dsvg3ffi14ffi__get__file(rels_path);
-      const rels = rels_xml === "" ? [] : _M0FP210pptx_2dsvg5ooxml11parse__rels(rels_xml);
-      const defs = _M0FP210pptx_2dsvg8renderer19render__shape__defs(shape, slide_num, shape_idx, scale);
-      const defs_section = defs === "" ? "" : `<defs>${defs}</defs>`;
-      const shape_svg = _M0FP210pptx_2dsvg8renderer13render__shape(shape, rels, slide_num, scale, shape_idx, _M0FP210pptx_2dsvg4main8g__theme.val, _M0FP210pptx_2dsvg4main16g__table__styles.val);
-      return `${defs_section}${shape_svg}`;
-    });
+  function _M0FP210pptx_2dsvg4main32make__default__paragraph_2einner(run, align) {
+    return new _M0TP210pptx_2dsvg5ooxml13TextParagraph([run], align, 0, 0, 0, 0, -1, 0, "", "", false, "", 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", [], false, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, "", "");
+  }
+  function _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml5ShapeE(arr, idx) {
+    const new_arr = [];
+    const len = arr.length;
+    let i = 0;
+    while (true) {
+      if (i < len) {
+        if (i !== idx) {
+          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_arr, _M0MPC15array5Array2atGsE(arr, i));
+        }
+        i = i + 1 | 0;
+        continue;
+      } else {
+        break;
+      }
+    }
+    while (true) {
+      if (arr.length > 0) {
+        _M0MPC15array5Array3popGRP210pptx_2dsvg5ooxml5ShapeE(arr);
+        continue;
+      } else {
+        break;
+      }
+    }
+    let j = 0;
+    while (true) {
+      if (j < new_arr.length) {
+        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(arr, _M0MPC15array5Array2atGsE(new_arr, j));
+        j = j + 1 | 0;
+        continue;
+      } else {
+        return;
+      }
+    }
   }
   function _M0FP210pptx_2dsvg4main13split__string(s, sep) {
     const result = [];
@@ -21416,345 +20886,6 @@ export function createPptxJsEngine() {
       _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(result, _M0FP210pptx_2dsvg4main9substring(s, start, len));
     }
     return result;
-  }
-  function _M0FP210pptx_2dsvg4main20replace__text__rangeN7mk__runS812(template, seg) {
-    if (template === undefined) {
-      return _M0FP210pptx_2dsvg4main18make__default__run(seg, undefined, undefined);
-    } else {
-      const _Some = template;
-      const _tpl = _Some;
-      return new _M0TP210pptx_2dsvg5ooxml7TextRun(seg, _tpl.bold, _tpl.bold_explicit, _tpl.italic, _tpl.font_size, _tpl.color, _tpl.font_face, _tpl.ea_font, _tpl.cs_font, _tpl.sym_font, _tpl.underline, _tpl.strike, _tpl.baseline, _tpl.char_spacing, _tpl.kern, _tpl.cap, _tpl.hlink_rid, _tpl.hlink_mouse_over_rid, _tpl.effects, _tpl.outline_color, _tpl.outline_w, _tpl.text_grad_fill, _tpl.text_patt_fill, _tpl.math_xml);
-    }
-  }
-  function _M0FP210pptx_2dsvg4main20replace__text__rangeN11append__allS815(dst, src) {
-    let k = 0;
-    while (true) {
-      if (k < src.length) {
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(dst, _M0MPC15array5Array2atGsE(src, k));
-        k = k + 1 | 0;
-        continue;
-      } else {
-        return;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg4main20replace__text__range(slide_idx, shape_idx, start_para, start_char, end_para, end_char, new_text) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
-      const nparas = shape.paragraphs.length;
-      const swap = start_para > end_para || start_para === end_para && start_char > end_char;
-      const sp = swap ? end_para : start_para;
-      const ep = swap ? start_para : end_para;
-      const sc_in = swap ? end_char : start_char;
-      const ec_in = swap ? start_char : end_char;
-      if (sp < 0 || (sp >= nparas || (ep < 0 || ep >= nparas))) {
-        return "ERROR:paragraph index out of range";
-      }
-      const sp_len = _M0FP210pptx_2dsvg4main15para__text__len(_M0MPC15array5Array2atGsE(shape.paragraphs, sp));
-      const ep_len = _M0FP210pptx_2dsvg4main15para__text__len(_M0MPC15array5Array2atGsE(shape.paragraphs, ep));
-      const sc = sc_in < 0 ? 0 : sc_in > sp_len ? sp_len : sc_in;
-      const ec = ec_in < 0 ? 0 : ec_in > ep_len ? ep_len : ec_in;
-      const _bind = _M0FP210pptx_2dsvg4main17split__para__runs(_M0MPC15array5Array2atGsE(shape.paragraphs, sp), sc);
-      const _prefix = _bind._0;
-      const _bind$2 = _M0FP210pptx_2dsvg4main17split__para__runs(_M0MPC15array5Array2atGsE(shape.paragraphs, ep), ec);
-      const _suffix = _bind$2._1;
-      const base_para = _M0MPC15array5Array2atGsE(shape.paragraphs, sp);
-      const template = _prefix.length > 0 ? _M0MPC15array5Array2atGsE(_prefix, _prefix.length - 1 | 0) : base_para.runs.length > 0 ? _M0MPC15array5Array2atGsE(base_para.runs, 0) : undefined;
-      const segs = _M0FP210pptx_2dsvg4main13split__string(new_text, 10);
-      const new_paras = [];
-      if (segs.length <= 1) {
-        const seg0 = segs.length === 1 ? _M0MPC15array5Array2atGsE(segs, 0) : "";
-        const runs = [];
-        _M0FP210pptx_2dsvg4main20replace__text__rangeN11append__allS815(runs, _prefix);
-        if (!(seg0 === "")) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(runs, _M0FP210pptx_2dsvg4main20replace__text__rangeN7mk__runS812(template, seg0));
-        }
-        _M0FP210pptx_2dsvg4main20replace__text__rangeN11append__allS815(runs, _suffix);
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_paras, new _M0TP210pptx_2dsvg5ooxml13TextParagraph(runs, base_para.align, base_para.level, base_para.spc_before, base_para.spc_after, base_para.line_spacing, base_para.mar_l, base_para.indent, base_para.bullet, base_para.bullet_auto, base_para.bullet_none, base_para.bullet_font, base_para.bullet_size, base_para.bullet_color, base_para.bullet_img_rid, base_para.tab_stops, base_para.rtl, base_para.epr_font_size, base_para.epr_color, base_para.epr_font_face, base_para.epr_ea_font));
-      } else {
-        const last = segs.length - 1 | 0;
-        const first_runs = [];
-        _M0FP210pptx_2dsvg4main20replace__text__rangeN11append__allS815(first_runs, _prefix);
-        const _p = _M0MPC15array5Array2atGsE(segs, 0);
-        if (!(_p === "")) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(first_runs, _M0FP210pptx_2dsvg4main20replace__text__rangeN7mk__runS812(template, _M0MPC15array5Array2atGsE(segs, 0)));
-        }
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_paras, new _M0TP210pptx_2dsvg5ooxml13TextParagraph(first_runs, base_para.align, base_para.level, base_para.spc_before, base_para.spc_after, base_para.line_spacing, base_para.mar_l, base_para.indent, base_para.bullet, base_para.bullet_auto, base_para.bullet_none, base_para.bullet_font, base_para.bullet_size, base_para.bullet_color, base_para.bullet_img_rid, base_para.tab_stops, base_para.rtl, base_para.epr_font_size, base_para.epr_color, base_para.epr_font_face, base_para.epr_ea_font));
-        let k = 1;
-        while (true) {
-          if (k < last) {
-            const mid_runs = [];
-            const _p$2 = _M0MPC15array5Array2atGsE(segs, k);
-            if (!(_p$2 === "")) {
-              _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(mid_runs, _M0FP210pptx_2dsvg4main20replace__text__rangeN7mk__runS812(template, _M0MPC15array5Array2atGsE(segs, k)));
-            }
-            _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_paras, new _M0TP210pptx_2dsvg5ooxml13TextParagraph(mid_runs, base_para.align, base_para.level, base_para.spc_before, base_para.spc_after, base_para.line_spacing, base_para.mar_l, base_para.indent, base_para.bullet, base_para.bullet_auto, base_para.bullet_none, base_para.bullet_font, base_para.bullet_size, base_para.bullet_color, base_para.bullet_img_rid, base_para.tab_stops, base_para.rtl, base_para.epr_font_size, base_para.epr_color, base_para.epr_font_face, base_para.epr_ea_font));
-            k = k + 1 | 0;
-            continue;
-          } else {
-            break;
-          }
-        }
-        const last_runs = [];
-        const _p$2 = _M0MPC15array5Array2atGsE(segs, last);
-        if (!(_p$2 === "")) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(last_runs, _M0FP210pptx_2dsvg4main20replace__text__rangeN7mk__runS812(template, _M0MPC15array5Array2atGsE(segs, last)));
-        }
-        _M0FP210pptx_2dsvg4main20replace__text__rangeN11append__allS815(last_runs, _suffix);
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_paras, new _M0TP210pptx_2dsvg5ooxml13TextParagraph(last_runs, base_para.align, base_para.level, base_para.spc_before, base_para.spc_after, base_para.line_spacing, base_para.mar_l, base_para.indent, base_para.bullet, base_para.bullet_auto, base_para.bullet_none, base_para.bullet_font, base_para.bullet_size, base_para.bullet_color, base_para.bullet_img_rid, base_para.tab_stops, base_para.rtl, base_para.epr_font_size, base_para.epr_color, base_para.epr_font_face, base_para.epr_ea_font));
-      }
-      _M0FP210pptx_2dsvg4main13array__spliceGRP210pptx_2dsvg5ooxml13TextParagraphE(shape.paragraphs, sp, ep, new_paras);
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx);
-    });
-  }
-  function _M0FP210pptx_2dsvg4main11with__table(slide_idx, shape_idx, f) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const _bind = _M0MPC15array5Array2atGsE(arr, local_idx).kind;
-      if (_bind.$tag === 2) {
-        const _TableShape = _bind;
-        const _t = _TableShape._0;
-        return f(_t);
-      } else {
-        return "ERROR:shape is not a table";
-      }
-    });
-  }
-  function _M0FP210pptx_2dsvg4main20clamp__insert__index(after, len) {
-    return after < 0 ? 0 : (after + 1 | 0) > len ? len : after + 1 | 0;
-  }
-  function _M0FP210pptx_2dsvg4main32make__default__paragraph_2einner(run, align) {
-    return new _M0TP210pptx_2dsvg5ooxml13TextParagraph([run], align, 0, 0, 0, 0, -1, 0, "", "", false, "", 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", [], false, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, "", "");
-  }
-  function _M0FP210pptx_2dsvg4main25update__table__cell__text(slide_idx, shape_idx, row, col, text) {
-    return _M0FP210pptx_2dsvg4main11with__table(slide_idx, shape_idx, (t) => {
-      if (row < 0 || row >= t.rows.length) {
-        return "ERROR:row index out of range";
-      }
-      const cells = _M0MPC15array5Array2atGsE(t.rows, row).cells;
-      if (col < 0 || col >= cells.length) {
-        return "ERROR:column index out of range";
-      }
-      const cell = _M0MPC15array5Array2atGsE(cells, col);
-      let run;
-      if (cell.paragraphs.length > 0 && _M0MPC15array5Array2atGsE(cell.paragraphs, 0).runs.length > 0) {
-        const _tmp = _M0MPC15array5Array2atGsE(_M0MPC15array5Array2atGsE(cell.paragraphs, 0).runs, 0);
-        run = new _M0TP210pptx_2dsvg5ooxml7TextRun(text, _tmp.bold, _tmp.bold_explicit, _tmp.italic, _tmp.font_size, _tmp.color, _tmp.font_face, _tmp.ea_font, _tmp.cs_font, _tmp.sym_font, _tmp.underline, _tmp.strike, _tmp.baseline, _tmp.char_spacing, _tmp.kern, _tmp.cap, _tmp.hlink_rid, _tmp.hlink_mouse_over_rid, _tmp.effects, _tmp.outline_color, _tmp.outline_w, _tmp.text_grad_fill, _tmp.text_patt_fill, _tmp.math_xml);
-      } else {
-        run = _M0FP210pptx_2dsvg4main18make__default__run(text, undefined, undefined);
-      }
-      _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(cells, col, new _M0TP210pptx_2dsvg5ooxml9TableCell([_M0FP210pptx_2dsvg4main32make__default__paragraph_2einner(run, "")], cell.fill, cell.grad_fill, cell.grid_span, cell.row_span, cell.v_merge, cell.h_merge, cell.bdr_l_w, cell.bdr_r_w, cell.bdr_t_w, cell.bdr_b_w, cell.bdr_l_color, cell.bdr_r_color, cell.bdr_t_color, cell.bdr_b_color, cell.bdr_tl_br_w, cell.bdr_tl_br_color, cell.bdr_bl_tr_w, cell.bdr_bl_tr_color, cell.mar_l, cell.mar_r, cell.mar_t, cell.mar_b, cell.anchor));
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx);
-    });
-  }
-  function _M0FP210pptx_2dsvg4main17array__insert__atGRP210pptx_2dsvg5ooxml8TableRowE(arr, idx, item) {
-    _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(arr, item);
-    let i = arr.length - 1 | 0;
-    while (true) {
-      if (i > idx) {
-        _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, i, _M0MPC15array5Array2atGsE(arr, i - 1 | 0));
-        i = i - 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, idx, item);
-  }
-  function _M0FP210pptx_2dsvg4main17array__insert__atGiE(arr, idx, item) {
-    _M0MPC15array5Array4pushGiE(arr, item);
-    let i = arr.length - 1 | 0;
-    while (true) {
-      if (i > idx) {
-        _M0MPC15array5Array3setGiE(arr, i, _M0MPC15array5Array2atGiE(arr, i - 1 | 0));
-        i = i - 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    _M0MPC15array5Array3setGiE(arr, idx, item);
-  }
-  function _M0FP210pptx_2dsvg4main15add__table__row(slide_idx, shape_idx, after_row) {
-    return _M0FP210pptx_2dsvg4main11with__table(slide_idx, shape_idx, (t) => {
-      const ncols = t.col_widths.length;
-      const cells = [];
-      let c = 0;
-      while (true) {
-        if (c < ncols) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(cells, _M0MP210pptx_2dsvg5ooxml9TableCell5empty());
-          c = c + 1 | 0;
-          continue;
-        } else {
-          break;
-        }
-      }
-      let height;
-      if (t.rows.length > 0) {
-        const ref_idx = after_row >= 0 && after_row < t.rows.length ? after_row : 0;
-        height = _M0MPC15array5Array2atGsE(t.rows, ref_idx).height;
-      } else {
-        height = 0;
-      }
-      const new_row = new _M0TP210pptx_2dsvg5ooxml8TableRow(height, cells);
-      const insert_at = _M0FP210pptx_2dsvg4main20clamp__insert__index(after_row, t.rows.length);
-      _M0FP210pptx_2dsvg4main17array__insert__atGRP210pptx_2dsvg5ooxml8TableRowE(t.rows, insert_at, new_row);
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(insert_at)}`;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(arr, idx) {
-    const new_arr = [];
-    const len = arr.length;
-    let i = 0;
-    while (true) {
-      if (i < len) {
-        if (i !== idx) {
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(new_arr, _M0MPC15array5Array2atGsE(arr, i));
-        }
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    while (true) {
-      if (arr.length > 0) {
-        _M0MPC15array5Array3popGRP210pptx_2dsvg5ooxml13TextParagraphE(arr);
-        continue;
-      } else {
-        break;
-      }
-    }
-    let j = 0;
-    while (true) {
-      if (j < new_arr.length) {
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(arr, _M0MPC15array5Array2atGsE(new_arr, j));
-        j = j + 1 | 0;
-        continue;
-      } else {
-        return;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg4main17array__remove__atGiE(arr, idx) {
-    const new_arr = [];
-    const len = arr.length;
-    let i = 0;
-    while (true) {
-      if (i < len) {
-        if (i !== idx) {
-          _M0MPC15array5Array4pushGiE(new_arr, _M0MPC15array5Array2atGiE(arr, i));
-        }
-        i = i + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    while (true) {
-      if (arr.length > 0) {
-        _M0MPC15array5Array3popGiE(arr);
-        continue;
-      } else {
-        break;
-      }
-    }
-    let j = 0;
-    while (true) {
-      if (j < new_arr.length) {
-        _M0MPC15array5Array4pushGiE(arr, _M0MPC15array5Array2atGiE(new_arr, j));
-        j = j + 1 | 0;
-        continue;
-      } else {
-        return;
-      }
-    }
-  }
-  function _M0FP210pptx_2dsvg4main18delete__table__row(slide_idx, shape_idx, row) {
-    return _M0FP210pptx_2dsvg4main11with__table(slide_idx, shape_idx, (t) => {
-      if (t.rows.length <= 1) {
-        return "ERROR:cannot delete the last row";
-      }
-      if (row < 0 || row >= t.rows.length) {
-        return "ERROR:row index out of range";
-      }
-      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(t.rows, row);
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return "OK";
-    });
-  }
-  function _M0FP210pptx_2dsvg4main18add__table__column(slide_idx, shape_idx, after_col, width_emu) {
-    return _M0FP210pptx_2dsvg4main11with__table(slide_idx, shape_idx, (t) => {
-      const ncols = t.col_widths.length;
-      const insert_at = _M0FP210pptx_2dsvg4main20clamp__insert__index(after_col, ncols);
-      let width;
-      if (width_emu > 0) {
-        width = width_emu;
-      } else {
-        if (ncols > 0) {
-          const ref_idx = after_col >= 0 && after_col < ncols ? after_col : 0;
-          width = _M0MPC15array5Array2atGiE(t.col_widths, ref_idx);
-        } else {
-          width = 914400;
-        }
-      }
-      _M0FP210pptx_2dsvg4main17array__insert__atGiE(t.col_widths, insert_at, width);
-      let r = 0;
-      while (true) {
-        if (r < t.rows.length) {
-          const cells = _M0MPC15array5Array2atGsE(t.rows, r).cells;
-          const at = insert_at > cells.length ? cells.length : insert_at;
-          _M0FP210pptx_2dsvg4main17array__insert__atGRP210pptx_2dsvg5ooxml8TableRowE(cells, at, _M0MP210pptx_2dsvg5ooxml9TableCell5empty());
-          r = r + 1 | 0;
-          continue;
-        } else {
-          break;
-        }
-      }
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(insert_at)}`;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main21delete__table__column(slide_idx, shape_idx, col) {
-    return _M0FP210pptx_2dsvg4main11with__table(slide_idx, shape_idx, (t) => {
-      if (t.col_widths.length <= 1) {
-        return "ERROR:cannot delete the last column";
-      }
-      if (col < 0 || col >= t.col_widths.length) {
-        return "ERROR:column index out of range";
-      }
-      _M0FP210pptx_2dsvg4main17array__remove__atGiE(t.col_widths, col);
-      let r = 0;
-      while (true) {
-        if (r < t.rows.length) {
-          const cells = _M0MPC15array5Array2atGsE(t.rows, r).cells;
-          if (col < cells.length) {
-            _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(cells, col);
-          }
-          r = r + 1 | 0;
-          continue;
-        } else {
-          break;
-        }
-      }
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return "OK";
-    });
-  }
-  function _M0FP210pptx_2dsvg4main9with__run(slide_idx, shape_idx, para_idx, run_idx, f) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
-      if (para_idx < 0 || para_idx >= shape.paragraphs.length) {
-        return "ERROR:paragraph index out of range";
-      }
-      const para = _M0MPC15array5Array2atGsE(shape.paragraphs, para_idx);
-      if (run_idx < 0 || run_idx >= para.runs.length) {
-        return "ERROR:run index out of range";
-      }
-      return f(shape, para, _M0MPC15array5Array2atGsE(para.runs, run_idx));
-    });
   }
   function _M0FP210pptx_2dsvg4main22parse__gradient__stops(s) {
     const stops = [];
@@ -21785,6 +20916,21 @@ export function createPptxJsEngine() {
     }
     return stops;
   }
+  function _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx) {
+    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
+      const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
+      const _p = _M0FP210pptx_2dsvg4main14g__slide__size.val.cx;
+      const scale = _p > 0 ? _p / 960 | 0 : 9525;
+      const slide_num = slide_idx + 1 | 0;
+      const rels_path = `ppt/slides/_rels/slide${_M0FP210pptx_2dsvg4main12int__to__str(slide_num)}.xml.rels`;
+      const rels_xml = _M0FP210pptx_2dsvg3ffi14ffi__get__file(rels_path);
+      const rels = rels_xml === "" ? [] : _M0FP210pptx_2dsvg5ooxml11parse__rels(rels_xml);
+      const defs = _M0FP210pptx_2dsvg8renderer19render__shape__defs(shape, slide_num, shape_idx, scale);
+      const defs_section = defs === "" ? "" : `<defs>${defs}</defs>`;
+      const shape_svg = _M0FP210pptx_2dsvg8renderer13render__shape(shape, rels, slide_num, scale, shape_idx, _M0FP210pptx_2dsvg4main8g__theme.val, _M0FP210pptx_2dsvg4main16g__table__styles.val);
+      return `${defs_section}${shape_svg}`;
+    });
+  }
   function _M0FP210pptx_2dsvg4main24update__shape__transform(slide_idx, shape_idx, x, y, cx, cy, rot) {
     return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
       const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
@@ -21792,71 +20938,6 @@ export function createPptxJsEngine() {
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx);
     });
-  }
-  function _M0FP210pptx_2dsvg4main25update__shapes__transform(slide_idx, items_data) {
-    const n = _M0FP210pptx_2dsvg4main15g__slide__count.val;
-    if (n === 0) {
-      return "ERROR:not initialized";
-    }
-    if (slide_idx < 0 || slide_idx >= n) {
-      return "ERROR:slide index out of range";
-    }
-    _M0FP210pptx_2dsvg4main21ensure__slide__parsed(slide_idx);
-    const slide = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main9g__slides.val, slide_idx);
-    const targets = [];
-    const parts = _M0FP210pptx_2dsvg4main13split__string(items_data, 59);
-    const np = parts.length;
-    let i = 0;
-    while (true) {
-      if (i < np) {
-        const part = _M0MPC15array5Array2atGsE(parts, i);
-        i = i + 1 | 0;
-        if (part === "") {
-          continue;
-        }
-        const vals = _M0FP210pptx_2dsvg4main13split__string(part, 44);
-        if (vals.length < 6) {
-          return `ERROR:invalid transform item: ${part}`;
-        }
-        const s_idx = _M0FP210pptx_2dsvg3xml10parse__int(_M0MPC15array5Array2atGsE(vals, 0));
-        const _bind = _M0FP210pptx_2dsvg4main24resolve__shape__location(slide, s_idx);
-        if (_bind === undefined) {
-          return `ERROR:shape index out of range: ${_M0MPC15array5Array2atGsE(vals, 0)}`;
-        } else {
-          const _Some = _bind;
-          const _x = _Some;
-          const _arr = _x._0;
-          const _local_idx = _x._1;
-          const cur = _M0MPC15array5Array2atGsE(_arr, _local_idx);
-          const t = new _M0TP210pptx_2dsvg5ooxml14ShapeTransform(_M0FP210pptx_2dsvg3xml10parse__int(_M0MPC15array5Array2atGsE(vals, 1)), _M0FP210pptx_2dsvg3xml10parse__int(_M0MPC15array5Array2atGsE(vals, 2)), _M0FP210pptx_2dsvg3xml10parse__int(_M0MPC15array5Array2atGsE(vals, 3)), _M0FP210pptx_2dsvg3xml10parse__int(_M0MPC15array5Array2atGsE(vals, 4)), _M0FP210pptx_2dsvg3xml10parse__int(_M0MPC15array5Array2atGsE(vals, 5)), cur.transform.flip_h, cur.transform.flip_v);
-          _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(targets, { _0: _arr, _1: _local_idx, _2: t });
-        }
-        continue;
-      } else {
-        break;
-      }
-    }
-    if (targets.length === 0) {
-      return "ERROR:no transform items";
-    }
-    const nt = targets.length;
-    let j = 0;
-    while (true) {
-      if (j < nt) {
-        const _bind = _M0MPC15array5Array2atGsE(targets, j);
-        const _arr = _bind._0;
-        const _local_idx = _bind._1;
-        const _t = _bind._2;
-        const _tmp = _M0MPC15array5Array2atGsE(_arr, _local_idx);
-        _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(_arr, _local_idx, new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _t, _tmp.fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color));
-        j = j + 1 | 0;
-        continue;
-      } else {
-        break;
-      }
-    }
-    _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-    return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(nt)}`;
   }
   function _M0FP210pptx_2dsvg4main19update__shape__text(slide_idx, shape_idx, para_idx, run_idx, text) {
     return _M0FP210pptx_2dsvg4main9with__run(slide_idx, shape_idx, para_idx, run_idx, (_shape, para, run) => {
@@ -21875,7 +20956,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg4main13delete__shape(slide_idx, shape_idx) {
     return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(arr, local_idx);
+      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml5ShapeE(arr, local_idx);
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return "OK";
     });
@@ -21893,8 +20974,8 @@ export function createPptxJsEngine() {
     const transform = new _M0TP210pptx_2dsvg5ooxml14ShapeTransform(x, y, cx, cy, 0, false, false);
     const geom = geom_type === "ellipse" ? _M0DTP210pptx_2dsvg5ooxml9ShapeGeom7Ellipse__ : geom_type === "roundRect" ? new _M0DTP210pptx_2dsvg5ooxml9ShapeGeom9RoundRect(_M0FP210pptx_2dsvg5ooxml25round__rect__default__adj) : geom_type === "line" ? _M0DTP210pptx_2dsvg5ooxml9ShapeGeom4Line__ : _M0DTP210pptx_2dsvg5ooxml9ShapeGeom4Rect__;
     const kind = new _M0DTP210pptx_2dsvg5ooxml9ShapeKind9AutoShape(geom);
-    const fill = fill_r >= 0 && (fill_g >= 0 && fill_b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(fill_r, fill_g, fill_b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
-    const stroke = geom_type === "line" ? _M0FP210pptx_2dsvg4main10add__shapeN6recordS1280 : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+    const fill = fill_r >= 0 && (fill_g >= 0 && fill_b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(fill_r, fill_g, fill_b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
+    const stroke = geom_type === "line" ? _M0FP210pptx_2dsvg4main10add__shapeN6recordS990 : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
     const stroke_w = geom_type === "line" ? 12700 : 0;
     const _tmp = _M0MP210pptx_2dsvg5ooxml5Shape13default__with(kind, transform);
     const shape = new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _tmp.transform, fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, stroke, stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color);
@@ -21915,7 +20996,7 @@ export function createPptxJsEngine() {
     const slide = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main9g__slides.val, slide_idx);
     const transform = new _M0TP210pptx_2dsvg5ooxml14ShapeTransform(x, y, cx, cy, 0, false, false);
     const kind = new _M0DTP210pptx_2dsvg5ooxml9ShapeKind7Picture(rid);
-    const blip_fill = new _M0TP210pptx_2dsvg5ooxml8BlipFill(rid, true, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 100000, "", 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418);
+    const blip_fill = new _M0TP210pptx_2dsvg5ooxml8BlipFill(rid, true, 0, 0, 0, 0, 0, 0, 0, 0, "", "", 100000, "", 0, 0, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416);
     const shape = _M0MP210pptx_2dsvg5ooxml5Shape19default__with__blip(kind, transform, blip_fill);
     _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(slide.shapes, shape);
     const new_idx = slide.shapes.length - 1 | 0;
@@ -21940,7 +21021,7 @@ export function createPptxJsEngine() {
   function _M0FP210pptx_2dsvg4main16add__shape__text(slide_idx, shape_idx, text, font_size, color_r, color_g, color_b) {
     return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
       const shape = _M0MPC15array5Array2atGsE(arr, local_idx);
-      const color = color_r >= 0 && (color_g >= 0 && color_b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(color_r, color_g, color_b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      const color = color_r >= 0 && (color_g >= 0 && color_b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(color_r, color_g, color_b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       const run = _M0FP210pptx_2dsvg4main26make__default__run_2einner(text, font_size, color);
       const para = _M0FP210pptx_2dsvg4main32make__default__paragraph_2einner(run, "");
       _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(shape.paragraphs, para);
@@ -21973,14 +21054,14 @@ export function createPptxJsEngine() {
       }
       const grad = new _M0TP210pptx_2dsvg5ooxml12GradientFill(stops, angle, "", true, -1, -1, -1, -1, "");
       const _tmp = _M0MPC15array5Array2atGsE(arr, local_idx);
-      _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx, new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _tmp.transform, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, grad, _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color));
+      _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx, new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _tmp.transform, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, grad, _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), _tmp.stroke, _tmp.stroke_w, _tmp.stroke_dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, _tmp.stroke_no_fill, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color));
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx);
     });
   }
   function _M0FP210pptx_2dsvg4main21update__shape__stroke(slide_idx, shape_idx, r, g, b, width_emu, dash) {
     return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const stroke_color = r >= 0 && (g >= 0 && b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(r, g, b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      const stroke_color = r >= 0 && (g >= 0 && b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(r, g, b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       const _tmp = _M0MPC15array5Array2atGsE(arr, local_idx);
       _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx, new _M0TP210pptx_2dsvg5ooxml5Shape(_tmp.kind, _tmp.transform, _tmp.fill, _tmp.grad_fill, _tmp.blip_fill, _tmp.patt_fill, stroke_color, width_emu, dash, _tmp.stroke_cap, _tmp.stroke_join, _tmp.stroke_miter_limit, _tmp.stroke_head_type, _tmp.stroke_head_w, _tmp.stroke_head_len, _tmp.stroke_tail_type, _tmp.stroke_tail_w, _tmp.stroke_tail_len, _tmp.stroke_cmpd, r < 0, _tmp.stroke_grad_fill, _tmp.stroke_patt_fill, _tmp.paragraphs, _tmp.body_props, _tmp.ph_type, _tmp.ph_idx, _tmp.st_cxn_id, _tmp.st_cxn_idx, _tmp.end_cxn_id, _tmp.end_cxn_idx, _tmp.sh_link_rid, _tmp.sh_link_hover_rid, _tmp.mc_choice_xml, _tmp.ole_xml, _tmp.effects, _tmp.scene_3d, _tmp.sp_3d, _tmp.lst_style, _tmp.font_ref_color));
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
@@ -22004,7 +21085,7 @@ export function createPptxJsEngine() {
       if (para_idx < 0 || para_idx >= shape.paragraphs.length) {
         return "ERROR:paragraph index out of range";
       }
-      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(shape.paragraphs, para_idx);
+      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml5ShapeE(shape.paragraphs, para_idx);
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return "OK";
     });
@@ -22025,7 +21106,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg4main11delete__run(slide_idx, shape_idx, para_idx, run_idx) {
     return _M0FP210pptx_2dsvg4main9with__run(slide_idx, shape_idx, para_idx, run_idx, (_shape, para, _run) => {
-      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(para.runs, run_idx);
+      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml5ShapeE(para.runs, run_idx);
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return "OK";
     });
@@ -22046,7 +21127,7 @@ export function createPptxJsEngine() {
   }
   function _M0FP210pptx_2dsvg4main24update__text__run__color(slide_idx, shape_idx, para_idx, run_idx, r, g_, b) {
     return _M0FP210pptx_2dsvg4main9with__run(slide_idx, shape_idx, para_idx, run_idx, (_shape, para, run) => {
-      const color = r >= 0 && (g_ >= 0 && b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(r, g_, b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418;
+      const color = r >= 0 && (g_ >= 0 && b >= 0) ? new _M0TP210pptx_2dsvg5ooxml5Color(r, g_, b, 255) : _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416;
       _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(para.runs, run_idx, new _M0TP210pptx_2dsvg5ooxml7TextRun(run.text, run.bold, run.bold_explicit, run.italic, run.font_size, color, run.font_face, run.ea_font, run.cs_font, run.sym_font, run.underline, run.strike, run.baseline, run.char_spacing, run.kern, run.cap, run.hlink_rid, run.hlink_mouse_over_rid, run.effects, run.outline_color, run.outline_w, run.text_grad_fill, run.text_patt_fill, run.math_xml));
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx);
@@ -22104,111 +21185,6 @@ export function createPptxJsEngine() {
       _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
       return _M0FP210pptx_2dsvg4main18render__shape__svg(slide_idx, shape_idx);
     });
-  }
-  function _M0FP210pptx_2dsvg4main21restore__slide__ooxml(slide_idx, xml) {
-    const n = _M0FP210pptx_2dsvg4main15g__slide__count.val;
-    if (n === 0) {
-      return "ERROR:not initialized";
-    }
-    if (slide_idx < 0 || slide_idx >= n) {
-      return "ERROR:slide index out of range";
-    }
-    if (xml === "") {
-      return "ERROR:empty xml";
-    }
-    const slide_num = slide_idx + 1 | 0;
-    const rels_path = `ppt/slides/_rels/slide${_M0FP210pptx_2dsvg4main12int__to__str(slide_num)}.xml.rels`;
-    const rels_xml = _M0FP210pptx_2dsvg3ffi14ffi__get__file(rels_path);
-    const rels = rels_xml === "" ? [] : _M0FP210pptx_2dsvg5ooxml11parse__rels(rels_xml);
-    const layout_path = slide_idx < _M0FP210pptx_2dsvg4main23g__slide__layout__paths.val.length ? _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main23g__slide__layout__paths.val, slide_idx) : "";
-    const layout_opt = !(layout_path === "") ? _M0FP210pptx_2dsvg4main11get__layout(layout_path) : undefined;
-    const master_path = !(layout_path === "") ? _M0FP210pptx_2dsvg4main25find__master__for__layout(layout_path) : "";
-    const master_opt = !(master_path === "") ? _M0FP210pptx_2dsvg4main11get__master(master_path) : undefined;
-    const base_theme = !(master_path === "") ? _M0FP210pptx_2dsvg4main18get__master__theme(master_path) : _M0FP210pptx_2dsvg4main8g__theme.val;
-    const slide_data = _M0FP210pptx_2dsvg4main20resolve__slide__data(slide_num, xml, rels, layout_opt, master_opt, layout_path, master_path, base_theme);
-    _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(_M0FP210pptx_2dsvg4main9g__slides.val, slide_idx, slide_data);
-    _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-    _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main9g__parsed.val, slide_idx, true);
-    return "OK";
-  }
-  function _M0FP210pptx_2dsvg4main23sibling__composite__idx(shape_idx, local_idx) {
-    const base = shape_idx < 1000 ? 0 : Math.imul(shape_idx / 1000 | 0, 1000) | 0;
-    return base + local_idx | 0;
-  }
-  function _M0FP210pptx_2dsvg4main16bring__to__front(slide_idx, shape_idx) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const sh = _M0MPC15array5Array2atGsE(arr, local_idx);
-      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(arr, local_idx);
-      _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(arr, sh);
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(_M0FP210pptx_2dsvg4main23sibling__composite__idx(shape_idx, arr.length - 1 | 0))}`;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main14send__to__back(slide_idx, shape_idx) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const sh = _M0MPC15array5Array2atGsE(arr, local_idx);
-      _M0FP210pptx_2dsvg4main17array__remove__atGRP210pptx_2dsvg5ooxml8TableRowE(arr, local_idx);
-      _M0FP210pptx_2dsvg4main17array__insert__atGRP210pptx_2dsvg5ooxml8TableRowE(arr, 0, sh);
-      _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-      return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(_M0FP210pptx_2dsvg4main23sibling__composite__idx(shape_idx, 0))}`;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main14bring__forward(slide_idx, shape_idx) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      let new_local;
-      if (local_idx < (arr.length - 1 | 0)) {
-        const sh = _M0MPC15array5Array2atGsE(arr, local_idx);
-        _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx, _M0MPC15array5Array2atGsE(arr, local_idx + 1 | 0));
-        _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx + 1 | 0, sh);
-        _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-        new_local = local_idx + 1 | 0;
-      } else {
-        new_local = local_idx;
-      }
-      return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(_M0FP210pptx_2dsvg4main23sibling__composite__idx(shape_idx, new_local))}`;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main14send__backward(slide_idx, shape_idx) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      let new_local;
-      if (local_idx > 0) {
-        const sh = _M0MPC15array5Array2atGsE(arr, local_idx);
-        _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx, _M0MPC15array5Array2atGsE(arr, local_idx - 1 | 0));
-        _M0MPC15array5Array3setGRP210pptx_2dsvg5ooxml9SlideDataE(arr, local_idx - 1 | 0, sh);
-        _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-        new_local = local_idx - 1 | 0;
-      } else {
-        new_local = local_idx;
-      }
-      return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(_M0FP210pptx_2dsvg4main23sibling__composite__idx(shape_idx, new_local))}`;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main17get__shape__ooxml(slide_idx, shape_idx) {
-    return _M0FP210pptx_2dsvg4main11with__shape(slide_idx, shape_idx, (arr, local_idx) => {
-      const xml = _M0FP210pptx_2dsvg10serializer16serialize__shape(_M0MPC15array5Array2atGsE(arr, local_idx));
-      return xml === "" ? "ERROR:shape not serializable" : xml;
-    });
-  }
-  function _M0FP210pptx_2dsvg4main23add__shape__from__ooxml(slide_idx, shape_xml, dx_emu, dy_emu) {
-    const n = _M0FP210pptx_2dsvg4main15g__slide__count.val;
-    if (n === 0) {
-      return "ERROR:not initialized";
-    }
-    if (slide_idx < 0 || slide_idx >= n) {
-      return "ERROR:slide index out of range";
-    }
-    _M0FP210pptx_2dsvg4main21ensure__slide__parsed(slide_idx);
-    const shapes = _M0FP210pptx_2dsvg5ooxml18parse__shapes__xml(shape_xml, _M0FP210pptx_2dsvg4main8g__theme.val);
-    if (shapes.length === 0) {
-      return "ERROR:no shape parsed from spec";
-    }
-    const src = _M0MPC15array5Array2atGsE(shapes, 0);
-    const _tmp = src.transform;
-    const pasted = new _M0TP210pptx_2dsvg5ooxml5Shape(src.kind, new _M0TP210pptx_2dsvg5ooxml14ShapeTransform(src.transform.x + dx_emu | 0, src.transform.y + dy_emu | 0, _tmp.cx, _tmp.cy, _tmp.rot, _tmp.flip_h, _tmp.flip_v), src.fill, src.grad_fill, src.blip_fill, src.patt_fill, src.stroke, src.stroke_w, src.stroke_dash, src.stroke_cap, src.stroke_join, src.stroke_miter_limit, src.stroke_head_type, src.stroke_head_w, src.stroke_head_len, src.stroke_tail_type, src.stroke_tail_w, src.stroke_tail_len, src.stroke_cmpd, src.stroke_no_fill, src.stroke_grad_fill, src.stroke_patt_fill, src.paragraphs, src.body_props, src.ph_type, src.ph_idx, src.st_cxn_id, src.st_cxn_idx, src.end_cxn_id, src.end_cxn_idx, src.sh_link_rid, src.sh_link_hover_rid, src.mc_choice_xml, src.ole_xml, src.effects, src.scene_3d, src.sp_3d, src.lst_style, src.font_ref_color);
-    const slide = _M0MPC15array5Array2atGsE(_M0FP210pptx_2dsvg4main9g__slides.val, slide_idx);
-    _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(slide.shapes, pasted);
-    _M0MPC15array5Array3setGbE(_M0FP210pptx_2dsvg4main11g__modified.val, slide_idx, true);
-    return `OK:${_M0FP210pptx_2dsvg4main12int__to__str(slide.shapes.length - 1 | 0)}`;
   }
   function _M0FP210pptx_2dsvg4main9match__at(text, pattern, pos) {
     const plen = pattern.length;
@@ -22373,7 +21349,7 @@ export function createPptxJsEngine() {
         break;
       }
     }
-    return _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406;
+    return _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404;
   }
   function _M0FP210pptx_2dsvg4main32find__master__theme__for__layout(layout_to_master, master_themes, master_paths, layout_path) {
     const master_path = _M0FP210pptx_2dsvg4main31find__master__path__for__layout(layout_to_master, layout_path);
@@ -22494,7 +21470,7 @@ export function createPptxJsEngine() {
           _M0MPC15array5Array4pushGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(master_rels_arr, mrels);
           _M0FP210pptx_2dsvg3ffi8ffi__log(`Parsed master: ${mp}`);
         } else {
-          const empty_master = new _M0TP210pptx_2dsvg5ooxml15SlideMasterData(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], _M0MP210pptx_2dsvg5ooxml16MasterTextStyles5empty(), _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4406);
+          const empty_master = new _M0TP210pptx_2dsvg5ooxml15SlideMasterData(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], _M0MP210pptx_2dsvg5ooxml16MasterTextStyles5empty(), _M0MP210pptx_2dsvg5ooxml8ColorMap7defaultN6recordS4404);
           _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(masters, { _0: empty_master, _1: mp });
           _M0MPC15array5Array4pushGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(master_rels_arr, mrels);
         }
@@ -22542,7 +21518,7 @@ export function createPptxJsEngine() {
           _M0MPC15array5Array4pushGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(layout_rels_arr, cur_layout_rels);
           _M0FP210pptx_2dsvg3ffi8ffi__log(`Parsed layout: ${lp}`);
         } else {
-          const empty_layout = new _M0TP210pptx_2dsvg5ooxml15SlideLayoutData(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], undefined);
+          const empty_layout = new _M0TP210pptx_2dsvg5ooxml15SlideLayoutData(_M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], undefined);
           _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(layouts, { _0: empty_layout, _1: lp });
           _M0MPC15array5Array4pushGRPB5ArrayGRP210pptx_2dsvg5ooxml12RelationshipEE(layout_rels_arr, cur_layout_rels);
         }
@@ -22567,7 +21543,7 @@ export function createPptxJsEngine() {
     let i = 0;
     while (true) {
       if (i < count) {
-        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(slides, new _M0TP210pptx_2dsvg5ooxml9SlideData(_M0FP210pptx_2dsvg4main14g__slide__size.val, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4418, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], "", "", false));
+        _M0MPC15array5Array4pushGRP210pptx_2dsvg5ooxml5ShapeE(slides, new _M0TP210pptx_2dsvg5ooxml9SlideData(_M0FP210pptx_2dsvg4main14g__slide__size.val, _M0MP210pptx_2dsvg5ooxml5Color4noneN6recordS4416, _M0MP210pptx_2dsvg5ooxml12GradientFill4none(), _M0MP210pptx_2dsvg5ooxml8BlipFill4none(), _M0MP210pptx_2dsvg5ooxml11PatternFill4none(), [], "", "", false));
         _M0MPC15array5Array4pushGbE(modified, false);
         _M0MPC15array5Array4pushGbE(parsed, false);
         i = i + 1 | 0;
@@ -22680,17 +21656,8 @@ export function createPptxJsEngine() {
 
   return {
     render_slide_svg: _M0FP210pptx_2dsvg4main18render__slide__svg,
-    get_text_layout: _M0FP210pptx_2dsvg4main17get__text__layout,
-    hit_test_text: _M0FP210pptx_2dsvg4main15hit__test__text,
     render_shape_svg: _M0FP210pptx_2dsvg4main18render__shape__svg,
-    replace_text_range: _M0FP210pptx_2dsvg4main20replace__text__range,
-    update_table_cell_text: _M0FP210pptx_2dsvg4main25update__table__cell__text,
-    add_table_row: _M0FP210pptx_2dsvg4main15add__table__row,
-    delete_table_row: _M0FP210pptx_2dsvg4main18delete__table__row,
-    add_table_column: _M0FP210pptx_2dsvg4main18add__table__column,
-    delete_table_column: _M0FP210pptx_2dsvg4main21delete__table__column,
     update_shape_transform: _M0FP210pptx_2dsvg4main24update__shape__transform,
-    update_shapes_transform: _M0FP210pptx_2dsvg4main25update__shapes__transform,
     update_shape_text: _M0FP210pptx_2dsvg4main19update__shape__text,
     update_shape_fill: _M0FP210pptx_2dsvg4main19update__shape__fill,
     delete_shape: _M0FP210pptx_2dsvg4main13delete__shape,
@@ -22711,13 +21678,6 @@ export function createPptxJsEngine() {
     update_text_run_font: _M0FP210pptx_2dsvg4main23update__text__run__font,
     update_paragraph_align: _M0FP210pptx_2dsvg4main24update__paragraph__align,
     update_text_run_decoration: _M0FP210pptx_2dsvg4main29update__text__run__decoration,
-    restore_slide_ooxml: _M0FP210pptx_2dsvg4main21restore__slide__ooxml,
-    bring_to_front: _M0FP210pptx_2dsvg4main16bring__to__front,
-    send_to_back: _M0FP210pptx_2dsvg4main14send__to__back,
-    bring_forward: _M0FP210pptx_2dsvg4main14bring__forward,
-    send_backward: _M0FP210pptx_2dsvg4main14send__backward,
-    get_shape_ooxml: _M0FP210pptx_2dsvg4main17get__shape__ooxml,
-    add_shape_from_ooxml: _M0FP210pptx_2dsvg4main23add__shape__from__ooxml,
     initialize_pptx: _M0FP210pptx_2dsvg4main16initialize__pptx,
     get_slide_count: _M0FP210pptx_2dsvg4main17get__slide__count,
     is_slide_hidden: _M0FP210pptx_2dsvg4main17is__slide__hidden,

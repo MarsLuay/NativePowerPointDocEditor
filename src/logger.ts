@@ -41,6 +41,14 @@ function getLogState() {
 	return logState;
 }
 
+type DocxidianLogSink = (entry: DocxidianLogEntry) => void;
+
+let logSink: DocxidianLogSink | null = null;
+
+export function setDocxidianLogSink(sink: DocxidianLogSink | null) {
+	logSink = sink;
+}
+
 function syncWindowLogState() {
 	const logsWindow = getWindowWithLogs();
 	if (!logsWindow) {
@@ -105,6 +113,14 @@ export function logDocxidian(level: DocxidianLogLevel, area: string, message: st
 		state.entries.splice(0, state.entries.length - MAX_LOG_ENTRIES);
 	}
 	syncWindowLogState();
+
+	if (logSink) {
+		try {
+			logSink(entry);
+		} catch {
+			// Never let a log sink failure break the operation being logged.
+		}
+	}
 
 	writeConsole(level, area, message, data);
 }

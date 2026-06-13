@@ -7,6 +7,7 @@
 // Usage: node scripts/smoke-pptx-js-engine.mjs [path-to.pptx]
 
 import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -23,8 +24,29 @@ const { bytesToBase64 } = await import(
   path.join(projectRoot, 'node_modules/pptx-svg/dist/utils.js')
 );
 
-const pptxPath =
-  process.argv[2] || path.join(projectRoot, 'test_files/10MB-Sample-PPT-File.pptx');
+// Prefer an explicit arg, then a committed fixture (available in CI), then the
+// large local sample (gitignored, present only in dev checkouts).
+const fixtureCandidates = [
+  process.argv[2],
+  path.join(projectRoot, 'tests/fixtures/decks/features.pptx'),
+  path.join(projectRoot, 'test_files/10MB-Sample-PPT-File.pptx')
+].filter(Boolean);
+
+let pptxPath;
+for (const candidate of fixtureCandidates) {
+  if (existsSync(candidate)) {
+    pptxPath = candidate;
+    break;
+  }
+}
+
+if (!pptxPath) {
+  console.error(
+    'No PPTX fixture found. Pass a path, or generate fixtures with ' +
+    '`node tests/fixtures/generate-fixtures.mjs`.'
+  );
+  process.exit(1);
+}
 
 const buf = await readFile(pptxPath);
 const arrayBuffer = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);

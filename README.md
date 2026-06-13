@@ -54,6 +54,10 @@ The `run-to-import` folder also contains local Windows and macOS installers for 
 - Use the toolbar and command palette actions for save, export, duplicate, search, and document diagnostics.
 - Use plugin settings to turn DOCX or PowerPoint handling on or off.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history, including the WasmGC fallback added in 1.0.14.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, local setup notes, and release expectations.

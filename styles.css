@@ -1671,8 +1671,11 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-text-toolb
 /*
  * The Google Slides light/dark chrome overrides above force buttons to a
  * transparent background, which also blanks out the color-picker swatches (they
- * are <button>s). Re-assert each swatch's own color with matching specificity so
- * the palette actually shows colors and keeps them on hover/focus.
+ * are <button>s). Those overrides use :is(... .native-powerpoint-toolbar-popover
+ * button ...), so they outrank a plain re-assert selector and the swatch only
+ * showed its color on hover (where the hover re-assert tied and won on order).
+ * Use !important here so the data-driven swatch color always wins regardless of
+ * the chrome reset's specificity, at rest and on hover/focus.
  */
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch,
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:hover,
@@ -1680,7 +1683,7 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch,
 body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch:hover,
 body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch:focus {
-	background: var(--np-swatch-color, transparent);
+	background: var(--np-swatch-color, transparent) !important;
 }
 
 .native-powerpoint-layout {
@@ -2495,6 +2498,16 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 
 .native-powerpoint-slide-svg .native-powerpoint-find-highlight.is-current {
 	fill: rgba(245, 158, 11, 0.6);
+}
+
+/*
+ * Run-level text highlight overlays. The fill color is data-driven and set as
+ * an inline presentation attribute per run, so it is intentionally not declared
+ * here (a CSS `fill` would override the per-run color). Clicks must pass through
+ * to the text beneath so inline editing still works.
+ */
+.native-powerpoint-slide-svg .native-powerpoint-run-highlight {
+	pointer-events: none;
 }
 
 .native-powerpoint-inline-caret-hidden {

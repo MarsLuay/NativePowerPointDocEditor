@@ -33,6 +33,10 @@ const slidesShotPath = path.join(outputDir, 'powerpoint-slides.png');
 function findChrome() {
   const candidates = [
     process.env.CHROME_PATH,
+    path.join(process.env.ProgramFiles || '', 'Google/Chrome/Application/chrome.exe'),
+    path.join(process.env['ProgramFiles(x86)'] || '', 'Google/Chrome/Application/chrome.exe'),
+    path.join(process.env.ProgramFiles || '', 'Microsoft/Edge/Application/msedge.exe'),
+    path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft/Edge/Application/msedge.exe'),
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
     '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -50,7 +54,7 @@ function fileHasBytes(filePath) {
 }
 
 function runChrome(chromePath, args, options = {}) {
-  const timeoutMs = options.timeoutMs ?? 20000;
+  const timeoutMs = options.timeoutMs ?? 90000;
   return new Promise((resolve, reject) => {
     const child = spawn(chromePath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
@@ -138,29 +142,34 @@ try {
   const slideCount = engine.slideCount;
   assert.ok(slideCount > 0, 'Sample has no slides.');
 
-  const slide0 = engine.renderSlide(0).svg;
-  const intrinsic = getIntrinsicSize(slide0);
+  const renderedSlides = Array.from(
+    { length: slideCount },
+    (_, index) => ({ index, svg: engine.renderSlide(index).svg })
+  );
+  const zoomSlide = renderedSlides.find(({ svg }) => (svg.match(/data-ooxml-shape-idx=/g) || []).length > 0)
+    ?? renderedSlides[0];
+  const intrinsic = getIntrinsicSize(zoomSlide.svg);
 
   // Zoom frames: same slide at each zoom level.
   const zoomMetrics = [];
   const zoomFrames = ZOOM_LEVELS.map((zoom) => {
     const scaled = computeScaledSize(intrinsic, zoom);
-    const shapeCount = (slide0.match(/data-ooxml-shape-idx=/g) || []).length;
-    zoomMetrics.push({ zoom, width: scaled.width, height: scaled.height, shapes: shapeCount });
+    const shapeCount = (zoomSlide.svg.match(/data-ooxml-shape-idx=/g) || []).length;
+    zoomMetrics.push({ zoom, slide: zoomSlide.index + 1, width: scaled.width, height: scaled.height, shapes: shapeCount });
     return `<section class="frame">
       <div class="label"><strong>Zoom ${zoom}x</strong>
+        <span class="metric">slide ${zoomSlide.index + 1}</span>
         <span class="metric">${scaled.width}x${scaled.height}px</span>
         <span class="metric">${shapeCount} shapes</span></div>
       <div class="pane" style="width:${PANE_WIDTH}px;height:${Math.min(PANE_HEIGHT, scaled.height + PANE_PADDING * 2)}px">
-        <div class="surface">${sizeSvg(slide0, scaled.width, scaled.height)}</div>
+        <div class="surface">${sizeSvg(zoomSlide.svg, scaled.width, scaled.height)}</div>
       </div>
     </section>`;
   });
 
   // Slide strip: every slide at zoom 1 (render fidelity).
   const stripCells = [];
-  for (let index = 0; index < slideCount; index++) {
-    const svg = engine.renderSlide(index).svg;
+  for (const { index, svg } of renderedSlides) {
     const scaled = computeScaledSize(getIntrinsicSize(svg), 0.45);
     stripCells.push(`<figure class="cell">
       <div class="surface">${sizeSvg(svg, scaled.width, scaled.height)}</div>

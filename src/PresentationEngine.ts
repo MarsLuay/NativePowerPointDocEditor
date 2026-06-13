@@ -53,6 +53,15 @@ interface JsBackendCapableRenderer {
 }
 
 /**
+ * Renderer build-patched with the single-slide entry point (see
+ * scripts/lib/patch-pptx-renderer.mjs). Replaces one slide's XML in the live
+ * file map and re-parses, so edits skip the whole-deck export/reload.
+ */
+interface SlideXmlLoadable {
+  loadSlideXml(slideIdx: number, xml: string): void;
+}
+
+/**
  * True when a failure from the Wasm renderer indicates the runtime lacks
  * WebAssembly GC (Obsidian installer < 1.5.8 / Chromium < 119). Mirrors the
  * detection in NativePowerPointView so both layers agree.
@@ -63,18 +72,65 @@ function isWasmGcUnsupportedError(error: unknown): boolean {
 }
 
 /**
+ * Developer/test override that forces the pure-JS PPTX engine even on runtimes
+ * that support WebAssembly GC. Without this, the JS fallback only runs on old
+ * installers, so it could silently rot. To exercise it on a modern machine, open
+ * the Obsidian developer console and run:
+ *
+ *   localStorage.setItem('native-powerpoint-force-js-engine', '1')
+ *
+ * then reopen the PPTX (clear it with `removeItem` to return to Wasm). Tests/Node
+ * can instead set `globalThis.__NATIVE_PPTX_FORCE_JS__ = true`.
+ */
+export const FORCE_JS_ENGINE_STORAGE_KEY = 'native-powerpoint-force-js-engine';
+
+function shouldForceJsBackend(): boolean {
+  try {
+    // Intentional cross-runtime global: the headless Node tests/smoke scripts set
+    // this flag on `globalThis` (no `window` exists there). Not a DOM/popout concern.
+    // eslint-disable-next-line obsidianmd/no-global-this
+    if ((globalThis as { __NATIVE_PPTX_FORCE_JS__?: unknown }).__NATIVE_PPTX_FORCE_JS__ === true) {
+      return true;
+    }
+  } catch {
+    // Accessing globals can throw in locked-down sandboxes; ignore and continue.
+  }
+
+  try {
+    if (typeof localStorage !== 'undefined'
+      && localStorage.getItem(FORCE_JS_ENGINE_STORAGE_KEY) === '1') {
+      return true;
+    }
+  } catch {
+    // localStorage may be unavailable (Node, private mode); treat as "not forced".
+  }
+
+  return false;
+}
+
+async function initJsBackend(renderer: PptxRenderer): Promise<void> {
+  const { createPptxJsEngine } = await import('./vendor/pptx-js-engine.mjs');
+  (renderer as unknown as JsBackendCapableRenderer).initJsBackend(createPptxJsEngine());
+}
+
+/**
  * Initialize the renderer's backend. Prefers the fast Wasm (wasm-gc) engine and,
  * if the runtime cannot run it, lazily loads the pure-JS engine fallback so PPTX
  * files still open on older Obsidian installers. The fallback module is only
- * fetched/evaluated when actually needed.
+ * fetched/evaluated when actually needed. The fallback can also be forced for
+ * testing (see {@link FORCE_JS_ENGINE_STORAGE_KEY}).
  */
 async function initRendererBackend(renderer: PptxRenderer): Promise<void> {
+  if (shouldForceJsBackend()) {
+    await initJsBackend(renderer);
+    return;
+  }
+
   try {
     await renderer.init(wasmBytes);
   } catch (error) {
     if (!isWasmGcUnsupportedError(error)) throw error;
-    const { createPptxJsEngine } = await import('./vendor/pptx-js-engine.mjs');
-    (renderer as unknown as JsBackendCapableRenderer).initJsBackend(createPptxJsEngine());
+    await initJsBackend(renderer);
   }
 }
 
@@ -147,6 +203,21 @@ export interface RunStyleChange {
   fontSizePt?: number;
   color?: string | null;
   highlight?: string | null;
+}
+
+/**
+ * A single run that carries an <a:highlight> color, located by the same
+ * shape/paragraph/run indices the SVG renderer tags onto its tspans. The SVG
+ * renderer drops <a:highlight>, so the view repaints these as overlay rects.
+ */
+export interface RunHighlightInfo {
+  shapeIndex: number;
+  paragraphIndex: number;
+  runIndex: number;
+  color: string;
+  /** Authoritative run-only, paragraph-relative offsets straight from the OOXML. */
+  start: number;
+  end: number;
 }
 
 /** Resolved run-level style read back from a slide, for reflecting toolbar state. */
@@ -506,6 +577,80 @@ function splitParagraphAtOffset(paragraph: Element, offset: number, doc: XMLDocu
   }
 }
 
+const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
+
+/**
+ * Canonical string for a run's properties, used to decide whether two runs can
+ * be coalesced. A run with no `<a:rPr>` and a run with an empty `<a:rPr/>` are
+ * intentionally distinct keys so the comparison only ever merges byte-identical
+ * properties (false negatives are harmless; false positives would lose styling).
+ */
+function runPropertiesKey(run: Element): string {
+  const rPr = getElementChildren(run)
+    .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE);
+  return rPr ? new XMLSerializer().serializeToString(rPr) : '';
+}
+
+function findRunTextElement(run: Element): Element | null {
+  return getElementChildren(run)
+    .find((element) => element.localName === 't' && element.namespaceURI === DRAWINGML_NAMESPACE)
+    ?? getDescendants(run, 't').find((element) => element.namespaceURI === DRAWINGML_NAMESPACE)
+    ?? null;
+}
+
+/**
+ * Merge DOM-adjacent `<a:r>` runs that carry identical run properties into one
+ * run. Range styling splits runs at every selection boundary, so repeated edits
+ * fragment a paragraph into many runs whose `rPr` are identical (the 33-run
+ * problem). Coalescing them keeps the run list minimal, which shrinks every
+ * subsequent offset mapping and keeps the saved OOXML clean.
+ *
+ * Only consecutive element-child runs are merged, so a line break (`<a:br>`),
+ * field (`<a:fld>`), or any other element between two runs blocks the merge and
+ * preserves document structure. The merge target keeps its own `<a:t>` element
+ * (and attributes); `xml:space="preserve"` is added when the combined text gains
+ * leading/trailing whitespace so spaces are never dropped on save.
+ */
+function mergeAdjacentRuns(paragraph: Element): boolean {
+  let merged = false;
+  let previousRun: Element | null = null;
+  let previousKey = '';
+
+  for (const child of getElementChildren(paragraph)) {
+    const isRun = child.localName === 'r' && child.namespaceURI === DRAWINGML_NAMESPACE;
+    if (!isRun) {
+      previousRun = null;
+      previousKey = '';
+      continue;
+    }
+
+    const key = runPropertiesKey(child);
+    if (previousRun && key === previousKey) {
+      const targetText = findRunTextElement(previousRun);
+      if (targetText) {
+        const combined = getDrawingRunText(previousRun) + getDrawingRunText(child);
+        const otherText = findRunTextElement(child);
+        const preserve = combined !== combined.trim()
+          || targetText.getAttribute('xml:space') === 'preserve'
+          || otherText?.getAttribute('xml:space') === 'preserve';
+        targetText.textContent = combined;
+        if (preserve) {
+          targetText.setAttributeNS(XML_NAMESPACE, 'xml:space', 'preserve');
+        }
+        paragraph.removeChild(child);
+        merged = true;
+        // Keep `previousRun`/`previousKey` so a third identical run also folds in.
+        continue;
+      }
+    }
+
+    previousRun = child;
+    previousKey = key;
+  }
+
+  return merged;
+}
+
 function applyRunStyleToParagraphRange(
   paragraph: Element,
   doc: XMLDocument,
@@ -527,6 +672,7 @@ function applyRunStyleToParagraphRange(
       ?? segments.at(-1);
     if (!segment || segment.text.length === 0) return false;
     applyRunPropertyChange(getRunProperties(segment.run, doc), doc, change);
+    mergeAdjacentRuns(paragraph);
     return true;
   }
 
@@ -539,6 +685,11 @@ function applyRunStyleToParagraphRange(
     if (segment.text.length === 0) continue;
     applyRunPropertyChange(getRunProperties(segment.run, doc), doc, change);
     changed = true;
+  }
+  if (changed) {
+    // Collapse the boundary splits (and any prior fragmentation) back down so
+    // repeated range edits cannot grow the run count without bound.
+    mergeAdjacentRuns(paragraph);
   }
   return changed;
 }
@@ -581,38 +732,104 @@ function isParagraphRangeStyled(
 }
 
 /**
- * Replace every occurrence of `query` with `replacement` inside a single text
- * string and report how many substitutions were made. Operates on plain run
- * text, so matches that span multiple runs are not handled here.
+ * Locate every non-overlapping occurrence of `query` in `source` and report the
+ * `[start, end)` character ranges. Honors the case-insensitivity default by
+ * lower-casing both sides; like the rest of this module it assumes lower-casing
+ * preserves length (true for the scripts these decks use).
  */
-function replaceTextOccurrences(
+function findTextMatches(
   source: string,
   query: string,
-  replacement: string,
   matchCase: boolean
-): { result: string; count: number } {
+): Array<{ start: number; end: number }> {
+  const matches: Array<{ start: number; end: number }> = [];
   if (!query) {
-    return { result: source, count: 0 };
+    return matches;
   }
 
   const haystack = matchCase ? source : source.toLocaleLowerCase();
   const needle = matchCase ? query : query.toLocaleLowerCase();
-  let result = '';
-  let count = 0;
   let index = 0;
 
   while (index <= source.length) {
     const found = haystack.indexOf(needle, index);
     if (found === -1) {
-      result += source.slice(index);
       break;
     }
-    result += source.slice(index, found) + replacement;
+    matches.push({ start: found, end: found + needle.length });
     index = found + needle.length;
-    count += 1;
   }
 
-  return { result, count };
+  return matches;
+}
+
+/**
+ * Replace every occurrence of `query` within a single paragraph, allowing a
+ * match to span multiple DrawingML runs (a:t). Runs are concatenated in
+ * document order (the same view the find feature searches over the shape), the
+ * matches are located in that combined string, and then each affected run is
+ * rewritten: the replacement is anchored in the run where the match starts
+ * (preserving that run's formatting) and the matched characters are removed from
+ * the runs the match covers. Runs untouched by any match keep their exact text.
+ * Returns how many matches were replaced.
+ */
+function replaceTextInParagraph(
+  paragraph: Element,
+  query: string,
+  replacement: string,
+  matchCase: boolean
+): number {
+  const segments = getDrawingRunSegments(paragraph);
+  if (segments.length === 0) {
+    return 0;
+  }
+
+  const combined = segments.map((segment) => segment.text).join('');
+  if (!combined) {
+    return 0;
+  }
+
+  const matches = findTextMatches(combined, query, matchCase);
+  if (matches.length === 0) {
+    return 0;
+  }
+
+  const segmentIndexAt = (position: number): number => {
+    for (let index = 0; index < segments.length; index++) {
+      const segment = segments[index];
+      if (segment && segment.start <= position && position < segment.end) {
+        return index;
+      }
+    }
+    return segments.length - 1;
+  };
+
+  const newTexts: string[] = segments.map(() => '');
+  const appendTo = (index: number, value: string): void => {
+    newTexts[index] = (newTexts[index] ?? '') + value;
+  };
+
+  let matchIndex = 0;
+  for (let position = 0; position < combined.length; ) {
+    const nextMatch = matches[matchIndex];
+    if (nextMatch && position === nextMatch.start) {
+      appendTo(segmentIndexAt(position), replacement);
+      position = nextMatch.end;
+      matchIndex += 1;
+      continue;
+    }
+    appendTo(segmentIndexAt(position), combined.charAt(position));
+    position += 1;
+  }
+
+  segments.forEach((segment, index) => {
+    const updated = newTexts[index] ?? '';
+    if (updated !== segment.text) {
+      setDrawingRunText(segment.run, updated);
+    }
+  });
+
+  return matches.length;
 }
 
 interface DrawingRunPosition {
@@ -1610,6 +1827,127 @@ function getDirectChild(element: Element, localName: string): Element | null {
     .find((child) => child.localName === localName) ?? null;
 }
 
+/**
+ * Collect every run carrying an `<a:highlight>` color from a parsed slide
+ * document. Shape/paragraph/run indices and run-relative offsets match
+ * {@link PresentationEngine.getRunStyle} (and the renderer's tspan tags).
+ */
+function collectSlideHighlights(slideDoc: XMLDocument): RunHighlightInfo[] {
+  const highlights: RunHighlightInfo[] = [];
+  const shapeTree = getDescendants(slideDoc, 'spTree')[0];
+  if (!shapeTree) return highlights;
+  const shapes = getElementChildren(shapeTree).filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
+
+  shapes.forEach((shape, shapeIndex) => {
+    getDrawingParagraphs(shape).forEach((paragraph, paragraphIndex) => {
+      let offset = 0;
+      getDrawingRuns(paragraph).forEach((run, runIndex) => {
+        const text = getDrawingRunText(run);
+        const start = offset;
+        const end = offset + text.length;
+        offset = end;
+
+        const rPr = getElementChildren(run)
+          .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE);
+        if (!rPr) return;
+        const highlight = getElementChildren(rPr)
+          .find((element) => element.localName === 'highlight' && element.namespaceURI === DRAWINGML_NAMESPACE);
+        if (!highlight) return;
+        const srgb = getElementChildren(highlight).find((element) => element.localName === 'srgbClr');
+        const color = srgb?.getAttribute('val');
+        if (!color) return;
+        highlights.push({ shapeIndex, paragraphIndex, runIndex, color: normalizeHexColor(color), start, end });
+      });
+    });
+  });
+  return highlights;
+}
+
+/**
+ * A run's authored `<a:rPr>`, captured while the renderer model is lossless so
+ * properties it doesn't model can be re-grafted after a lossy re-serialize.
+ * `rPr` is a detached clone; `text` is used to verify the run still lines up.
+ */
+interface AuthoredRunRpr {
+  shapeIndex: number;
+  paragraphIndex: number;
+  runIndex: number;
+  text: string;
+  rPr: Element;
+}
+
+interface SlideRunCacheEntry {
+  highlights: RunHighlightInfo[];
+  authoredRuns: AuthoredRunRpr[];
+}
+
+// Child element order of CT_TextCharacterProperties (<a:rPr>), used to re-insert
+// a dropped child in a schema-valid position so the renderer re-parses it.
+const RPR_CHILD_ORDER = [
+  'ln',
+  'noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill',
+  'effectLst', 'effectDag',
+  'highlight',
+  'uLnTx', 'uLn', 'uFillTx', 'uFill',
+  'latin', 'ea', 'cs', 'sym',
+  'hlinkClick', 'hlinkMouseOver',
+  'rtl',
+  'extLst'
+];
+
+// rPr attributes the renderer is known to preserve. A run is only cached when it
+// carries an element child or an attribute outside this set, so the cache stays
+// small (plain runs are skipped) while still catching un-modeled attributes.
+const PRESERVED_RPR_ATTRS = new Set([
+  'kumimoji', 'lang', 'altLang', 'sz', 'b', 'i', 'u', 'strike', 'kern', 'cap',
+  'spc', 'normalizeH', 'baseline', 'noProof', 'dirty', 'err', 'smtClean', 'smtId', 'bmk'
+]);
+
+function rprChildOrderIndex(localName: string): number {
+  const index = RPR_CHILD_ORDER.indexOf(localName);
+  return index === -1 ? RPR_CHILD_ORDER.length : index;
+}
+
+/** Insert a child into an `<a:rPr>` at its schema-ordered position. */
+function insertRprChildInOrder(rPr: Element, child: Element): void {
+  const order = rprChildOrderIndex(child.localName);
+  const successor = getElementChildren(rPr).find((existing) => rprChildOrderIndex(existing.localName) > order);
+  rPr.insertBefore(child, successor ?? null);
+}
+
+/**
+ * Capture the authored `<a:rPr>` of every "decorated" run (one with element
+ * children or a non-core attribute) so the renderer's lossy re-serialize can be
+ * reconciled later. Indices match {@link collectSlideHighlights}.
+ */
+function collectAuthoredRunRprs(slideDoc: XMLDocument): AuthoredRunRpr[] {
+  const authored: AuthoredRunRpr[] = [];
+  const shapeTree = getDescendants(slideDoc, 'spTree')[0];
+  if (!shapeTree) return authored;
+  const shapes = getElementChildren(shapeTree).filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
+
+  shapes.forEach((shape, shapeIndex) => {
+    getDrawingParagraphs(shape).forEach((paragraph, paragraphIndex) => {
+      getDrawingRuns(paragraph).forEach((run, runIndex) => {
+        const rPr = getElementChildren(run)
+          .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE);
+        if (!rPr) return;
+        const hasChild = getElementChildren(rPr).length > 0;
+        const hasUnmodeledAttr = Array.from(rPr.attributes).some((attr) => !PRESERVED_RPR_ATTRS.has(attr.name));
+        if (!hasChild && !hasUnmodeledAttr) return;
+        authored.push({
+          shapeIndex,
+          paragraphIndex,
+          runIndex,
+          text: getDrawingRunText(run),
+          rPr: rPr.cloneNode(true) as Element
+        });
+      });
+    });
+  });
+  return authored;
+}
+
 export interface RenderedSlide {
   svg: string;
   slideCount: number;
@@ -1628,6 +1966,27 @@ export class PresentationEngine {
   private chartTextValues = new Map<string, string[]>();
   private chartAxisFormats = new Map<string, ChartAxisFormat[]>();
   private chartDataDescriptors = new Map<string, ChartDataDescriptor>();
+  // Authoritative per-slide run formatting. The renderer's SlideData model drops
+  // authored run properties it doesn't model whenever a Wasm-primitive edit
+  // re-serializes a slide -- empirically <a:highlight>, <a:hlinkClick>, <a:uFill>
+  // and @normalizeH, and any future un-modeled rPr content. This cache is the
+  // single source of truth for that formatting: the live view reads highlights
+  // from it (getSlideRunHighlights) and the export funnel re-grafts every dropped
+  // property into any slide the renderer serialized lossily
+  // (reconcileRunPropsIntoBuffer). It is seeded lazily from the lossless model,
+  // refreshed on every OOXML-path commit, remapped when a shape is deleted, and
+  // reset when the renderer is reinitialized.
+  private slideRunCache = new Map<number, SlideRunCacheEntry>();
+  // Fast-path (`loadSlideXml`) commits update the live renderer model but not
+  // `currentBuffer`, so `currentBuffer` goes stale for those slides' modeled
+  // content. `currentBuffer` can't simply be overwritten from the renderer:
+  // it is the authoritative source of content the renderer's serialization
+  // drops (extension lists, un-modeled graphic frames) -- the very thing
+  // `preserveSlideExtensionLists`/`mergeSlideGraphicFramesFromBuffer` graft back.
+  // Instead we record each committed slide's lossless XML here and fold it into
+  // `currentBuffer` lazily (see `syncCurrentBuffer`), restoring the dropped
+  // content from the prior buffer so `currentBuffer` stays authoritative.
+  private pendingSlideXml = new Map<number, string>();
 
   private constructor(renderer: PptxRenderer, fontFidelity: FontFidelity, slideCount: number, buffer: ArrayBuffer) {
     this.renderer = renderer;
@@ -1691,7 +2050,7 @@ export class PresentationEngine {
     return getAllShapes(svg);
   }
 
-  applyFontFidelity(svg: SVGSVGElement): FontSubstitution[] {
+  applyFontFidelity(svg: SVGSVGElement | SVGGElement): FontSubstitution[] {
     return this.fontFidelity.applySvgSubstitutions(svg);
   }
 
@@ -1785,6 +2144,10 @@ export class PresentationEngine {
     shapeIndex: number,
     transform: ShapeTransform
   ): Promise<void> {
+    // Seed the highlight cache from the still-lossless model before the edit
+    // re-serializes the slide (which drops every <a:highlight>); the cache then
+    // feeds both the live overlays and the export-funnel reconciliation.
+    this.ensureSlideRunCacheSeeded(slideIndex);
     const result = this.renderer.updateShapeTransform(
       slideIndex,
       shapeIndex,
@@ -1849,6 +2212,7 @@ export class PresentationEngine {
       return;
     }
 
+    this.ensureSlideRunCacheSeeded(slideIndex);
     const addResult = this.renderer.addShapeText(slideIndex, shapeIndex, text, 1800, 0, 0, 0);
     assertOk(addResult, 'Could not update shape text.');
   }
@@ -1898,11 +2262,14 @@ export class PresentationEngine {
 
   /**
    * Replace text across slides, returning how many occurrences were changed.
-   * Replacement happens within individual DrawingML text runs (a:t), so
-   * formatting on each run is preserved. Matches that span multiple runs are
-   * not substituted. Pass `slideIndex`/`shapeIndex` to limit the replacement to
-   * a single shape (used for "Replace" on the current match); omit them to
-   * replace everywhere ("Replace all").
+   * Replacement works per paragraph over the concatenation of its DrawingML
+   * runs (a:t), so a match that spans multiple runs is replaced too (mirroring
+   * the scope the find feature searches). The replacement is anchored in the
+   * run where the match starts, preserving that run's formatting, and the
+   * matched characters are stripped from any later runs the match covers. Pass
+   * `slideIndex`/`shapeIndex` to limit the replacement to a single shape (used
+   * for "Replace" on the current match); omit them to replace everywhere
+   * ("Replace all").
    */
   async replaceText(
     query: string,
@@ -1938,15 +2305,12 @@ export class PresentationEngine {
         }
       }
 
-      const textElements = getDescendants(scope, 't')
+      const paragraphs = getDescendants(scope, 'p')
         .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
       let slideChanged = false;
-      for (const textElement of textElements) {
-        const original = textElement.textContent ?? '';
-        if (!original) continue;
-        const { result, count } = replaceTextOccurrences(original, query, replacement, matchCase);
+      for (const paragraph of paragraphs) {
+        const count = replaceTextInParagraph(paragraph, query, replacement, matchCase);
         if (count > 0) {
-          textElement.textContent = result;
           total += count;
           slideChanged = true;
         }
@@ -1970,6 +2334,214 @@ export class PresentationEngine {
    * Only directly-authored run/paragraph properties are reported; values
    * inherited from a placeholder, layout, or master are not resolved here.
    */
+  /**
+   * Collect every run on the slide that carries an <a:highlight> color. The
+   * SVG renderer discards highlights, so the view uses this to repaint them as
+   * overlay rects. Shape/paragraph/run indices match {@link getRunStyle} (and
+   * therefore the renderer's tspan tags).
+   */
+  getSlideRunHighlights(slideIndex: number): RunHighlightInfo[] {
+    return this.getOrSeedSlideRunCache(slideIndex).highlights;
+  }
+
+  /**
+   * The authoritative run cache for a slide, seeded lazily from the lossless
+   * model on first access. (No in-place Wasm edit can run before the view first
+   * renders/queries the slide, so the seed is always lossless. Subsequent Wasm
+   * edits go lossy but the cache, once seeded, stays authoritative.)
+   */
+  private getOrSeedSlideRunCache(slideIndex: number): SlideRunCacheEntry {
+    let cached = this.slideRunCache.get(slideIndex);
+    if (cached === undefined) {
+      cached = this.readSlideRunCacheFromModel(slideIndex);
+      this.slideRunCache.set(slideIndex, cached);
+    }
+    return cached;
+  }
+
+  /** Parse the renderer's current OOXML and capture its run formatting. */
+  private readSlideRunCacheFromModel(slideIndex: number): SlideRunCacheEntry {
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      return { highlights: collectSlideHighlights(slideDoc), authoredRuns: collectAuthoredRunRprs(slideDoc) };
+    } catch {
+      return { highlights: [], authoredRuns: [] };
+    }
+  }
+
+  /** Seed the run cache for a slide from the (lossless) model if unseen. */
+  private ensureSlideRunCacheSeeded(slideIndex: number): void {
+    if (!this.slideRunCache.has(slideIndex)) {
+      this.slideRunCache.set(slideIndex, this.readSlideRunCacheFromModel(slideIndex));
+    }
+  }
+
+  /** Replace a slide's cached run formatting with the model's current (lossless) set. */
+  private refreshSlideRunCache(slideIndex: number): void {
+    this.slideRunCache.set(slideIndex, this.readSlideRunCacheFromModel(slideIndex));
+  }
+
+  /** Drop the whole cache after a renderer reinitialize (indices/contents change). */
+  private resetSlideRunCache(): void {
+    this.slideRunCache.clear();
+  }
+
+  /**
+   * After an in-place `deleteShape`, the renderer renumbers the surviving shapes.
+   * Remap the cached run formatting to match: drop the deleted shape's entries
+   * and shift every higher shape index down by one.
+   */
+  private remapSlideRunCacheAfterDeletedShape(slideIndex: number, deletedShapeIndex: number): void {
+    const cached = this.slideRunCache.get(slideIndex);
+    if (!cached) return;
+    const remapShape = <T extends { shapeIndex: number }>(entry: T): T =>
+      entry.shapeIndex > deletedShapeIndex ? { ...entry, shapeIndex: entry.shapeIndex - 1 } : entry;
+    this.slideRunCache.set(slideIndex, {
+      highlights: cached.highlights.filter((h) => h.shapeIndex !== deletedShapeIndex).map(remapShape),
+      authoredRuns: cached.authoredRuns.filter((r) => r.shapeIndex !== deletedShapeIndex).map(remapShape)
+    });
+  }
+
+  /**
+   * Graft the given highlights into a slide document via the lossless OOXML path.
+   * Shape/paragraph indices are resolved against the document's shape tree, so
+   * the caller must pass highlights whose indices match `slideDoc`'s shape order.
+   * Returns whether anything changed.
+   */
+  private graftHighlightsIntoSlideDoc(slideDoc: XMLDocument, highlights: RunHighlightInfo[]): boolean {
+    if (highlights.length === 0) return false;
+    const shapeTree = getDescendants(slideDoc, 'spTree')[0];
+    if (!shapeTree) return false;
+    const shapes = getElementChildren(shapeTree).filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
+
+    let changed = false;
+    for (const highlight of highlights) {
+      const shape = shapes[highlight.shapeIndex];
+      if (!shape) continue;
+      const paragraph = getDrawingParagraphs(shape)[highlight.paragraphIndex];
+      if (!paragraph) continue;
+      if (applyRunStyleToParagraphRange(paragraph, slideDoc, highlight.start, highlight.end, { highlight: highlight.color })) {
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * Re-graft any authored run property the renderer dropped (everything except
+   * `<a:highlight>`, which the offset-based highlight path owns) back into a
+   * slide document. Runs are matched 1:1 by index and verified by text, then
+   * each missing rPr child/attribute is re-inserted in schema order. This is a
+   * no-op when nothing is missing, so the lossless path is untouched.
+   */
+  private graftAuthoredRunPropsIntoSlideDoc(slideDoc: XMLDocument, authoredRuns: AuthoredRunRpr[]): boolean {
+    if (authoredRuns.length === 0) return false;
+    const shapeTree = getDescendants(slideDoc, 'spTree')[0];
+    if (!shapeTree) return false;
+    const shapes = getElementChildren(shapeTree).filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
+
+    let changed = false;
+    for (const authored of authoredRuns) {
+      const shape = shapes[authored.shapeIndex];
+      if (!shape) continue;
+      const paragraph = getDrawingParagraphs(shape)[authored.paragraphIndex];
+      if (!paragraph) continue;
+      const run = getDrawingRuns(paragraph)[authored.runIndex];
+      if (!run || getDrawingRunText(run) !== authored.text) continue;
+
+      const rPr = getRunProperties(run, slideDoc);
+      for (const attr of Array.from(authored.rPr.attributes)) {
+        if (!rPr.hasAttribute(attr.name)) {
+          rPr.setAttribute(attr.name, attr.value);
+          changed = true;
+        }
+      }
+      for (const child of getElementChildren(authored.rPr)) {
+        if (child.localName === 'highlight') continue;
+        const present = getElementChildren(rPr)
+          .some((existing) => existing.localName === child.localName && existing.namespaceURI === child.namespaceURI);
+        if (present) continue;
+        insertRprChildInOrder(rPr, slideDoc.importNode(child, true) as Element);
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
+  /**
+   * If a Wasm-primitive edit ran since the cache was last authoritative, the
+   * renderer may have stripped authored run properties from this slide. Re-graft
+   * them into `slideDoc` before an OOXML-path edit reads/mutates it. When the
+   * model is still lossless the document already has them, so this is a no-op and
+   * the common path stays byte-identical to before.
+   */
+  private restoreLostRunPropsIntoSlideDoc(slideIndex: number, slideDoc: XMLDocument): void {
+    const cached = this.slideRunCache.get(slideIndex);
+    if (!cached) return;
+    if (cached.highlights.length > 0 && collectSlideHighlights(slideDoc).length < cached.highlights.length) {
+      this.graftHighlightsIntoSlideDoc(slideDoc, cached.highlights);
+    }
+    this.graftAuthoredRunPropsIntoSlideDoc(slideDoc, cached.authoredRuns);
+  }
+
+  /**
+   * Re-graft every run property the renderer dropped into any slide it
+   * serialized lossily. This is the single reconciliation point in the export
+   * funnel: every save and every reload-based structural edit routes its buffer
+   * through here, mirroring how `preserveSlideExtensionLists` restores the
+   * per-slide extension lists the renderer strips.
+   */
+  private async reconcileRunPropsIntoBuffer(buffer: ArrayBuffer): Promise<ArrayBuffer> {
+    if (this.slideRunCache.size === 0) return buffer;
+    const zip = await extractZip(buffer);
+    const modifications = new Map<string, string>();
+
+    for (const [slideIndex, cached] of this.slideRunCache) {
+      if (cached.highlights.length === 0 && cached.authoredRuns.length === 0) continue;
+      const slidePath = getSlidePath(slideIndex);
+      const slideXml = zip.textFiles.get(slidePath);
+      if (!slideXml) continue;
+
+      const slideDoc = parseXml(slideXml, slidePath);
+      let changed = false;
+      // The renderer drops every highlight on a slide at once, so only re-graft
+      // (which splits runs) when the export is actually missing some.
+      if (cached.highlights.length > 0 && collectSlideHighlights(slideDoc).length < cached.highlights.length) {
+        changed = this.graftHighlightsIntoSlideDoc(slideDoc, cached.highlights) || changed;
+      }
+      // Generic re-graft is idempotent: it only restores rPr content the export
+      // is missing, so it is safe to run unconditionally.
+      changed = this.graftAuthoredRunPropsIntoSlideDoc(slideDoc, cached.authoredRuns) || changed;
+      if (changed) {
+        modifications.set(slidePath, serializeXml(slideDoc));
+      }
+    }
+
+    return modifications.size > 0 ? buildZip(buffer, modifications) : buffer;
+  }
+
+  /**
+   * The authoritative run-only text of a paragraph: the concatenation of every
+   * run's `<a:t>` in document order. This is the offset space the range-based
+   * styling APIs operate in. The view maps its SVG-derived editor offsets onto
+   * this string before calling those APIs, because the rendered SVG drops the
+   * whitespace swallowed at soft-wrap boundaries.
+   */
+  getParagraphRunText(slideIndex: number, shapeIndex: number, paragraphIndex: number): string | null {
+    let shape: Element;
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      shape = getShapeElement(slideDoc, shapeIndex);
+    } catch {
+      return null;
+    }
+
+    const paragraph = getDrawingParagraphs(shape)[paragraphIndex];
+    if (!paragraph) return null;
+
+    return getDrawingRuns(paragraph).map((run) => getDrawingRunText(run)).join('');
+  }
+
   getRunStyle(
     slideIndex: number,
     shapeIndex: number,
@@ -2242,21 +2814,46 @@ export class PresentationEngine {
     shapeIndex: number,
     mutate: (shape: Element, slideDoc: XMLDocument) => boolean
   ): Promise<void> {
-    const rawExport = await this.exportRendererState();
     const slidePath = getSlidePath(slideIndex);
-    const zip = await extractZip(rawExport);
-    const slideXml = zip.textFiles.get(slidePath);
-    if (!slideXml) {
-      throw new Error(`Missing slide XML part: ${slidePath}`);
-    }
-
-    const slideDoc = parseXml(slideXml, slidePath);
+    const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), slidePath);
+    // If a prior in-place Wasm edit stripped this slide's highlights, restore the
+    // cached set before mutating so the edit (and the committed XML) is lossless.
+    this.restoreLostRunPropsIntoSlideDoc(slideIndex, slideDoc);
     const shape = getShapeElement(slideDoc, shapeIndex);
     if (!mutate(shape, slideDoc)) {
       return;
     }
 
-    const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
+    await this.commitSlideDoc(slideIndex, slideDoc);
+    // The commit reinitialized the model, so its run formatting is authoritative
+    // again; capture it (this also records highlight applies/clears and any other
+    // run-property edit just made).
+    this.refreshSlideRunCache(slideIndex);
+  }
+
+  /**
+   * Persist an in-memory slide document back into the renderer.
+   *
+   * Fast path: when the patched renderer exposes `loadSlideXml`, replace just
+   * this slide's XML in the live file map and re-parse — no full-deck export,
+   * no zip round-trip, no renderer teardown, no chart re-scan. The slide is then
+   * re-rendered by the caller via `renderSlide`. Falls back to the whole-deck
+   * export/patch/reload when the entry point is unavailable (unpatched renderer).
+   */
+  private async commitSlideDoc(slideIndex: number, slideDoc: XMLDocument): Promise<void> {
+    const serialized = serializeXml(slideDoc);
+    const loader = this.renderer as Partial<SlideXmlLoadable>;
+    if (typeof loader.loadSlideXml === 'function') {
+      loader.loadSlideXml(slideIndex, serialized);
+      // The renderer now holds this slide; `currentBuffer` is behind for it.
+      // Record the lossless XML so a later `currentBuffer` reader can fold it in
+      // (preserving renderer-dropped content) instead of reading stale slide XML.
+      this.pendingSlideXml.set(slideIndex, serialized);
+      return;
+    }
+
+    const rawExport = await this.exportRendererState();
+    const patchedExport = await buildZip(rawExport, new Map([[getSlidePath(slideIndex), serialized]]));
     await this.reloadFromBuffer(patchedExport, this.slideCountValue);
   }
 
@@ -2335,6 +2932,7 @@ export class PresentationEngine {
     widthPx = 320,
     heightPx = 240
   ): number {
+    this.ensureSlideRunCacheSeeded(slideIndex);
     const x = pxToEmu(140);
     const y = pxToEmu(120);
     const cx = pxToEmu(widthPx);
@@ -2344,6 +2942,7 @@ export class PresentationEngine {
   }
 
   addShapeGeometry(slideIndex: number, geometry: InsertableShapeGeometry): number {
+    this.ensureSlideRunCacheSeeded(slideIndex);
     const x = pxToEmu(160);
     const y = pxToEmu(140);
     const cx = pxToEmu(geometry === 'line' ? 220 : 240);
@@ -2353,6 +2952,7 @@ export class PresentationEngine {
   }
 
   addTextBox(slideIndex: number): number {
+    this.ensureSlideRunCacheSeeded(slideIndex);
     const x = pxToEmu(180);
     const y = pxToEmu(120);
     const cx = pxToEmu(300);
@@ -2386,17 +2986,27 @@ export class PresentationEngine {
     paragraphIndex: number,
     style: ParagraphListStyle
   ): Promise<void> {
+    // This funnel reconciles the renderer export against `currentBuffer`, so it
+    // must reflect any fast-path commits first or those edits would be lost.
+    await this.syncCurrentBuffer();
     const rawExport = await this.renderer.exportPptx();
     const mergedSlide = await mergeSlideGraphicFramesFromBuffer(this.currentBuffer, rawExport, slideIndex);
     const mergedPackage = await mergeMissingPackageParts(this.currentBuffer, mergedSlide);
     const patched = await applyParagraphListStyle(mergedPackage, slideIndex, shapeIndex, paragraphIndex, style);
     const preserved = await preserveSlideExtensionLists(this.currentBuffer, patched);
-    await this.reloadFromBuffer(preserved, this.slideCountValue);
+    // Re-graft any highlights the renderer stripped before reloading.
+    const reconciled = await this.reconcileRunPropsIntoBuffer(preserved);
+    await this.reloadFromBuffer(reconciled, this.slideCountValue);
   }
 
   deleteShape(slideIndex: number, shapeIndex: number): void {
+    this.ensureSlideRunCacheSeeded(slideIndex);
     const result = this.renderer.deleteShape(slideIndex, shapeIndex);
     assertOk(result, 'Could not delete shape.');
+    // The renderer renumbers the surviving shapes, so realign the cached
+    // highlights (drop this shape, shift higher indices down) to keep the
+    // overlays and export reconciliation pointing at the right runs.
+    this.remapSlideRunCacheAfterDeletedShape(slideIndex, shapeIndex);
   }
 
   async copyShape(slideIndex: number, shapeIndex: number): Promise<SlideObjectClipboard> {
@@ -3135,6 +3745,8 @@ export class PresentationEngine {
     this.fontFidelity = fontFidelity;
     this.currentBuffer = buffer.slice(0);
     this.slideCountValue = slideCount;
+    this.resetSlideRunCache();
+    this.pendingSlideXml.clear();
     await this.refreshChartTextValues(buffer);
   }
 
@@ -3154,14 +3766,50 @@ export class PresentationEngine {
     this.fontFidelity = fontFidelity;
     this.currentBuffer = buffer.slice(0);
     this.slideCountValue = slideCount;
+    // The reinitialized model serves lossless highlights again; drop the stale
+    // cache (shape indices may have shifted) and let it re-seed on demand.
+    this.resetSlideRunCache();
+    // `currentBuffer` is now this freshly-reloaded buffer, so any recorded
+    // fast-path slide XML is obsolete.
+    this.pendingSlideXml.clear();
     await this.refreshChartTextValues(buffer);
   }
 
   private async exportRendererState(): Promise<ArrayBuffer> {
     const rawExport = await this.renderer.exportPptx();
     const preservedExport = await preserveSlideExtensionLists(this.currentBuffer, rawExport);
-    this.currentBuffer = preservedExport.slice(0);
-    return preservedExport;
+    const reconciledExport = await this.reconcileRunPropsIntoBuffer(preservedExport);
+    this.currentBuffer = reconciledExport.slice(0);
+    // The full export already reflects every fast-path commit (they live in the
+    // renderer model), so any recorded slide XML is now folded in by definition.
+    this.pendingSlideXml.clear();
+    return reconciledExport;
+  }
+
+  /**
+   * Bring `currentBuffer` in sync with fast-path (`loadSlideXml`) commits that
+   * updated only the renderer model. Folds each recorded slide's lossless XML
+   * into `currentBuffer`, then restores the content the renderer's serialization
+   * drops (un-modeled graphic frames, extension lists) from the prior buffer --
+   * the same preservation the `applyListStyle` funnel relies on. Cheap no-op when
+   * nothing is pending, so callers can guard any `currentBuffer` read with it.
+   */
+  private async syncCurrentBuffer(): Promise<void> {
+    if (this.pendingSlideXml.size === 0) return;
+
+    const pending = this.pendingSlideXml;
+    this.pendingSlideXml = new Map();
+
+    const previousBuffer = this.currentBuffer;
+    let buffer = await buildZip(
+      previousBuffer,
+      new Map(Array.from(pending, ([slideIndex, xml]) => [getSlidePath(slideIndex), xml]))
+    );
+    for (const slideIndex of pending.keys()) {
+      buffer = await mergeSlideGraphicFramesFromBuffer(previousBuffer, buffer, slideIndex);
+    }
+    buffer = await preserveSlideExtensionLists(previousBuffer, buffer);
+    this.currentBuffer = buffer;
   }
 
   private async refreshChartTextValues(buffer: ArrayBuffer): Promise<void> {

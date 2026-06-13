@@ -9,7 +9,7 @@ Work on the Native PowerPoint Doc Editor Obsidian plugin locally so DOCX and PPT
 - Source folder: `Projects/Native PowerPoint Doc Editor/`
 - Manifest name: `Native PowerPoint Doc Editor`
 - Manifest id: `native-powerpoint-doc-editor`
-- Version in manifest: `1.0.13`
+- Current version: `1.0.14` (source of truth: `manifest.json` / `CHANGELOG.md` — update those, not this note)
 - Purpose: Open, edit, and embed `.docx` documents and view/edit `.pptx` presentations in Obsidian
 
 The currently installed plugin copy lives separately at `.obsidian/plugins/native-powerpoint-doc-editor/`.

@@ -1,8 +1,9 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { access, copyFile, readFile } from "fs/promises";
+import { access, copyFile, readFile, writeFile } from "fs/promises";
 import path from "node:path";
+import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 
 const banner =
 `/*
@@ -44,6 +45,19 @@ const deployToVaultPlugin = {
 					}
 				})
 			);
+
+			// Write a fresh build stamp the in-app dev hot-reload watcher polls.
+			// Content-based detection is more reliable than file mtime across
+			// platforms/adapters. Only meaningful when a `.hotreload` marker exists.
+			try {
+				await writeFile(
+					path.join(vaultPluginDir, ".build-stamp"),
+					`${Date.now()}\n`,
+				);
+			} catch {
+				// Non-fatal: stamp is dev convenience only.
+			}
+
 			console.log(`[deploy] synced ${filesToDeploy.join(", ")} -> ${vaultPluginDir}`);
 		});
 	}
@@ -59,38 +73,7 @@ const inlinePptxSvgWasmPlugin = {
 			}
 
 			const source = await readFile(args.path, "utf8");
-
-			let contents = source.replace(
-				"const DEFAULT_WASM_URL = new URL('./main.wasm', import.meta.url).href;",
-				"const DEFAULT_WASM_URL = undefined;"
-			);
-
-			// Teach PptxRenderer to run on the pure-JS engine fallback (used when the
-			// runtime lacks WebAssembly GC). `initJsBackend` reuses the existing host
-			// FFI (buildImportObject) and stores the JS engine exports where the Wasm
-			// instance normally lives, so every `this.exports.*` call works unchanged.
-			// The `exports` getter re-publishes this instance's FFI on `globalThis`
-			// before each (synchronous) call, keeping multiple open presentations
-			// isolated from one another.
-			const getterAnchor = "    get exports() {\n        if (!this.wasm)";
-			if (!contents.includes(getterAnchor)) {
-				throw new Error(
-					"[inline-pptx-svg-wasm] could not find the `exports` getter to patch — " +
-					"pptx-svg internals changed; update esbuild.config.mjs."
-				);
-			}
-			contents = contents.replace(
-				getterAnchor,
-				"    initJsBackend(engine) {\n" +
-				"        this.__jsFfi = this.buildImportObject().pptx_ffi;\n" +
-				"        this.wasm = { exports: engine };\n" +
-				"        globalThis.pptx_ffi = this.__jsFfi;\n" +
-				"    }\n" +
-				"    get exports() {\n" +
-				"        if (this.__jsFfi)\n" +
-				"            globalThis.pptx_ffi = this.__jsFfi;\n" +
-				"        if (!this.wasm)"
-			);
+			const contents = patchPptxRendererSource(source);
 
 			return { contents, loader: "js" };
 		});
