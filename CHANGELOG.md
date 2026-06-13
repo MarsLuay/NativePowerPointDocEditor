@@ -8,7 +8,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-06-12
+
 ### Added
+
+- Shape flip display pass (`shapeFlipTransforms.ts`) so horizontal/vertical flip edits
+  are visible in the canvas and thumbnails even though pptx-svg only records flip
+  flags in OOXML data attributes.
+- Click-to-retry on the **Save failed** status badge; failed autosaves also
+  schedule a follow-up attempt after five seconds.
+- Headless coverage for flip OOXML toggling and mirror-transform math
+  (`tests/shape-flip.test.mjs`).
+
+### Fixed
+
+- **Flip horizontal / flip vertical** now work for pictures, autoshapes, text boxes,
+  and groups (not only images in the context menu). Grouped-shape edits resolve via
+  `getShapeElementByRendererIndex`.
+- **Save failed** no longer leaves the editor stuck without context: the last error
+  is stored, surfaced in the status tooltip, and autosave retries when still dirty.
+- Removed duplicate `applyShapeFlipTransforms` definition that blocked `npm run build`.
+- Cleared remaining oxlint warnings (`no-useless-spread`, `no-this-alias`) in the
+  PowerPoint host adapters and paragraph-clear helper.
+
+### Changed
 
 - Pure-JS PowerPoint engine regeneration script (`npm run regen:pptx-js`) that
   clones the matching `pptx-svg` source, builds the JS target with MoonBit, and
@@ -17,9 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   through the JS fallback via `PresentationEngine`, wired into lint and release
   CI to keep the iOS/Android path honest.
 - `authorUrl` in the manifest.
-
-### Changed
-
 - Mobile-aware runtime error message: on iOS/Android it points to the App
   Store / Play Store instead of the desktop installer download.
 - Bumped `@types/node` from `^16` to `^22` to match the CI Node runtime (22.x/24.x).
@@ -101,7 +121,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.14...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.16...HEAD
+[1.0.16]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.15...1.0.16
+[1.0.15]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.15
 [1.0.14]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.14
 [1.0.13]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.13
 [1.0.12]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.12

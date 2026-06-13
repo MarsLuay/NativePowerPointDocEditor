@@ -2382,6 +2382,17 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	color: var(--text-error);
 }
 
+.native-powerpoint-save-status.is-clickable {
+	cursor: pointer;
+	text-decoration: underline dotted;
+	text-underline-offset: 2px;
+}
+
+.native-powerpoint-save-status.is-clickable:hover {
+	color: var(--text-error);
+	filter: brightness(1.1);
+}
+
 .native-powerpoint-save-status[data-state='recovered'] {
 	color: var(--text-warning);
 }

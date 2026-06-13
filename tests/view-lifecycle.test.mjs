@@ -215,6 +215,45 @@ test("autosave failure during close falls back to a recovery copy", async () => 
   assert.equal(view.isDirty, false);
 });
 
+test("failed autosave schedules a delayed retry", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const { view } = createHarness(NativePowerPointView);
+  const timers = new Map();
+  const previousWindow = globalThis.window;
+  let nextTimer = 0;
+
+  globalThis.window = {
+    clearTimeout(timer) {
+      timers.delete(timer);
+    },
+    setTimeout(callback, delay) {
+      const timer = ++nextTimer;
+      timers.set(timer, { callback, delay });
+      return timer;
+    },
+  };
+
+  try {
+    view.isDirty = true;
+    view.engine.export = async () => {
+      throw new Error('simulated validation failure');
+    };
+
+    const saved = await view.saveCurrentPresentation();
+    assert.equal(saved, false);
+    assert.equal(view.saveState, 'failed');
+    assert.equal(view.lastSaveError, 'simulated validation failure');
+    assert.equal(timers.size, 1);
+
+    const [{ delay }] = timers.values();
+    assert.equal(delay, 5000);
+  } finally {
+    timers.clear();
+    await view.savePromise.catch(() => undefined);
+    globalThis.window = previousWindow;
+  }
+});
+
 test("failed recovery preserves dirty in-memory edits and prevents close reset", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
   const { view } = createHarness(NativePowerPointView, { autosaveEnabled: false });

@@ -7,6 +7,7 @@ import { applyBackgroundAwareTextHalos } from '../TextHalo';
 import { GENERATED_GRID_SELECTOR } from './constants';
 import { normalizeSearchText } from './textUtils';
 import type { SlideSize } from './types';
+import { applyShapeFlipTransforms } from './shapeFlipTransforms';
 
 export function cloneTransform(transform: ShapeTransform): ShapeTransform {
   return {
@@ -109,6 +110,7 @@ export function markEditableTextRuns(svg: SVGSVGElement): void {
 
 export function normalizeSvgForDisplay(svg: SVGSVGElement): void {
   ensureSvgViewBox(svg);
+  applyShapeFlipTransforms(svg);
   bringGridTextToFront(svg);
   markEditableTextRuns(svg);
 }

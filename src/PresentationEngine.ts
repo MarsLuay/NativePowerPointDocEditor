@@ -426,7 +426,7 @@ function getDrawingParagraphs(container: Element): Element[] {
 
 function clearDrawingParagraphContent(paragraph: Element): Element | null {
   let templateRun: Element | null = null;
-  for (const child of [...getElementChildren(paragraph)]) {
+  for (const child of getElementChildren(paragraph)) {
     if (child.localName === 'pPr' && child.namespaceURI === DRAWINGML_NAMESPACE) continue;
     if (child.localName === 'r' && child.namespaceURI === DRAWINGML_NAMESPACE && !templateRun) {
       templateRun = child;
@@ -514,7 +514,7 @@ function setDrawingRunText(run: Element, text: string): void {
   textElement.textContent = text;
 }
 
-function cloneDrawingRun(run: Element, doc: XMLDocument): Element {
+function cloneDrawingRun(run: Element, _doc: XMLDocument): Element {
   return run.cloneNode(true) as Element;
 }
 
@@ -2819,7 +2819,7 @@ export class PresentationEngine {
     // If a prior in-place Wasm edit stripped this slide's highlights, restore the
     // cached set before mutating so the edit (and the committed XML) is lossless.
     this.restoreLostRunPropsIntoSlideDoc(slideIndex, slideDoc);
-    const shape = getShapeElement(slideDoc, shapeIndex);
+    const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
     if (!mutate(shape, slideDoc)) {
       return;
     }

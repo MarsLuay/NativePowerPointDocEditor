@@ -2,7 +2,6 @@ import { FileView, Menu, Notice, Platform, TFile, WorkspaceLeaf, normalizePath, 
 
 import {
   PresentationEngine,
-  type GeneratedTextEdit,
   type GeneratedTextKind,
   type ImageCrop,
   type InsertableShapeGeometry,
@@ -87,19 +86,14 @@ import {
   mapEditorRangeToOoxml,
   mapFlatOffsetToRunLine,
   mapFlatRangeToRunLineSegments,
-  normalizeSearchText,
   parsePrimaryFontFamily,
   type RunTspanOffset
 } from './powerpoint/textUtils';
 import {
-  bringGridTextToFront,
   cloneTransform,
-  ensureSvgViewBox,
   getShapeIndex,
   getSvgIntrinsicSize,
-  markEditableTextRuns,
   normalizeSvgForDisplay,
-  parseSvgLength,
   transformsMatch
 } from './powerpoint/svgUtils';
 import type {
@@ -119,7 +113,6 @@ import type {
   PointerPoint,
   SaveState,
   ShapeTextEditTarget,
-  SlideSize,
   SvgInlineCaretGeometry,
   SvgInlineSelectionBox,
   SvgRectLike,
@@ -187,6 +180,7 @@ export class NativePowerPointView extends FileView {
   private editVersion = 0;
   private saveTimer: number | null = null;
   private savePromise: Promise<void> = Promise.resolve();
+  private lastSaveError: string | null = null;
   private dragState: DragState | null = null;
   private activeEditor: HTMLTextAreaElement | null = null;
   private activeEditorCommit: (() => Promise<void>) | null = null;
@@ -285,14 +279,14 @@ export class NativePowerPointView extends FileView {
    * class.
    */
   private createSnapHost(): SnapHost {
-    const view = this;
+    const getView = (): NativePowerPointView => this;
     return {
-      get engine() { return view.engine; },
-      get svgEl() { return view.svgEl; },
-      get canvasPane() { return view.canvasPane; },
-      get slideSurface() { return view.slideSurface; },
-      emuPointToPane: (emuX, emuY) => view.emuPointToPane(emuX, emuY),
-      getElementBox: (element) => view.getElementBox(element)
+      get engine() { return getView().engine; },
+      get svgEl() { return getView().svgEl; },
+      get canvasPane() { return getView().canvasPane; },
+      get slideSurface() { return getView().slideSurface; },
+      emuPointToPane: (emuX, emuY) => getView().emuPointToPane(emuX, emuY),
+      getElementBox: (element) => getView().getElementBox(element)
     };
   }
 
@@ -303,16 +297,16 @@ export class NativePowerPointView extends FileView {
    * the class.
    */
   private createExportHost(): ExportHost {
-    const view = this;
+    const getView = (): NativePowerPointView => this;
     return {
-      get engine() { return view.engine; },
-      get currentSlide() { return view.currentSlide; },
-      get ownerDocument() { return view.contentEl.ownerDocument; },
-      get app() { return view.app; },
-      get sourceFile() { return view.loadedFile || view.file; },
-      buildSlideSvgElement: (index) => view.buildSlideSvgElement(index),
-      collectSvgElements: (indices) => view.collectExportSvgElements(indices),
-      createNativeMenu: () => view.createNativeMenu()
+      get engine() { return getView().engine; },
+      get currentSlide() { return getView().currentSlide; },
+      get ownerDocument() { return getView().contentEl.ownerDocument; },
+      get app() { return getView().app; },
+      get sourceFile() { return getView().loadedFile || getView().file; },
+      buildSlideSvgElement: (index) => getView().buildSlideSvgElement(index),
+      collectSvgElements: (indices) => getView().collectExportSvgElements(indices),
+      createNativeMenu: () => getView().createNativeMenu()
     };
   }
 
@@ -323,20 +317,20 @@ export class NativePowerPointView extends FileView {
    * lexically inside the class.
    */
   private createHistoryHost(): HistoryHost {
-    const view = this;
+    const getView = (): NativePowerPointView => this;
     return {
-      get engine() { return view.engine; },
-      get currentSlide() { return view.currentSlide; },
-      set currentSlide(value: number) { view.currentSlide = value; },
-      get activeEditor() { return view.activeEditor; },
-      ensureEditable: (action) => view.ensureEditable(action),
-      canEdit: () => view.canEdit(),
-      clearAutosave: () => view.clearAutosave(),
-      clearDragState: () => { view.dragState = null; },
-      clearSelection: () => view.clearSelection(),
-      markDirty: () => view.markDirty(),
-      renderCurrentSlide: (keepSelection) => view.renderCurrentSlide(keepSelection),
-      renderThumbnails: () => view.renderThumbnails()
+      get engine() { return getView().engine; },
+      get currentSlide() { return getView().currentSlide; },
+      set currentSlide(value: number) { getView().currentSlide = value; },
+      get activeEditor() { return getView().activeEditor; },
+      ensureEditable: (action) => getView().ensureEditable(action),
+      canEdit: () => getView().canEdit(),
+      clearAutosave: () => getView().clearAutosave(),
+      clearDragState: () => { getView().dragState = null; },
+      clearSelection: () => getView().clearSelection(),
+      markDirty: () => getView().markDirty(),
+      renderCurrentSlide: (keepSelection) => getView().renderCurrentSlide(keepSelection),
+      renderThumbnails: () => getView().renderThumbnails()
     };
   }
 
@@ -347,28 +341,28 @@ export class NativePowerPointView extends FileView {
    * it is lexically inside the class.
    */
   private createFindReplaceHost(): FindReplaceHost {
-    const view = this;
+    const getView = (): NativePowerPointView => this;
     return {
-      get engine() { return view.engine; },
-      get isLoading() { return view.isLoading; },
-      get currentSlide() { return view.currentSlide; },
-      set currentSlide(value: number) { view.currentSlide = value; },
-      get selectedShapeIndex() { return view.selectedShapeIndex; },
-      set selectedShapeIndex(value: number | null) { view.selectedShapeIndex = value; },
-      get selectedTransform() { return view.selectedTransform; },
-      set selectedTransform(value: ShapeTransform | null) { view.selectedTransform = value; },
-      get activeEditor() { return view.activeEditor; },
-      get svgEl() { return view.svgEl; },
-      ensureEditable: (action) => view.ensureEditable(action),
-      captureHistoryEntry: (label) => view.captureHistoryEntry(label),
-      recordHistoryEntry: (entry) => view.recordHistoryEntry(entry),
-      markDirty: () => view.markDirty(),
-      renderCurrentSlide: (keepSelection) => view.renderCurrentSlide(keepSelection),
-      renderThumbnails: () => view.renderThumbnails(),
-      getShapeTextParagraphs: (shape) => view.getShapeTextParagraphs(shape),
-      getParagraphLeafText: (element) => view.getParagraphLeafText(element),
-      getSvgInlineSelectionBoxes: (element, start, end) => view.getSvgInlineSelectionBoxes(element, start, end),
-      formatSvgNumber: (value) => view.formatSvgNumber(value)
+      get engine() { return getView().engine; },
+      get isLoading() { return getView().isLoading; },
+      get currentSlide() { return getView().currentSlide; },
+      set currentSlide(value: number) { getView().currentSlide = value; },
+      get selectedShapeIndex() { return getView().selectedShapeIndex; },
+      set selectedShapeIndex(value: number | null) { getView().selectedShapeIndex = value; },
+      get selectedTransform() { return getView().selectedTransform; },
+      set selectedTransform(value: ShapeTransform | null) { getView().selectedTransform = value; },
+      get activeEditor() { return getView().activeEditor; },
+      get svgEl() { return getView().svgEl; },
+      ensureEditable: (action) => getView().ensureEditable(action),
+      captureHistoryEntry: (label) => getView().captureHistoryEntry(label),
+      recordHistoryEntry: (entry) => getView().recordHistoryEntry(entry),
+      markDirty: () => getView().markDirty(),
+      renderCurrentSlide: (keepSelection) => getView().renderCurrentSlide(keepSelection),
+      renderThumbnails: () => getView().renderThumbnails(),
+      getShapeTextParagraphs: (shape) => getView().getShapeTextParagraphs(shape),
+      getParagraphLeafText: (element) => getView().getParagraphLeafText(element),
+      getSvgInlineSelectionBoxes: (element, start, end) => getView().getSvgInlineSelectionBoxes(element, start, end),
+      formatSvgNumber: (value) => getView().formatSvgNumber(value)
     };
   }
 
@@ -467,6 +461,7 @@ export class NativePowerPointView extends FileView {
 
         if (this.editVersion === targetVersion) {
           this.isDirty = false;
+          this.lastSaveError = null;
           this.setSaveState('saved');
         } else {
           this.setSaveState('dirty');
@@ -481,8 +476,13 @@ export class NativePowerPointView extends FileView {
       await this.savePromise;
       return true;
     } catch (error) {
+      const message = cleanError(error);
+      this.lastSaveError = message;
       this.setSaveState('failed');
-      new Notice(`Could not save ${file.name}: ${cleanError(error)}`);
+      new Notice(`Could not save ${file.name}: ${message}`);
+      if (this.isDirty && this.getSettings().autosaveEnabled) {
+        this.scheduleAutosave(5000);
+      }
       return false;
     }
   }
@@ -629,6 +629,12 @@ export class NativePowerPointView extends FileView {
     });
 
     this.statusEl = header.createDiv({ cls: 'native-powerpoint-save-status', text: 'Ready' });
+    this.statusEl.setAttribute('role', 'status');
+    this.statusEl.addEventListener('click', () => {
+      if (this.saveState === 'failed') {
+        void this.saveCurrentPresentation();
+      }
+    });
   }
 
   private updateHeaderTitle(): void {
@@ -4022,6 +4028,11 @@ export class NativePowerPointView extends FileView {
     return 'generic';
   }
 
+  private canFlipShape(shapeEl: SVGGElement): boolean {
+    const type = shapeEl.getAttribute('data-ooxml-shape-type');
+    return type !== 'chart' && type !== 'table';
+  }
+
   /**
    * Build the right-click menu for a slide object. The right-clicked shape is
    * selected first (unless it is already part of the current multi-selection)
@@ -4062,7 +4073,11 @@ export class NativePowerPointView extends FileView {
 
     menu.addSeparator();
     this.addOrderSubsection(menu, canEdit);
-    this.addRotateSubsection(menu, canEdit, kind === 'image');
+    this.addRotateSubsection(
+      menu,
+      canEdit,
+      isSVGGElement(shapeEl) ? this.canFlipShape(shapeEl) : false
+    );
     this.addCenterSubsection(menu, canEdit);
 
     if (kind === 'image') {
@@ -7702,14 +7717,14 @@ export class NativePowerPointView extends FileView {
     }
   }
 
-  private scheduleAutosave(): void {
+  private scheduleAutosave(delayMs = 1500): void {
     this.clearAutosave();
     if (!this.getSettings().autosaveEnabled) return;
 
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
       void this.saveCurrentPresentation();
-    }, 1500);
+    }, delayMs);
   }
 
   private clearAutosave(): void {
@@ -7813,6 +7828,7 @@ export class NativePowerPointView extends FileView {
     this.viewOnlyReason = '';
     this.isDirty = false;
     this.editVersion = 0;
+    this.lastSaveError = null;
     this.savePromise = Promise.resolve();
     this.selectedShapeIndex = null;
     this.selectedTransform = null;
@@ -7871,6 +7887,22 @@ export class NativePowerPointView extends FileView {
 
     this.statusEl.setText(labels[state]);
     this.statusEl.dataset.state = state;
+    this.statusEl.toggleClass('is-clickable', state === 'failed');
+    if (state === 'failed') {
+      this.statusEl.setAttribute('role', 'button');
+      this.statusEl.setAttribute('tabindex', '0');
+      this.statusEl.setAttribute('aria-label', 'Save failed. Click to retry.');
+      if (this.lastSaveError) {
+        this.statusEl.title = `${this.lastSaveError} — click to retry`;
+      } else {
+        this.statusEl.title = 'Click to retry save';
+      }
+    } else {
+      this.statusEl.setAttribute('role', 'status');
+      this.statusEl.removeAttribute('tabindex');
+      this.statusEl.removeAttribute('aria-label');
+      this.statusEl.removeAttribute('title');
+    }
   }
 
   private updateSlideCounter(): void {
