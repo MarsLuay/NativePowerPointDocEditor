@@ -1,3 +1,5 @@
+import { isSVGGElement } from '../domGuards';
+
 const FLIP_WRAPPER_CLASS = 'native-powerpoint-flip-wrapper';
 
 function intDataAttr(element: Element, name: string): number {
@@ -67,7 +69,7 @@ export function applyShapeFlipTransforms(svg: SVGSVGElement): void {
   if (!Number.isFinite(scale) || scale <= 0) return;
 
   svg.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
-    if (shape instanceof SVGGElement) {
+    if (isSVGGElement(shape)) {
       syncFlipWrapper(shape, scale);
     }
   });

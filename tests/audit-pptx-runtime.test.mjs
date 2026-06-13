@@ -6,8 +6,8 @@
 //      failure string pptx-svg throws ("Wasm init failed — requires
 //      WebAssembly GC support …") so the engine and view both fall back/branch
 //      correctly.
-//   2. The forced-JS path end-to-end: setting globalThis.__NATIVE_PPTX_FORCE_JS__
-//      makes PresentationEngine skip the Wasm backend and render through the
+//   2. The forced-JS path end-to-end: setForceJsBackendOverride(true) makes
+//      PresentationEngine skip the Wasm backend and render through the
 //      pure-JS engine — the same path mobile WebViews use. Mirrors
 //      scripts/smoke-mobile-pptx.mjs.
 
@@ -91,16 +91,15 @@ test("forced-JS path renders a deck end-to-end via PresentationEngine", async ()
   const fixturePath = path.join(projectRoot, "tests/fixtures/decks/features.pptx");
   assert.ok(existsSync(fixturePath), `missing fixture: ${fixturePath}`);
 
-  // Force the JS backend — same flag PresentationEngine.shouldForceJsBackend reads.
-  globalThis.__NATIVE_PPTX_FORCE_JS__ = true;
+  const { PresentationEngine, setForceJsBackendOverride, resetForceJsBackendOverride } =
+    await loadPresentationEngineModule();
+  setForceJsBackendOverride(true);
   try {
     const fileBuffer = await readFile(fixturePath);
     const buffer = fileBuffer.buffer.slice(
       fileBuffer.byteOffset,
       fileBuffer.byteOffset + fileBuffer.byteLength,
     );
-
-    const { PresentationEngine } = await loadPresentationEngineModule();
     const engine = await PresentationEngine.load(buffer);
 
     assert.ok(engine.slideCount > 0, `expected slideCount > 0, got ${engine.slideCount}`);
@@ -110,6 +109,6 @@ test("forced-JS path renders a deck end-to-end via PresentationEngine", async ()
     assert.ok(svg.includes("<svg"), "renderSlide(0) did not return SVG markup");
     assert.ok(!svg.startsWith("ERROR:"), `renderSlide returned ${svg.slice(0, 80)}`);
   } finally {
-    delete globalThis.__NATIVE_PPTX_FORCE_JS__;
+    resetForceJsBackendOverride();
   }
 });

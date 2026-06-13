@@ -18,7 +18,7 @@ async function loadShapeFlipModule() {
     const outfile = path.join(outputDirectory, "shape-flip.cjs");
     await build({
       entryPoints: [path.join(projectRoot, "src/powerpoint/shapeFlipTransforms.ts")],
-      bundle: false,
+      bundle: true,
       format: "cjs",
       logLevel: "silent",
       outfile,

@@ -2194,8 +2194,8 @@ export class NativePowerPointView extends FileView {
   private async finishInlineTextEditing(reason: string): Promise<void> {
     if (this.textCommitPromise) {
       debugLog('text-edit', 'awaiting in-flight text commit', { reason });
-      await this.textCommitPromise.catch((error) => {
-        errorLog('text-edit', 'text commit failed while waiting', { reason, error });
+      await this.textCommitPromise.catch((error: unknown) => {
+        errorLog('text-edit', 'text commit failed while waiting', { reason, error: cleanError(error) });
       });
       return;
     }
@@ -2216,8 +2216,8 @@ export class NativePowerPointView extends FileView {
 
     this.isTearingDownEditor = true;
     this.textCommitPromise = commit()
-      .catch((error) => {
-        errorLog('text-edit', 'inline text commit failed', { reason, error });
+      .catch((error: unknown) => {
+        errorLog('text-edit', 'inline text commit failed', { reason, error: cleanError(error) });
       })
       .finally(() => {
         this.textCommitPromise = null;

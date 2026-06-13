@@ -48,13 +48,11 @@ function assert(cond, msg) {
 	}
 }
 
-// Force the JS backend — same flag PresentationEngine reads in the browser.
-globalThis.__NATIVE_PPTX_FORCE_JS__ = true;
+const { PresentationEngine, setForceJsBackendOverride } = await loadPresentationEngineModule();
+setForceJsBackendOverride(true);
 
 const fileBuf = await readFile(pptxPath);
 const buffer = fileBuf.buffer.slice(fileBuf.byteOffset, fileBuf.byteOffset + fileBuf.byteLength);
-
-const { PresentationEngine } = await loadPresentationEngineModule();
 const engine = await PresentationEngine.load(buffer);
 
 assert(engine.slideCount > 0, `expected slideCount > 0, got ${engine.slideCount}`);

@@ -53,9 +53,11 @@ noticing. Two guards keep it honest:
 - `npm run smoke:pptx-js` renders a deck through the JS engine (runs in CI and
   before every release).
 - To exercise the fallback on a modern machine, open Obsidian's developer
-  console and run `localStorage.setItem('native-powerpoint-force-js-engine', '1')`,
-  then reopen the PPTX. Remove the key to return to the Wasm engine. In Node, set
-  `globalThis.__NATIVE_PPTX_FORCE_JS__ = true` instead.
+  console and run
+  `app.plugins.plugins['native-powerpoint-doc-editor'].setForceJsBackendDevOverride(true)`,
+  then reopen the PPTX. Call it with `false` to return to the Wasm engine. In
+  Node/tests, call `setForceJsBackendOverride(true)` on the bundled
+  `PresentationEngine` module instead.
 
 ### Regenerating the JS fallback
 

@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.17] - 2026-06-12
+
+### Fixed
+
+- Community plugin review: replace unreachable LinkedIn `authorUrl` with GitHub profile.
+- Remove disallowed `eslint-disable` for `obsidianmd/no-global-this`; parse Chromium
+  version from `navigator.userAgent` instead of `process.versions`.
+- Replace raw `localStorage` / `globalThis` JS-engine dev overrides with
+  `setForceJsBackendOverride` (tests) and `setForceJsBackendDevOverride` (plugin).
+- ESLint warnings: safe `unknown` error handling, unnecessary type assertion,
+  `setInterval` async callback, and cross-window `instanceOf` for flip wrappers.
+- CSS lint: drop `!important` swatch override and `text-decoration` on failed-save
+  badge (use `border-bottom` instead).
+
 ## [1.0.16] - 2026-06-12
 
 ### Added
@@ -121,7 +135,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.16...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.17...HEAD
+[1.0.17]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.16...1.0.17
 [1.0.16]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.15...1.0.16
 [1.0.15]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.15
 [1.0.14]: https://github.com/MarsLuay/NativePowerPointDocEditor/releases/tag/1.0.14

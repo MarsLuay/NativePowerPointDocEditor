@@ -71,42 +71,18 @@ function isWasmGcUnsupportedError(error: unknown): boolean {
   return /WebAssembly GC support|Wasm init failed/i.test(message);
 }
 
-/**
- * Developer/test override that forces the pure-JS PPTX engine even on runtimes
- * that support WebAssembly GC. Without this, the JS fallback only runs on old
- * installers, so it could silently rot. To exercise it on a modern machine, open
- * the Obsidian developer console and run:
- *
- *   localStorage.setItem('native-powerpoint-force-js-engine', '1')
- *
- * then reopen the PPTX (clear it with `removeItem` to return to Wasm). Tests/Node
- * can instead set `globalThis.__NATIVE_PPTX_FORCE_JS__ = true`.
- */
-export const FORCE_JS_ENGINE_STORAGE_KEY = 'native-powerpoint-force-js-engine';
+import {
+  configureForceJsBackendOverrideReader,
+  resetForceJsBackendOverride,
+  setForceJsBackendOverride,
+  shouldForceJsBackend
+} from './powerpoint/forceJsBackend';
 
-function shouldForceJsBackend(): boolean {
-  try {
-    // Intentional cross-runtime global: the headless Node tests/smoke scripts set
-    // this flag on `globalThis` (no `window` exists there). Not a DOM/popout concern.
-    // eslint-disable-next-line obsidianmd/no-global-this
-    if ((globalThis as { __NATIVE_PPTX_FORCE_JS__?: unknown }).__NATIVE_PPTX_FORCE_JS__ === true) {
-      return true;
-    }
-  } catch {
-    // Accessing globals can throw in locked-down sandboxes; ignore and continue.
-  }
-
-  try {
-    if (typeof localStorage !== 'undefined'
-      && localStorage.getItem(FORCE_JS_ENGINE_STORAGE_KEY) === '1') {
-      return true;
-    }
-  } catch {
-    // localStorage may be unavailable (Node, private mode); treat as "not forced".
-  }
-
-  return false;
-}
+export {
+  configureForceJsBackendOverrideReader,
+  resetForceJsBackendOverride,
+  setForceJsBackendOverride
+};
 
 async function initJsBackend(renderer: PptxRenderer): Promise<void> {
   const { createPptxJsEngine } = await import('./vendor/pptx-js-engine.mjs');
@@ -118,7 +94,7 @@ async function initJsBackend(renderer: PptxRenderer): Promise<void> {
  * if the runtime cannot run it, lazily loads the pure-JS engine fallback so PPTX
  * files still open on older Obsidian installers. The fallback module is only
  * fetched/evaluated when actually needed. The fallback can also be forced for
- * testing (see {@link FORCE_JS_ENGINE_STORAGE_KEY}).
+ * testing (see {@link setForceJsBackendOverride}).
  */
 async function initRendererBackend(renderer: PptxRenderer): Promise<void> {
   if (shouldForceJsBackend()) {
@@ -2461,7 +2437,7 @@ export class PresentationEngine {
         const present = getElementChildren(rPr)
           .some((existing) => existing.localName === child.localName && existing.namespaceURI === child.namespaceURI);
         if (present) continue;
-        insertRprChildInOrder(rPr, slideDoc.importNode(child, true) as Element);
+        insertRprChildInOrder(rPr, slideDoc.importNode(child, true));
         changed = true;
       }
     }

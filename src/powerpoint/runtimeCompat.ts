@@ -20,11 +20,11 @@ export function isWasmGcUnsupportedError(error: unknown): boolean {
 
 export function getChromiumVersion(): string | null {
   try {
-    // `process` is a Node/Electron global (not a DOM/popout `window` property), and
-    // this also runs headless in Node, so `globalThis` is the correct portable access.
-    // eslint-disable-next-line obsidianmd/no-global-this
-    const versions = (globalThis as { process?: { versions?: { chrome?: string } } }).process?.versions;
-    return versions?.chrome ?? null;
+    if (typeof navigator === 'undefined') {
+      return null;
+    }
+    const match = navigator.userAgent.match(/Chrom(?:e|ium)\/([\d.]+)/);
+    return match?.[1] ?? null;
   } catch {
     return null;
   }

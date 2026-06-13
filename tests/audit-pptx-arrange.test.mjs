@@ -92,9 +92,10 @@ async function findMultiShapeSlide(engine) {
 }
 
 test("reorderShapes('front') moves the first shape to the top of the z-order", async () => {
-  globalThis.__NATIVE_PPTX_FORCE_JS__ = true;
+  const { PresentationEngine, setForceJsBackendOverride, resetForceJsBackendOverride } =
+    await loadPresentationEngineModule();
+  setForceJsBackendOverride(true);
   try {
-    const { PresentationEngine } = await loadPresentationEngineModule();
     const engine = await loadFixtureEngine(PresentationEngine);
 
     const target = await findMultiShapeSlide(engine);
@@ -119,14 +120,15 @@ test("reorderShapes('front') moves the first shape to the top of the z-order", a
     assert.equal(after[after.length - 1], before[0], "first shape did not move to front");
     assert.deepEqual(after.slice(0, count - 1), before.slice(1), "other shapes did not keep order");
   } finally {
-    delete globalThis.__NATIVE_PPTX_FORCE_JS__;
+    resetForceJsBackendOverride();
   }
 });
 
 test("a reordered deck still exports and re-loads/renders", async () => {
-  globalThis.__NATIVE_PPTX_FORCE_JS__ = true;
+  const { PresentationEngine, setForceJsBackendOverride, resetForceJsBackendOverride } =
+    await loadPresentationEngineModule();
+  setForceJsBackendOverride(true);
   try {
-    const { PresentationEngine } = await loadPresentationEngineModule();
     const engine = await loadFixtureEngine(PresentationEngine);
 
     const target = await findMultiShapeSlide(engine);
@@ -144,6 +146,6 @@ test("a reordered deck still exports and re-loads/renders", async () => {
     assert.ok(svg.includes("<svg"), "reloaded deck did not render SVG markup");
     assert.ok(!svg.startsWith("ERROR:"), `renderSlide returned ${svg.slice(0, 80)}`);
   } finally {
-    delete globalThis.__NATIVE_PPTX_FORCE_JS__;
+    resetForceJsBackendOverride();
   }
 });

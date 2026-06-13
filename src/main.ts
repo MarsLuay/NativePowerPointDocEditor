@@ -19,8 +19,9 @@ import {
 import { configureDocxEditorChunkPaths } from './docxEditorLoader';
 import { DocxSearchIndex } from './docxSearchIndex';
 import { configureDocxidianLogger, errorLog, getDocxidianLogSnapshot, infoLog, setDocxidianLogSink } from './logger';
-import { getDocxEditorLocale, normalizeDocxidianLanguage } from './locales';
 import { configureObsidianRuntime } from './obsidianRuntime';
+import { getDocxEditorLocale, normalizeDocxidianLanguage } from './locales';
+import { configureForceJsBackendOverrideReader } from './PresentationEngine';
 
 export { createDocxReactMount, DocxFileEmbed, renderDocxEmbeds, hasReviewMarkup } from './docxEditorChunk';
 
@@ -47,6 +48,7 @@ type DebugLogScope = 'all' | 'docx';
 export default class DocxidianPlugin extends Plugin {
 	settings: DocxidianSettings;
 	private docxSearchIndex: DocxSearchIndex | null = null;
+	private forceJsBackendDevOverride = false;
 
 	async onload() {
 		await this.loadSettings();
@@ -57,6 +59,7 @@ export default class DocxidianPlugin extends Plugin {
 			editorLanguage: this.settings.editorLanguage,
 		});
 		configureObsidianRuntime({ Notice, Platform, setIcon });
+		configureForceJsBackendOverrideReader(() => this.forceJsBackendDevOverride);
 
 		if (!this.settings.disableDocxFiles) {
 			await this.loadDocxSupport();
@@ -170,7 +173,7 @@ export default class DocxidianPlugin extends Plugin {
 		let reloading = false;
 		infoLog('plugin', 'Dev hot reload enabled', { mainPath, stampPath, lastStamp });
 
-		const interval = window.setInterval(async () => {
+		const pollForRebuild = async (): Promise<void> => {
 			if (reloading) {
 				return;
 			}
@@ -203,9 +206,22 @@ export default class DocxidianPlugin extends Plugin {
 				reloading = false;
 				errorLog('plugin', 'Hot reload failed', error);
 			}
+		};
+
+		const interval = window.setInterval(() => {
+			void pollForRebuild();
 		}, 1000);
 
 		this.registerInterval(interval);
+	}
+
+	/**
+	 * Developer override: force the pure-JS PPTX engine on runtimes that support Wasm.
+	 * From the Obsidian developer console:
+	 * `app.plugins.plugins['native-powerpoint-doc-editor'].setForceJsBackendDevOverride(true)`
+	 */
+	setForceJsBackendDevOverride(enabled: boolean): void {
+		this.forceJsBackendDevOverride = enabled;
 	}
 
 	async loadSettings() {

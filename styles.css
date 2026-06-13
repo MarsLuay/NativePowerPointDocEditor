@@ -1548,8 +1548,7 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .menu-sepa
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
 	button,
-	.native-powerpoint-toolbar-popover button,
-	.native-powerpoint-color-popover-swatch
+	.native-powerpoint-toolbar-popover button
 ) {
 	appearance: none;
 	background: transparent;
@@ -1559,9 +1558,7 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
 	button:hover,
-	button:focus,
-	.native-powerpoint-color-popover-swatch:hover,
-	.native-powerpoint-color-popover-swatch:focus
+	button:focus
 ) {
 	background: #f1f3f4;
 	box-shadow: none;
@@ -1611,8 +1608,7 @@ body.theme-dark.theme-dark .native-powerpoint-root :is(
 	.native-powerpoint-text-toolbar-btn,
 	.native-powerpoint-text-toolbar-font,
 	.native-powerpoint-insert-menu-item,
-	.native-powerpoint-image-picker-item,
-	.native-powerpoint-color-popover-swatch
+	.native-powerpoint-image-picker-item
 ) {
 	appearance: none;
 	background: transparent;
@@ -1669,21 +1665,25 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-text-toolb
 }
 
 /*
- * The Google Slides light/dark chrome overrides above force buttons to a
- * transparent background, which also blanks out the color-picker swatches (they
- * are <button>s). Those overrides use :is(... .native-powerpoint-toolbar-popover
- * button ...), so they outrank a plain re-assert selector and the swatch only
- * showed its color on hover (where the hover re-assert tied and won on order).
- * Use !important here so the data-driven swatch color always wins regardless of
- * the chrome reset's specificity, at rest and on hover/focus.
+ * Color-picker swatches are buttons but must keep their data-driven fill. Exclude
+ * them from the chrome resets above and re-assert the swatch color with matching
+ * specificity so Obsidian's global button styles cannot blank them out.
  */
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch,
+body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch {
+	appearance: none;
+	background: var(--np-swatch-color, transparent);
+	box-shadow: none;
+	color: var(--text-muted);
+}
+
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:hover,
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:focus,
-body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch,
 body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch:hover,
 body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch:focus {
-	background: var(--np-swatch-color, transparent) !important;
+	background: var(--np-swatch-color, transparent);
+	box-shadow: inset 0 0 0 1px var(--background-modifier-border-hover);
+	color: var(--text-normal);
 }
 
 .native-powerpoint-layout {
@@ -2384,8 +2384,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 
 .native-powerpoint-save-status.is-clickable {
 	cursor: pointer;
-	text-decoration: underline dotted;
-	text-underline-offset: 2px;
+	border-bottom: 1px dotted currentColor;
 }
 
 .native-powerpoint-save-status.is-clickable:hover {
