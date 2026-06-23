@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.24] - 2026-06-22
+
+### Fixed
+
+- Insert link dialog centering when the file explorer sidebar is expanded.
+- Gray out and block the comments sidebar toggle when a document has no comments.
+- PPTX bullet lists now get default hanging indent and bullet font on insert.
+
 ## [1.0.22] - 2026-06-22
 
 ### Fixed
@@ -174,7 +182,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.22...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.24...HEAD
+[1.0.24]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.22...1.0.24
 [1.0.22]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.21...1.0.22
 [1.0.21]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.19...1.0.21
 [1.0.19]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.18...1.0.19

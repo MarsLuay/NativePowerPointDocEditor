@@ -120,3 +120,44 @@ test("insert chart round-trips and writes the chart package parts", async () => 
   const workbooks = [...zip.binaryFiles.keys()].filter((p) => /^ppt\/embeddings\/.*\.xlsx$/.test(p));
   assert.ok(workbooks.length >= 1, "exported chart must keep its embedded workbook");
 });
+
+test("apply bullet list writes hanging indent and renders marker outside run text", async () => {
+  const engine = await loadFreshEngine();
+  await engine.applyListStyle(SLIDE_INDEX, 0, 0, "bullet");
+
+  const exported = await assertExportRoundTrips("bulleted list", engine);
+  const zip = await extractZip(exported);
+  const slideXml = zip.textFiles.get("ppt/slides/slide1.xml");
+  assert.ok(slideXml, "bulleted list export must retain slide1.xml");
+  assert.match(
+    slideXml,
+    /<a:pPr\b[^>]*\bmarL="285750"[^>]*\bindent="-285750"[^>]*>/,
+    "list paragraph gets a hanging indent instead of an inline-only marker",
+  );
+  assert.match(slideXml, /<a:buFont\b[^>]*\btypeface="Arial"/, "bullet marker gets a stable bullet font");
+  assert.match(slideXml, /<a:buChar\b[^>]*\bchar="•"/, "bullet marker is written");
+
+  const rendered = engine.renderSlide(SLIDE_INDEX).svg;
+  const document = new globalThis.DOMParser().parseFromString(rendered, "text/xml");
+  const shape = Array.from(document.getElementsByTagName("g")).find(
+    (element) => element.getAttribute("data-ooxml-shape-idx") === "0",
+  );
+  assert.ok(shape, "fixture title shape renders");
+
+  const paragraphContainers = Array.from(shape.getElementsByTagName("tspan")).filter(
+    (element) => element.getAttribute("data-ooxml-para-idx") === "0",
+  );
+  const hasRun = (element) =>
+    Array.from(element.getElementsByTagName("tspan")).some((child) =>
+      child.getAttribute("data-ooxml-run-idx") !== null
+    );
+  const markerContainer = paragraphContainers.find((element) =>
+    (element.textContent || "").trim().startsWith("•") && !hasRun(element)
+  );
+  const runContainer = paragraphContainers.find((element) => hasRun(element));
+
+  assert.ok(markerContainer, "bullet marker renders in its own run-less container");
+  assert.ok(runContainer, "paragraph run text still renders");
+  assert.notEqual(markerContainer, runContainer, "marker and text are separate visual containers");
+  assert.equal((runContainer.textContent || "").includes("•"), false, "run text does not include the bullet glyph");
+});

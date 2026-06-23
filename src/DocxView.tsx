@@ -2771,8 +2771,8 @@ export class DocxView extends FileView {
 			addToggle('Backups', 'Create one timestamped backup before the first overwrite in each open DOCX session.', settings.createBackupsBeforeSave, this.settingsController.setCreateBackupsBeforeSave);
 
 			addSection('Search');
-			addToggle('DOCX search index', 'Extract text from DOCX files into a local cache for vault-wide DOCX search.', settings.enableDocxSearchIndex, this.settingsController.setEnableDocxSearchIndex);
-			addToggle('Auto-index DOCX changes', 'Keep the DOCX search cache updated when DOCX files are created, edited, renamed, or deleted.', settings.autoIndexDocxSearch, this.settingsController.setAutoIndexDocxSearch);
+			addToggle('DOCX search index', 'Off by default. When enabled, extracts text from DOCX files into a local cache for vault-wide DOCX search.', settings.enableDocxSearchIndex, this.settingsController.setEnableDocxSearchIndex);
+			addToggle('Auto-index DOCX changes', 'Off by default. When enabled with the DOCX search index, keeps the cache updated as DOCX files change.', settings.autoIndexDocxSearch, this.settingsController.setAutoIndexDocxSearch);
 			addButtonRow('Rebuild DOCX search index', 'Refresh the searchable cache for DOCX files in this vault.', 'Rebuild', this.settingsController.rebuildDocxSearchIndex);
 
 			addSection('File handoff');

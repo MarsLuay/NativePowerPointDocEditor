@@ -49,8 +49,8 @@ export const DEFAULT_SETTINGS: DocxidianSettings = {
 	autosave: true,
 	createBackupsBeforeSave: false,
 	defaultZoom: DEFAULT_ZOOM,
-	enableDocxSearchIndex: true,
-	autoIndexDocxSearch: true,
+	enableDocxSearchIndex: false,
+	autoIndexDocxSearch: false,
 	debugLogging: false,
 	powerPointAutosaveEnabled: true,
 	powerPointHideUnsupportedSvgContent: false,
@@ -321,7 +321,7 @@ export class DocxidianSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('DOCX search index')
-			.setDesc('Extract text from DOCX files into a local cache so the vault-wide DOCX search command can find them.')
+			.setDesc('Off by default. When enabled, extracts text from DOCX files into a local cache so the vault-wide DOCX search command can find them.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableDocxSearchIndex)
 				.onChange(async (value) => {
@@ -334,7 +334,7 @@ export class DocxidianSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Auto-index DOCX changes')
-			.setDesc('Keep the DOCX search cache updated when DOCX files are created, edited, renamed, or deleted.')
+			.setDesc('Off by default. When enabled with the DOCX search index, keeps the cache updated as DOCX files change.')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.autoIndexDocxSearch)
 				.onChange(async (value) => {

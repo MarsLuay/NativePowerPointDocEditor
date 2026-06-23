@@ -116,7 +116,8 @@
 	transform: var(--docxidian-fixed-correction) var(--docxidian-existing-transform, none);
 }
 
-.docxidian-host.docxidian-host .ep-root .docxidian-fixed-dialog-layer {
+.docxidian-host.docxidian-host .ep-root .docxidian-fixed-dialog-layer,
+.docxidian-host.docxidian-host .ep-root [style*='position: fixed'][role='dialog'] {
 	inset: 0;
 	transform: none;
 }
@@ -144,6 +145,14 @@
 	max-width: none;
 	min-width: 0;
 	width: 100%;
+}
+
+.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] button.docxidian-comments-sidebar-toggle-disabled,
+.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] button.docxidian-comments-sidebar-toggle-disabled[aria-disabled='true'],
+.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] button.docxidian-comments-sidebar-toggle-disabled:disabled {
+	cursor: not-allowed;
+	opacity: 0.35;
+	pointer-events: none;
 }
 
 .workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] {

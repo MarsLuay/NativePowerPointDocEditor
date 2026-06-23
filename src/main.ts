@@ -248,8 +248,8 @@ export default class DocxidianPlugin extends Plugin {
 		const normalizedLanguage = normalizeDocxidianLanguage(this.settings.editorLanguage);
 		const normalizedDefaultZoom = normalizeDefaultZoom(this.settings.defaultZoom);
 		const normalizedDebugLogging = this.settings.debugLogging === true;
-		const normalizedEnableDocxSearchIndex = this.settings.enableDocxSearchIndex !== false;
-		const normalizedAutoIndexDocxSearch = this.settings.autoIndexDocxSearch !== false;
+		const normalizedEnableDocxSearchIndex = this.settings.enableDocxSearchIndex === true;
+		const normalizedAutoIndexDocxSearch = this.settings.autoIndexDocxSearch === true;
 		const normalizedPowerPointAutosaveEnabled = this.settings.powerPointAutosaveEnabled !== false;
 		const normalizedPowerPointHideUnsupportedSvgContent =
 			typeof savedSettings?.powerPointHideUnsupportedSvgContent === 'boolean'

@@ -2,11 +2,11 @@ import type { TFile } from 'obsidian';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent, type ComponentProps } from 'react';
 import { DocxEditor, type DocxEditorRef, type EditorMode } from '@eigenpal/docx-editor-react';
 import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
-import { insertTable, setFontFamily, setFontSize } from '@eigenpal/docx-editor-core/prosemirror/commands';
+import { insertTable, setFontFamily, setFontSize, setLineSpacing } from '@eigenpal/docx-editor-core/prosemirror/commands';
 import { loadFontFromBuffer } from '@eigenpal/docx-editor-core/utils';
 import type { FontOption } from '@eigenpal/docx-editor-core/utils/fontOptions';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
-import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import editorStyles from '@eigenpal/docx-editor-react/styles.css';
 import { createEditorTranslator } from './editorTranslations';
@@ -58,6 +58,7 @@ const FONT_SIZE_HOLD_INITIAL_INTERVAL_MS = 180;
 const FONT_SIZE_HOLD_INTERVAL_DECAY = 0.82;
 const FONT_SIZE_HOLD_MIN_INTERVAL_MS = 36;
 const TOOLBAR_TOOLTIP_DELAY_MS = 450;
+const LINE_SPACING_TWIPS = new Set([240, 276, 360, 480]);
 const SELECTED_LIST_MARKER_CLASS = 'docxidian-list-marker-selected';
 const LIST_PARAGRAPH_SELECTOR = '.layout-paragraph[data-pm-start]';
 const LIST_MARKER_SELECTOR = '.layout-list-marker, .docx-list-marker';
@@ -337,6 +338,101 @@ function getFontSizeStepTarget(target: EventTarget | null) {
 	return { button, direction };
 }
 
+function parseLineSpacingTwips(value: string | null | undefined) {
+	if (!value) {
+		return null;
+	}
+
+	const twips = Number.parseInt(value, 10);
+	return LINE_SPACING_TWIPS.has(twips) ? twips : null;
+}
+
+function getLineSpacingOptionTarget(target: EventTarget | null) {
+	if (!isElement(target)) {
+		return null;
+	}
+
+	const option = target.closest<HTMLElement>('[role="option"]');
+	if (!option) {
+		return null;
+	}
+
+	const twips = parseLineSpacingTwips(option.getAttribute('data-value') ?? option.getAttribute('value'));
+	if (twips === null) {
+		return null;
+	}
+
+	return { option, twips };
+}
+
+function applyLineSpacingToEditor(view: EditorView, twipsValue: number) {
+	const { state } = view;
+	const { selection } = state;
+
+	if (!selection.empty) {
+		return setLineSpacing(twipsValue)(state, view.dispatch);
+	}
+
+	const caret = selection.from;
+	const selectAllState = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
+	let applied = false;
+
+	setLineSpacing(twipsValue)(selectAllState, (spacingTr) => {
+		applied = spacingTr.docChanged;
+		if (!applied) {
+			return;
+		}
+
+		const nextPos = Math.min(caret, Math.max(1, spacingTr.doc.content.size - 1));
+		view.dispatch(
+			spacingTr
+				.setSelection(TextSelection.create(spacingTr.doc, nextPos))
+				.scrollIntoView(),
+		);
+	});
+
+	return applied;
+}
+
+const COMMENTS_SIDEBAR_TOGGLE_ATTR = 'data-docxidian-comments-sidebar-toggle';
+
+function getTopLevelCommentCount(editor: DocxEditorRef | null | undefined) {
+	return (editor?.getComments() ?? []).filter((comment) => comment.parentId == null).length;
+}
+
+function findCommentsSidebarToggleButton(editorRoot: HTMLElement, toggleLabel: string) {
+	const marked = editorRoot.querySelector<HTMLButtonElement>(`[${COMMENTS_SIDEBAR_TOGGLE_ATTR}]`);
+	if (marked) {
+		return marked;
+	}
+
+	const titleBar = editorRoot.querySelector('[data-testid="title-bar"]');
+	if (!titleBar) {
+		return null;
+	}
+
+	const escapedLabel = typeof CSS !== 'undefined' && 'escape' in CSS
+		? CSS.escape(toggleLabel)
+		: toggleLabel.replace(/"/g, '\\"');
+	const button = titleBar.querySelector<HTMLButtonElement>(`button[aria-label="${escapedLabel}"]`);
+	if (!button) {
+		return null;
+	}
+
+	button.setAttribute(COMMENTS_SIDEBAR_TOGGLE_ATTR, 'true');
+	return button;
+}
+
+function setCommentsSidebarToggleEnabled(button: HTMLButtonElement, enabled: boolean) {
+	if (!enabled && button.getAttribute('aria-pressed') === 'true') {
+		button.click();
+	}
+
+	button.toggleAttribute('disabled', !enabled);
+	button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+	button.classList.toggle('docxidian-comments-sidebar-toggle-disabled', !enabled);
+}
+
 function getToolbarTooltipTarget(target: EventTarget | null, editorRoot: HTMLElement | null) {
 	if (!isElement(target) || !editorRoot) {
 		return null;
@@ -400,9 +496,20 @@ function markLightMenuSurface(surface: HTMLElement, className: string) {
 	}
 }
 
+function isFullscreenFixedDialogLayer(layer: HTMLElement): boolean {
+	// Eigenpal HyperlinkDialog puts role="dialog" on the fixed overlay itself; other
+	// dialogs use a fixed wrapper with a dialog child (Find/Replace, Page Setup).
+	if (layer.getAttribute('role') === 'dialog') {
+		return true;
+	}
+
+	return Boolean(layer.querySelector(':scope > [role="dialog"]'));
+}
+
 function normalizeEditorFloatingLayers(editorRoot: HTMLElement) {
-	activeDocument.querySelectorAll<HTMLElement>('div[style*="position: fixed"]').forEach((layer) => {
-		const isDialogLayer = Boolean(layer.querySelector(':scope > [role="dialog"]'));
+	const host = editorRoot.closest('.docxidian-host') ?? editorRoot;
+	host.querySelectorAll<HTMLElement>('div[style*="position: fixed"]').forEach((layer) => {
+		const isDialogLayer = isFullscreenFixedDialogLayer(layer);
 		layer.classList.toggle('docxidian-fixed-dialog-layer', isDialogLayer);
 		// The editor positions these layers with inline top/left/transform, which a
 		// stylesheet rule cannot override. Pin dialog layers to the viewport inline.
@@ -1315,6 +1422,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const activeTouchPointersRef = useRef<Map<number, PointerPoint>>(new Map());
 	const fontSizeHoldRef = useRef<FontSizeHoldState | null>(null);
 	const listMarkerSelectionFrameRef = useRef<number | null>(null);
+	const commentsSidebarToggleFrameRef = useRef<number | null>(null);
 	const dirtyTrackingEnabledRef = useRef(false);
 	const dirtyVersionRef = useRef(0);
 	const isSavingRef = useRef(false);
@@ -1386,6 +1494,36 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			render: () => null,
 		}];
 	}, [reserveReviewSidebar]);
+
+	const commentsSidebarToggleLabel = useMemo(
+		() => createEditorTranslator(i18n)('editor.toggleCommentsSidebar', undefined, 'Toggle comments sidebar'),
+		[i18n],
+	);
+
+	const syncCommentsSidebarToggle = useCallback(() => {
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (!editorRoot) {
+			return;
+		}
+
+		const button = findCommentsSidebarToggleButton(editorRoot, commentsSidebarToggleLabel);
+		if (!button) {
+			return;
+		}
+
+		setCommentsSidebarToggleEnabled(button, getTopLevelCommentCount(editorRef.current) > 0);
+	}, [commentsSidebarToggleLabel]);
+
+	const scheduleCommentsSidebarToggleSync = useCallback(() => {
+		if (commentsSidebarToggleFrameRef.current !== null) {
+			window.cancelAnimationFrame(commentsSidebarToggleFrameRef.current);
+		}
+
+		commentsSidebarToggleFrameRef.current = window.requestAnimationFrame(() => {
+			commentsSidebarToggleFrameRef.current = null;
+			syncCommentsSidebarToggle();
+		});
+	}, [syncCommentsSidebarToggle]);
 
 	useEffect(() => {
 		ensureEditorStyles();
@@ -1660,6 +1798,73 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 		return () => observer.disconnect();
 	}, [buffer, filePath, isLoading, normalizeEditorModeDropdown]);
+
+	useEffect(() => {
+		scheduleCommentsSidebarToggleSync();
+
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (!editorRoot) {
+			return;
+		}
+
+		const observer = new MutationObserver(() => {
+			scheduleCommentsSidebarToggleSync();
+		});
+		observer.observe(editorRoot, {
+			childList: true,
+			subtree: true,
+			attributes: true,
+			attributeFilter: ['aria-pressed', 'disabled', 'class', 'aria-label'],
+		});
+
+		return () => observer.disconnect();
+	}, [buffer, filePath, isLoading, scheduleCommentsSidebarToggleSync]);
+
+	useEffect(() => {
+		const suppressEvent = (evt: Event) => {
+			evt.preventDefault();
+			evt.stopImmediatePropagation();
+			evt.stopPropagation();
+		};
+
+		const handleBlockedToggle = (evt: Event) => {
+			if (!evt.isTrusted) {
+				return;
+			}
+
+			if ('button' in evt && evt.button !== 0) {
+				return;
+			}
+
+			if (!isElement(evt.target)) {
+				return;
+			}
+
+			const button = evt.target.closest<HTMLButtonElement>(`[${COMMENTS_SIDEBAR_TOGGLE_ATTR}]`);
+			if (!button) {
+				return;
+			}
+
+			const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+			if (!editorRoot?.contains(button)) {
+				return;
+			}
+
+			if (getTopLevelCommentCount(editorRef.current) > 0) {
+				return;
+			}
+
+			suppressEvent(evt);
+		};
+
+		activeDocument.addEventListener('pointerdown', handleBlockedToggle, true);
+		activeDocument.addEventListener('click', handleBlockedToggle, true);
+
+		return () => {
+			activeDocument.removeEventListener('pointerdown', handleBlockedToggle, true);
+			activeDocument.removeEventListener('click', handleBlockedToggle, true);
+		};
+	}, [buffer, filePath, isLoading]);
 
 	useEffect(() => {
 		const handleModePointerDown = (evt: PointerEvent) => {
@@ -2097,6 +2302,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		if (rulerSyncTimeoutRef.current !== null) {
 			window.clearTimeout(rulerSyncTimeoutRef.current);
 			rulerSyncTimeoutRef.current = null;
+		}
+		if (commentsSidebarToggleFrameRef.current !== null) {
+			window.cancelAnimationFrame(commentsSidebarToggleFrameRef.current);
+			commentsSidebarToggleFrameRef.current = null;
 		}
 	}, [clearAutosaveTimeout, clearInitialDocumentCenter, clearRenameTimeout]);
 
@@ -2584,6 +2793,60 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [applyFontSizeStepToSelection, startFontSizeHold, stopFontSizeHold]);
 
 	useEffect(() => {
+		if (editorMode === 'viewing') {
+			return;
+		}
+
+		const suppressEvent = (evt: Event) => {
+			evt.preventDefault();
+			evt.stopImmediatePropagation();
+			evt.stopPropagation();
+		};
+
+		const handleLineSpacingPick = (evt: Event) => {
+			if ('button' in evt && evt.button !== 0) {
+				return;
+			}
+
+			const optionTarget = getLineSpacingOptionTarget(evt.target);
+			if (!optionTarget) {
+				return;
+			}
+
+			if (!activeDocument.querySelector(`.${editorClassNameRef.current}`)) {
+				return;
+			}
+
+			const view = editorRef.current?.getEditorRef()?.getView();
+			if (!view) {
+				return;
+			}
+
+			suppressEvent(evt);
+			applyLineSpacingToEditor(view, optionTarget.twips);
+			view.focus();
+		};
+
+		const handleLineSpacingKeyDown = (evt: KeyboardEvent) => {
+			if (evt.key !== 'Enter' && evt.key !== ' ') {
+				return;
+			}
+
+			handleLineSpacingPick(evt);
+		};
+
+		activeDocument.addEventListener('pointerdown', handleLineSpacingPick, true);
+		activeDocument.addEventListener('click', handleLineSpacingPick, true);
+		activeDocument.addEventListener('keydown', handleLineSpacingKeyDown, true);
+
+		return () => {
+			activeDocument.removeEventListener('pointerdown', handleLineSpacingPick, true);
+			activeDocument.removeEventListener('click', handleLineSpacingPick, true);
+			activeDocument.removeEventListener('keydown', handleLineSpacingKeyDown, true);
+		};
+	}, [buffer, editorMode, filePath, isLoading]);
+
+	useEffect(() => {
 		let activeTarget: HTMLElement | null = null;
 		let tooltipEl: HTMLDivElement | null = null;
 		let tooltipTimer: number | null = null;
@@ -2874,8 +3137,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				documentNameEditable
 				pluginSidebarItems={pluginSidebarItems.length > 0 ? pluginSidebarItems : undefined}
 				onRenderedDomContextReady={handleRenderedDomContextReady}
-				onEditorViewReady={scheduleListMarkerSelectionHighlightSync}
-				onSelectionChange={scheduleListMarkerSelectionHighlightSync}
+				onEditorViewReady={() => {
+					scheduleListMarkerSelectionHighlightSync();
+					scheduleCommentsSidebarToggleSync();
+				}}
+				onSelectionChange={() => {
+					scheduleListMarkerSelectionHighlightSync();
+					scheduleCommentsSidebarToggleSync();
+				}}
 				onDocumentNameChange={(name) => {
 					setDocumentName(name);
 					scheduleRename(name);
@@ -2895,6 +3164,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					}
 					scheduleVerticalRulerMarkerSync(editorRef.current?.getDocument());
 					scheduleListMarkerSelectionHighlightSync();
+					scheduleCommentsSidebarToggleSync();
 				}}
 				onSave={(output) => {
 					if (pendingSaveModeRef.current === 'export') {
