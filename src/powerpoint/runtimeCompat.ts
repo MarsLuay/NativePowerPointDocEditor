@@ -17,3 +17,22 @@ export function isWasmGcUnsupportedError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error || '');
   return /WebAssembly GC support|Wasm init failed/i.test(message);
 }
+
+/** Yields so status/progress DOM updates can paint before heavy work continues. */
+export function flushUi(): Promise<void> {
+  const requestAnimationFrame =
+    typeof window !== 'undefined' ? window.requestAnimationFrame : undefined;
+  if (typeof requestAnimationFrame === 'function') {
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+    });
+  }
+
+  if (typeof queueMicrotask === 'function') {
+    return new Promise((resolve) => queueMicrotask(resolve));
+  }
+
+  return Promise.resolve();
+}

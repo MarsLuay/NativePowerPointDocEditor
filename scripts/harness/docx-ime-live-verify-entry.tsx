@@ -1,0 +1,220 @@
+import React, { useEffect, useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import { DocxEditor } from '@eigenpal/docx-editor-react';
+import editorStyles from '@eigenpal/docx-editor-react/styles.css';
+import {
+	attachDocxImeTransformNeutralizer,
+	countTransformAncestors,
+	findDocxEditorZoomWrapper,
+	neutralizeDocxEditorZoomWrapper,
+} from '../../src/docxImeTransformNeutralizer';
+
+const DOCX_BUFFER = Uint8Array.from(atob(window.__DOCX_BASE64__!), (char) => char.charCodeAt(0)).buffer;
+
+type WrapperInspection = {
+	inlineTransform: string;
+	inlineZoom: string;
+	inlineMarginLeft: string;
+	computedTransform: string;
+	neutralizedDataset: boolean;
+};
+
+type LiveVerifyMetrics = {
+	name: string;
+	error?: string;
+	neutralizerAttached?: boolean;
+	wrapper: WrapperInspection | null;
+	transformAncestorsOnCaret: number;
+	editableFound: boolean;
+	passed: boolean;
+};
+
+function inspectWrapper(editorRoot: HTMLElement): WrapperInspection | null {
+	const wrapper = findDocxEditorZoomWrapper(editorRoot);
+	if (!wrapper) {
+		return null;
+	}
+
+	return {
+		inlineTransform: wrapper.style.transform || 'none',
+		inlineZoom: wrapper.style.zoom || '',
+		inlineMarginLeft: wrapper.style.marginLeft || '',
+		computedTransform: getComputedStyle(wrapper).transform,
+		neutralizedDataset: wrapper.dataset.docxidianImeNeutralized === 'true',
+	};
+}
+
+function findBodyEditable(hostEl: HTMLElement): HTMLElement | null {
+	return (
+		hostEl.ownerDocument.querySelector<HTMLElement>('.paged-editor__hidden-pm .ProseMirror[contenteditable="true"]')
+		?? hostEl.ownerDocument.querySelector<HTMLElement>('.ProseMirror[contenteditable="true"]')
+		?? hostEl.querySelector<HTMLElement>('[contenteditable="true"]')
+	);
+}
+
+function findNeutralizerRoot(hostEl: HTMLElement): HTMLElement | null {
+	return (
+		hostEl.querySelector<HTMLElement>('.docxidian-editor-harness')
+		?? hostEl.querySelector<HTMLElement>('.ep-root.paged-editor')
+		?? hostEl.querySelector<HTMLElement>('.ep-root')
+	);
+}
+
+function collectMetrics(scenarioName: string, hostEl: HTMLElement): LiveVerifyMetrics {
+	const editorRoot = findNeutralizerRoot(hostEl);
+	if (!editorRoot) {
+		return {
+			name: scenarioName,
+			error: 'missing editor root',
+			wrapper: null,
+			transformAncestorsOnCaret: -1,
+			editableFound: false,
+			passed: false,
+		};
+	}
+
+	const editable = findBodyEditable(hostEl);
+	const zoomWrapper = findDocxEditorZoomWrapper(editorRoot);
+	if (zoomWrapper) {
+		neutralizeDocxEditorZoomWrapper(zoomWrapper);
+	}
+	const wrapper = inspectWrapper(editorRoot);
+	const transformAncestorsOnCaret = editable ? countTransformAncestors(editable) : -1;
+
+	const passed =
+		wrapper !== null
+		&& wrapper.inlineTransform === 'none'
+		&& !wrapper.inlineTransform.includes('scale(')
+		&& !wrapper.inlineTransform.includes('translateX(')
+		&& transformAncestorsOnCaret === 0
+		&& (wrapper.inlineZoom !== '' || wrapper.inlineMarginLeft !== '' || scenarioName === 'baseline');
+
+	return {
+		name: scenarioName,
+		neutralizerAttached: editorRoot.dataset.docxidianImeAttachProbe === 'true',
+		wrapper,
+		transformAncestorsOnCaret,
+		editableFound: Boolean(editable),
+		passed,
+	};
+}
+
+function DocxLiveVerifyApp({
+	scenarioName,
+	initialZoom,
+	showOutline,
+}: {
+	scenarioName: string;
+	initialZoom: number;
+	showOutline: boolean;
+}) {
+	const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
+
+	useEffect(() => {
+		if (!hostEl) {
+			return;
+		}
+
+		let detachNeutralizer: (() => void) | undefined;
+		let retryInterval: number | undefined;
+
+		const attachNeutralizer = (): boolean => {
+			const editorRoot = findNeutralizerRoot(hostEl);
+			if (!editorRoot) {
+				return false;
+			}
+
+			detachNeutralizer?.();
+			detachNeutralizer = attachDocxImeTransformNeutralizer(editorRoot);
+			editorRoot.dataset.docxidianImeAttachProbe = 'true';
+			return true;
+		};
+
+		const publish = () => {
+			attachNeutralizer();
+			const metrics = collectMetrics(scenarioName, hostEl);
+			document.body.dataset.metrics = encodeURIComponent(JSON.stringify(metrics));
+			console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(metrics));
+		};
+
+		if (!attachNeutralizer()) {
+			retryInterval = window.setInterval(() => {
+				if (attachNeutralizer() && retryInterval !== undefined) {
+					window.clearInterval(retryInterval);
+					retryInterval = undefined;
+				}
+			}, 100);
+		}
+
+		const timers = [1000, 2500, 5000, 10000].map((delay) => window.setTimeout(publish, delay));
+
+		return () => {
+			if (retryInterval !== undefined) {
+				window.clearInterval(retryInterval);
+			}
+			for (const timer of timers) {
+				window.clearTimeout(timer);
+			}
+			detachNeutralizer?.();
+		};
+	}, [hostEl, scenarioName]);
+
+	return (
+		<div className="docxidian-host" ref={setHostEl}>
+			<DocxEditor
+				className="docxidian-editor-harness"
+				documentBuffer={DOCX_BUFFER}
+				initialZoom={initialZoom}
+				showOutline={showOutline}
+				showOutlineButton={showOutline}
+				showToolbar={false}
+				showRuler={false}
+				showZoomControl={false}
+				onFontsLoaded={() => undefined}
+				onError={(error) => {
+					const payload: LiveVerifyMetrics = {
+						name: scenarioName,
+						error: error.message,
+						wrapper: null,
+						transformAncestorsOnCaret: -1,
+						editableFound: false,
+						passed: false,
+					};
+					document.body.dataset.metrics = encodeURIComponent(JSON.stringify(payload));
+					console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(payload));
+				}}
+			/>
+		</div>
+	);
+}
+
+declare global {
+	interface Window {
+		__DOCX_BASE64__?: string;
+		__HARNESS_SCENARIO__?: string;
+	}
+}
+
+const styleTag = document.createElement('style');
+styleTag.textContent = `
+${editorStyles}
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #e2e8f0; }
+.docxidian-host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: #f8fafc; }
+`;
+document.head.appendChild(styleTag);
+
+const scenario = window.__HARNESS_SCENARIO__ ?? 'baseline';
+const scenarioProps: Record<string, { initialZoom: number; showOutline: boolean }> = {
+	baseline: { initialZoom: 1, showOutline: false },
+	zoom125Outline: { initialZoom: 1.25, showOutline: true },
+};
+
+const props = scenarioProps[scenario] ?? scenarioProps.baseline;
+const root = createRoot(document.getElementById('root')!);
+root.render(
+	<DocxLiveVerifyApp
+		scenarioName={scenario}
+		initialZoom={props.initialZoom}
+		showOutline={props.showOutline}
+	/>,
+);

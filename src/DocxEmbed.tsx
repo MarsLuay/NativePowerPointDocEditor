@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { DocxEditor } from '@eigenpal/docx-editor-react';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
+import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { ensureEditorStyles } from './DocxReactView';
 import { isHTMLElement } from './domGuards';
 import { Component, MarkdownRenderChild } from './obsidianRuntime';
@@ -87,7 +88,26 @@ function DocxEmbedPreview({
 			return;
 		}
 
-		const observer = new MutationObserver(queueSyncPages);
+		let detachNeutralizer: (() => void) | undefined;
+		let neutralizerRetryTimeout: number | undefined;
+
+		const attachNeutralizer = (): boolean => {
+			const editorRoot = sourceEl.querySelector<HTMLElement>('.docxidian-embed-editor, .ep-root');
+			if (!editorRoot) {
+				return false;
+			}
+
+			detachNeutralizer?.();
+			detachNeutralizer = attachDocxImeTransformNeutralizer(editorRoot);
+			return true;
+		};
+
+		const observer = new MutationObserver(() => {
+			queueSyncPages();
+			if (!detachNeutralizer) {
+				attachNeutralizer();
+			}
+		});
 		observer.observe(sourceEl, {
 			attributes: true,
 			childList: true,
@@ -97,11 +117,19 @@ function DocxEmbedPreview({
 		window.setTimeout(queueSyncPages, 100);
 		window.setTimeout(queueSyncPages, 500);
 
+		if (!attachNeutralizer()) {
+			neutralizerRetryTimeout = window.setTimeout(attachNeutralizer, 100);
+		}
+
 		return () => {
 			if (syncFrameRef.current !== null) {
 				window.cancelAnimationFrame(syncFrameRef.current);
 				syncFrameRef.current = null;
 			}
+			if (neutralizerRetryTimeout !== undefined) {
+				window.clearTimeout(neutralizerRetryTimeout);
+			}
+			detachNeutralizer?.();
 			observer.disconnect();
 		};
 	}, [queueSyncPages]);

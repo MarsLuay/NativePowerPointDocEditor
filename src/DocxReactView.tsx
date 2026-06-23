@@ -13,6 +13,7 @@ import { createEditorTranslator } from './editorTranslations';
 import { isClipboardEvent, isElement, isHTMLButtonElement, isInputEvent, isNode } from './domGuards';
 import { debugLog, errorLog, warnLog } from './logger';
 import { Notice, Platform, setIcon } from './obsidianRuntime';
+import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { exportRenderedPagesToPdf } from './renderedPdfExport';
 
 let stylesInjected = false;
@@ -1389,6 +1390,42 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	useEffect(() => {
 		ensureEditorStyles();
 	}, []);
+
+	useEffect(() => {
+		if (!file || !buffer || isLoading) {
+			return;
+		}
+
+		let detach: (() => void) | undefined;
+		let retryInterval: number | undefined;
+
+		const attachNeutralizer = (): boolean => {
+			const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+			if (!editorRoot) {
+				return false;
+			}
+
+			detach?.();
+			detach = attachDocxImeTransformNeutralizer(editorRoot);
+			return true;
+		};
+
+		if (!attachNeutralizer()) {
+			retryInterval = window.setInterval(() => {
+				if (attachNeutralizer() && retryInterval !== undefined) {
+					window.clearInterval(retryInterval);
+					retryInterval = undefined;
+				}
+			}, 100);
+		}
+
+		return () => {
+			if (retryInterval !== undefined) {
+				window.clearInterval(retryInterval);
+			}
+			detach?.();
+		};
+	}, [buffer, documentKey, filePath, isLoading]);
 
 	const syncListMarkerSelectionHighlights = useCallback(() => {
 		const root = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);

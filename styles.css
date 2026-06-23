@@ -2343,27 +2343,88 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-save-status {
-	align-items: center;
+	align-items: flex-end;
 	color: var(--text-muted);
 	display: inline-flex;
 	flex: 0 0 auto;
+	flex-direction: column;
 	font-size: var(--font-ui-smaller);
 	font-weight: 500;
-	gap: 6px;
+	gap: 4px;
 	justify-content: center;
 	line-height: 1;
 	margin-left: auto;
-	min-width: 72px;
+	min-width: 0;
 	white-space: nowrap;
 }
 
-.native-powerpoint-save-status::before {
+.native-powerpoint-save-status-label {
+	align-items: center;
+	display: inline-flex;
+	gap: 6px;
+	min-width: 120px;
+}
+
+.native-powerpoint-save-status-label::before {
 	background: currentColor;
 	border-radius: 50%;
 	content: '';
 	flex: 0 0 auto;
 	height: 6px;
 	width: 6px;
+}
+
+.native-powerpoint-save-status-progress {
+	background: color-mix(in srgb, currentColor 18%, transparent);
+	border-radius: 1px;
+	display: none;
+	height: 2px;
+	overflow: hidden;
+	position: relative;
+	width: 120px;
+}
+
+.native-powerpoint-save-status-progress.is-active {
+	display: block;
+}
+
+.native-powerpoint-save-status-progress::after {
+	background: currentColor;
+	border-radius: inherit;
+	content: '';
+	height: 100%;
+	left: 0;
+	position: absolute;
+	top: 0;
+	width: 42%;
+	animation: native-powerpoint-save-indeterminate 1.15s ease-in-out infinite;
+}
+
+@keyframes native-powerpoint-save-indeterminate {
+	0% {
+		transform: translateX(-110%);
+	}
+	100% {
+		transform: translateX(260%);
+	}
+}
+
+@keyframes native-powerpoint-save-pulse {
+	0%,
+	100% {
+		opacity: 0.35;
+		transform: scale(0.85);
+	}
+
+	50% {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.native-powerpoint-save-status::before {
+	content: none;
+	display: none;
 }
 
 .native-powerpoint-save-status[data-state='dirty'] {
@@ -2401,22 +2462,23 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 /* Dot signal: green when the presentation matches the last saved copy, red when not. */
-.native-powerpoint-save-status[data-state='saved']::before {
+.native-powerpoint-save-status[data-state='saved'] .native-powerpoint-save-status-label::before {
 	background: #22c55e;
 }
 
-.native-powerpoint-save-status[data-state='saving']::before {
+.native-powerpoint-save-status[data-state='saving'] .native-powerpoint-save-status-label::before {
+	animation: native-powerpoint-save-pulse 1s ease-in-out infinite;
 	background: #b06000;
 }
 
-.native-powerpoint-save-status[data-state='dirty']::before,
-.native-powerpoint-save-status[data-state='recovered']::before,
-.native-powerpoint-save-status[data-state='failed']::before {
+.native-powerpoint-save-status[data-state='dirty'] .native-powerpoint-save-status-label::before,
+.native-powerpoint-save-status[data-state='recovered'] .native-powerpoint-save-status-label::before,
+.native-powerpoint-save-status[data-state='failed'] .native-powerpoint-save-status-label::before {
 	background: #d93025;
 }
 
-.native-powerpoint-save-status[data-state='idle']::before,
-.native-powerpoint-save-status[data-state='view-only']::before {
+.native-powerpoint-save-status[data-state='idle'] .native-powerpoint-save-status-label::before,
+.native-powerpoint-save-status[data-state='view-only'] .native-powerpoint-save-status-label::before {
 	background: var(--text-faint);
 }
 

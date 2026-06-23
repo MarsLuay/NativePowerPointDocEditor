@@ -99,7 +99,12 @@ try {
   // 6. Rewrap the raw MoonBit output into the per-instance factory module.
   log('Rewrapping output into src/vendor/pptx-js-engine.mjs ...');
   run('node', [path.join(projectRoot, 'scripts/build-pptx-js-engine.mjs'), jsBuild], {
-    cwd: projectRoot
+    cwd: projectRoot,
+    env: {
+      ...childEnv,
+      PPTX_SVG_VERSION: installedVersion,
+      PPTX_SVG_REF: ref,
+    },
   });
 
   // 7. Verify the regenerated engine renders.

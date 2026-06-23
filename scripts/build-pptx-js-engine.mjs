@@ -27,9 +27,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readInstalledPptxSvgVersion, resolveProjectRoot } from './lib/pptx-svg-version.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '..');
+const projectRoot = resolveProjectRoot(import.meta.url);
 
 const inputPath = process.argv[2] || process.env.PPTX_SVG_JS_BUILD;
 if (!inputPath) {
@@ -71,6 +72,9 @@ const returnObject = pairs
   .map(({ internal, external }) => `    ${external}: ${internal},`)
   .join('\n');
 
+const pptxSvgVersion = process.env.PPTX_SVG_VERSION || readInstalledPptxSvgVersion(projectRoot);
+const pptxSvgRef = process.env.PPTX_SVG_REF || `v${pptxSvgVersion}`;
+
 const banner =
 `/*
  * GENERATED FILE — DO NOT EDIT BY HAND.
@@ -79,6 +83,9 @@ const banner =
  * pptx-svg and rewrapped into a per-instance factory by
  * scripts/build-pptx-js-engine.mjs. Used as a lazy-loaded fallback when the
  * runtime lacks WebAssembly GC (Obsidian installer < 1.5.8 / Chromium < 119).
+ *
+ * Source: pptx-svg v${pptxSvgVersion} (${pptxSvgRef})
+ * Regenerate: npm run regen:pptx-js
  *
  * The engine resolves its host calls through the global \`pptx_ffi\`, which the
  * renderer sets immediately before each (synchronous) call. Each

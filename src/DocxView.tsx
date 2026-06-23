@@ -5,13 +5,16 @@ import { loadDocxEditorChunk } from './docxEditorLoader';
 import { findHiddenDocxText, type HiddenTextFinding } from './docxHiddenTextScanner';
 import { extractDocxMarkdown, extractDocxText } from './docxTextExtractor';
 import { isElement, isHTMLElement, isNode } from './domGuards';
+import { scheduleIdleWork } from './idleSchedule';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
 import { DOCXIDIAN_LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, normalizeDocxidianLanguage, type DocxidianLanguage } from './locales';
 import { DEFAULT_SETTINGS, normalizeDefaultZoom } from './settings';
 import type { DocxReactMount } from './DocxReactMount';
 import type { DocxReactViewHandle, DocxReactViewProps } from './DocxReactView';
 
-export const VIEW_TYPE_DOCX = 'docxidian-docx-view';
+import { VIEW_TYPE_DOCX } from './docxViewConstants';
+
+export { VIEW_TYPE_DOCX };
 
 type UnsavedDocxChoice = 'save' | 'discard' | 'cancel';
 type DocxPathChoice = string | null;
@@ -818,6 +821,8 @@ export class DocxView extends FileView {
 	private hostEl: HTMLDivElement | null = null;
 	private reactMount: DocxReactMount | null = null;
 	private reactMountLoading = false;
+	private editorMountScheduled = false;
+	private activeLeafListenerRegistered = false;
 	private buffer: ArrayBuffer | null = null;
 	private error: string | null = null;
 	private isLoading = false;
@@ -891,7 +896,53 @@ export class DocxView extends FileView {
 		this.registerSaveShortcut();
 		this.registerFindShortcut();
 		this.registerEditorDropdownScrollGuard();
+		this.registerActiveLeafMounting();
 		this.render();
+	}
+
+	private registerActiveLeafMounting() {
+		if (this.activeLeafListenerRegistered) {
+			return;
+		}
+
+		this.activeLeafListenerRegistered = true;
+		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+			this.render();
+		}));
+	}
+
+	private isLeafActive(): boolean {
+		return this.app.workspace.activeLeaf === this.leaf;
+	}
+
+	private renderInactivePlaceholder() {
+		if (!this.hostEl || this.reactMount) {
+			return;
+		}
+
+		this.hostEl.empty();
+		this.hostEl.createDiv({
+			cls: 'docxidian-editor-inactive',
+			text: 'Activate this tab to load the DOCX editor.',
+		});
+	}
+
+	private scheduleEditorMount() {
+		if (this.editorMountScheduled || this.reactMount || this.reactMountLoading || !this.hostEl) {
+			return;
+		}
+
+		this.editorMountScheduled = true;
+		const cancelIdle = scheduleIdleWork(() => {
+			this.editorMountScheduled = false;
+			if (!this.isLeafActive() || !this.hostEl) {
+				return;
+			}
+
+			void this.ensureReactMount();
+		}, { timeout: 750 });
+
+		this.register(() => cancelIdle());
 	}
 
 	async onClose() {
@@ -3281,10 +3332,15 @@ export class DocxView extends FileView {
 			return;
 		}
 
+		if (!this.isLeafActive() && !this.reactMount) {
+			this.renderInactivePlaceholder();
+			return;
+		}
+
 		if (!this.reactMount) {
 			this.hostEl.empty();
 			this.hostEl.createDiv({ cls: 'docxidian-editor-loading', text: 'Loading DOCX editor...' });
-			void this.ensureReactMount();
+			this.scheduleEditorMount();
 			return;
 		}
 

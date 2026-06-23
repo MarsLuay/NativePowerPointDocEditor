@@ -6,6 +6,9 @@
  * scripts/build-pptx-js-engine.mjs. Used as a lazy-loaded fallback when the
  * runtime lacks WebAssembly GC (Obsidian installer < 1.5.8 / Chromium < 119).
  *
+ * Source: pptx-svg v0.5.10 (v0.5.10)
+ * Regenerate: npm run regen:pptx-js
+ *
  * The engine resolves its host calls through the global `pptx_ffi`, which the
  * renderer sets immediately before each (synchronous) call. Each
  * createPptxJsEngine() call returns an isolated set of exports with its own

@@ -1,9 +1,11 @@
 import { App, TFile, normalizePath } from 'obsidian';
 import { extractDocxText } from './docxTextExtractor';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
+import { scheduleIdleWork } from './idleSchedule';
 
 const INDEX_FILE_NAME = 'docx-search-index.json';
 const SEARCH_SNIPPET_RADIUS = 90;
+const INCREMENTAL_INDEX_BATCH_SIZE = 8;
 
 export interface DocxSearchIndexStats {
 	total: number;
@@ -151,6 +153,55 @@ export class DocxSearchIndex {
 	}
 
 	async rebuild(options: { force?: boolean } = {}): Promise<DocxSearchIndexStats> {
+		return this.rebuildIncremental({ force: options.force === true });
+	}
+
+	async rebuildIncremental(options: { force?: boolean } = {}): Promise<DocxSearchIndexStats> {
+		await this.load();
+
+		const stats = createEmptyStats();
+		const docxFiles = this.app.vault.getFiles().filter(file => this.isDocxFile(file));
+		const livePaths = new Set(docxFiles.map(file => file.path));
+
+		stats.total = docxFiles.length;
+
+		for (const path of Array.from(this.entries.keys())) {
+			if (!livePaths.has(path)) {
+				this.entries.delete(path);
+				stats.removed += 1;
+			}
+		}
+
+		let index = 0;
+		const processBatch = async () => {
+			const batchEnd = Math.min(index + INCREMENTAL_INDEX_BATCH_SIZE, docxFiles.length);
+			for (; index < batchEnd; index += 1) {
+				const file = docxFiles[index];
+				if (!file) {
+					continue;
+				}
+				const result = await this.indexFile(file, { force: options.force === true, save: false });
+				stats[result] += 1;
+			}
+
+			if (index < docxFiles.length) {
+				await new Promise<void>((resolve) => {
+					scheduleIdleWork(() => {
+						void processBatch().then(resolve);
+					}, { timeout: 5000 });
+				});
+				return;
+			}
+
+			await this.save();
+			infoLog('search', 'Rebuilt DOCX search index', stats);
+		};
+
+		await processBatch();
+		return stats;
+	}
+
+	async rebuildSync(options: { force?: boolean } = {}): Promise<DocxSearchIndexStats> {
 		await this.load();
 
 		const stats = createEmptyStats();

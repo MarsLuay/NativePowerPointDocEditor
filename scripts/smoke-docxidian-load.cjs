@@ -462,9 +462,9 @@ async function runSmoke() {
 	assert.ok(Array.isArray(copiedDiagnostics.logs), 'Copied diagnostics should include log entries.');
 	assert.ok(copiedDiagnostics.logs.length > 0, 'Copied diagnostics should include at least one log entry.');
 
-	const chunk = pluginModule;
+	const chunk = require(path.join(pluginDir, 'docx-chunk.js'));
 	for (const exportName of ['createDocxReactMount', 'DocxFileEmbed', 'renderDocxEmbeds', 'hasReviewMarkup']) {
-		assert.equal(typeof chunk[exportName], 'function', `main.js should export bundled ${exportName}.`);
+		assert.equal(typeof chunk[exportName], 'function', `docx-chunk.js should export bundled ${exportName}.`);
 	}
 
 	const docxFiles = process.env.DOCXIDIAN_SMOKE_DOCX

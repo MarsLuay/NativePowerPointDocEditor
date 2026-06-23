@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.21] - 2026-06-22
+
+### Fixed
+
+- DOCX Japanese IME candidate window placement on multi-monitor setups by
+  neutralizing eigenpal zoom/outline CSS transforms (`scale` / `translateX` →
+  `zoom` / `margin-left`).
+
+### Changed
+
+- Lazy-load DOCX and PPTX runtime chunks to reduce plugin startup cost.
+- Defer vault-wide DOCX search indexing, locale loading, filmstrip rendering,
+  and inspector UI until idle or first use.
+
 ## [1.0.19] - 2026-06-13
 
 ### Security
@@ -150,7 +164,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.19...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.21...HEAD
+[1.0.21]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.19...1.0.21
 [1.0.19]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.18...1.0.19
 [1.0.18]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.17...1.0.18
 [1.0.17]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.16...1.0.17

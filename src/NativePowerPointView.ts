@@ -11,8 +11,7 @@ import {
   type RunStyleChange,
   type RunStyleInfo,
   type RunTarget,
-  type ShapeReorderMode,
-  type SlideLayoutKind
+  type ShapeReorderMode
 } from './PresentationEngine';
 import {
   getImageMimeType,
@@ -41,6 +40,7 @@ import { PowerPointPresentController } from './PowerPointPresent';
 import { exportSlideToPng } from './PowerPointExport';
 import { InlineTextGeometry } from './powerpoint/inlineTextGeometry';
 import { debugLog, errorLog, warnLog } from './logger';
+import { scheduleIdleWork } from './idleSchedule';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -75,6 +75,7 @@ import { ExportController, type ExportHost } from './powerpoint/exportController
 import { MenuBarController } from './powerpoint/menuBarController';
 import { ToolbarTooltipController } from './powerpoint/toolbarTooltipController';
 import { SnapController, type SnapHost } from './powerpoint/snapController';
+import { SlideFilmstripController, type SlideFilmstripHost } from './powerpoint/slideFilmstripController';
 import {
   annotateShapeGroupTextOffsets,
   annotateSlideTextOffsets as stampSlideTextOffsets,
@@ -159,7 +160,6 @@ export class NativePowerPointView extends FileView {
   private zoomLevel = 1;
   private selectedShapeIndex: number | null = null;
   private selectedShapeIndices = new Set<number>();
-  private selectedSlideIndices = new Set<number>();
   private lastInteractionRegion: 'canvas' | 'thumbnails' = 'canvas';
   private selectedTransform: ShapeTransform | null = null;
   private marquee: MarqueeState | null = null;
@@ -171,11 +171,12 @@ export class NativePowerPointView extends FileView {
   private isViewOnly = false;
   private viewOnlyReason = '';
   private isLoading = false;
+  private filmstripRenderScheduled = false;
+  private filmstripRendered = false;
   private isNavigatingSlide = false;
   private isTearingDownEditor = false;
   private slideRenderGeneration = 0;
   private textCommitPromise: Promise<void> | null = null;
-  private slideNavigationPromise: Promise<void> = Promise.resolve();
   private isDirty = false;
   private editVersion = 0;
   private saveTimer: number | null = null;
@@ -253,11 +254,11 @@ export class NativePowerPointView extends FileView {
   private toolbarPopoverCleanup: (() => void) | null = null;
   private toolbarFormattingSnapshot: ToolbarFormattingSnapshot | null = null;
   private presentController: PowerPointPresentController | null = null;
-  private thumbnailDragIndex: number | null = null;
   private readonly findController: FindReplaceController;
   private readonly historyController: HistoryController;
   private readonly exportController: ExportController;
   private readonly snapController: SnapController;
+  private readonly slideFilmstripController: SlideFilmstripController;
   private readonly menuBar = new MenuBarController();
   private readonly toolbarTooltips = new ToolbarTooltipController();
 
@@ -268,8 +269,47 @@ export class NativePowerPointView extends FileView {
     this.historyController = new HistoryController(this.createHistoryHost());
     this.exportController = new ExportController(this.createExportHost());
     this.snapController = new SnapController(this.createSnapHost());
+    this.slideFilmstripController = new SlideFilmstripController(this.createSlideFilmstripHost());
     this.addChild(this.menuBar);
     this.addChild(this.toolbarTooltips);
+  }
+
+  /**
+   * Bridges the slide filmstrip subsystem to the view's shared editor state.
+   * Built as an adapter object (rather than `implements SlideFilmstripHost`) so
+   * the view's own members can remain `private`; this closure can read them
+   * because it is lexically inside the class.
+   */
+  private createSlideFilmstripHost(): SlideFilmstripHost {
+    const getView = (): NativePowerPointView => this;
+    return {
+      get engine() { return getView().engine; },
+      get thumbnailContainer() { return getView().thumbnailContainer; },
+      get isLoading() { return getView().isLoading; },
+      get currentSlide() { return getView().currentSlide; },
+      set currentSlide(value: number) { getView().currentSlide = value; },
+      get lastInteractionRegion() { return getView().lastInteractionRegion; },
+      set lastInteractionRegion(value: 'canvas' | 'thumbnails') { getView().lastInteractionRegion = value; },
+      get selectedShapeIndex() { return getView().selectedShapeIndex; },
+      set selectedShapeIndex(value: number | null) { getView().selectedShapeIndex = value; },
+      get selectedTransform() { return getView().selectedTransform; },
+      set selectedTransform(value: ShapeTransform | null) { getView().selectedTransform = value; },
+      get slideRenderGeneration() { return getView().slideRenderGeneration; },
+      set slideRenderGeneration(value: number) { getView().slideRenderGeneration = value; },
+      get isNavigatingSlide() { return getView().isNavigatingSlide; },
+      set isNavigatingSlide(value: boolean) { getView().isNavigatingSlide = value; },
+      canEdit: () => getView().canEdit(),
+      ensureEditable: (action) => getView().ensureEditable(action),
+      finishInlineTextEditing: (reason) => getView().finishInlineTextEditing(reason),
+      captureHistoryEntry: (label) => getView().captureHistoryEntry(label),
+      recordHistoryEntry: (entry) => getView().recordHistoryEntry(entry),
+      markDirty: () => getView().markDirty(),
+      renderCurrentSlide: (keepSelection, expectedGeneration) => getView().renderCurrentSlide(keepSelection, expectedGeneration),
+      clearSelection: () => getView().clearSelection(),
+      renderInspector: () => getView().renderInspector(),
+      prepareSvgForRender: (svg, isThumbnail) => getView().prepareSvgForRender(svg, isThumbnail),
+      createNativeMenu: () => getView().createNativeMenu()
+    };
   }
 
   /**
@@ -387,7 +427,9 @@ export class NativePowerPointView extends FileView {
     this.contentEl.addClass('native-powerpoint-view');
     this.createLayout();
     this.registerKeyboardHandlers();
-    this.renderInspector();
+    if (this.getSettings().showInspector) {
+      this.renderInspector();
+    }
   }
 
   async onLoadFile(file: TFile): Promise<void> {
@@ -563,7 +605,7 @@ export class NativePowerPointView extends FileView {
       attr: { 'aria-label': 'New slide' }
     });
     setIcon(addSlideButton, 'plus');
-    addSlideButton.addEventListener('click', () => void this.addSlideWithLayout('blank'));
+    addSlideButton.addEventListener('click', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
     this.thumbnailContainer = sidebar.createDiv({ cls: 'native-powerpoint-thumbnails' });
 
     const main = this.layoutEl.createDiv({ cls: 'native-powerpoint-main-content' });
@@ -591,6 +633,9 @@ export class NativePowerPointView extends FileView {
 
   refreshSettings(): void {
     this.applyInspectorVisibility();
+    if (this.getSettings().showInspector) {
+      this.renderInspector();
+    }
   }
 
   private createHeaderBar(root: HTMLElement): void {
@@ -850,7 +895,7 @@ export class NativePowerPointView extends FileView {
         onClick: () => void this.applyListStyle('number')
       },
       'separator',
-      { label: 'New slide', icon: 'plus', onClick: () => void this.addSlideWithLayout('blank') }
+      { label: 'New slide', icon: 'plus', onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') }
     ];
   }
 
@@ -1021,19 +1066,19 @@ export class NativePowerPointView extends FileView {
 
     const slideGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
     // Primary click adds a blank slide immediately (Google Slides "+" behavior).
-    this.createEditIconButton(slideGroup, 'plus', 'New slide', () => void this.addSlideWithLayout('blank'));
+    this.createEditIconButton(slideGroup, 'plus', 'New slide', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
     // A caret opens the layout choices without blocking the quick-add action.
     const newSlideLayoutButton = this.createEditIconButton(slideGroup, 'chevron-down', 'New slide layout', () => {
       this.toggleInsertMenu(newSlideLayoutButton, [
-        { label: 'Blank', onClick: () => void this.addSlideWithLayout('blank') },
-        { label: 'Title', onClick: () => void this.addSlideWithLayout('title') },
-        { label: 'Title + Body', onClick: () => void this.addSlideWithLayout('titleBody') }
+        { label: 'Blank', onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') },
+        { label: 'Title', onClick: () => void this.slideFilmstripController.addSlideWithLayout('title') },
+        { label: 'Title + Body', onClick: () => void this.slideFilmstripController.addSlideWithLayout('titleBody') }
       ]);
     });
-    this.createEditIconButton(slideGroup, 'files', 'Duplicate slide', () => void this.duplicateSlide());
-    this.createEditIconButton(slideGroup, 'trash-2', 'Delete slide', () => void this.deleteSlide());
-    this.createEditIconButton(slideGroup, 'arrow-left-to-line', 'Move slide left', () => void this.moveSlide(-1));
-    this.createEditIconButton(slideGroup, 'arrow-right-to-line', 'Move slide right', () => void this.moveSlide(1));
+    this.createEditIconButton(slideGroup, 'files', 'Duplicate slide', () => void this.slideFilmstripController.duplicateSlide());
+    this.createEditIconButton(slideGroup, 'trash-2', 'Delete slide', () => void this.slideFilmstripController.deleteSlide());
+    this.createEditIconButton(slideGroup, 'arrow-left-to-line', 'Move slide left', () => void this.slideFilmstripController.moveSlide(-1));
+    this.createEditIconButton(slideGroup, 'arrow-right-to-line', 'Move slide right', () => void this.slideFilmstripController.moveSlide(1));
 
     const objectGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
     this.copyButton = this.createIconButton(objectGroup, 'copy', 'Copy selected object (Ctrl+C)', () => void this.copySelectedShape());
@@ -1069,9 +1114,9 @@ export class NativePowerPointView extends FileView {
     const navGroup = toolbar.createDiv({
       cls: 'native-powerpoint-toolbar-group native-powerpoint-toolbar-group-end'
     });
-    this.createIconButton(navGroup, 'chevron-left', 'Previous slide', () => this.navigateToSlide(this.currentSlide - 1, 'toolbar-prev'));
+    this.createIconButton(navGroup, 'chevron-left', 'Previous slide', () => this.slideFilmstripController.navigateToSlide(this.currentSlide - 1, 'toolbar-prev'));
     this.slideCounterEl = navGroup.createDiv({ cls: 'native-powerpoint-page-counter', text: '0 / 0' });
-    this.createIconButton(navGroup, 'chevron-right', 'Next slide', () => this.navigateToSlide(this.currentSlide + 1, 'toolbar-next'));
+    this.createIconButton(navGroup, 'chevron-right', 'Next slide', () => this.slideFilmstripController.navigateToSlide(this.currentSlide + 1, 'toolbar-next'));
 
     this.updateEditingAvailability();
     this.historyController.updateAvailability();
@@ -1680,7 +1725,7 @@ export class NativePowerPointView extends FileView {
       onExit: (lastIndex) => {
         this.presentController = null;
         if (this.engine && lastIndex >= 0 && lastIndex < this.engine.slideCount) {
-          this.navigateToSlide(lastIndex, 'presentation-exit');
+          this.slideFilmstripController.navigateToSlide(lastIndex, 'presentation-exit');
         }
       }
     });
@@ -1805,7 +1850,7 @@ export class NativePowerPointView extends FileView {
         event.preventDefault();
         event.stopImmediatePropagation();
         if (this.lastInteractionRegion === 'thumbnails') {
-          this.selectAllSlides();
+          this.slideFilmstripController.selectAllSlides();
         } else {
           this.selectAllShapes();
         }
@@ -1825,9 +1870,9 @@ export class NativePowerPointView extends FileView {
         return;
       }
 
-      if (event.key === 'Escape' && this.selectedSlideIndices.size > 0) {
+      if (event.key === 'Escape' && this.slideFilmstripController.selectedSlideIndices.size > 0) {
         event.preventDefault();
-        this.clearSlideSelection();
+        this.slideFilmstripController.clearSlideSelection();
         return;
       }
 
@@ -1835,22 +1880,22 @@ export class NativePowerPointView extends FileView {
         (event.key === 'Delete' || event.key === 'Backspace')
         && this.lastInteractionRegion === 'thumbnails'
       ) {
-        if (this.selectedSlideIndices.size > 0) {
+        if (this.slideFilmstripController.selectedSlideIndices.size > 0) {
           event.preventDefault();
-          void this.deleteSelectedSlides();
+          void this.slideFilmstripController.deleteSelectedSlides();
           return;
         }
         event.preventDefault();
-        void this.deleteSlide();
+        void this.slideFilmstripController.deleteSlide();
         return;
       }
 
       if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
         event.preventDefault();
-        this.navigateToSlide(this.currentSlide - 1, 'keyboard-prev');
+        this.slideFilmstripController.navigateToSlide(this.currentSlide - 1, 'keyboard-prev');
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
         event.preventDefault();
-        this.navigateToSlide(this.currentSlide + 1, 'keyboard-next');
+        this.slideFilmstripController.navigateToSlide(this.currentSlide + 1, 'keyboard-next');
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         if (this.selectedShapeIndex !== null || this.selectedShapeIndices.size > 0) {
           event.preventDefault();
@@ -1904,7 +1949,9 @@ export class NativePowerPointView extends FileView {
     this.findController.reset();
     this.setSaveState('idle');
     this.updateEditingAvailability();
-    this.renderInspector();
+    if (this.getSettings().showInspector) {
+      this.renderInspector();
+    }
     this.showLoading(`Loading ${file.name}...`);
 
     if (!isModernPowerPointExtension(file.extension)) {
@@ -1928,7 +1975,7 @@ export class NativePowerPointView extends FileView {
       this.engine = await PresentationEngine.load(buffer);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
-        await this.renderThumbnails();
+        this.scheduleFilmstripRender();
       }
       this.setSaveState(this.isViewOnly ? 'view-only' : 'saved');
       if (this.isViewOnly) {
@@ -1944,7 +1991,9 @@ export class NativePowerPointView extends FileView {
       this.isLoading = false;
       this.updateSlideCounter();
       this.updateEditingAvailability();
-      this.renderInspector();
+      if (this.getSettings().showInspector) {
+        this.renderInspector();
+      }
     }
   }
 
@@ -2181,15 +2230,34 @@ export class NativePowerPointView extends FileView {
     return this.renderCurrentSlide(true);
   }
 
-  private updateThumbnailActiveState(): void {
-    if (!this.thumbnailContainer) return;
-
-    const items = this.thumbnailContainer.querySelectorAll('.native-powerpoint-thumbnail');
-    items.forEach((item, index) => {
-      item.toggleClass('active', index === this.currentSlide);
-      item.toggleClass('is-selected', this.selectedSlideIndices.has(index));
-    });
+  private async renderThumbnails(): Promise<void> {
+    return this.slideFilmstripController.renderThumbnails();
   }
+
+  private scheduleFilmstripRender(force = false): void {
+    if (!force && (this.filmstripRenderScheduled || this.filmstripRendered || !this.engine || !this.thumbnailContainer)) {
+      return;
+    }
+
+    this.filmstripRenderScheduled = true;
+    const cancelIdle = scheduleIdleWork(() => {
+      this.filmstripRenderScheduled = false;
+      if (!this.engine || !this.thumbnailContainer?.isConnected) {
+        return;
+      }
+
+      void this.renderThumbnails().then(() => {
+        this.filmstripRendered = true;
+      });
+    }, { timeout: 3000 });
+
+    this.register(() => cancelIdle());
+  }
+
+  private navigateToSlide(index: number, reason: string): void {
+    this.slideFilmstripController.navigateToSlide(index, reason);
+  }
+
 
   private async finishInlineTextEditing(reason: string): Promise<void> {
     if (this.textCommitPromise) {
@@ -2224,12 +2292,6 @@ export class NativePowerPointView extends FileView {
         this.isTearingDownEditor = false;
       });
     await this.textCommitPromise;
-  }
-
-  private navigateToSlide(index: number, reason: string): void {
-    const run = () => this.goToSlide(index, reason);
-    this.slideNavigationPromise = this.slideNavigationPromise.then(run, run);
-    void this.slideNavigationPromise;
   }
 
   private prepareSvgForRender(svg: string, isThumbnail = false): { svg: string; issues: SvgSecurityIssue[]; allowed: boolean } {
@@ -2466,403 +2528,6 @@ export class NativePowerPointView extends FileView {
     });
   }
 
-  private async renderThumbnails(): Promise<void> {
-    if (!this.engine || !this.thumbnailContainer) return;
-
-    const thumbnailStarted = performance.now();
-    const slideCount = this.engine.slideCount;
-    debugLog('render', 'renderThumbnails start', { slideCount });
-
-    this.thumbnailContainer.empty();
-
-    for (let index = 0; index < slideCount; index++) {
-      const item = this.thumbnailContainer.createDiv({ cls: 'native-powerpoint-thumbnail' });
-      if (index === this.currentSlide) item.addClass('active');
-      if (this.selectedSlideIndices.has(index)) item.addClass('is-selected');
-
-      const preview = item.createDiv({ cls: 'native-powerpoint-thumbnail-preview' });
-      try {
-        const safeSvg = this.prepareSvgForRender(this.engine.renderSlide(index).svg, true);
-        const thumbnailSvg = createSvgElementFromString(safeSvg.svg, preview.ownerDocument);
-        if (!thumbnailSvg) {
-          throw new Error('Could not read thumbnail SVG.');
-        }
-        preview.appendChild(thumbnailSvg);
-      } catch {
-        preview.createDiv({ cls: 'native-powerpoint-thumbnail-error', text: '!' });
-      }
-      const thumbnailSvg = preview.querySelector('svg');
-      if (thumbnailSvg) {
-        this.engine.applyFontFidelity(thumbnailSvg);
-        this.engine.formatChartAxisLabels(thumbnailSvg, index);
-        normalizeSvgForDisplay(thumbnailSvg);
-        thumbnailSvg.addClass('native-powerpoint-thumbnail-svg');
-      }
-
-      item.createDiv({ cls: 'native-powerpoint-thumbnail-number', text: `${index + 1}` });
-      item.addEventListener('click', (event) => {
-        this.lastInteractionRegion = 'thumbnails';
-        if (event.shiftKey) {
-          this.selectSlideRange(this.currentSlide, index);
-        } else if (event.metaKey || event.ctrlKey) {
-          this.toggleSlideSelection(index);
-        } else {
-          // A plain click both navigates to and selects the slide so it can be
-          // deleted with the keyboard (matching Google Slides' filmstrip).
-          this.selectedSlideIndices = new Set([index]);
-          this.navigateToSlide(index, 'thumbnail-click');
-        }
-      });
-      item.addEventListener('contextmenu', (event) => {
-        event.preventDefault();
-        this.showSlideContextMenu(event, index);
-      });
-      this.registerThumbnailDrag(item, index);
-    }
-
-    const thumbnailMs = Math.round(performance.now() - thumbnailStarted);
-    debugLog('render', 'renderThumbnails complete', { slideCount, ms: thumbnailMs });
-    if (thumbnailMs > 1500) {
-      warnLog('render', 'slow renderThumbnails', { slideCount, ms: thumbnailMs });
-    }
-  }
-
-  private registerThumbnailDrag(item: HTMLElement, index: number): void {
-    item.draggable = this.canEdit();
-    item.dataset.slideIndex = String(index);
-
-    item.addEventListener('dragstart', (event) => {
-      if (!this.canEdit()) {
-        event.preventDefault();
-        return;
-      }
-      this.thumbnailDragIndex = index;
-      item.addClass('is-dragging');
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', String(index));
-      }
-    });
-
-    item.addEventListener('dragend', () => {
-      this.thumbnailDragIndex = null;
-      this.clearThumbnailDropIndicators();
-      item.removeClass('is-dragging');
-    });
-
-    item.addEventListener('dragover', (event) => {
-      if (this.thumbnailDragIndex === null) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-      const after = this.isPointerInLowerHalf(event, item);
-      this.clearThumbnailDropIndicators();
-      item.addClass(after ? 'drop-after' : 'drop-before');
-    });
-
-    item.addEventListener('dragleave', () => {
-      item.removeClass('drop-before');
-      item.removeClass('drop-after');
-    });
-
-    item.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const fromIndex = this.thumbnailDragIndex;
-      this.thumbnailDragIndex = null;
-      this.clearThumbnailDropIndicators();
-      if (fromIndex === null) return;
-
-      const after = this.isPointerInLowerHalf(event, item);
-      let toIndex = after ? index + 1 : index;
-      if (fromIndex < toIndex) toIndex -= 1;
-      void this.reorderSlideByDrag(fromIndex, toIndex);
-    });
-  }
-
-  private isPointerInLowerHalf(event: DragEvent, item: HTMLElement): boolean {
-    const rect = item.getBoundingClientRect();
-    return event.clientY > rect.top + rect.height / 2;
-  }
-
-  private clearThumbnailDropIndicators(): void {
-    this.thumbnailContainer?.querySelectorAll('.drop-before, .drop-after').forEach((element) => {
-      element.classList.remove('drop-before', 'drop-after');
-    });
-  }
-
-  private async goToSlide(index: number, reason = 'unknown'): Promise<void> {
-    if (!this.engine || this.isLoading) return;
-    if (index < 0 || index >= this.engine.slideCount) return;
-
-    const fromSlide = this.currentSlide;
-    if (index === fromSlide) {
-      debugLog('slide', 'goToSlide skipped (already active)', { index, reason });
-      return;
-    }
-
-    const generation = ++this.slideRenderGeneration;
-    const navigationStarted = performance.now();
-    this.isNavigatingSlide = true;
-    debugLog('slide', 'goToSlide start', { from: fromSlide, to: index, reason, generation });
-
-    try {
-      await this.finishInlineTextEditing(`slide-navigation:${reason}`);
-      if (generation !== this.slideRenderGeneration) {
-        debugLog('slide', 'goToSlide aborted (superseded)', { from: fromSlide, to: index, generation, reason });
-        return;
-      }
-
-      this.currentSlide = index;
-      this.selectedShapeIndex = null;
-      this.selectedTransform = null;
-      const rendered = await this.renderCurrentSlide(false, generation);
-      if (generation !== this.slideRenderGeneration) {
-        debugLog('slide', 'goToSlide render discarded (superseded)', { index, generation, reason });
-        return;
-      }
-
-      if (rendered) {
-        this.updateThumbnailActiveState();
-        this.renderInspector();
-      }
-
-      const navigationMs = Math.round(performance.now() - navigationStarted);
-      debugLog('slide', 'goToSlide complete', { index, reason, generation, ms: navigationMs });
-      if (navigationMs > 1000) {
-        warnLog('slide', 'slow goToSlide', { from: fromSlide, to: index, reason, generation, ms: navigationMs });
-      }
-    } catch (error) {
-      errorLog('slide', 'goToSlide failed', { from: fromSlide, to: index, reason, generation, error });
-      new Notice(`Could not open slide ${index + 1}: ${cleanError(error)}`);
-    } finally {
-      if (generation === this.slideRenderGeneration) {
-        this.isNavigatingSlide = false;
-      }
-    }
-  }
-
-  private async addSlide(): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('add slide')) return;
-
-    try {
-      const history = await this.captureHistoryEntry('Add slide');
-      const result = await this.engine.addSlide(this.currentSlide);
-      this.currentSlide = result.slideIndex;
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not add slide: ${cleanError(error)}`);
-    }
-  }
-
-  private async deleteSlide(): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('delete slide')) return;
-
-    try {
-      const history = await this.captureHistoryEntry('Delete slide');
-      const result = await this.engine.deleteSlide(this.currentSlide);
-      this.currentSlide = result.slideIndex;
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not delete slide: ${cleanError(error)}`);
-    }
-  }
-
-  private async deleteSelectedSlides(): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('delete slides')) return;
-
-    const targets = Array.from(this.selectedSlideIndices).sort((a, b) => b - a);
-    if (targets.length === 0) return;
-    if (targets.length >= this.engine.slideCount) {
-      new Notice('You cannot delete every slide.');
-      return;
-    }
-
-    try {
-      const history = await this.captureHistoryEntry('Delete slides');
-      let resultIndex = this.currentSlide;
-      for (const target of targets) {
-        const result = await this.engine.deleteSlide(target);
-        resultIndex = result.slideIndex;
-      }
-      this.currentSlide = resultIndex;
-      this.clearSlideSelection();
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not delete slides: ${cleanError(error)}`);
-    }
-  }
-
-  private async moveSlide(direction: -1 | 1): Promise<void> {
-    await this.moveSlideAt(this.currentSlide, direction);
-  }
-
-  private async moveSlideAt(index: number, direction: -1 | 1): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('move slide')) return;
-    if (index < 0 || index >= this.engine.slideCount) return;
-
-    try {
-      const history = await this.captureHistoryEntry('Move slide');
-      const result = await this.engine.moveSlide(index, direction);
-      if (result.slideIndex === index) return;
-
-      this.currentSlide = result.slideIndex;
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not move slide: ${cleanError(error)}`);
-    }
-  }
-
-  private async addSlideWithLayout(layout: SlideLayoutKind): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('add slide')) return;
-
-    try {
-      const history = await this.captureHistoryEntry('New slide');
-      const result = await this.engine.addSlideWithLayout(this.currentSlide, layout);
-      this.currentSlide = result.slideIndex;
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not add slide: ${cleanError(error)}`);
-    }
-  }
-
-  private async duplicateSlide(targetIndex: number = this.currentSlide): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('duplicate slide')) return;
-    if (targetIndex < 0 || targetIndex >= this.engine.slideCount) return;
-
-    try {
-      const history = await this.captureHistoryEntry('Duplicate slide');
-      const result = await this.engine.duplicateSlide(targetIndex);
-      this.currentSlide = result.slideIndex;
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not duplicate slide: ${cleanError(error)}`);
-    }
-  }
-
-  private async deleteSlideAt(targetIndex: number): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('delete slide')) return;
-    if (targetIndex < 0 || targetIndex >= this.engine.slideCount) return;
-
-    try {
-      const history = await this.captureHistoryEntry('Delete slide');
-      const result = await this.engine.deleteSlide(targetIndex);
-      this.currentSlide = result.slideIndex;
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not delete slide: ${cleanError(error)}`);
-    }
-  }
-
-  private async reorderSlideByDrag(fromIndex: number, toIndex: number): Promise<void> {
-    if (!this.engine) return;
-    if (!this.ensureEditable('reorder slides')) return;
-
-    const slideCount = this.engine.slideCount;
-    if (
-      fromIndex === toIndex ||
-      fromIndex < 0 ||
-      fromIndex >= slideCount ||
-      toIndex < 0 ||
-      toIndex >= slideCount
-    ) {
-      return;
-    }
-
-    const order = Array.from({ length: slideCount }, (_, index) => index);
-    const [moved] = order.splice(fromIndex, 1);
-    if (moved === undefined) return;
-    order.splice(toIndex, 0, moved);
-
-    try {
-      const history = await this.captureHistoryEntry('Reorder slides');
-      await this.engine.reorderSlides(order);
-      this.currentSlide = toIndex;
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-    } catch (error) {
-      new Notice(`Could not reorder slides: ${cleanError(error)}`);
-    }
-  }
-
-  private showSlideContextMenu(event: MouseEvent, index: number): void {
-    if (!this.engine) return;
-
-    const menu = this.createNativeMenu();
-    menu.addItem((item) =>
-      item
-        .setTitle('New slide')
-        .setIcon('plus')
-        .onClick(() => {
-          this.currentSlide = index;
-          void this.addSlideWithLayout('blank');
-        })
-    );
-    menu.addItem((item) =>
-      item
-        .setTitle('Duplicate slide')
-        .setIcon('files')
-        .onClick(() => void this.duplicateSlide(index))
-    );
-    menu.addSeparator();
-    menu.addItem((item) =>
-      item
-        .setTitle('Move up')
-        .setIcon('arrow-up')
-        .setDisabled(index <= 0)
-        .onClick(() => void this.moveSlideAt(index, -1))
-    );
-    menu.addItem((item) =>
-      item
-        .setTitle('Move down')
-        .setIcon('arrow-down')
-        .setDisabled(!this.engine || index >= this.engine.slideCount - 1)
-        .onClick(() => void this.moveSlideAt(index, 1))
-    );
-    menu.addSeparator();
-    menu.addItem((item) =>
-      item
-        .setTitle('Delete slide')
-        .setIcon('trash-2')
-        .setDisabled(!this.engine || this.engine.slideCount <= 1)
-        .onClick(() => void this.deleteSlideAt(index))
-    );
-    menu.showAtMouseEvent(event);
-  }
 
   private async addTextBox(): Promise<void> {
     if (!this.engine) return;
@@ -3223,44 +2888,10 @@ export class NativePowerPointView extends FileView {
     this.applyMultiSelection(indices);
   }
 
-  private selectAllSlides(): void {
-    if (!this.engine) return;
-    const count = this.engine.slideCount;
-    if (count === 0) return;
-    this.selectedSlideIndices = new Set(Array.from({ length: count }, (_, index) => index));
-    this.applySlideSelectionClasses();
-  }
 
-  private clearSlideSelection(): void {
-    if (this.selectedSlideIndices.size === 0) return;
-    this.selectedSlideIndices.clear();
-    this.applySlideSelectionClasses();
-  }
 
-  private toggleSlideSelection(index: number): void {
-    if (this.selectedSlideIndices.has(index)) {
-      this.selectedSlideIndices.delete(index);
-    } else {
-      this.selectedSlideIndices.add(index);
-    }
-    this.applySlideSelectionClasses();
-  }
 
-  private selectSlideRange(anchor: number, index: number): void {
-    const start = Math.min(anchor, index);
-    const end = Math.max(anchor, index);
-    this.selectedSlideIndices = new Set();
-    for (let slide = start; slide <= end; slide += 1) {
-      this.selectedSlideIndices.add(slide);
-    }
-    this.applySlideSelectionClasses();
-  }
 
-  private applySlideSelectionClasses(): void {
-    this.thumbnailContainer?.querySelectorAll('.native-powerpoint-thumbnail').forEach((thumbnail, index) => {
-      thumbnail.classList.toggle('is-selected', this.selectedSlideIndices.has(index));
-    });
-  }
 
   private applyMultiSelection(indices: number[]): void {
     if (!this.engine || !this.svgEl) return;
@@ -3367,7 +2998,9 @@ export class NativePowerPointView extends FileView {
   }
 
   private renderInspector(): void {
-    if (!this.inspectorEl) return;
+    if (!this.getSettings().showInspector || !this.inspectorEl) {
+      return;
+    }
 
     this.inspectorEl.empty();
     this.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-title', text: 'Inspector' });
@@ -4188,7 +3821,7 @@ export class NativePowerPointView extends FileView {
 
   private handleCanvasPanePointerDown = (event: PointerEvent): void => {
     this.lastInteractionRegion = 'canvas';
-    this.clearSlideSelection();
+    this.slideFilmstripController.clearSlideSelection();
     if (event.button !== 0) return;
     this.suppressNextClick = false;
 
@@ -7817,6 +7450,8 @@ export class NativePowerPointView extends FileView {
   }
 
   private resetLoadedPresentation(): void {
+    this.filmstripRendered = false;
+    this.filmstripRenderScheduled = false;
     this.clearAutosave();
     this.removeActiveEditor();
     this.historyController.clear();

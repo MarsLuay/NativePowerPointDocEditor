@@ -22,7 +22,7 @@ const prod = (process.argv[2] === "production");
 const vaultPluginDir =
 	process.env.OBSIDIAN_PLUGIN_DIR
 	|| path.resolve("../../.obsidian/plugins/native-powerpoint-doc-editor");
-const filesToDeploy = ["main.js", "styles.css", "manifest.json"];
+const filesToDeploy = ["main.js", "docx-chunk.js", "pptx-chunk.js", "styles.css", "manifest.json"];
 
 const deployToVaultPlugin = {
 	name: "deploy-to-vault-plugin",
@@ -63,6 +63,16 @@ const deployToVaultPlugin = {
 	}
 };
 
+const externalRuntimeChunksPlugin = {
+	name: "external-runtime-chunks",
+	setup(build) {
+		build.onResolve({ filter: /^\.\/(docx-chunk|pptx-chunk)\.js$/ }, (args) => ({
+			path: args.path,
+			external: true,
+		}));
+	},
+};
+
 const inlinePptxSvgWasmPlugin = {
 	name: "inline-pptx-svg-wasm",
 	setup(build) {
@@ -86,6 +96,8 @@ const context = await esbuild.context({
 	},
 	entryPoints: {
 		main: "src/main.ts",
+		"docx-chunk": "src/docxSupport.ts",
+		"pptx-chunk": "src/pptxSupport.ts",
 	},
 	bundle: true,
 	external: [
@@ -130,7 +142,7 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	plugins: [inlinePptxSvgWasmPlugin, deployToVaultPlugin],
+	plugins: [externalRuntimeChunksPlugin, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
 	outdir: ".",
 	entryNames: "[name]",
 	minify: prod,

@@ -75,6 +75,11 @@ rewraps the output into `src/vendor/pptx-js-engine.mjs`, and verifies it with
 `smoke:pptx-js`. Commit the regenerated `src/vendor/pptx-js-engine.mjs` alongside
 the dependency bump.
 
+`npm run build` and CI run `check:pptx-js-engine` to ensure the vendored engine's
+stamped `pptx-svg` version matches `node_modules/pptx-svg`. If you bump the
+dependency without regenerating, the check fails with instructions to run
+`npm run regen:pptx-js`.
+
 Notes:
 
 - It requires the MoonBit toolchain. If `moon` is not installed, the script
@@ -98,6 +103,7 @@ Node.js or Electron APIs. The build runs `check-mobile-compat.mjs` after every
 | Check | What it proves |
 | --- | --- |
 | `npm run check:mobile` | Plugin bundle won't crash on load due to desktop-only `require()` calls |
+| `npm run check:pptx-js-engine` | Vendored JS fallback was regenerated for the installed `pptx-svg` version |
 | `npm run smoke:mobile-pptx` | `PresentationEngine` can open and render a deck through the **JS fallback** — the path mobile WebViews use when WebAssembly GC is unavailable |
 | `npm run smoke:pptx-js` | The vendored JS engine itself renders SVG in isolation |
 
