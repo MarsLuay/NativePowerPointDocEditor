@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.28] - 2026-06-23
+
+### Changed
+
+- Bump `js-yaml` to 4.2.0 (security), `prosemirror-view` to 1.41.9, and
+  `@eigenpal/docx-editor-i18n` to 1.9.0.
+- Bump React and React DOM to 19.2.7 with matching type packages.
+- Bump selected dev dependencies (`@types/node`, `globals`, `jiti`, `tslib`,
+  `typescript-eslint`, `electron`).
+
+### Fixed
+
+- Restore TypeScript build compatibility with `@types/node` 26 and `Array.at`
+  usage (`ES2022` lib, chart workbook buffer cast).
+
 ## [1.0.27] - 2026-06-23
 
 ### Added
@@ -220,7 +235,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.27...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.28...HEAD
+[1.0.28]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.27...1.0.28
 [1.0.27]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...1.0.27
 [1.0.26]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...1.0.26
 [1.0.25]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.24...1.0.25
