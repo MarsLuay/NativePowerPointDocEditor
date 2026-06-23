@@ -3,6 +3,7 @@ import type { ShapeTransform } from 'pptx-svg';
 
 import type { ChartDataGrid, ChartDataUpdate } from '../ChartData';
 import type { FontSubstitution } from '../FontFidelity';
+import { debugLog, errorLog } from '../logger';
 import type { PresentationEngine } from '../PresentationEngine';
 import { GENERATED_GRID_SELECTOR } from './constants';
 import { cleanError } from './runtimeCompat';
@@ -172,7 +173,16 @@ export class InspectorController {
         await this.host.renderThumbnails();
         this.render();
       }
+      debugLog('inspector', 'Changed PowerPoint slide background', {
+        slide: this.host.currentSlide,
+        color: hexColor
+      });
     } catch (error) {
+      errorLog('inspector', 'PowerPoint slide background change failed', {
+        slide: this.host.currentSlide,
+        color: hexColor,
+        error
+      });
       new Notice(`Could not change slide background: ${cleanError(error)}`);
     }
   }
@@ -267,7 +277,20 @@ export class InspectorController {
       this.host.markDirty();
       const rendered = await this.host.renderEditedShape(chartShapeIndex);
       if (rendered) await this.host.renderThumbnails();
+      debugLog('inspector', 'Updated PowerPoint chart data', {
+        slide: this.host.currentSlide,
+        shapeIndex: chartShapeIndex,
+        categoryCount: update.categories.length,
+        seriesCount: update.series.length
+      });
     } catch (error) {
+      errorLog('inspector', 'PowerPoint chart-data update failed', {
+        slide: this.host.currentSlide,
+        shapeIndex: chartShapeIndex,
+        categoryCount: update.categories.length,
+        seriesCount: update.series.length,
+        error
+      });
       new Notice(`Could not update chart data: ${cleanError(error)}`);
     }
   }
@@ -329,5 +352,14 @@ export class InspectorController {
     transform.cy = this.host.engine.pxToEmu(Math.max(1, Number(this.heightInput?.value || 1)));
     transform.rot = this.host.engine.degreesToOoxml(Number(this.rotationInput?.value || 0));
     await this.host.commitTransform(transform);
+    debugLog('inspector', 'Applied PowerPoint inspector transform', {
+      slide: this.host.currentSlide,
+      shapeIndex: this.host.selectedShapeIndex,
+      x: transform.x,
+      y: transform.y,
+      width: transform.cx,
+      height: transform.cy,
+      rotation: transform.rot
+    });
   }
 }

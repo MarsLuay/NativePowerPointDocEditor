@@ -17,6 +17,8 @@ let viewModulePromise;
 let docxTextExtractorModulePromise;
 let docxReviewMarkupModulePromise;
 let docxHiddenTextScannerModulePromise;
+let docxTableCellFontSizePreserverModulePromise;
+let loggerModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -181,6 +183,19 @@ export function loadDocxHiddenTextScannerModule() {
     (outfile) => require(outfile),
   );
   return docxHiddenTextScannerModulePromise;
+}
+
+export function loadDocxTableCellFontSizePreserverModule() {
+  docxTableCellFontSizePreserverModulePromise ??= bundleSource(
+    "src/docxTableCellFontSizePreserver.ts",
+    "docx-table-cell-font-size-preserver.cjs",
+  ).then((outfile) => require(outfile));
+  return docxTableCellFontSizePreserverModulePromise;
+}
+
+export function loadLoggerModule() {
+  loggerModulePromise ??= bundleSource("src/logger.ts", "logger.cjs").then((outfile) => require(outfile));
+  return loggerModulePromise;
 }
 
 export function loadNativePowerPointViewModule() {

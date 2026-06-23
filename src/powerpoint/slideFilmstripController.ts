@@ -249,6 +249,7 @@ export class SlideFilmstripController {
     if (!this.host.ensureEditable('add slide')) return;
 
     try {
+      debugLog('slide', 'Add slide started', { afterSlide: this.host.currentSlide });
       const history = await this.host.captureHistoryEntry('Add slide');
       const result = await this.host.engine.addSlide(this.host.currentSlide);
       this.host.currentSlide = result.slideIndex;
@@ -256,7 +257,9 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Add slide completed', { slide: this.host.currentSlide, slideCount: this.host.engine.slideCount });
     } catch (error) {
+      errorLog('slide', 'Add slide failed', { slide: this.host.currentSlide, error });
       new Notice(`Could not add slide: ${cleanError(error)}`);
     }
   }
@@ -266,6 +269,7 @@ export class SlideFilmstripController {
     if (!this.host.ensureEditable('delete slide')) return;
 
     try {
+      debugLog('slide', 'Delete slide started', { slide: this.host.currentSlide });
       const history = await this.host.captureHistoryEntry('Delete slide');
       const result = await this.host.engine.deleteSlide(this.host.currentSlide);
       this.host.currentSlide = result.slideIndex;
@@ -274,7 +278,9 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Delete slide completed', { slide: this.host.currentSlide, slideCount: this.host.engine.slideCount });
     } catch (error) {
+      errorLog('slide', 'Delete slide failed', { slide: this.host.currentSlide, error });
       new Notice(`Could not delete slide: ${cleanError(error)}`);
     }
   }
@@ -291,6 +297,7 @@ export class SlideFilmstripController {
     }
 
     try {
+      debugLog('slide', 'Delete selected slides started', { targets, slideCount: this.host.engine.slideCount });
       const history = await this.host.captureHistoryEntry('Delete slides');
       let resultIndex = this.host.currentSlide;
       for (const target of targets) {
@@ -304,7 +311,13 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Delete selected slides completed', {
+        deletedCount: targets.length,
+        slide: this.host.currentSlide,
+        slideCount: this.host.engine.slideCount
+      });
     } catch (error) {
+      errorLog('slide', 'Delete selected slides failed', { targets, error });
       new Notice(`Could not delete slides: ${cleanError(error)}`);
     }
   }
@@ -319,6 +332,7 @@ export class SlideFilmstripController {
     if (index < 0 || index >= this.host.engine.slideCount) return;
 
     try {
+      debugLog('slide', 'Move slide started', { index, direction });
       const history = await this.host.captureHistoryEntry('Move slide');
       const result = await this.host.engine.moveSlide(index, direction);
       if (result.slideIndex === index) return;
@@ -328,7 +342,9 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Move slide completed', { from: index, to: this.host.currentSlide });
     } catch (error) {
+      errorLog('slide', 'Move slide failed', { index, direction, error });
       new Notice(`Could not move slide: ${cleanError(error)}`);
     }
   }
@@ -338,6 +354,7 @@ export class SlideFilmstripController {
     if (!this.host.ensureEditable('add slide')) return;
 
     try {
+      debugLog('slide', 'Add slide with layout started', { afterSlide: this.host.currentSlide, layout });
       const history = await this.host.captureHistoryEntry('New slide');
       const result = await this.host.engine.addSlideWithLayout(this.host.currentSlide, layout);
       this.host.currentSlide = result.slideIndex;
@@ -346,7 +363,13 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Add slide with layout completed', {
+        slide: this.host.currentSlide,
+        slideCount: this.host.engine.slideCount,
+        layout
+      });
     } catch (error) {
+      errorLog('slide', 'Add slide with layout failed', { layout, error });
       new Notice(`Could not add slide: ${cleanError(error)}`);
     }
   }
@@ -357,6 +380,7 @@ export class SlideFilmstripController {
     if (targetIndex < 0 || targetIndex >= this.host.engine.slideCount) return;
 
     try {
+      debugLog('slide', 'Duplicate slide started', { targetIndex });
       const history = await this.host.captureHistoryEntry('Duplicate slide');
       const result = await this.host.engine.duplicateSlide(targetIndex);
       this.host.currentSlide = result.slideIndex;
@@ -365,7 +389,13 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Duplicate slide completed', {
+        sourceSlide: targetIndex,
+        slide: this.host.currentSlide,
+        slideCount: this.host.engine.slideCount
+      });
     } catch (error) {
+      errorLog('slide', 'Duplicate slide failed', { targetIndex, error });
       new Notice(`Could not duplicate slide: ${cleanError(error)}`);
     }
   }
@@ -376,6 +406,7 @@ export class SlideFilmstripController {
     if (targetIndex < 0 || targetIndex >= this.host.engine.slideCount) return;
 
     try {
+      debugLog('slide', 'Delete slide at index started', { targetIndex });
       const history = await this.host.captureHistoryEntry('Delete slide');
       const result = await this.host.engine.deleteSlide(targetIndex);
       this.host.currentSlide = result.slideIndex;
@@ -384,7 +415,13 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Delete slide at index completed', {
+        deletedSlide: targetIndex,
+        slide: this.host.currentSlide,
+        slideCount: this.host.engine.slideCount
+      });
     } catch (error) {
+      errorLog('slide', 'Delete slide at index failed', { targetIndex, error });
       new Notice(`Could not delete slide: ${cleanError(error)}`);
     }
   }
@@ -410,6 +447,7 @@ export class SlideFilmstripController {
     order.splice(toIndex, 0, moved);
 
     try {
+      debugLog('slide', 'Reorder slides started', { fromIndex, toIndex, slideCount });
       const history = await this.host.captureHistoryEntry('Reorder slides');
       await this.host.engine.reorderSlides(order);
       this.host.currentSlide = toIndex;
@@ -418,7 +456,9 @@ export class SlideFilmstripController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Reorder slides completed', { fromIndex, toIndex });
     } catch (error) {
+      errorLog('slide', 'Reorder slides failed', { fromIndex, toIndex, error });
       new Notice(`Could not reorder slides: ${cleanError(error)}`);
     }
   }

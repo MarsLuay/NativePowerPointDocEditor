@@ -17,6 +17,7 @@ import { debugLog, errorLog, warnLog } from './logger';
 import { Notice, Platform, setIcon } from './obsidianRuntime';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { exportRenderedPagesToPdf } from './renderedPdfExport';
+import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 
 let stylesInjected = false;
 let editorInstanceCounter = 0;
@@ -1562,6 +1563,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	ref,
 ) {
 	const editorRef = useRef<DocxEditorRef>(null);
+	const sourceBufferRef = useRef<ArrayBuffer | null | undefined>(buffer);
 	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
 	const fontInputRef = useRef<HTMLInputElement>(null);
@@ -1727,7 +1729,16 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			}
 
 			detach?.();
-			detach = attachDocxImeTransformNeutralizer(editorRoot);
+			detach = attachDocxImeTransformNeutralizer(editorRoot, {
+				getEditorView: () => editorRef.current?.getEditorRef()?.getView() ?? null,
+				getRenderedDomContext: () => renderedDomContextRef.current,
+				onDiagnostic: ({ event, details }) => {
+					debugLog('ime', `DOCX IME ${event}`, {
+						file: filePath,
+						...details,
+					});
+				},
+			});
 			return true;
 		};
 
@@ -1747,6 +1758,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			detach?.();
 		};
 	}, [buffer, documentKey, filePath, isLoading]);
+
+	useEffect(() => {
+		sourceBufferRef.current = buffer;
+	}, [buffer, filePath]);
 
 	const syncListMarkerSelectionHighlights = useCallback(() => {
 		const root = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
@@ -1809,8 +1824,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [filePath]);
 
 	const setMode = useCallback((mode: EditorMode) => {
+		debugLog('editor', 'DOCX editor mode changed', { file: filePath, mode });
 		setEditorMode(mode);
-	}, []);
+	}, [filePath]);
 
 	const publishFindHighlights = useCallback((matches: FindMatch[], currentIndex: number) => {
 		const view = editorRef.current?.getEditorRef()?.getView();
@@ -1843,19 +1859,33 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			selectFindMatch(matches, nextIndex);
 		}
 
+		debugLog('search', 'DOCX find results refreshed', {
+			file: filePath,
+			queryLength: searchText.length,
+			matchCase,
+			wholeWord,
+			matchCount: matches.length,
+			selectedMatch: matches.length > 0 ? nextIndex + 1 : 0,
+		});
 		return matches;
-	}, [findMatchCase, findWholeWord, publishFindHighlights, selectFindMatch]);
+	}, [filePath, findMatchCase, findWholeWord, publishFindHighlights, selectFindMatch]);
 
 	const openFindReplacePanel = useCallback((mode: FindReplaceMode) => {
 		const selectedText = editorRef.current?.getSelectionInfo()?.selectedText?.trim();
 		const nextSearchText = selectedText || findSearchText;
 
+		debugLog('search', 'Opened DOCX find panel', {
+			file: filePath,
+			mode,
+			seededFromSelection: Boolean(selectedText),
+			queryLength: nextSearchText.length,
+		});
 		setFindDialogMode(mode);
 		if (selectedText) {
 			setFindSearchText(selectedText);
 		}
 		refreshFindMatches(nextSearchText);
-	}, [findSearchText, refreshFindMatches]);
+	}, [filePath, findSearchText, refreshFindMatches]);
 
 	const openFindReplaceDialog = useCallback((mode: FindReplaceMode) => {
 		openFindReplacePanel(mode);
@@ -1907,8 +1937,13 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 		const textNode = findReplaceText ? view.state.schema.text(findReplaceText) : null;
 		view.dispatch(view.state.tr.replaceWith(match.from, match.to, textNode ? [textNode] : []).scrollIntoView());
+		debugLog('search', 'Replaced current DOCX find match', {
+			file: filePath,
+			replacementLength: findReplaceText.length,
+			matchCountBeforeReplace: findMatches.length,
+		});
 		refreshFindMatches(findSearchText, findMatchCase, findWholeWord, currentFindIndex);
-	}, [currentFindIndex, findMatchCase, findMatches, findReplaceText, findSearchText, findWholeWord, refreshFindMatches]);
+	}, [currentFindIndex, filePath, findMatchCase, findMatches, findReplaceText, findSearchText, findWholeWord, refreshFindMatches]);
 
 	const replaceAllMatches = useCallback(() => {
 		const view = editorRef.current?.getEditorRef()?.getView();
@@ -1922,8 +1957,13 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			transaction = transaction.replaceWith(match.from, match.to, textNode ? [textNode] : []);
 		}
 		view.dispatch(transaction.scrollIntoView());
+		debugLog('search', 'Replaced all DOCX find matches', {
+			file: filePath,
+			replacedCount: findMatches.length,
+			replacementLength: findReplaceText.length,
+		});
 		refreshFindMatches(findSearchText, findMatchCase, findWholeWord, 0);
-	}, [findMatchCase, findMatches, findReplaceText, findSearchText, findWholeWord, refreshFindMatches]);
+	}, [filePath, findMatchCase, findMatches, findReplaceText, findSearchText, findWholeWord, refreshFindMatches]);
 
 	const normalizeEditorModeDropdown = useCallback(() => {
 		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
@@ -2500,6 +2540,39 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 	}, [clearAutosaveTimeout, clearInitialDocumentCenter, clearRenameTimeout]);
 
+	const prepareDocumentBufferForWrite = useCallback(async (output: ArrayBuffer, reason: 'save' | 'export') => {
+		const startedAt = performance.now();
+		try {
+			const preserved = await preserveDocxTableCellFontSizes(sourceBufferRef.current, output);
+			debugLog('font-preservation', 'DOCX table-cell font-size preservation check completed', {
+				file: filePath,
+				reason,
+				status: preserved.status,
+				sourceBytes: sourceBufferRef.current?.byteLength ?? 0,
+				outputBytes: output.byteLength,
+				preparedBytes: preserved.buffer.byteLength,
+				sourceCellCount: preserved.sourceCellCount,
+				outputCellCount: preserved.outputCellCount,
+				matchedCellCount: preserved.matchedCellCount,
+				skippedTextChangedCells: preserved.skippedTextChangedCells,
+				skippedRunCountChangedCells: preserved.skippedRunCountChangedCells,
+				sourceRunsWithDirectSize: preserved.sourceRunsWithDirectSize,
+				restoredRuns: preserved.restoredRuns,
+				restoredTags: preserved.restoredTags,
+				ms: Math.round(performance.now() - startedAt),
+			});
+			return preserved.buffer;
+		} catch (preserveError) {
+			warnLog('font-preservation', 'DOCX table-cell font-size preservation check failed', {
+				file: filePath,
+				reason,
+				outputBytes: output.byteLength,
+				error: preserveError,
+			});
+			return output;
+		}
+	}, [filePath]);
+
 	const persistDocument = useCallback((output: ArrayBuffer, options?: SaveDocumentOptions) => {
 		if (!file) {
 			return Promise.resolve(false);
@@ -2511,10 +2584,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const saveVersion = nextOptions?.dirtyVersion ?? dirtyVersionRef.current;
 			const saveId = activeSaveIdRef.current + 1;
 			activeSaveIdRef.current = saveId;
+			const saveStartedAt = performance.now();
+			debugLog('save', 'DOCX persist started', {
+				file: file.path,
+				saveId,
+				bytes: nextOutput.byteLength,
+				silent: nextOptions?.silent === true,
+				saveVersion,
+				currentDirtyVersion: dirtyVersionRef.current,
+			});
 
 			const savePromise = (async () => {
 				try {
 					await onSave(nextOutput);
+					sourceBufferRef.current = nextOutput;
 					if (dirtyVersionRef.current === saveVersion) {
 						onDirtyChange(false);
 						setSaveStatus('saved');
@@ -2524,10 +2607,23 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					if (!nextOptions?.silent) {
 						new Notice(`Saved ${file.name}`);
 					}
+					debugLog('save', 'DOCX persist completed', {
+						file: file.path,
+						saveId,
+						bytes: nextOutput.byteLength,
+						dirtyAfterSave: dirtyVersionRef.current !== saveVersion,
+						ms: Math.round(performance.now() - saveStartedAt),
+					});
 					return true;
 				} catch (saveError) {
 					const message = saveError instanceof Error ? saveError.message : 'Unknown save error';
 					setSaveStatus('failed');
+					errorLog('save', 'DOCX persist failed', {
+						file: file.path,
+						saveId,
+						bytes: nextOutput.byteLength,
+						error: saveError,
+					});
 					new Notice(`Could not save ${file.name}: ${message}`);
 					return false;
 				} finally {
@@ -2544,6 +2640,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 		const activeSave = activeSavePromiseRef.current;
 		if (activeSave) {
+			debugLog('save', 'Queued DOCX save behind active save', {
+				file: file.path,
+				bytes: output.byteLength,
+				silent: options?.silent === true,
+			});
 			queuedSaveRequestRef.current = { output, options };
 			if (!queuedSavePromiseRef.current) {
 				queuedSavePromiseRef.current = activeSave
@@ -2570,6 +2671,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		const saveOptions = { ...options, dirtyVersion: dirtyVersionRef.current };
+		debugLog('save', 'DOCX editor serialization requested', {
+			file: file.path,
+			silent: options?.silent === true,
+			dirtyVersion: dirtyVersionRef.current,
+		});
 		setSaveStatus('saving');
 		pendingSaveOptionsRef.current = saveOptions;
 		pendingSavePromiseRef.current = null;
@@ -2580,6 +2686,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 		if (!output) {
 			setSaveStatus('failed');
+			warnLog('save', 'DOCX editor serialization returned no document', { file: file.path });
 			new Notice(`Could not save ${file.name}: the editor did not return a document.`);
 			return false;
 		}
@@ -2588,8 +2695,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			return pendingSavePromise;
 		}
 
-		return persistDocument(output, saveOptions);
-	}, [clearAutosaveTimeout, file, persistDocument]);
+		const preparedOutput = await prepareDocumentBufferForWrite(output, 'save');
+		return persistDocument(preparedOutput, saveOptions);
+	}, [clearAutosaveTimeout, file, persistDocument, prepareDocumentBufferForWrite]);
 
 	const exportDocumentBuffer = useCallback(async (options?: ExportDocumentBufferOptions) => {
 		if (!options?.preserveAutosave) {
@@ -2612,13 +2720,13 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				return null;
 			}
 
-			return output;
+			return await prepareDocumentBufferForWrite(output, 'export');
 		} finally {
 			pendingSaveModeRef.current = 'save';
 			pendingSaveOptionsRef.current = undefined;
 			pendingSavePromiseRef.current = null;
 		}
-	}, [clearAutosaveTimeout, file]);
+	}, [clearAutosaveTimeout, file, prepareDocumentBufferForWrite]);
 
 	const exportRenderedPdfBuffer = useCallback(async () => {
 		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
@@ -2671,11 +2779,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		clearAutosaveTimeout();
+		debugLog('save', 'DOCX autosave scheduled', {
+			file: filePath,
+			delayMs: 1500,
+			dirtyVersion: dirtyVersionRef.current,
+		});
 		autosaveTimeoutRef.current = window.setTimeout(() => {
 			autosaveTimeoutRef.current = null;
+			debugLog('save', 'DOCX autosave started', {
+				file: filePath,
+				dirtyVersion: dirtyVersionRef.current,
+			});
 			void saveDocument({ silent: true });
 		}, 1500);
-	}, [autosave, clearAutosaveTimeout, saveDocument]);
+	}, [autosave, clearAutosaveTimeout, filePath, saveDocument]);
 
 	const scheduleRename = useCallback((name: string) => {
 		clearRenameTimeout();
@@ -2717,13 +2834,15 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		)(view.state, view.dispatch);
 
 		if (!inserted) {
+			warnLog('editor', 'DOCX table insertion was rejected', { file: filePath, rows, columns });
 			new Notice('Could not insert a table here.');
 			return;
 		}
 
+		debugLog('editor', 'Inserted DOCX table', { file: filePath, rows, columns });
 		view.focus();
 		setCustomTableDialogOpen(false);
-	}, [buffer, editorMode, file]);
+	}, [buffer, editorMode, file, filePath]);
 
 	const openCustomTableDialog = useCallback(() => {
 		setCustomTableDialogOpen(true);
@@ -2755,9 +2874,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		const applied = setFontFamily(fontFamily)(view.state, view.dispatch);
+		debugLog('editor', 'Applied DOCX font family', {
+			file: filePath,
+			fontFamily,
+			applied,
+		});
 		view.focus();
 		return applied;
-	}, [editorMode]);
+	}, [editorMode, filePath]);
 
 	const stopFontSizeHold = useCallback(() => {
 		const hold = fontSizeHoldRef.current;
@@ -2803,9 +2927,15 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			hold.currentSize = nextSize;
 		}
 		updateFontSizeControlDisplay(control, nextSize);
+		debugLog('editor', 'Applied DOCX font-size step', {
+			file: filePath,
+			direction,
+			fromPoints: currentSize,
+			toPoints: nextSize,
+		});
 		view.focus();
 		return true;
-	}, [editorMode]);
+	}, [editorMode, filePath]);
 
 	const startFontSizeHold = useCallback((button: HTMLButtonElement, direction: FontSizeStepDirection) => {
 		if (button.disabled || editorMode === 'viewing') {
@@ -3169,13 +3299,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			]);
 
 			const wasApplied = applyFontFamilyToSelection(fontFamily);
+			debugLog('editor', 'Imported DOCX font', {
+				file: filePath,
+				fontFileName: fontFile.name,
+				fontName,
+				bytes: fontBuffer.byteLength,
+				appliedToSelection: wasApplied,
+			});
 			new Notice(wasApplied ? `Imported and applied ${fontName}.` : `Imported ${fontName}.`);
 		} catch (fontError) {
 			const message = fontError instanceof Error ? fontError.message : 'Unknown font import error';
 			errorLog('editor', `Could not import font ${fontFile.name}`, fontError);
 			new Notice(`Could not import font: ${message}`);
 		}
-	}, [applyFontFamilyToSelection, fontFamilies]);
+	}, [applyFontFamilyToSelection, filePath, fontFamilies]);
 
 	const handleFontInputChange = useCallback((evt: ChangeEvent<HTMLInputElement>) => {
 		const fontFile = evt.currentTarget.files?.[0];
@@ -3224,13 +3361,21 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			});
 			const { from } = view.state.selection;
 			view.dispatch(view.state.tr.insert(from, imageNode).scrollIntoView());
+			debugLog('editor', 'Inserted image into DOCX', {
+				file: filePath,
+				imageFileName: imageFile.name,
+				imageType: imageFile.type,
+				imageBytes: imageFile.size,
+				width,
+				height,
+			});
 			view.focus();
 		} catch (insertError) {
 			const message = insertError instanceof Error ? insertError.message : 'Unknown image insert error';
 			errorLog('editor', `Could not insert image into ${file.name}`, insertError);
 			new Notice(`Could not insert image: ${message}`);
 		}
-	}, [buffer, editorMode, file]);
+	}, [buffer, editorMode, file, filePath]);
 
 	const openImagePicker = useCallback(() => {
 		if (editorMode === 'viewing') {
@@ -3267,7 +3412,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		exportRenderedPdf: () => exportRenderedPdfBuffer(),
 		pasteFromClipboard: async (options: PasteClipboardOptions) => {
 			const view = editorRef.current?.getEditorRef()?.getView();
-			return view ? await pasteClipboardIntoEditor(view, options) : false;
+			const pasted = view ? await pasteClipboardIntoEditor(view, options) : false;
+			debugLog('clipboard', 'DOCX paste command completed', {
+				file: filePath,
+				preserveFormatting: options.preserveFormatting,
+				pasted,
+				editorReady: Boolean(view),
+			});
+			return pasted;
 		},
 		rewriteClipboardTextWithListMarkers: async () => {
 			const view = editorRef.current?.getEditorRef()?.getView();
@@ -3279,8 +3431,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		openCustomTableDialog,
 		openFontPicker,
 		setMode,
-		setZoom: (zoom: number) => editorRef.current?.setZoom(zoom),
-	}), [exportDocumentBuffer, exportRenderedPdfBuffer, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, saveDocument, setMode]);
+		setZoom: (zoom: number) => {
+			debugLog('editor', 'DOCX zoom changed', { file: filePath, zoom });
+			editorRef.current?.setZoom(zoom);
+		},
+	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, saveDocument, setMode]);
 
 	if (isLoading) {
 		return null;
@@ -3362,7 +3517,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						return;
 					}
 
-					const savePromise = persistDocument(output, pendingSaveOptionsRef.current);
+					const saveOptions = pendingSaveOptionsRef.current;
+					const savePromise = prepareDocumentBufferForWrite(output, 'save')
+						.then((preparedOutput) => persistDocument(preparedOutput, saveOptions));
 					pendingSavePromiseRef.current = savePromise;
 					void savePromise;
 				}}

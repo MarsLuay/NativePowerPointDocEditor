@@ -2,6 +2,7 @@ import { Notice } from 'obsidian';
 import type { ShapeTransform } from 'pptx-svg';
 
 import { isSVGGElement } from '../domGuards';
+import { debugLog, errorLog } from '../logger';
 import type { PresentationEngine, ShapeReorderMode } from '../PresentationEngine';
 import { cleanError } from './runtimeCompat';
 import { cloneTransform } from './svgUtils';
@@ -103,6 +104,12 @@ export class ArrangeController {
       next.y += dy;
       return { index, transform: next };
     });
+    debugLog('arrange', 'Nudging PowerPoint objects', {
+      slide: this.host.currentSlide,
+      count: updates.length,
+      key,
+      large
+    });
     await this.host.commitGroupTransforms(updates, 'Nudge objects');
   }
 
@@ -149,6 +156,11 @@ export class ArrangeController {
     });
 
     await this.host.commitGroupTransforms(updates, 'Distribute objects');
+    debugLog('arrange', 'Distributed PowerPoint objects', {
+      slide: this.host.currentSlide,
+      count: updates.length,
+      axis
+    });
   }
 
   async reorderSelection(mode: ShapeReorderMode): Promise<void> {
@@ -167,7 +179,13 @@ export class ArrangeController {
         this.host.applyMultiSelection(newIndices.filter((index) => index >= 0));
         await this.host.renderThumbnails();
       }
+      debugLog('arrange', 'Reordered PowerPoint objects', {
+        slide: this.host.currentSlide,
+        count: indices.length,
+        mode
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint object reorder failed', { indices, mode, error });
       new Notice(`Could not reorder objects: ${cleanError(error)}`);
     }
   }
@@ -191,7 +209,13 @@ export class ArrangeController {
         this.host.selectShape(groupIndex);
         await this.host.renderThumbnails();
       }
+      debugLog('arrange', 'Grouped PowerPoint objects', {
+        slide: this.host.currentSlide,
+        count: indices.length,
+        groupIndex
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint object grouping failed', { indices, error });
       new Notice(`Could not group objects: ${cleanError(error)}`);
     }
   }
@@ -217,7 +241,13 @@ export class ArrangeController {
         this.host.applyMultiSelection(newIndices.filter((index) => index >= 0));
         await this.host.renderThumbnails();
       }
+      debugLog('arrange', 'Ungrouped PowerPoint objects', {
+        slide: this.host.currentSlide,
+        groupIndex,
+        resultCount: newIndices.length
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint object ungrouping failed', { groupIndex, error });
       new Notice(`Could not ungroup objects: ${cleanError(error)}`);
     }
   }

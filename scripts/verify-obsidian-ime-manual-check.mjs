@@ -102,6 +102,12 @@ function assertWrapperNeutralized(metrics, scenario) {
 		`${scenario.name}: transform must not use scale/translateX`,
 	);
 	assert.equal(metrics.transformAncestorsOnCaret, 0, `${scenario.name}: caret must have zero transform ancestors`);
+	assert.equal(metrics.hiddenImeRootFound, true, `${scenario.name}: hidden ProseMirror root should exist`);
+	assert.equal(metrics.hiddenImeAnchored, true, `${scenario.name}: hidden IME root should be anchored`);
+	assert.equal(metrics.compositionStartAnchored, true, `${scenario.name}: composition start should see an anchored root`);
+	assert.ok(metrics.hiddenCaretDelta, `${scenario.name}: hidden/visible caret delta should be measured`);
+	assert.ok(Math.abs(metrics.hiddenCaretDelta.x) <= 2, `${scenario.name}: hidden caret x should match visible caret`);
+	assert.ok(Math.abs(metrics.hiddenCaretDelta.bottom) <= 2, `${scenario.name}: hidden caret bottom should match visible caret`);
 
 	if (scenario.expectZoom || scenario.expectMarginLeft) {
 		assert.ok(
@@ -148,6 +154,10 @@ async function main() {
 				+ ` margin-left=${metrics.wrapper.inlineMarginLeft || '(none)'}`,
 		);
 		console.log(`  caret transform ancestors: ${metrics.transformAncestorsOnCaret}`);
+		console.log(
+			`  hidden IME anchor: x delta=${metrics.hiddenCaretDelta.x}`
+				+ ` bottom delta=${metrics.hiddenCaretDelta.bottom}`,
+		);
 	}
 
 	await writeFile(path.join(outputDir, 'results.json'), `${JSON.stringify(results, null, 2)}\n`);

@@ -2,6 +2,7 @@ import { Notice, Platform } from 'obsidian';
 
 import type { PresentationEngine } from '../PresentationEngine';
 import { HISTORY_LIMIT } from './constants';
+import { debugLog, errorLog } from '../logger';
 import { cleanError } from './runtimeCompat';
 import type { HistoryEntry } from './types';
 
@@ -67,8 +68,14 @@ export class HistoryController {
       throw new Error('Open a loaded PowerPoint file first.');
     }
 
+    const buffer = await this.host.engine.export();
+    debugLog('history', 'Captured PowerPoint history snapshot', {
+      label,
+      slide: this.host.currentSlide,
+      bytes: buffer.byteLength
+    });
     return {
-      buffer: await this.host.engine.export(),
+      buffer,
       currentSlide: this.host.currentSlide,
       label
     };
@@ -80,6 +87,11 @@ export class HistoryController {
       this.undoStack.shift();
     }
     this.redoStack = [];
+    debugLog('history', 'Recorded PowerPoint history entry', {
+      label: entry.label,
+      undoDepth: this.undoStack.length,
+      redoDepth: this.redoStack.length
+    });
     this.updateAvailability();
   }
 
@@ -87,6 +99,7 @@ export class HistoryController {
     this.undoStack = [];
     this.redoStack = [];
     this.isRestoringHistory = false;
+    debugLog('history', 'Cleared PowerPoint history');
     this.updateAvailability();
   }
 
@@ -117,6 +130,11 @@ export class HistoryController {
     this.host.clearAutosave();
     this.host.clearDragState();
     this.updateAvailability();
+    debugLog('history', `PowerPoint ${action} started`, {
+      label: entry.label,
+      sourceDepth: source.length,
+      destinationDepth: destination.length
+    });
 
     try {
       const current = await this.capture(entry.label);
@@ -132,7 +150,17 @@ export class HistoryController {
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.host.renderThumbnails();
+      debugLog('history', `PowerPoint ${action} completed`, {
+        label: entry.label,
+        slide: this.host.currentSlide,
+        sourceDepth: source.length,
+        destinationDepth: destination.length
+      });
     } catch (error) {
+      errorLog('history', `PowerPoint ${action} failed`, {
+        label: entry.label,
+        error
+      });
       new Notice(`Could not ${action}: ${cleanError(error)}`);
     } finally {
       this.isRestoringHistory = false;

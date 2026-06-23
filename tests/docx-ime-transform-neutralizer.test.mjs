@@ -37,12 +37,37 @@ test("parseEditorZoomTransform reads translateX and scale from eigenpal-style tr
 		editorZoomTransformNeedsNeutralization,
 	} = await loadNeutralizerModule();
 
-	assert.deepEqual(parseEditorZoomTransform("none"), { translateXPx: 0, scale: 1 });
+	assert.deepEqual(parseEditorZoomTransform("none"), { translateXPx: 0, translateYPx: 0, scale: 1 });
 	assert.deepEqual(parseEditorZoomTransform("translateX(-176px) scale(1.25)"), {
 		translateXPx: -176,
+		translateYPx: 0,
 		scale: 1.25,
 	});
-	assert.deepEqual(parseEditorZoomTransform("scale(1)"), { translateXPx: 0, scale: 1 });
+	assert.deepEqual(parseEditorZoomTransform("matrix(1.25, 0, 0, 1.25, -176, 24)"), {
+		translateXPx: -176,
+		translateYPx: 24,
+		scale: 1.25,
+	});
+	assert.deepEqual(parseEditorZoomTransform("scale(1)"), { translateXPx: 0, translateYPx: 0, scale: 1 });
 	assert.equal(editorZoomTransformNeedsNeutralization("translateX(-176px) scale(1.25)"), true);
+	assert.equal(editorZoomTransformNeedsNeutralization("translate(0px, 24px)"), true);
 	assert.equal(editorZoomTransformNeedsNeutralization("none"), false);
+});
+
+test("calculateHiddenImeAnchorPosition aligns hidden IME caret to visible caret", async () => {
+	const { calculateHiddenImeAnchorPosition } = await loadNeutralizerModule();
+
+	const next = calculateHiddenImeAnchorPosition(
+		-9999,
+		0,
+		{ left: -9400, top: 200, bottom: 220, height: 20 },
+		{ left: 300, top: 400, bottom: 424, height: 24 },
+	);
+
+	assert.deepEqual(next, { leftPx: -299, topPx: 204 });
+
+	const hiddenCaretLeftAfterMove = -9400 + (next.leftPx - -9999);
+	const hiddenCaretBottomAfterMove = 220 + (next.topPx - 0);
+	assert.equal(hiddenCaretLeftAfterMove, 300);
+	assert.equal(hiddenCaretBottomAfterMove, 424);
 });

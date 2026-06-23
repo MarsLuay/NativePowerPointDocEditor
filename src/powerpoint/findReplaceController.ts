@@ -3,6 +3,7 @@ import { Notice, setIcon } from 'obsidian';
 import type { PresentationEngine } from '../PresentationEngine';
 import type { ShapeTransform } from 'pptx-svg';
 import { isNode, isSVGTextElement } from '../domGuards';
+import { debugLog, errorLog } from '../logger';
 import { cleanError } from './runtimeCompat';
 import { normalizeSearchText } from './textUtils';
 import { getShapeIndex } from './svgUtils';
@@ -193,6 +194,10 @@ export class FindReplaceController {
     }
 
     this.findPanelEl?.addClass('is-open');
+    debugLog('search', 'Opened PowerPoint find panel', {
+      replaceMode: options.replace === true,
+      slide: this.host.currentSlide
+    });
     if (options.replace) {
       this.setFindReplaceMode(true);
     }
@@ -328,8 +333,20 @@ export class FindReplaceController {
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.host.renderThumbnails();
       await this.refreshFindMatches({ reveal: true });
+      debugLog('search', 'Replaced current PowerPoint find match', {
+        queryLength: query.length,
+        replacementLength: replacement.length,
+        replacedCount: count,
+        slide: match.slideIndex,
+        shapeIndex: match.shapeIndex
+      });
       new Notice(count === 1 ? 'Replaced 1 match.' : `Replaced ${count} matches.`);
     } catch (error) {
+      errorLog('search', 'PowerPoint replace-current failed', {
+        queryLength: query.length,
+        replacementLength: replacement.length,
+        error
+      });
       new Notice(`Could not replace text: ${cleanError(error)}`);
     }
   }
@@ -357,8 +374,18 @@ export class FindReplaceController {
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.host.renderThumbnails();
       await this.refreshFindMatches({ reveal: true });
+      debugLog('search', 'Replaced all PowerPoint find matches', {
+        queryLength: query.length,
+        replacementLength: replacement.length,
+        replacedCount: count
+      });
       new Notice(count === 1 ? 'Replaced 1 match.' : `Replaced ${count} matches.`);
     } catch (error) {
+      errorLog('search', 'PowerPoint replace-all failed', {
+        queryLength: query.length,
+        replacementLength: replacement.length,
+        error
+      });
       new Notice(`Could not replace text: ${cleanError(error)}`);
     }
   }
@@ -392,6 +419,10 @@ export class FindReplaceController {
       this.findMatches = [];
       this.currentFindMatchIndex = 0;
       this.updateFindStatus();
+      debugLog('search', 'PowerPoint find results cleared', {
+        queryLength: query.length,
+        hasEngine: Boolean(this.host.engine)
+      });
       return;
     }
 
@@ -399,6 +430,11 @@ export class FindReplaceController {
     if (this.findMatches.length === 0) {
       this.currentFindMatchIndex = 0;
       this.updateFindStatus();
+      debugLog('search', 'PowerPoint find completed', {
+        queryLength: query.length,
+        matchCount: 0,
+        slideCount: this.host.engine.slideCount
+      });
       return;
     }
 
@@ -411,6 +447,13 @@ export class FindReplaceController {
       this.applyFindHighlight();
       this.updateFindStatus();
     }
+    debugLog('search', 'PowerPoint find completed', {
+      queryLength: query.length,
+      matchCount: this.findMatches.length,
+      slideCount: this.host.engine.slideCount,
+      selectedMatch: this.currentFindMatchIndex + 1,
+      reveal: options.reveal === true
+    });
   }
 
   private collectFindMatches(query: string): PowerPointFindMatch[] {

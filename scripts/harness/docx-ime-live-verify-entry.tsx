@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocxEditor } from '@eigenpal/docx-editor-react';
+import { DocxEditor, type DocxEditorRef } from '@eigenpal/docx-editor-react';
 import editorStyles from '@eigenpal/docx-editor-react/styles.css';
+import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
 import {
 	attachDocxImeTransformNeutralizer,
 	countTransformAncestors,
@@ -26,6 +27,10 @@ type LiveVerifyMetrics = {
 	wrapper: WrapperInspection | null;
 	transformAncestorsOnCaret: number;
 	editableFound: boolean;
+	hiddenImeRootFound: boolean;
+	hiddenImeAnchored: boolean;
+	hiddenCaretDelta: { x: number; bottom: number } | null;
+	compositionStartAnchored: boolean;
 	passed: boolean;
 };
 
@@ -60,7 +65,12 @@ function findNeutralizerRoot(hostEl: HTMLElement): HTMLElement | null {
 	);
 }
 
-function collectMetrics(scenarioName: string, hostEl: HTMLElement): LiveVerifyMetrics {
+function collectMetrics(
+	scenarioName: string,
+	hostEl: HTMLElement,
+	editorRef: React.RefObject<DocxEditorRef>,
+	compositionStartAnchored: boolean,
+): LiveVerifyMetrics {
 	const editorRoot = findNeutralizerRoot(hostEl);
 	if (!editorRoot) {
 		return {
@@ -69,6 +79,10 @@ function collectMetrics(scenarioName: string, hostEl: HTMLElement): LiveVerifyMe
 			wrapper: null,
 			transformAncestorsOnCaret: -1,
 			editableFound: false,
+			hiddenImeRootFound: false,
+			hiddenImeAnchored: false,
+			hiddenCaretDelta: null,
+			compositionStartAnchored,
 			passed: false,
 		};
 	}
@@ -80,6 +94,23 @@ function collectMetrics(scenarioName: string, hostEl: HTMLElement): LiveVerifyMe
 	}
 	const wrapper = inspectWrapper(editorRoot);
 	const transformAncestorsOnCaret = editable ? countTransformAncestors(editable) : -1;
+	const view = editorRef.current?.getEditorRef()?.getView() ?? null;
+	const hiddenRoot = view?.dom.closest<HTMLElement>('.paged-editor__hidden-pm') ?? null;
+	const visibleCaret = editorRoot.querySelector<HTMLElement>('[data-testid="caret"]');
+	let hiddenCaretDelta: LiveVerifyMetrics['hiddenCaretDelta'] = null;
+	if (view && visibleCaret) {
+		try {
+			const hiddenCaretRect = view.coordsAtPos(view.state.selection.head);
+			const visibleCaretRect = visibleCaret.getBoundingClientRect();
+			hiddenCaretDelta = {
+				x: Math.round(hiddenCaretRect.left - visibleCaretRect.left),
+				bottom: Math.round(hiddenCaretRect.bottom - visibleCaretRect.bottom),
+			};
+		} catch {
+			hiddenCaretDelta = null;
+		}
+	}
+	const hiddenImeAnchored = hiddenRoot?.dataset.docxidianImeAnchored === 'true';
 
 	const passed =
 		wrapper !== null
@@ -87,6 +118,11 @@ function collectMetrics(scenarioName: string, hostEl: HTMLElement): LiveVerifyMe
 		&& !wrapper.inlineTransform.includes('scale(')
 		&& !wrapper.inlineTransform.includes('translateX(')
 		&& transformAncestorsOnCaret === 0
+		&& hiddenImeAnchored
+		&& hiddenCaretDelta !== null
+		&& Math.abs(hiddenCaretDelta.x) <= 2
+		&& Math.abs(hiddenCaretDelta.bottom) <= 2
+		&& compositionStartAnchored
 		&& (wrapper.inlineZoom !== '' || wrapper.inlineMarginLeft !== '' || scenarioName === 'baseline');
 
 	return {
@@ -95,6 +131,10 @@ function collectMetrics(scenarioName: string, hostEl: HTMLElement): LiveVerifyMe
 		wrapper,
 		transformAncestorsOnCaret,
 		editableFound: Boolean(editable),
+		hiddenImeRootFound: Boolean(hiddenRoot),
+		hiddenImeAnchored,
+		hiddenCaretDelta,
+		compositionStartAnchored,
 		passed,
 	};
 }
@@ -109,6 +149,8 @@ function DocxLiveVerifyApp({
 	showOutline: boolean;
 }) {
 	const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
+	const editorRef = useRef<DocxEditorRef>(null);
+	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
 
 	useEffect(() => {
 		if (!hostEl) {
@@ -117,24 +159,40 @@ function DocxLiveVerifyApp({
 
 		let detachNeutralizer: (() => void) | undefined;
 		let retryInterval: number | undefined;
+		let compositionStartAnchored = false;
 
 		const attachNeutralizer = (): boolean => {
 			const editorRoot = findNeutralizerRoot(hostEl);
-			if (!editorRoot) {
+			const editorView = editorRef.current?.getEditorRef()?.getView();
+			if (!editorRoot || !editorView) {
 				return false;
 			}
 
 			detachNeutralizer?.();
-			detachNeutralizer = attachDocxImeTransformNeutralizer(editorRoot);
+			detachNeutralizer = attachDocxImeTransformNeutralizer(editorRoot, {
+				getEditorView: () => editorRef.current?.getEditorRef()?.getView() ?? null,
+				getRenderedDomContext: () => renderedDomContextRef.current,
+				onDiagnostic: (event) => {
+					if (event.event === 'composition-start' && event.details?.anchored === true) {
+						compositionStartAnchored = true;
+					}
+				},
+			});
 			editorRoot.dataset.docxidianImeAttachProbe = 'true';
 			return true;
 		};
 
 		const publish = () => {
 			attachNeutralizer();
-			const metrics = collectMetrics(scenarioName, hostEl);
-			document.body.dataset.metrics = encodeURIComponent(JSON.stringify(metrics));
-			console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(metrics));
+			editorRef.current?.focus();
+			window.setTimeout(() => {
+				document.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: 'に' }));
+				window.setTimeout(() => {
+					const metrics = collectMetrics(scenarioName, hostEl, editorRef, compositionStartAnchored);
+					document.body.dataset.metrics = encodeURIComponent(JSON.stringify(metrics));
+					console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(metrics));
+				}, 50);
+			}, 50);
 		};
 
 		if (!attachNeutralizer()) {
@@ -162,6 +220,7 @@ function DocxLiveVerifyApp({
 	return (
 		<div className="docxidian-host" ref={setHostEl}>
 			<DocxEditor
+				ref={editorRef}
 				className="docxidian-editor-harness"
 				documentBuffer={DOCX_BUFFER}
 				initialZoom={initialZoom}
@@ -170,6 +229,9 @@ function DocxLiveVerifyApp({
 				showToolbar={false}
 				showRuler={false}
 				showZoomControl={false}
+				onRenderedDomContextReady={(context) => {
+					renderedDomContextRef.current = context;
+				}}
 				onFontsLoaded={() => undefined}
 				onError={(error) => {
 					const payload: LiveVerifyMetrics = {
@@ -178,6 +240,10 @@ function DocxLiveVerifyApp({
 						wrapper: null,
 						transformAncestorsOnCaret: -1,
 						editableFound: false,
+						hiddenImeRootFound: false,
+						hiddenImeAnchored: false,
+						hiddenCaretDelta: null,
+						compositionStartAnchored: false,
 						passed: false,
 					};
 					document.body.dataset.metrics = encodeURIComponent(JSON.stringify(payload));

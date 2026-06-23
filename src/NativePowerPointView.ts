@@ -148,6 +148,7 @@ interface InlineEditSnapshot {
 }
 
 const INLINE_EDIT_HISTORY_LIMIT = 200;
+const EDITOR_FORMATTING_SURFACE_SELECTOR = '.native-powerpoint-toolbar, .native-powerpoint-text-toolbar, .native-powerpoint-toolbar-popover';
 
 export class NativePowerPointView extends FileView {
   private readonly getSettings: () => NativePowerPointSettings;
@@ -423,6 +424,7 @@ export class NativePowerPointView extends FileView {
   }
 
   async onOpen(): Promise<void> {
+    debugLog('view', 'Opening PowerPoint view');
     this.contentEl.empty();
     this.contentEl.addClass('native-powerpoint-view');
     this.createLayout();
@@ -433,6 +435,7 @@ export class NativePowerPointView extends FileView {
   }
 
   async onLoadFile(file: TFile): Promise<void> {
+    debugLog('file', 'PowerPoint file load requested', { file: file.path });
     if (this.engine && this.loadedFile && this.loadedFile.path !== file.path) {
       const preserved = await this.preserveUnsavedChangesForTeardown('switching files');
       if (!preserved) {
@@ -447,6 +450,7 @@ export class NativePowerPointView extends FileView {
   }
 
   async onUnloadFile(_file: TFile): Promise<void> {
+    debugLog('file', 'PowerPoint file unload requested', { file: _file.path });
     const preserved = await this.preserveUnsavedChangesForTeardown('switching files');
     if (preserved) {
       this.resetLoadedPresentation();
@@ -454,6 +458,10 @@ export class NativePowerPointView extends FileView {
   }
 
   async onClose(): Promise<void> {
+    debugLog('view', 'Closing PowerPoint view', {
+      file: this.loadedFile?.path ?? this.file?.path ?? null,
+      dirty: this.isDirty
+    });
     this.findController.dispose();
     this.presentController?.dispose();
     this.presentController = null;
@@ -467,6 +475,7 @@ export class NativePowerPointView extends FileView {
     this.resetLoadedPresentation();
     this.contentEl.removeClass('native-powerpoint-view');
     this.file = null;
+    debugLog('view', 'Closed PowerPoint view');
   }
 
   async saveCurrentPresentation(): Promise<boolean> {
@@ -489,13 +498,25 @@ export class NativePowerPointView extends FileView {
     }
 
     const targetVersion = this.editVersion;
+    const saveStartedAt = performance.now();
     this.clearAutosave();
     this.setSaveState('saving');
+    debugLog('save', 'PowerPoint save started', {
+      file: file.path,
+      targetVersion,
+      sourceBytes: sourceBuffer.byteLength,
+      slideCount: engine.slideCount
+    });
 
     const run = async () => {
       const output = await engine.export();
       const exportedPackage = await this.validateExportBeforeSave(output, engine, sourcePackage, sourceBuffer);
       await this.app.vault.modifyBinary(file, output);
+      debugLog('save', 'PowerPoint vault write completed', {
+        file: file.path,
+        bytes: output.byteLength,
+        targetVersion
+      });
 
       if (this.engine === engine && this.loadedFile?.path === file.path) {
         this.sourcePackage = exportedPackage;
@@ -516,11 +537,19 @@ export class NativePowerPointView extends FileView {
 
     try {
       await this.savePromise;
+      debugLog('save', 'PowerPoint save completed', {
+        file: file.path,
+        targetVersion,
+        currentVersion: this.editVersion,
+        dirty: this.isDirty,
+        ms: Math.round(performance.now() - saveStartedAt)
+      });
       return true;
     } catch (error) {
       const message = cleanError(error);
       this.lastSaveError = message;
       this.setSaveState('failed');
+      errorLog('save', 'PowerPoint save failed', { file: file.path, targetVersion, error });
       new Notice(`Could not save ${file.name}: ${message}`);
       if (this.isDirty && this.getSettings().autosaveEnabled) {
         this.scheduleAutosave(5000);
@@ -539,6 +568,11 @@ export class NativePowerPointView extends FileView {
       throw new Error('Cannot verify the PowerPoint package before saving.');
     }
 
+    debugLog('save', 'PowerPoint save validation started', {
+      slideCount: engine.slideCount,
+      sourceBytes: sourceBuffer.byteLength,
+      outputBytes: output.byteLength
+    });
     const exportedPackage = inspectPowerPointPackage(output);
     const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount);
     if (!validation.ok) {
@@ -551,6 +585,10 @@ export class NativePowerPointView extends FileView {
     }
 
     await PresentationEngine.validateRoundTrip(output, engine.slideCount);
+    debugLog('save', 'PowerPoint save validation completed', {
+      slideCount: engine.slideCount,
+      outputBytes: output.byteLength
+    });
     return exportedPackage;
   }
 
@@ -1274,6 +1312,11 @@ export class NativePowerPointView extends FileView {
     });
 
     await this.commitGroupTransforms(updates, 'Distribute objects');
+    debugLog('arrange', 'Distributed PowerPoint objects', {
+      slide: this.currentSlide,
+      count: updates.length,
+      axis
+    });
   }
 
   private async reorderSelection(mode: ShapeReorderMode): Promise<void> {
@@ -1292,7 +1335,13 @@ export class NativePowerPointView extends FileView {
         this.applyMultiSelection(newIndices.filter((index) => index >= 0));
         await this.renderThumbnails();
       }
+      debugLog('arrange', 'Reordered PowerPoint objects', {
+        slide: this.currentSlide,
+        count: indices.length,
+        mode
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint object reorder failed', { indices, mode, error });
       new Notice(`Could not reorder objects: ${cleanError(error)}`);
     }
   }
@@ -1316,7 +1365,13 @@ export class NativePowerPointView extends FileView {
         this.selectShape(groupIndex);
         await this.renderThumbnails();
       }
+      debugLog('arrange', 'Grouped PowerPoint objects', {
+        slide: this.currentSlide,
+        count: indices.length,
+        groupIndex
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint object grouping failed', { indices, error });
       new Notice(`Could not group objects: ${cleanError(error)}`);
     }
   }
@@ -1342,7 +1397,13 @@ export class NativePowerPointView extends FileView {
         this.applyMultiSelection(newIndices.filter((index) => index >= 0));
         await this.renderThumbnails();
       }
+      debugLog('arrange', 'Ungrouped PowerPoint objects', {
+        slide: this.currentSlide,
+        groupIndex,
+        resultCount: newIndices.length
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint object ungrouping failed', { groupIndex, error });
       new Notice(`Could not ungroup objects: ${cleanError(error)}`);
     }
   }
@@ -1566,7 +1627,14 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint image from vault', {
+        slide: this.currentSlide,
+        shapeIndex,
+        file: file.path,
+        bytes: bytes.byteLength
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint vault image insertion failed', { file: file.path, error });
       new Notice(`Could not insert image: ${cleanError(error)}`);
     }
   }
@@ -1589,7 +1657,19 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint image from local file', {
+        slide: this.currentSlide,
+        shapeIndex,
+        fileName: file.name,
+        mimeType: file.type || null,
+        bytes: bytes.byteLength
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint local image insertion failed', {
+        fileName: file.name,
+        mimeType: file.type || null,
+        error
+      });
       new Notice(`Could not insert image: ${cleanError(error)}`);
     }
   }
@@ -1607,7 +1687,13 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint shape', {
+        slide: this.currentSlide,
+        shapeIndex,
+        geometry
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint shape insertion failed', { geometry, error });
       new Notice(`Could not insert shape: ${cleanError(error)}`);
     }
   }
@@ -1625,7 +1711,14 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint table', {
+        slide: this.currentSlide,
+        shapeIndex,
+        rows,
+        columns: cols
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint table insertion failed', { rows, columns: cols, error });
       new Notice(`Could not insert table: ${cleanError(error)}`);
     }
   }
@@ -1643,13 +1736,22 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint chart', {
+        slide: this.currentSlide,
+        shapeIndex
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint chart insertion failed', { slide: this.currentSlide, error });
       new Notice(`Could not insert chart: ${cleanError(error)}`);
     }
   }
 
   private async applyListStyle(style: ParagraphListStyle): Promise<void> {
     if (!this.engine || !this.ensureEditable('format text')) return;
+
+    if (this.textCommitPromise) {
+      await this.finishInlineTextEditing('before-list-formatting');
+    }
 
     const textTarget = this.getTextEditTarget(this.activeEditorTarget);
     const shapeIndex = textTarget?.shapeIndex ?? this.selectedShapeIndex;
@@ -1659,16 +1761,67 @@ export class NativePowerPointView extends FileView {
     }
 
     const paragraphIndex = textTarget?.kind === 'shape-paragraph' ? textTarget.paragraphIndex : 0;
+    const editor = this.activeEditor;
+    const shapeTextTarget = this.activeShapeTextTarget;
+    let pendingText: string | null = null;
+    let savedStart = 0;
+    let savedEnd = 0;
+    if (
+      editor
+      && shapeTextTarget
+      && shapeTextTarget.shapeIndex === shapeIndex
+      && shapeTextTarget.paragraphIndex === paragraphIndex
+    ) {
+      savedStart = Math.min(editor.selectionStart ?? 0, editor.selectionEnd ?? 0);
+      savedEnd = Math.max(editor.selectionStart ?? 0, editor.selectionEnd ?? 0);
+      const normalizedEditorText = this.paragraphEditorTextFromDom(
+        shapeIndex,
+        paragraphIndex,
+        editor.value
+      );
+      pendingText = normalizedEditorText !== shapeTextTarget.text ? normalizedEditorText : null;
+    }
+
     try {
       const history = await this.captureHistoryEntry(
         style === 'bullet' ? 'Bulleted list' : style === 'number' ? 'Numbered list' : 'Remove list'
       );
+      const scrollPosition = this.captureCanvasScroll();
+      if (pendingText !== null) {
+        await this.engine.updateParagraphText(this.currentSlide, shapeIndex, paragraphIndex, pendingText);
+      }
       await this.engine.applyListStyle(this.currentSlide, shapeIndex, paragraphIndex, style);
       this.recordHistoryEntry(history);
       this.markDirty();
       const rendered = await this.renderEditedShape(shapeIndex);
-      if (rendered) await this.renderThumbnails();
+      if (rendered) {
+        this.restoreCanvasScrollSoon(scrollPosition);
+        await this.renderThumbnails();
+        if (editor && this.activeEditor === editor && shapeTextTarget?.shapeIndex === shapeIndex) {
+          if (this.refreshActiveShapeEditorAfterRender()) {
+            const length = editor.value.length;
+            editor.setSelectionRange(Math.min(savedStart, length), Math.min(savedEnd, length));
+            this.refreshInlineEditorGeometry();
+          } else {
+            this.removeActiveEditor(editor);
+          }
+        }
+        this.updateTextToolbar();
+      }
+      debugLog('insert', 'Applied PowerPoint list style', {
+        slide: this.currentSlide,
+        shapeIndex,
+        paragraphIndex,
+        style
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint list-style update failed', {
+        slide: this.currentSlide,
+        shapeIndex,
+        paragraphIndex,
+        style,
+        error
+      });
       new Notice(`Could not update list style: ${cleanError(error)}`);
     }
   }
@@ -1927,6 +2080,8 @@ export class NativePowerPointView extends FileView {
   }
 
   private async loadPresentation(file: TFile): Promise<void> {
+    const loadStartedAt = performance.now();
+    debugLog('file', 'PowerPoint load started', { file: file.path, extension: file.extension });
     this.clearAutosave();
     this.removeActiveEditor();
     this.historyController.clear();
@@ -1956,6 +2111,10 @@ export class NativePowerPointView extends FileView {
 
     if (!isModernPowerPointExtension(file.extension)) {
       this.isLoading = false;
+      warnLog('file', 'PowerPoint load rejected unsupported format', {
+        file: file.path,
+        extension: file.extension
+      });
       this.showUnsupported(file);
       return;
     }
@@ -1978,10 +2137,23 @@ export class NativePowerPointView extends FileView {
         this.scheduleFilmstripRender();
       }
       this.setSaveState(this.isViewOnly ? 'view-only' : 'saved');
+      debugLog('file', 'PowerPoint load completed', {
+        file: file.path,
+        bytes: buffer.byteLength,
+        slideCount: this.engine.slideCount,
+        viewOnly: this.isViewOnly,
+        hasVbaProject: sourcePackage.hasVbaProject,
+        ms: Math.round(performance.now() - loadStartedAt)
+      });
       if (this.isViewOnly) {
         new Notice(`Opened ${file.name} view-only: ${this.viewOnlyReason}`);
       }
     } catch (error) {
+      errorLog('file', 'PowerPoint load failed', {
+        file: file.path,
+        extension: file.extension,
+        error
+      });
       if (isWasmGcUnsupportedError(error)) {
         this.showRuntimeUnsupportedError(file);
       } else {
@@ -2543,7 +2715,12 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         this.startTextEditor();
       }
+      debugLog('insert', 'Inserted PowerPoint text box', {
+        slide: this.currentSlide,
+        shapeIndex
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint text-box insertion failed', { slide: this.currentSlide, error });
       new Notice(`Could not add text box: ${cleanError(error)}`);
     }
   }
@@ -2557,15 +2734,18 @@ export class NativePowerPointView extends FileView {
     if (this.selectedShapeIndex === null) return;
     if (!this.ensureEditable('delete object')) return;
 
+    const shapeIndex = this.selectedShapeIndex;
     try {
       const history = await this.captureHistoryEntry('Delete object');
-      this.engine.deleteShape(this.currentSlide, this.selectedShapeIndex);
+      this.engine.deleteShape(this.currentSlide, shapeIndex);
       this.clearSelection();
       this.recordHistoryEntry(history);
       this.markDirty();
       const rendered = await this.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('insert', 'Deleted PowerPoint object', { slide: this.currentSlide, shapeIndex });
     } catch (error) {
+      errorLog('insert', 'PowerPoint object deletion failed', { slide: this.currentSlide, shapeIndex, error });
       new Notice(`Could not delete object: ${cleanError(error)}`);
     }
   }
@@ -2585,7 +2765,17 @@ export class NativePowerPointView extends FileView {
       this.markDirty();
       const rendered = await this.renderCurrentSlide();
       if (rendered) await this.renderThumbnails();
+      debugLog('insert', 'Deleted PowerPoint objects', {
+        slide: this.currentSlide,
+        count: indices.length,
+        indices
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint multi-object deletion failed', {
+        slide: this.currentSlide,
+        indices,
+        error
+      });
       new Notice(`Could not delete objects: ${cleanError(error)}`);
     }
   }
@@ -2599,8 +2789,17 @@ export class NativePowerPointView extends FileView {
     try {
       this.objectClipboard = await this.engine.copyShape(this.currentSlide, this.selectedShapeIndex);
       this.updateObjectClipboardAvailability();
+      debugLog('clipboard', 'Copied PowerPoint object', {
+        slide: this.currentSlide,
+        shapeIndex: this.selectedShapeIndex
+      });
       new Notice('Copied slide object.');
     } catch (error) {
+      errorLog('clipboard', 'PowerPoint object copy failed', {
+        slide: this.currentSlide,
+        shapeIndex: this.selectedShapeIndex,
+        error
+      });
       new Notice(`Could not copy object: ${cleanError(error)}`);
     }
   }
@@ -2622,7 +2821,12 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('clipboard', 'Pasted PowerPoint object', {
+        slide: this.currentSlide,
+        shapeIndex
+      });
     } catch (error) {
+      errorLog('clipboard', 'PowerPoint object paste failed', { slide: this.currentSlide, error });
       new Notice(`Could not paste object: ${cleanError(error)}`);
     }
   }
@@ -2634,9 +2838,10 @@ export class NativePowerPointView extends FileView {
     }
     if (!this.ensureEditable('duplicate object')) return;
 
+    const sourceShapeIndex = this.selectedShapeIndex;
     try {
       const history = await this.captureHistoryEntry('Duplicate object');
-      const shapeIndex = await this.engine.duplicateShape(this.currentSlide, this.selectedShapeIndex);
+      const shapeIndex = await this.engine.duplicateShape(this.currentSlide, sourceShapeIndex);
       this.recordHistoryEntry(history);
       this.markDirty();
       const rendered = await this.renderCurrentSlide();
@@ -2644,7 +2849,17 @@ export class NativePowerPointView extends FileView {
         this.selectShape(shapeIndex);
         await this.renderThumbnails();
       }
+      debugLog('clipboard', 'Duplicated PowerPoint object', {
+        slide: this.currentSlide,
+        sourceShapeIndex,
+        shapeIndex
+      });
     } catch (error) {
+      errorLog('clipboard', 'PowerPoint object duplication failed', {
+        slide: this.currentSlide,
+        sourceShapeIndex,
+        error
+      });
       new Notice(`Could not duplicate object: ${cleanError(error)}`);
     }
   }
@@ -2660,8 +2875,10 @@ export class NativePowerPointView extends FileView {
       this.objectClipboard = await this.engine.copyShape(this.currentSlide, this.selectedShapeIndex);
       this.updateObjectClipboardAvailability();
       await this.deleteSelectedShape();
+      debugLog('clipboard', 'Cut PowerPoint object', { slide: this.currentSlide });
       new Notice('Cut slide object.');
     } catch (error) {
+      errorLog('clipboard', 'PowerPoint object cut failed', { slide: this.currentSlide, error });
       new Notice(`Could not cut object: ${cleanError(error)}`);
     }
   }
@@ -2810,7 +3027,18 @@ export class NativePowerPointView extends FileView {
         await this.renderThumbnails();
         this.renderInspector();
       }
+      debugLog('inspector', 'Changed PowerPoint slide background image', {
+        slide: this.currentSlide,
+        sourceShapeIndex: shapeIndex,
+        mimeType: image.mimeType,
+        bytes: image.bytes.byteLength
+      });
     } catch (error) {
+      errorLog('inspector', 'PowerPoint slide background image change failed', {
+        slide: this.currentSlide,
+        sourceShapeIndex: shapeIndex,
+        error
+      });
       new Notice(`Could not set slide background: ${cleanError(error)}`);
     }
   }
@@ -2992,7 +3220,16 @@ export class NativePowerPointView extends FileView {
         await this.renderThumbnails();
         this.renderInspector();
       }
+      debugLog('inspector', 'Changed PowerPoint slide background', {
+        slide: this.currentSlide,
+        color: hexColor
+      });
     } catch (error) {
+      errorLog('inspector', 'PowerPoint slide background change failed', {
+        slide: this.currentSlide,
+        color: hexColor,
+        error
+      });
       new Notice(`Could not change slide background: ${cleanError(error)}`);
     }
   }
@@ -3146,7 +3383,20 @@ export class NativePowerPointView extends FileView {
       this.markDirty();
       const rendered = await this.renderEditedShape(chartShapeIndex);
       if (rendered) await this.renderThumbnails();
+      debugLog('inspector', 'Updated PowerPoint chart data', {
+        slide: this.currentSlide,
+        shapeIndex: chartShapeIndex,
+        categoryCount: update.categories.length,
+        seriesCount: update.series.length
+      });
     } catch (error) {
+      errorLog('inspector', 'PowerPoint chart-data update failed', {
+        slide: this.currentSlide,
+        shapeIndex: chartShapeIndex,
+        categoryCount: update.categories.length,
+        seriesCount: update.series.length,
+        error
+      });
       new Notice(`Could not update chart data: ${cleanError(error)}`);
     }
   }
@@ -3566,7 +3816,7 @@ export class NativePowerPointView extends FileView {
     if (!this.activeEditor) return;
 
     const target = isNode(event.target) ? event.target : null;
-    if (isElement(target) && target.closest('.native-powerpoint-text-toolbar, .native-powerpoint-toolbar-popover')) return;
+    if (isElement(target) && target.closest(EDITOR_FORMATTING_SURFACE_SELECTOR)) return;
     if (isElement(target) && target.closest('.native-powerpoint-thumbnail')) {
       debugLog('text-edit', 'deferring outside commit (thumbnail navigation will handle it)');
       return;
@@ -3851,7 +4101,7 @@ export class NativePowerPointView extends FileView {
     // The contextual text toolbar lives inside the canvas pane, so clicks on it
     // must not be treated as background clicks (which would commit/clear the
     // editor and hide the toolbar mid-interaction).
-    if (element?.closest('.native-powerpoint-text-toolbar, .native-powerpoint-toolbar-popover')) return false;
+    if (element?.closest(EDITOR_FORMATTING_SURFACE_SELECTOR)) return false;
 
     return true;
   }
@@ -4065,7 +4315,7 @@ export class NativePowerPointView extends FileView {
       const next = event.relatedTarget;
       const stayEditing = next === null
         || (isElement(next)
-          && next.closest('.native-powerpoint-text-toolbar, .native-powerpoint-toolbar-popover') !== null);
+          && next.closest(EDITOR_FORMATTING_SURFACE_SELECTOR) !== null);
       if (stayEditing && this.activeEditor === editor && editor.isConnected) {
         this.focusEditorWithoutCanvasScroll(editor);
         updateCaret();
@@ -6997,7 +7247,19 @@ export class NativePowerPointView extends FileView {
         this.applyMultiSelection(indices);
         await this.renderThumbnails();
       }
+      debugLog('arrange', 'Committed PowerPoint group transform', {
+        slide: this.currentSlide,
+        label,
+        changedCount: changed.length,
+        indices: changed.map((update) => update.index)
+      });
     } catch (error) {
+      errorLog('arrange', 'PowerPoint group transform failed', {
+        slide: this.currentSlide,
+        label,
+        indices: updates.map((update) => update.index),
+        error
+      });
       new Notice(`Could not move objects: ${cleanError(error)}`);
     }
   }
@@ -7166,7 +7428,21 @@ export class NativePowerPointView extends FileView {
       this.markDirty();
       const rendered = await this.renderEditedShape(shapeIndex);
       if (rendered) await this.renderThumbnails();
+      debugLog('inspector', 'Committed PowerPoint object transform', {
+        slide: this.currentSlide,
+        shapeIndex,
+        x: transform.x,
+        y: transform.y,
+        width: transform.cx,
+        height: transform.cy,
+        rotation: transform.rot
+      });
     } catch (error) {
+      errorLog('inspector', 'PowerPoint object transform failed', {
+        slide: this.currentSlide,
+        shapeIndex: this.selectedShapeIndex,
+        error
+      });
       new Notice(`Could not update object: ${cleanError(error)}`);
     }
   }
@@ -7345,6 +7621,11 @@ export class NativePowerPointView extends FileView {
     this.isDirty = true;
     this.editVersion++;
     this.setSaveState('dirty');
+    debugLog('save', 'PowerPoint marked dirty', {
+      file: this.loadedFile?.path ?? this.file?.path ?? null,
+      editVersion: this.editVersion,
+      autosaveEnabled: this.getSettings().autosaveEnabled
+    });
     if (this.getSettings().autosaveEnabled) {
       this.scheduleAutosave();
     }
@@ -7354,8 +7635,17 @@ export class NativePowerPointView extends FileView {
     this.clearAutosave();
     if (!this.getSettings().autosaveEnabled) return;
 
+    debugLog('save', 'PowerPoint autosave scheduled', {
+      file: this.loadedFile?.path ?? this.file?.path ?? null,
+      delayMs,
+      editVersion: this.editVersion
+    });
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
+      debugLog('save', 'PowerPoint autosave started', {
+        file: this.loadedFile?.path ?? this.file?.path ?? null,
+        editVersion: this.editVersion
+      });
       void this.saveCurrentPresentation();
     }, delayMs);
   }
@@ -7372,6 +7662,12 @@ export class NativePowerPointView extends FileView {
     await this.savePromise.catch(() => undefined);
 
     if (!this.isDirty || !this.engine || !this.loadedFile) {
+      debugLog('save', 'PowerPoint teardown preservation skipped', {
+        reason,
+        dirty: this.isDirty,
+        hasEngine: Boolean(this.engine),
+        hasLoadedFile: Boolean(this.loadedFile)
+      });
       return true;
     }
 
@@ -7394,6 +7690,11 @@ export class NativePowerPointView extends FileView {
     }
 
     try {
+      debugLog('save', 'PowerPoint recovery export started', {
+        file: file.path,
+        reason,
+        editVersion: this.editVersion
+      });
       const output = await engine.export();
       let isValidated = true;
       let validationError = '';
@@ -7403,12 +7704,24 @@ export class NativePowerPointView extends FileView {
       } catch (error) {
         isValidated = false;
         validationError = cleanError(error);
+        warnLog('save', 'PowerPoint recovery export validation failed', {
+          file: file.path,
+          reason,
+          error
+        });
       }
 
       const recoveryPath = this.getAvailableRecoveryPath(file, isValidated);
       await this.app.vault.createBinary(recoveryPath, output);
       this.isDirty = false;
       this.setSaveState('recovered');
+      debugLog('save', 'PowerPoint recovery copy written', {
+        file: file.path,
+        recoveryPath,
+        reason,
+        validated: isValidated,
+        bytes: output.byteLength
+      });
 
       if (isValidated) {
         new Notice(`Unsaved edits were not written to ${file.name}. Recovery copy created while ${reason}: ${recoveryPath}`, 10000);
@@ -7422,6 +7735,11 @@ export class NativePowerPointView extends FileView {
       return true;
     } catch (error) {
       this.setSaveState('failed');
+      errorLog('save', 'PowerPoint recovery copy failed', {
+        file: file.path,
+        reason,
+        error
+      });
       new Notice(
         `Could not preserve unsaved edits from ${file.name} while ${reason}: ${cleanError(error)}. The original file was not overwritten.`,
         15000

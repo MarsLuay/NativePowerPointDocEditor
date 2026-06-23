@@ -8,6 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.26] - 2026-06-23
+
+### Fixed
+
+- Preserve direct table-cell font sizes across DOCX save when eigenpal drops
+  `w:sz` run properties.
+- Improve Japanese IME candidate anchoring with caret-aware hidden-editor
+  positioning and stronger zoom-transform neutralization.
+
+### Changed
+
+- Add feature diagnostics logging across DOCX and PowerPoint workflows.
+- Expand debug log retention and add log statistics for the copy-debug-log command.
+- Add DOCX font-roundtrip verification harness and table font-size fixture tests.
+
 ## [1.0.25] - 2026-06-23
 
 ### Fixed
@@ -189,7 +204,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...HEAD
+[1.0.26]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...1.0.26
 [1.0.25]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.24...1.0.25
 [1.0.24]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.22...1.0.24
 [1.0.22]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.21...1.0.22

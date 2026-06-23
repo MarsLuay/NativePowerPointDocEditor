@@ -476,8 +476,13 @@ async function runSmoke() {
 	await copyLogCommand.callback();
 	const copiedDiagnostics = JSON.parse(copiedClipboardText);
 	assert.equal(copiedDiagnostics.plugin.id, 'native-powerpoint-doc-editor', 'Copied diagnostics should include plugin metadata.');
+	assert.equal(copiedDiagnostics.logStats.maxRetainedEntries, 2000, 'Copied diagnostics should describe log retention.');
 	assert.ok(Array.isArray(copiedDiagnostics.logs), 'Copied diagnostics should include log entries.');
 	assert.ok(copiedDiagnostics.logs.length > 0, 'Copied diagnostics should include at least one log entry.');
+	assert.ok(
+		copiedDiagnostics.logs.some((entry) => entry.message === 'Feature diagnostics initialized'),
+		'Copied diagnostics should include the feature logging inventory.'
+	);
 
 	const chunk = loadBundledDocxSupport();
 	for (const exportName of ['createDocxReactMount', 'DocxFileEmbed', 'renderDocxEmbeds', 'hasReviewMarkup']) {

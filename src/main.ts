@@ -9,7 +9,14 @@ import {
 } from './settings';
 import type { DocxEditorSettingsController, DocxEditorSettingsSnapshot } from './DocxView';
 import { DocxSearchIndex } from './docxSearchIndex';
-import { configureDocxidianLogger, errorLog, getDocxidianLogSnapshot, infoLog, setDocxidianLogSink } from './logger';
+import {
+	configureDocxidianLogger,
+	errorLog,
+	getDocxidianLogSnapshot,
+	getDocxidianLogStats,
+	infoLog,
+	setDocxidianLogSink,
+} from './logger';
 import { configureObsidianRuntime, configureChromiumVersionReader } from './obsidianRuntime';
 import { loadDocxEditorLocale, normalizeDocxidianLanguage, preloadDocxEditorLocale } from './locales';
 import { configureForceJsBackendOverrideReader } from './powerpoint/forceJsBackend';
@@ -18,13 +25,17 @@ type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
 
 const DOCX_LOG_AREAS = new Set([
+	'backup',
 	'chunk',
 	'clipboard',
 	'copy',
 	'diagnostics',
 	'editor',
+	'embed',
 	'export',
 	'file',
+	'font-preservation',
+	'ime',
 	'plugin',
 	'render',
 	'review',
@@ -107,6 +118,22 @@ export default class DocxidianPlugin extends Plugin {
 			infoLog('plugin', 'PowerPoint support disabled by settings');
 		}
 
+		infoLog('diagnostics', 'Feature diagnostics initialized', {
+			schemaVersion: 1,
+			docx: [
+				'lifecycle', 'load', 'save', 'autosave', 'export', 'copy', 'rename',
+				'mode', 'zoom', 'find-replace', 'clipboard', 'table', 'image',
+				'font', 'font-size', 'review', 'hidden-text', 'search', 'embed',
+				'table-cell-font-preservation', 'japanese-ime-anchor',
+			],
+			powerPoint: [
+				'lifecycle', 'load', 'save', 'autosave', 'recovery', 'render',
+				'navigation', 'slide-operations', 'history', 'find-replace',
+				'clipboard', 'selection', 'arrange', 'insert', 'text-editing',
+				'text-formatting', 'inspector', 'export', 'security',
+			],
+		});
+
 		this.addCommand({
 			id: 'copy-docxidian-debug-log',
 			name: 'Copy debug log',
@@ -120,8 +147,8 @@ export default class DocxidianPlugin extends Plugin {
 	}
 
 	onunload() {
-		setDocxidianLogSink(null);
 		infoLog('plugin', 'Plugin unloaded');
+		setDocxidianLogSink(null);
 	}
 
 	private async setupDevFileLog(pluginDir: string): Promise<void> {
@@ -132,7 +159,12 @@ export default class DocxidianPlugin extends Plugin {
 		};
 
 		try {
-			await adapter.write(logPath, `# session ${new Date().toISOString()}\n`);
+			const retainedEntries = getDocxidianLogSnapshot();
+			const initialLines = retainedEntries.map((entry) => `${JSON.stringify(entry)}\n`).join('');
+			await adapter.write(
+				logPath,
+				`# session ${new Date().toISOString()}\n${initialLines}`,
+			);
 		} catch {
 			return;
 		}
@@ -144,11 +176,18 @@ export default class DocxidianPlugin extends Plugin {
 				.then(async () => {
 					if (appendable.append) {
 						await appendable.append(logPath, line);
+						return;
 					}
+					const existing = await adapter.read(logPath);
+					await adapter.write(logPath, `${existing}${line}`);
 				})
 				.catch(() => undefined);
 		});
-		infoLog('plugin', 'Dev file log enabled', { logPath });
+		infoLog('plugin', 'Dev file log enabled', {
+			logPath,
+			startupEntriesCopied: getDocxidianLogSnapshot().length,
+			logStats: getDocxidianLogStats(),
+		});
 	}
 
 	private async setupDevHotReload(): Promise<void> {
@@ -430,6 +469,7 @@ export default class DocxidianPlugin extends Plugin {
 				disablePowerPointFiles: this.settings.disablePowerPointFiles,
 			},
 			docxEditorBundle: 'main.js',
+			logStats: getDocxidianLogStats(),
 			logs,
 		};
 

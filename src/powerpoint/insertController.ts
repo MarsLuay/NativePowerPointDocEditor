@@ -1,6 +1,7 @@
 import { type App, Notice, type TFile } from 'obsidian';
 
 import { isElement, isNode } from '../domGuards';
+import { debugLog, errorLog } from '../logger';
 import type { InsertableShapeGeometry, PresentationEngine } from '../PresentationEngine';
 import {
   getImageMimeType,
@@ -226,7 +227,14 @@ export class InsertController {
         this.host.selectShape(shapeIndex);
         await this.host.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint image from vault', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        file: file.path,
+        bytes: bytes.byteLength
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint vault image insertion failed', { file: file.path, error });
       new Notice(`Could not insert image: ${cleanError(error)}`);
     }
   }
@@ -249,7 +257,19 @@ export class InsertController {
         this.host.selectShape(shapeIndex);
         await this.host.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint image from local file', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        fileName: file.name,
+        mimeType: file.type || null,
+        bytes: bytes.byteLength
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint local image insertion failed', {
+        fileName: file.name,
+        mimeType: file.type || null,
+        error
+      });
       new Notice(`Could not insert image: ${cleanError(error)}`);
     }
   }
@@ -267,7 +287,13 @@ export class InsertController {
         this.host.selectShape(shapeIndex);
         await this.host.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint shape', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        geometry
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint shape insertion failed', { geometry, error });
       new Notice(`Could not insert shape: ${cleanError(error)}`);
     }
   }
@@ -285,7 +311,14 @@ export class InsertController {
         this.host.selectShape(shapeIndex);
         await this.host.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint table', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        rows,
+        columns: cols
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint table insertion failed', { rows, columns: cols, error });
       new Notice(`Could not insert table: ${cleanError(error)}`);
     }
   }
@@ -303,7 +336,12 @@ export class InsertController {
         this.host.selectShape(shapeIndex);
         await this.host.renderThumbnails();
       }
+      debugLog('insert', 'Inserted PowerPoint chart', {
+        slide: this.host.currentSlide,
+        shapeIndex
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint chart insertion failed', { slide: this.host.currentSlide, error });
       new Notice(`Could not insert chart: ${cleanError(error)}`);
     }
   }
@@ -328,7 +366,20 @@ export class InsertController {
       this.host.markDirty();
       const rendered = await this.host.renderEditedShape(shapeIndex);
       if (rendered) await this.host.renderThumbnails();
+      debugLog('insert', 'Applied PowerPoint list style', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        paragraphIndex,
+        style
+      });
     } catch (error) {
+      errorLog('insert', 'PowerPoint list-style update failed', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        paragraphIndex,
+        style,
+        error
+      });
       new Notice(`Could not update list style: ${cleanError(error)}`);
     }
   }

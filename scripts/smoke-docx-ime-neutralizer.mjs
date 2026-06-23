@@ -74,6 +74,7 @@ function createHarnessHtml(scenario) {
   <script>
     const {
       attachDocxImeTransformNeutralizer,
+      syncDocxImeHiddenProseMirrorAnchor,
       countTransformAncestors,
       findDocxEditorZoomWrapper,
       neutralizeDocxEditorZoomWrapper,
@@ -94,10 +95,62 @@ function createHarnessHtml(scenario) {
     neutralizeDocxEditorZoomWrapper(wrapper);
 
     const after = {
-      wrapperTransform: wrapper.style.transform,
+      wrapperTransform: wrapper.style.transform || 'none',
       wrapperZoom: wrapper.style.zoom || '',
       wrapperMarginLeft: wrapper.style.marginLeft || '',
       transformAncestors: countTransformAncestors(editable),
+    };
+
+    const visibleCaret = document.createElement('div');
+    visibleCaret.setAttribute('data-testid', 'caret');
+    visibleCaret.style.position = 'fixed';
+    visibleCaret.style.left = '300px';
+    visibleCaret.style.top = '400px';
+    visibleCaret.style.width = '2px';
+    visibleCaret.style.height = '24px';
+    editorRoot.appendChild(visibleCaret);
+
+    const hiddenRoot = document.createElement('div');
+    hiddenRoot.className = 'paged-editor__hidden-pm';
+    hiddenRoot.style.position = 'absolute';
+    hiddenRoot.style.left = '-9999px';
+    hiddenRoot.style.top = '0';
+    hiddenRoot.style.opacity = '0';
+    const hiddenPm = document.createElement('div');
+    hiddenPm.className = 'ProseMirror';
+    hiddenPm.contentEditable = 'true';
+    hiddenRoot.appendChild(hiddenPm);
+    document.body.appendChild(hiddenRoot);
+
+    const fakeView = {
+      dom: hiddenPm,
+      state: { selection: { head: 5 } },
+      hasFocus: () => true,
+      coordsAtPos: () => ({ left: -9400, right: -9398, top: 200, bottom: 220 }),
+    };
+    const diagnostics = [];
+    const anchorSynced = syncDocxImeHiddenProseMirrorAnchor(editorRoot, {
+      getEditorView: () => fakeView,
+      onDiagnostic: (event) => diagnostics.push(event),
+    });
+    const anchor = {
+      synced: anchorSynced,
+      hiddenLeft: hiddenRoot.style.left,
+      hiddenTop: hiddenRoot.style.top,
+      hiddenAnchored: hiddenRoot.dataset.docxidianImeAnchored === 'true',
+    };
+    const detachDiagnosticNeutralizer = attachDocxImeTransformNeutralizer(editorRoot, {
+      getEditorView: () => fakeView,
+      onDiagnostic: (event) => diagnostics.push(event),
+    });
+    document.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: 'に' }));
+    document.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true, data: '日本' }));
+    detachDiagnosticNeutralizer();
+    const restoredAnchor = {
+      position: hiddenRoot.style.position,
+      left: hiddenRoot.style.left,
+      top: hiddenRoot.style.top,
+      anchored: hiddenRoot.dataset.docxidianImeAnchored === 'true',
     };
 
     detach();
@@ -105,6 +158,9 @@ function createHarnessHtml(scenario) {
       scenario: ${JSON.stringify(scenario.name)},
       before,
       after,
+      anchor,
+      restoredAnchor,
+      diagnostics,
     }));
   </script>
 </body>
@@ -176,8 +232,30 @@ async function main() {
 		results.push(result);
 
 		assert.equal(result.before.transformAncestors, 1, `${scenario.name}: expected one transform ancestor before`);
-		assert.equal(result.after.wrapperTransform, 'none', `${scenario.name}: wrapper transform should be none`);
+		assert.equal(result.after.wrapperTransform || 'none', 'none', `${scenario.name}: wrapper transform should be none`);
 		assert.equal(result.after.transformAncestors, 0, `${scenario.name}: caret should have no transform ancestors`);
+		assert.equal(result.anchor.synced, true, `${scenario.name}: hidden IME anchor should sync`);
+		assert.equal(result.anchor.hiddenLeft, '-299px', `${scenario.name}: hidden IME anchor should align x`);
+		assert.equal(result.anchor.hiddenTop, '204px', `${scenario.name}: hidden IME anchor should align bottom y`);
+		assert.equal(result.anchor.hiddenAnchored, true, `${scenario.name}: hidden IME anchor should be marked`);
+		assert.deepEqual(result.restoredAnchor, {
+			position: 'absolute',
+			left: '-9999px',
+			top: '0px',
+			anchored: false,
+		}, `${scenario.name}: hidden editor positioning should be restored on detach`);
+		assert.ok(
+			result.diagnostics.some((event) => event.event === 'anchor-state' && event.details?.status === 'synced'),
+			`${scenario.name}: diagnostics should record a synced IME anchor`,
+		);
+		assert.ok(
+			result.diagnostics.some((event) => event.event === 'composition-start' && event.details?.anchored === true),
+			`${scenario.name}: diagnostics should record composition start`,
+		);
+		assert.ok(
+			result.diagnostics.some((event) => event.event === 'composition-end'),
+			`${scenario.name}: diagnostics should record composition end`,
+		);
 
 		await runChromeScreenshot(htmlPath, path.join(outputDir, `${scenario.name}.png`));
 	}

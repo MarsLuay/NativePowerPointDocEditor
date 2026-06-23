@@ -7,6 +7,7 @@ import {
   validatePowerPointExportContents,
   type PowerPointPackageInspection
 } from '../PowerPointPackage';
+import { debugLog, errorLog, warnLog } from '../logger';
 import { PresentationEngine } from '../PresentationEngine';
 import {
   isEditablePowerPointExtension,
@@ -70,6 +71,10 @@ export class SaveController {
     this.isDirty = true;
     this.editVersion++;
     this.setSaveState('dirty');
+    debugLog('save', 'PowerPoint marked dirty', {
+      editVersion: this.editVersion,
+      autosaveEnabled: this.host.autosaveEnabled()
+    });
     if (this.host.autosaveEnabled()) {
       this.scheduleAutosave();
     }
@@ -79,8 +84,13 @@ export class SaveController {
     this.clearAutosave();
     if (!this.host.autosaveEnabled()) return;
 
+    debugLog('save', 'PowerPoint autosave scheduled', {
+      delayMs,
+      editVersion: this.editVersion
+    });
     this.saveTimer = window.setTimeout(() => {
       this.saveTimer = null;
+      debugLog('save', 'PowerPoint autosave started', { editVersion: this.editVersion });
       void this.host.saveCurrentPresentation();
     }, delayMs);
   }
@@ -120,8 +130,15 @@ export class SaveController {
     }
 
     const targetVersion = this.editVersion;
+    const saveStartedAt = performance.now();
     this.clearAutosave();
     this.setSaveState('saving', 'Exporting...');
+    debugLog('save', 'PowerPoint save started', {
+      file: file.path,
+      targetVersion,
+      slideCount: engine.slideCount,
+      sourceBytes: sourceBuffer.byteLength
+    });
 
     const run = async () => {
       if (this.shouldPaintSaveProgress()) await flushUi();
@@ -136,6 +153,11 @@ export class SaveController {
       this.setSaveProgress('Writing to vault...');
       if (this.shouldPaintSaveProgress()) await flushUi();
       await this.host.app.vault.modifyBinary(file, output);
+      debugLog('save', 'PowerPoint vault write completed', {
+        file: file.path,
+        bytes: output.byteLength,
+        targetVersion
+      });
 
       if (this.host.isSameLoadedPresentation(engine, file)) {
         this.host.sourcePackage = exportedPackage;
@@ -156,11 +178,23 @@ export class SaveController {
 
     try {
       await this.savePromise;
+      debugLog('save', 'PowerPoint save completed', {
+        file: file.path,
+        targetVersion,
+        currentVersion: this.editVersion,
+        dirty: this.isDirty,
+        ms: Math.round(performance.now() - saveStartedAt)
+      });
       return true;
     } catch (error) {
       const message = cleanError(error);
       this.lastSaveError = message;
       this.setSaveState('failed');
+      errorLog('save', 'PowerPoint save failed', {
+        file: file.path,
+        targetVersion,
+        error
+      });
       new Notice(`Could not save ${file.name}: ${message}`);
       if (this.isDirty && this.host.autosaveEnabled()) {
         this.scheduleAutosave(5000);
@@ -181,6 +215,11 @@ export class SaveController {
     }
 
     onProgress?.('Checking package...');
+    debugLog('save', 'PowerPoint save validation started', {
+      slideCount: engine.slideCount,
+      sourceBytes: sourceBuffer.byteLength,
+      outputBytes: output.byteLength
+    });
     if (this.shouldPaintSaveProgress()) await flushUi();
     const exportedPackage = inspectPowerPointPackage(output);
     const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount);
@@ -198,6 +237,10 @@ export class SaveController {
     onProgress?.('Round-trip check...');
     if (this.shouldPaintSaveProgress()) await flushUi();
     await PresentationEngine.validateRoundTrip(output, engine.slideCount);
+    debugLog('save', 'PowerPoint save validation completed', {
+      slideCount: engine.slideCount,
+      outputBytes: output.byteLength
+    });
     return exportedPackage;
   }
 
@@ -206,6 +249,12 @@ export class SaveController {
     await this.savePromise.catch(() => undefined);
 
     if (!this.isDirty || !this.host.engine || !this.host.loadedFile) {
+      debugLog('save', 'PowerPoint teardown preservation skipped', {
+        reason,
+        dirty: this.isDirty,
+        hasEngine: Boolean(this.host.engine),
+        hasLoadedFile: Boolean(this.host.loadedFile)
+      });
       return true;
     }
 
@@ -228,6 +277,11 @@ export class SaveController {
     }
 
     try {
+      debugLog('save', 'PowerPoint recovery export started', {
+        file: file.path,
+        reason,
+        editVersion: this.editVersion
+      });
       this.setSaveState('saving', 'Exporting recovery...');
       if (this.shouldPaintSaveProgress()) await flushUi();
       const output = await engine.export();
@@ -245,6 +299,11 @@ export class SaveController {
       } catch (error) {
         isValidated = false;
         validationError = cleanError(error);
+        warnLog('save', 'PowerPoint recovery export validation failed', {
+          file: file.path,
+          reason,
+          error
+        });
       }
 
       this.setSaveProgress('Writing recovery...');
@@ -254,6 +313,13 @@ export class SaveController {
       await this.host.app.vault.createBinary(recoveryPath, output);
       this.isDirty = false;
       this.setSaveState('recovered');
+      debugLog('save', 'PowerPoint recovery copy written', {
+        file: file.path,
+        recoveryPath,
+        reason,
+        validated: isValidated,
+        bytes: output.byteLength
+      });
 
       if (isValidated) {
         new Notice(`Unsaved edits were not written to ${file.name}. Recovery copy created while ${reason}: ${recoveryPath}`, 10000);
@@ -267,6 +333,11 @@ export class SaveController {
       return true;
     } catch (error) {
       this.setSaveState('failed');
+      errorLog('save', 'PowerPoint recovery copy failed', {
+        file: file.path,
+        reason,
+        error
+      });
       new Notice(
         `Could not preserve unsaved edits from ${file.name} while ${reason}: ${cleanError(error)}. The original file was not overwritten.`,
         15000
