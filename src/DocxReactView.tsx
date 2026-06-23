@@ -1,12 +1,14 @@
 import type { TFile } from 'obsidian';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent, type ComponentProps } from 'react';
 import { DocxEditor, type DocxEditorRef, type EditorMode } from '@eigenpal/docx-editor-react';
+import { clearParagraphMeasureCache } from '@eigenpal/docx-editor-core/layout-bridge';
 import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
 import { insertTable, setFontFamily, setFontSize, setLineSpacing } from '@eigenpal/docx-editor-core/prosemirror/commands';
 import { loadFontFromBuffer } from '@eigenpal/docx-editor-core/utils';
 import type { FontOption } from '@eigenpal/docx-editor-core/utils/fontOptions';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
 import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import editorStyles from '@eigenpal/docx-editor-react/styles.css';
 import { createEditorTranslator } from './editorTranslations';
@@ -192,7 +194,11 @@ function createFindReplaceLabels(i18n: Translations | undefined): FindReplaceLab
 }
 
 const findHighlightPluginKey = new PluginKey<FindHighlightState>('docxidian-find-highlight');
+const listLayoutRelayoutPluginKey = new PluginKey('docxidian-list-layout-relayout');
 const preserveTypedSpacePluginKey = new PluginKey('docxidian-preserve-typed-space');
+const LIST_PARAGRAPH_DEFAULT_LEFT_INDENT = 720;
+const LIST_PARAGRAPH_DEFAULT_HANGING_INDENT = 360;
+const LIST_LAYOUT_NORMALIZED_META = 'docxidian-list-layout-normalized';
 
 function isFindHighlightState(value: unknown): value is FindHighlightState {
 	if (!value || typeof value !== 'object') {
@@ -201,6 +207,154 @@ function isFindHighlightState(value: unknown): value is FindHighlightState {
 
 	const state = value as Partial<FindHighlightState>;
 	return Array.isArray(state.matches) && typeof state.currentIndex === 'number';
+}
+
+function stableListLayoutValue(value: unknown) {
+	if (value === null || value === undefined) {
+		return '';
+	}
+
+	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+		return String(value);
+	}
+
+	try {
+		return JSON.stringify(value);
+	} catch {
+		return String(value);
+	}
+}
+
+function getParagraphListLayoutSignature(node: ProseMirrorNode) {
+	const attrs = node.attrs as Record<string, unknown>;
+	const hasListLayout = attrs.numPr != null
+		|| attrs.listMarker != null
+		|| attrs.listMarkerHidden != null
+		|| attrs.listMarkerFontFamily != null
+		|| attrs.listMarkerFontSize != null;
+
+	if (!hasListLayout) {
+		return '';
+	}
+
+	return [
+		stableListLayoutValue(attrs.numPr),
+		stableListLayoutValue(attrs.listMarker),
+		stableListLayoutValue(attrs.listMarkerHidden),
+		stableListLayoutValue(attrs.listMarkerFontFamily),
+		stableListLayoutValue(attrs.listMarkerFontSize),
+		stableListLayoutValue(attrs.indentLeft),
+		stableListLayoutValue(attrs.indentFirstLine),
+		stableListLayoutValue(attrs.hangingIndent),
+	].join('\u001f');
+}
+
+function getDocumentListLayoutSignatures(doc: ProseMirrorNode) {
+	const signatures: string[] = [];
+	doc.descendants((node) => {
+		if (node.type.name !== 'paragraph') {
+			return true;
+		}
+
+		signatures.push(getParagraphListLayoutSignature(node));
+		return false;
+	});
+	return signatures;
+}
+
+function didListLayoutChange(before: ProseMirrorNode, after: ProseMirrorNode) {
+	const beforeSignatures = getDocumentListLayoutSignatures(before);
+	const afterSignatures = getDocumentListLayoutSignatures(after);
+	const signatureCount = Math.max(beforeSignatures.length, afterSignatures.length);
+
+	for (let index = 0; index < signatureCount; index += 1) {
+		if ((beforeSignatures[index] ?? '') !== (afterSignatures[index] ?? '')) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function getListParagraphIndentAttrs(attrs: Record<string, unknown>) {
+	const numPr = attrs.numPr;
+	if (!numPr || typeof numPr !== 'object') {
+		return null;
+	}
+
+	const { numId, ilvl } = numPr as { numId?: unknown; ilvl?: unknown };
+	if (typeof numId !== 'number' || numId === 0) {
+		return null;
+	}
+
+	const level = typeof ilvl === 'number' && Number.isFinite(ilvl) ? Math.max(0, ilvl) : 0;
+	const hasLeftIndent = typeof attrs.indentLeft === 'number' && Number.isFinite(attrs.indentLeft);
+	const hasHangingIndent = attrs.hangingIndent === true
+		&& typeof attrs.indentFirstLine === 'number'
+		&& Number.isFinite(attrs.indentFirstLine)
+		&& attrs.indentFirstLine < 0;
+
+	if (hasLeftIndent && hasHangingIndent) {
+		return null;
+	}
+
+	return {
+		...attrs,
+		indentLeft: hasLeftIndent ? attrs.indentLeft : (level + 1) * LIST_PARAGRAPH_DEFAULT_LEFT_INDENT,
+		indentFirstLine: hasHangingIndent ? attrs.indentFirstLine : -LIST_PARAGRAPH_DEFAULT_HANGING_INDENT,
+		hangingIndent: true,
+	};
+}
+
+function createListLayoutRelayoutPlugin(scheduleRelayout: () => void) {
+	return new Plugin({
+		key: listLayoutRelayoutPluginKey,
+		appendTransaction: (transactions, previousState, nextState) => {
+			const shouldNormalize = transactions.some((transaction) => transaction.docChanged)
+				&& transactions.every((transaction) => transaction.getMeta(LIST_LAYOUT_NORMALIZED_META) !== true)
+				&& didListLayoutChange(previousState.doc, nextState.doc);
+
+			if (!shouldNormalize) {
+				return null;
+			}
+
+			let transaction = nextState.tr;
+			let normalizedCount = 0;
+			nextState.doc.descendants((node, position) => {
+				if (node.type.name !== 'paragraph') {
+					return true;
+				}
+
+				const normalizedAttrs = getListParagraphIndentAttrs(node.attrs as Record<string, unknown>);
+				if (normalizedAttrs) {
+					transaction = transaction.setNodeMarkup(position, undefined, normalizedAttrs, node.marks);
+					normalizedCount += 1;
+				}
+
+				return false;
+			});
+
+			if (!transaction.docChanged) {
+				return null;
+			}
+
+			transaction.setMeta(LIST_LAYOUT_NORMALIZED_META, true);
+			debugLog('editor', 'Normalized DOCX list paragraph indentation', { paragraphs: normalizedCount });
+			return transaction;
+		},
+		view: () => ({
+			update: (view, previousState) => {
+				if (previousState.doc === view.state.doc || previousState.doc.eq(view.state.doc)) {
+					return;
+				}
+
+				if (didListLayoutChange(previousState.doc, view.state.doc)) {
+					debugLog('editor', 'DOCX list layout changed; scheduling relayout');
+					scheduleRelayout();
+				}
+			},
+		}),
+	});
 }
 
 function insertPlainTypedText(view: EditorView, text: string, from = view.state.selection.from, to = view.state.selection.to) {
@@ -1422,6 +1576,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const activeTouchPointersRef = useRef<Map<number, PointerPoint>>(new Map());
 	const fontSizeHoldRef = useRef<FontSizeHoldState | null>(null);
 	const listMarkerSelectionFrameRef = useRef<number | null>(null);
+	const listLayoutRelayoutFrameRef = useRef<number | null>(null);
+	const listLayoutRelayoutSecondFrameRef = useRef<number | null>(null);
 	const commentsSidebarToggleFrameRef = useRef<number | null>(null);
 	const dirtyTrackingEnabledRef = useRef(false);
 	const dirtyVersionRef = useRef(0);
@@ -1453,6 +1609,26 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		...DEFAULT_EDITOR_FONT_FAMILIES,
 		...importedFonts,
 	], [importedFonts]);
+	const scheduleListLayoutRelayout = useCallback(() => {
+		clearParagraphMeasureCache();
+		if (listLayoutRelayoutFrameRef.current !== null) {
+			window.cancelAnimationFrame(listLayoutRelayoutFrameRef.current);
+		}
+		if (listLayoutRelayoutSecondFrameRef.current !== null) {
+			window.cancelAnimationFrame(listLayoutRelayoutSecondFrameRef.current);
+			listLayoutRelayoutSecondFrameRef.current = null;
+		}
+
+		listLayoutRelayoutFrameRef.current = window.requestAnimationFrame(() => {
+			listLayoutRelayoutFrameRef.current = null;
+			editorRef.current?.getEditorRef()?.relayout();
+
+			listLayoutRelayoutSecondFrameRef.current = window.requestAnimationFrame(() => {
+				listLayoutRelayoutSecondFrameRef.current = null;
+				editorRef.current?.getEditorRef()?.relayout();
+			});
+		});
+	}, []);
 	const findHighlightPlugin = useMemo(() => new Plugin<FindHighlightState>({
 		key: findHighlightPluginKey,
 		state: {
@@ -1480,7 +1656,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			},
 		},
 	}), []);
-	const externalPlugins = useMemo(() => [preserveTypedSpacePlugin, findHighlightPlugin], [findHighlightPlugin]);
+	const listLayoutRelayoutPlugin = useMemo(
+		() => createListLayoutRelayoutPlugin(scheduleListLayoutRelayout),
+		[scheduleListLayoutRelayout],
+	);
+	const externalPlugins = useMemo(
+		() => [preserveTypedSpacePlugin, findHighlightPlugin, listLayoutRelayoutPlugin],
+		[findHighlightPlugin, listLayoutRelayoutPlugin],
+	);
 	const pluginSidebarItems = useMemo<NonNullable<ComponentProps<typeof DocxEditor>['pluginSidebarItems']>>(() => {
 		if (!reserveReviewSidebar) {
 			return [];
@@ -1590,6 +1773,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		if (listMarkerSelectionFrameRef.current !== null) {
 			window.cancelAnimationFrame(listMarkerSelectionFrameRef.current);
 			listMarkerSelectionFrameRef.current = null;
+		}
+		if (listLayoutRelayoutFrameRef.current !== null) {
+			window.cancelAnimationFrame(listLayoutRelayoutFrameRef.current);
+			listLayoutRelayoutFrameRef.current = null;
+		}
+		if (listLayoutRelayoutSecondFrameRef.current !== null) {
+			window.cancelAnimationFrame(listLayoutRelayoutSecondFrameRef.current);
+			listLayoutRelayoutSecondFrameRef.current = null;
 		}
 	}, []);
 
