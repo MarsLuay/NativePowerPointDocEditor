@@ -170,7 +170,7 @@ function registerDocxSearchEvents(plugin: DocxidianPlugin, docxSearchIndex: Docx
 	plugin.registerEvent(plugin.app.vault.on('delete', file => handleDocxSearchFileDeleted(plugin, docxSearchIndex, file)));
 	plugin.registerEvent(plugin.app.vault.on('rename', (file, oldPath) => {
 		handleDocxSearchFileDeleted(plugin, docxSearchIndex, oldPath);
-		handleDocxSearchFileChanged(plugin, docxSearchIndex, file);
+		void handleDocxSearchFileChanged(plugin, docxSearchIndex, file);
 	}));
 }
 

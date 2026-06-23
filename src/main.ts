@@ -38,15 +38,31 @@ type DebugLogScope = 'all' | 'docx';
 
 let docxSupportModule: DocxSupportModule | null = null;
 let pptxSupportModule: PptxSupportModule | null = null;
+let docxSupportModulePromise: Promise<DocxSupportModule> | null = null;
+let pptxSupportModulePromise: Promise<PptxSupportModule> | null = null;
 
-function loadDocxSupportModule(): DocxSupportModule {
-	docxSupportModule ??= require('./docx-chunk.js') as DocxSupportModule;
-	return docxSupportModule;
+function loadDocxSupportModule(): Promise<DocxSupportModule> {
+	if (docxSupportModule) {
+		return Promise.resolve(docxSupportModule);
+	}
+
+	docxSupportModulePromise ??= import('./docxSupport').then((module) => {
+		docxSupportModule = module;
+		return module;
+	});
+	return docxSupportModulePromise;
 }
 
-function loadPptxSupportModule(): PptxSupportModule {
-	pptxSupportModule ??= require('./pptx-chunk.js') as PptxSupportModule;
-	return pptxSupportModule;
+function loadPptxSupportModule(): Promise<PptxSupportModule> {
+	if (pptxSupportModule) {
+		return Promise.resolve(pptxSupportModule);
+	}
+
+	pptxSupportModulePromise ??= import('./pptxSupport').then((module) => {
+		pptxSupportModule = module;
+		return module;
+	});
+	return pptxSupportModulePromise;
 }
 
 export default class DocxidianPlugin extends Plugin {
@@ -80,13 +96,13 @@ export default class DocxidianPlugin extends Plugin {
 		configureForceJsBackendOverrideReader(() => this.forceJsBackendDevOverride);
 
 		if (!this.settings.disableDocxFiles) {
-			void this.loadDocxSupport();
+			await this.loadDocxSupport();
 		} else {
 			infoLog('plugin', 'DOCX support disabled by settings');
 		}
 
 		if (!this.settings.disablePowerPointFiles) {
-			this.loadPowerPointSupport();
+			await this.loadPowerPointSupport();
 		} else {
 			infoLog('plugin', 'PowerPoint support disabled by settings');
 		}
@@ -413,7 +429,7 @@ export default class DocxidianPlugin extends Plugin {
 				disableDocxFiles: this.settings.disableDocxFiles,
 				disablePowerPointFiles: this.settings.disablePowerPointFiles,
 			},
-			docxEditorBundle: 'docx-chunk.js',
+			docxEditorBundle: 'main.js',
 			logs,
 		};
 
@@ -435,7 +451,7 @@ export default class DocxidianPlugin extends Plugin {
 			return;
 		}
 
-		const docx = docxSupportModule ?? loadDocxSupportModule();
+		const docx = docxSupportModule ?? await loadDocxSupportModule();
 		await docx.rebuildDocxSearchIndex(this, this.docxSearchIndex, force, showNotice);
 	}
 
@@ -463,12 +479,12 @@ export default class DocxidianPlugin extends Plugin {
 	}
 
 	private async loadDocxSupport() {
-		const docx = loadDocxSupportModule();
+		const docx = await loadDocxSupportModule();
 		await docx.registerDocxSupport(this, () => this.createDocxSettingsController());
 	}
 
-	private loadPowerPointSupport() {
-		const pptx = loadPptxSupportModule();
+	private async loadPowerPointSupport() {
+		const pptx = await loadPptxSupportModule();
 		pptx.registerPowerPointSupport(this, () => this.getPowerPointSettings());
 	}
 }

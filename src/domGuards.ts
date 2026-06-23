@@ -44,6 +44,10 @@ export function isInputEvent(value: unknown): value is InputEvent {
 	return typeof InputEvent !== 'undefined' && isDomInstance(value, InputEvent);
 }
 
+export function isPointerEvent(value: unknown): value is PointerEvent {
+	return typeof PointerEvent !== 'undefined' && isDomInstance(value, PointerEvent);
+}
+
 export function isNode(value: unknown): value is Node {
 	return typeof Node !== 'undefined' && isDomInstance(value, Node);
 }

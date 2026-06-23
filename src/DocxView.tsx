@@ -912,7 +912,7 @@ export class DocxView extends FileView {
 	}
 
 	private isLeafActive(): boolean {
-		return this.app.workspace.activeLeaf === this.leaf;
+		return this.app.workspace.getActiveViewOfType(DocxView) === this;
 	}
 
 	private renderInactivePlaceholder() {

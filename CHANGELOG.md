@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.22] - 2026-06-22
+
+### Fixed
+
+- Bundle DOCX and PPTX support into `main.js` so community releases ship only
+  Obsidian-supported assets (`main.js`, `manifest.json`, `styles.css`).
+- Community-plugin lint fixes: cross-window DOM `instanceOf` checks, IME transform
+  neutralizer style updates, dynamic imports instead of `require()`, deprecated
+  `activeLeaf`, and floating promise handling.
+
 ## [1.0.21] - 2026-06-22
 
 ### Fixed
@@ -164,7 +174,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.21...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.22...HEAD
+[1.0.22]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.21...1.0.22
 [1.0.21]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.19...1.0.21
 [1.0.19]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.18...1.0.19
 [1.0.18]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.17...1.0.18

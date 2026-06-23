@@ -8,22 +8,9 @@
 # npm
 node_modules
 
-# Don't include compiled bundles in the repo.
+# Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
-docx-chunk.js
-pptx-chunk.js
-
-# Local harness / probe artifacts
-results/
-tmp-meta-main.js
-test-ime-probe.docx
-ctxbar-review.mjs
-probe*.mjs
-tests/_probe-*.mjs
-
-# macOS app bundle signatures (regenerated locally)
-run-to-import/**/_CodeSignature/
 
 # Exclude sourcemaps
 *.map
@@ -36,6 +23,14 @@ test_files/
 
 # obsidian
 data.json
+
+# Local harness / probe artifacts (vault-only scratch output)
+results/
+tmp-meta-main.js
+test-ime-probe.docx
+ctxbar-review.mjs
+probe*.mjs
+tests/_probe-*.mjs
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store

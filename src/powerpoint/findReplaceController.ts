@@ -2,7 +2,7 @@ import { Notice, setIcon } from 'obsidian';
 
 import type { PresentationEngine } from '../PresentationEngine';
 import type { ShapeTransform } from 'pptx-svg';
-import { isSVGTextElement } from '../domGuards';
+import { isNode, isSVGTextElement } from '../domGuards';
 import { cleanError } from './runtimeCompat';
 import { normalizeSearchText } from './textUtils';
 import { getShapeIndex } from './svgUtils';
@@ -262,7 +262,7 @@ export class FindReplaceController {
     if (!this.findPanelDismissHandler) {
       this.findPanelDismissHandler = (event: Event) => {
         const target = event.target;
-        if (!(target instanceof Node)) return;
+        if (!isNode(target)) return;
         if (this.findPanelEl?.contains(target)) return;
         if (this.findButtonEl?.contains(target)) return;
         this.closeFindPanel();

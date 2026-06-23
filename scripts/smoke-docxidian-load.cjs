@@ -345,6 +345,23 @@ function findDocxFiles(dir, limit, results = []) {
 	return results;
 }
 
+function loadBundledDocxSupport() {
+	const esbuild = require('esbuild');
+	const outfile = path.join(os.tmpdir(), `docxidian-smoke-docx-support-${process.pid}.cjs`);
+	esbuild.buildSync({
+		absWorkingDir: projectRoot,
+		entryPoints: ['src/docxSupport.ts'],
+		bundle: true,
+		external: ['obsidian'],
+		format: 'cjs',
+		logLevel: 'silent',
+		outfile,
+		platform: 'node',
+		target: 'es2018',
+	});
+	return require(outfile);
+}
+
 async function runSmoke() {
 	console.debug = captureConsole('debug');
 	console.info = captureConsole('info');
@@ -462,9 +479,9 @@ async function runSmoke() {
 	assert.ok(Array.isArray(copiedDiagnostics.logs), 'Copied diagnostics should include log entries.');
 	assert.ok(copiedDiagnostics.logs.length > 0, 'Copied diagnostics should include at least one log entry.');
 
-	const chunk = require(path.join(pluginDir, 'docx-chunk.js'));
+	const chunk = loadBundledDocxSupport();
 	for (const exportName of ['createDocxReactMount', 'DocxFileEmbed', 'renderDocxEmbeds', 'hasReviewMarkup']) {
-		assert.equal(typeof chunk[exportName], 'function', `docx-chunk.js should export bundled ${exportName}.`);
+		assert.equal(typeof chunk[exportName], 'function', `docx support bundle should export bundled ${exportName}.`);
 	}
 
 	const docxFiles = process.env.DOCXIDIAN_SMOKE_DOCX

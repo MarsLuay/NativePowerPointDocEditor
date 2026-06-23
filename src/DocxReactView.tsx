@@ -10,7 +10,7 @@ import { Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import editorStyles from '@eigenpal/docx-editor-react/styles.css';
 import { createEditorTranslator } from './editorTranslations';
-import { isClipboardEvent, isElement, isHTMLButtonElement, isInputEvent, isNode } from './domGuards';
+import { isClipboardEvent, isElement, isHTMLButtonElement, isInputEvent, isNode, isPointerEvent } from './domGuards';
 import { debugLog, errorLog, warnLog } from './logger';
 import { Notice, Platform, setIcon } from './obsidianRuntime';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
@@ -2525,7 +2525,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			}
 
 			suppressEvent(evt);
-			if (evt instanceof PointerEvent) {
+			if (isPointerEvent(evt)) {
 				lastPointerHandledAt = performance.now();
 			}
 			startFontSizeHold(stepTarget.button, stepTarget.direction);

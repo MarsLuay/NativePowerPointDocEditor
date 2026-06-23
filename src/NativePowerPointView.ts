@@ -1127,7 +1127,7 @@ export class NativePowerPointView extends FileView {
     const closeMenus = (event: MouseEvent) => {
       const target = isNode(event.target) ? event.target : null;
       if (target && this.activeInsertMenu?.contains(target)) return;
-      if (target instanceof Element && target.closest('.native-powerpoint-insert-menu-anchor')) return;
+      if (isElement(target) && target.closest('.native-powerpoint-insert-menu-anchor')) return;
       this.closeInsertMenus();
     };
     this.registerDomEvent(activeDocument, 'pointerdown', closeMenus, true);
@@ -3634,7 +3634,7 @@ export class NativePowerPointView extends FileView {
    */
   private getTopLevelShapeIndexFromEvent(event: MouseEvent): number | null {
     const target = event.target;
-    if (!(target instanceof Element)) return null;
+    if (!isElement(target)) return null;
 
     let shape = target.closest('g[data-ooxml-shape-idx]');
     if (!shape) return null;

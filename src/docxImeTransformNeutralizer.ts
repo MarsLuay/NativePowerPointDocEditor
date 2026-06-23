@@ -1,3 +1,5 @@
+import { isHTMLElement } from './domGuards';
+
 const IME_NEUTRALIZED_DATASET_KEY = 'docxidianImeNeutralized';
 
 export interface ParsedEditorZoomTransform {
@@ -52,7 +54,7 @@ export function countTransformAncestors(element: Element | null, stopAt: Element
 	let current: Element | null = element;
 
 	while (current && current !== stopAt) {
-		const transform = current instanceof HTMLElement ? current.style.transform : '';
+		const transform = isHTMLElement(current) ? current.style.transform : '';
 		if (editorZoomTransformNeedsNeutralization(transform)) {
 			count += 1;
 		}
@@ -82,8 +84,7 @@ export function neutralizeDocxEditorZoomWrapper(wrapper: HTMLElement): boolean {
 		wrapper.style.removeProperty('margin-left');
 	}
 
-// eslint-disable-next-line obsidianmd/no-static-styles-assignment -- required for runtime DOM neutralization
-	wrapper.style.setProperty('transform', 'none');
+	wrapper.style.removeProperty('transform');
 	wrapper.style.removeProperty('transform-origin');
 	wrapper.dataset[IME_NEUTRALIZED_DATASET_KEY] = 'true';
 
@@ -156,7 +157,7 @@ export function attachDocxImeTransformNeutralizer(
 			if (
 				mutation.type === 'attributes'
 				&& mutation.attributeName === 'style'
-				&& mutation.target instanceof HTMLElement
+				&& isHTMLElement(mutation.target)
 			) {
 				const wrapper = findDocxEditorZoomWrapper(editorRoot);
 				if (wrapper && (mutation.target === wrapper || wrapper.contains(mutation.target))) {

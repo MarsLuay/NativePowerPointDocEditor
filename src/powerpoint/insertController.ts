@@ -1,6 +1,6 @@
 import { type App, Notice, type TFile } from 'obsidian';
 
-import { isNode } from '../domGuards';
+import { isElement, isNode } from '../domGuards';
 import type { InsertableShapeGeometry, PresentationEngine } from '../PresentationEngine';
 import {
   getImageMimeType,
@@ -46,7 +46,7 @@ export class InsertController {
     const closeMenus = (event: MouseEvent) => {
       const target = isNode(event.target) ? event.target : null;
       if (target && this.activeInsertMenu?.contains(target)) return;
-      if (target instanceof Element && target.closest('.native-powerpoint-insert-menu-anchor')) return;
+      if (isElement(target) && target.closest('.native-powerpoint-insert-menu-anchor')) return;
       this.closeInsertMenus();
     };
     this.host.registerDocumentPointerDown(closeMenus, true);
