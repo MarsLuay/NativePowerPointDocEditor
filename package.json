@@ -53,7 +53,7 @@
 		"typescript-eslint": "8.35.1"
 	},
 	"dependencies": {
-		"@eigenpal/docx-editor-i18n": "^1.0.1",
+		"@eigenpal/docx-editor-i18n": "^1.9.0",
 		"@eigenpal/docx-editor-react": "^1.0.0",
 		"html2canvas": "^1.4.1",
 		"jszip": "^3.10.1",
