@@ -72,6 +72,8 @@ Most use is fully local. Network access is limited to cases below:
 
 The plugin does not upload vault contents to a server as part of normal editing, search, save, or export.
 
+See also [docs/privacy-policy.md](docs/privacy-policy.md) and [docs/terms-of-service.md](docs/terms-of-service.md).
+
 ### Local data the plugin stores
 
 - **DOCX search index** — optional, **off by default**. When enabled in settings, builds a local text cache at `.obsidian/plugins/native-powerpoint-doc-editor/docx-search-index.json` for vault-wide DOCX search.

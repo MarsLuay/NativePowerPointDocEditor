@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.27] - 2026-06-23
+
+### Added
+
+- Publish `docs/privacy-policy.md` and `docs/terms-of-service.md` for the community
+  plugin distribution.
+- Add Dependabot configuration for weekly npm dependency update PRs.
+
+### Changed
+
+- Link the README privacy section to the new legal documents.
+
+### Fixed
+
+- Resolve ESLint `no-unsafe-assignment` in logger prototype normalization.
+
 ## [1.0.26] - 2026-06-23
 
 ### Fixed
@@ -204,7 +220,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.27...HEAD
+[1.0.27]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...1.0.27
 [1.0.26]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...1.0.26
 [1.0.25]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.24...1.0.25
 [1.0.24]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.22...1.0.24

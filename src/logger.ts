@@ -125,7 +125,7 @@ function normalizeLogData(data: unknown, seen = new WeakSet<object>(), depth = 0
 		return data.toISOString();
 	}
 
-	const prototype = Object.getPrototypeOf(data);
+	const prototype = Object.getPrototypeOf(data) as object | null;
 	if (prototype === Object.prototype || prototype === null) {
 		const normalized: Record<string, unknown> = {};
 		for (const [key, value] of Object.entries(data)) {
