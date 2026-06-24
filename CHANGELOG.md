@@ -6,6 +6,20 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.30] - 2026-06-24
+
+### Fixed
+
+- Strip React 19 `react-dom` `createElement("script")` patterns from the production
+  bundle so Obsidian's automated plugin review no longer flags dynamic script
+  injection.
+- Remove an unnecessary `ArrayBuffer` type assertion in chart workbook buffer
+  handling.
+
+### Added
+
+- Post-build guard that fails when `createElement("script")` leaks into `main.js`.
+
 ## [1.0.29] - 2026-06-24
 
 ### Changed

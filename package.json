@@ -1,12 +1,13 @@
 {
 	"name": "native-powerpoint-doc-editor",
-	"version": "1.0.29",
+	"version": "1.0.30",
 	"description": "Open, search, and edit DOCX and PPTX files directly in your vault.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs",
+		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && node scripts/check-no-dynamic-script.mjs && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs",
+		"check:no-dynamic-script": "node scripts/check-no-dynamic-script.mjs",
 		"check:mobile": "node scripts/check-mobile-compat.mjs",
 		"check:pptx-js-engine": "node scripts/check-pptx-js-engine-version.mjs",
 		"smoke": "node scripts/smoke-docxidian-load.cjs",

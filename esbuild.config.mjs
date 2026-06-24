@@ -4,6 +4,7 @@ import { builtinModules } from 'node:module';
 import { access, copyFile, readFile, writeFile } from "fs/promises";
 import path from "node:path";
 import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
+import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
 
 const banner =
 `/*
@@ -80,6 +81,19 @@ const inlinePptxSvgWasmPlugin = {
 	}
 };
 
+const stripReactDomScriptPlugin = {
+	name: "strip-react-dom-script",
+	setup(build) {
+		build.onLoad({ filter: /react-dom-client\.(production|development)\.js$/ }, async (args) => {
+			const source = await readFile(args.path, "utf8");
+			return {
+				contents: patchReactDomScriptCreation(source, args.path),
+				loader: "js",
+			};
+		});
+	}
+};
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -130,7 +144,7 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	plugins: [inlinePptxSvgWasmPlugin, deployToVaultPlugin],
+	plugins: [stripReactDomScriptPlugin, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
 	outdir: ".",
 	entryNames: "[name]",
 	minify: prod,

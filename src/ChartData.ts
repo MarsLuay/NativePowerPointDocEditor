@@ -609,7 +609,13 @@ function markWorkbookForRecalculation(workbookDoc: XMLDocument): void {
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-	return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+	const { buffer, byteOffset, byteLength } = bytes;
+	if (buffer instanceof ArrayBuffer) {
+		return buffer.slice(byteOffset, byteOffset + byteLength);
+	}
+	const copy = new Uint8Array(byteLength);
+	copy.set(bytes);
+	return copy.buffer;
 }
 
 async function updateEmbeddedWorkbook(
