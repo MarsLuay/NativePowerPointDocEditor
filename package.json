@@ -1,6 +1,6 @@
 {
 	"name": "native-powerpoint-doc-editor",
-	"version": "1.0.28",
+	"version": "1.0.29",
 	"description": "Open, search, and edit DOCX and PPTX files directly in your vault.",
 	"main": "main.js",
 	"type": "module",
@@ -30,6 +30,7 @@
 		"smoke:docx-ime": "node scripts/smoke-docx-ime-neutralizer.mjs",
 		"verify:docx-ime-live": "node scripts/verify-obsidian-ime-manual-check.mjs",
 		"verify:docx-font-roundtrip": "node scripts/verify-docx-font-roundtrip.mjs",
+		"audit:docx-pagination": "node scripts/audit-docx-pagination.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint \"src/**/*.{ts,tsx}\""
 	},
@@ -54,7 +55,8 @@
 	},
 	"dependencies": {
 		"@eigenpal/docx-editor-i18n": "^1.9.0",
-		"@eigenpal/docx-editor-react": "^1.0.0",
+		"@eigenpal/docx-editor-core": "^1.9.0",
+		"@eigenpal/docx-editor-react": "^1.9.0",
 		"html2canvas": "^1.4.1",
 		"jszip": "^3.10.1",
 		"obsidian": "latest",

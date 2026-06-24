@@ -124,7 +124,7 @@ export default class DocxidianPlugin extends Plugin {
 				'lifecycle', 'load', 'save', 'autosave', 'export', 'copy', 'rename',
 				'mode', 'zoom', 'find-replace', 'clipboard', 'table', 'image',
 				'font', 'font-size', 'review', 'hidden-text', 'search', 'embed',
-				'table-cell-font-preservation', 'japanese-ime-anchor',
+				'pagination', 'table-cell-font-preservation', 'japanese-ime-anchor',
 			],
 			powerPoint: [
 				'lifecycle', 'load', 'save', 'autosave', 'recovery', 'render',

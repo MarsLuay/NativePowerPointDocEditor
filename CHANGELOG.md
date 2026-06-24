@@ -6,7 +6,26 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.29] - 2026-06-24
+
+### Changed
+
+- Upgrade the Eigenpal DOCX editor packages to 1.9.0 for improved Word-compatible
+  pagination and layout fidelity.
+
+### Fixed
+
+- Prevent a terminal empty DOCX paragraph from creating an extra preview page
+  when the visible document content already fits on the preceding page.
+
+### Added
+
+- Add a repeatable DOCX pagination audit that compares preview page counts with
+  LibreOffice-rendered PDF page counts, distinguishes preview over-pagination
+  from renderer-specific reference differences, and reports tab-heavy source
+  paragraphs that can paginate differently across office suites.
+- Add live DOCX pagination diagnostics to the development log, including page
+  counts, page geometry, explicit page breaks, and tab-heavy paragraph counts.
 
 ## [1.0.28] - 2026-06-23
 

@@ -39,6 +39,16 @@ interface DocxDocumentWithSectionProperties {
 	};
 }
 
+interface DocxPaginationSourceDiagnostics {
+	paragraphs: number;
+	tables: number;
+	tabRuns: number;
+	tabHeavyParagraphs: number;
+	maxTabsInParagraph: number;
+	longSpaceRuns: number;
+	explicitPageBreaks: number;
+}
+
 const DEFAULT_PAGE_HEIGHT_TWIPS = 15840;
 const DEFAULT_MARGIN_TWIPS = 1440;
 const DOCX_PACKAGE_DOCUMENT_KEY = 'document';
@@ -261,6 +271,54 @@ function getDocumentListLayoutSignatures(doc: ProseMirrorNode) {
 		return false;
 	});
 	return signatures;
+}
+
+function getDocxPaginationSourceDiagnostics(doc: ProseMirrorNode | null | undefined): DocxPaginationSourceDiagnostics {
+	const diagnostics: DocxPaginationSourceDiagnostics = {
+		paragraphs: 0,
+		tables: 0,
+		tabRuns: 0,
+		tabHeavyParagraphs: 0,
+		maxTabsInParagraph: 0,
+		longSpaceRuns: 0,
+		explicitPageBreaks: 0,
+	};
+	if (!doc) {
+		return diagnostics;
+	}
+
+	doc.descendants((node) => {
+		if (node.type.name === 'table') {
+			diagnostics.tables += 1;
+		}
+		if (node.type.name === 'pageBreak'
+			|| (node.type.name === 'hardBreak' && (node.attrs.breakType === 'page' || node.attrs.type === 'page'))) {
+			diagnostics.explicitPageBreaks += 1;
+		}
+		if (node.type.name !== 'paragraph') {
+			return true;
+		}
+
+		diagnostics.paragraphs += 1;
+		let paragraphTabRuns = 0;
+		node.descendants((child) => {
+			if (child.type.name === 'tab') {
+				paragraphTabRuns += 1;
+			}
+			if (child.isText && child.text) {
+				diagnostics.longSpaceRuns += (child.text.match(/ {8,}/g) ?? []).length;
+			}
+			return true;
+		});
+		diagnostics.tabRuns += paragraphTabRuns;
+		diagnostics.maxTabsInParagraph = Math.max(diagnostics.maxTabsInParagraph, paragraphTabRuns);
+		if (paragraphTabRuns >= 2) {
+			diagnostics.tabHeavyParagraphs += 1;
+		}
+		return true;
+	});
+
+	return diagnostics;
 }
 
 function didListLayoutChange(before: ProseMirrorNode, after: ProseMirrorNode) {
@@ -1581,6 +1639,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const listLayoutRelayoutFrameRef = useRef<number | null>(null);
 	const listLayoutRelayoutSecondFrameRef = useRef<number | null>(null);
 	const commentsSidebarToggleFrameRef = useRef<number | null>(null);
+	const paginationLogTimeoutRef = useRef<number | null>(null);
+	const lastPaginationLogSignatureRef = useRef<string | null>(null);
 	const dirtyTrackingEnabledRef = useRef(false);
 	const dirtyVersionRef = useRef(0);
 	const isSavingRef = useRef(false);
@@ -1611,6 +1671,44 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		...DEFAULT_EDITOR_FONT_FAMILIES,
 		...importedFonts,
 	], [importedFonts]);
+	const schedulePaginationDiagnostics = useCallback((trigger: string) => {
+		if (paginationLogTimeoutRef.current !== null) {
+			window.clearTimeout(paginationLogTimeoutRef.current);
+		}
+
+		paginationLogTimeoutRef.current = window.setTimeout(() => {
+			paginationLogTimeoutRef.current = null;
+			const editor = editorRef.current;
+			const editorCore = editor?.getEditorRef();
+			const renderedPages = renderedDomContextRef.current?.pagesContainer.querySelectorAll('.layout-page').length
+				?? activeDocument.querySelectorAll(`.${editorClassNameRef.current} .layout-page`).length;
+			const sourceDiagnostics = getDocxPaginationSourceDiagnostics(editorCore?.getView()?.state.doc);
+			const sourceDocument = editor?.getDocument() as DocxDocumentWithSectionProperties | null | undefined;
+			const documentProperties = sourceDocument?.package?.[DOCX_PACKAGE_DOCUMENT_KEY];
+			const sectionProperties = {
+				...documentProperties?.sections?.[0]?.properties,
+				...documentProperties?.finalSectionProperties,
+			};
+			const details = {
+				file: filePath,
+				totalPages: editor?.getTotalPages() ?? 0,
+				renderedPages,
+				pageHeightTwips: sectionProperties.pageHeight ?? DEFAULT_PAGE_HEIGHT_TWIPS,
+				topMarginTwips: sectionProperties.marginTop ?? DEFAULT_MARGIN_TWIPS,
+				bottomMarginTwips: sectionProperties.marginBottom ?? DEFAULT_MARGIN_TWIPS,
+				...sourceDiagnostics,
+			};
+			const signature = JSON.stringify(details);
+			if (signature === lastPaginationLogSignatureRef.current) {
+				return;
+			}
+			lastPaginationLogSignatureRef.current = signature;
+			debugLog('pagination', 'DOCX pagination diagnostics', {
+				trigger,
+				...details,
+			});
+		}, 100);
+	}, [filePath]);
 	const scheduleListLayoutRelayout = useCallback(() => {
 		clearParagraphMeasureCache();
 		if (listLayoutRelayoutFrameRef.current !== null) {
@@ -1713,6 +1811,16 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	useEffect(() => {
 		ensureEditorStyles();
 	}, []);
+
+	useEffect(() => {
+		lastPaginationLogSignatureRef.current = null;
+		return () => {
+			if (paginationLogTimeoutRef.current !== null) {
+				window.clearTimeout(paginationLogTimeoutRef.current);
+				paginationLogTimeoutRef.current = null;
+			}
+		};
+	}, [documentKey]);
 
 	useEffect(() => {
 		if (!file || !buffer || isLoading) {
@@ -2764,7 +2872,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			pageCount: context.pagesContainer.querySelectorAll('.layout-page').length,
 			zoom: context.zoom,
 		});
-	}, []);
+		schedulePaginationDiagnostics('rendered-dom-ready');
+	}, [schedulePaginationDiagnostics]);
 
 	useEffect(() => {
 		if (!autosave) {
@@ -3486,6 +3595,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				onEditorViewReady={() => {
 					scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
+					schedulePaginationDiagnostics('editor-view-ready');
 				}}
 				onSelectionChange={() => {
 					scheduleListMarkerSelectionHighlightSync();
@@ -3511,6 +3621,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					scheduleVerticalRulerMarkerSync(editorRef.current?.getDocument());
 					scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
+					schedulePaginationDiagnostics('document-change');
+				}}
+				onFontsLoaded={() => {
+					schedulePaginationDiagnostics('fonts-loaded');
 				}}
 				onSave={(output) => {
 					if (pendingSaveModeRef.current === 'export') {
