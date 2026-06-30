@@ -61,7 +61,7 @@
 		"html2canvas": "^1.4.1",
 		"jszip": "^3.10.1",
 		"obsidian": "latest",
-		"pptx-svg": "^0.5.10",
+		"pptx-svg": "^0.6.2",
 		"prosemirror-state": "^1.4.4",
 		"prosemirror-view": "^1.41.9",
 		"react": "^19.2.7",
