@@ -1125,10 +1125,10 @@ export class DocxView extends FileView {
 		}
 
 		this.editorChromeSyncQueued = true;
-		requestAnimationFrame(() => {
-			this.editorChromeSyncQueued = false;
-			this.runEditorChromeSync();
-		});
+			window.requestAnimationFrame(() => {
+				this.editorChromeSyncQueued = false;
+				this.runEditorChromeSync();
+			});
 	}
 
 	private runEditorChromeSync() {
@@ -1167,11 +1167,9 @@ export class DocxView extends FileView {
 	}
 
 	private isLeafActive(): boolean {
-		if (this.app.workspace.getActiveViewOfType(DocxView) === this) {
-			return true;
-		}
-		if (this.app.workspace.activeLeaf?.view === this) {
-			return true;
+		const activeDocxView = this.app.workspace.getActiveViewOfType(DocxView);
+		if (activeDocxView) {
+			return activeDocxView === this;
 		}
 		if (!this.file) {
 			return false;

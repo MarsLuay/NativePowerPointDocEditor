@@ -176,7 +176,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'copy-native-powerpoint-doc-editor-debug-log',
+			id: 'copy-debug-log',
 			name: 'Copy debug log',
 			callback: async () => {
 				await this.copyDebugLog();
@@ -192,9 +192,9 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		infoLog('plugin', 'Plugin unloaded');
 		this.editorThemeObserver?.disconnect();
 		this.editorThemeObserver = null;
-		document.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
-		document.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
-		document.body.removeAttribute('data-native-powerpoint-doc-editor-resolved-theme');
+		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
+		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
+		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-resolved-theme');
 		setNativePowerPointDocEditorLogSink(null);
 	}
 
@@ -345,13 +345,13 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		const themeClass = `native-powerpoint-doc-editor-theme-${editorTheme}`;
 		const resolvedThemeClass = `native-powerpoint-doc-editor-theme-resolved-${resolvedTheme}`;
 		for (const className of EDITOR_THEME_CLASSES) {
-			document.body.classList.toggle(className, className === themeClass);
+			activeDocument.body.classList.toggle(className, className === themeClass);
 		}
 		for (const className of RESOLVED_EDITOR_THEME_CLASSES) {
-			document.body.classList.toggle(className, className === resolvedThemeClass);
+			activeDocument.body.classList.toggle(className, className === resolvedThemeClass);
 		}
-		document.body.setAttribute('data-native-powerpoint-doc-editor-theme', editorTheme);
-		document.body.setAttribute('data-native-powerpoint-doc-editor-resolved-theme', resolvedTheme);
+		activeDocument.body.setAttribute('data-native-powerpoint-doc-editor-theme', editorTheme);
+		activeDocument.body.setAttribute('data-native-powerpoint-doc-editor-resolved-theme', resolvedTheme);
 
 		const resolvedThemeChanged = this.lastAppliedResolvedEditorTheme !== undefined
 			&& this.lastAppliedResolvedEditorTheme !== resolvedTheme;
@@ -379,7 +379,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				this.refreshPowerPointViews();
 			}
 		});
-		this.editorThemeObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+		this.editorThemeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ['class'] });
 		this.register(() => {
 			this.editorThemeObserver?.disconnect();
 			this.editorThemeObserver = null;
@@ -387,7 +387,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	}
 
 	private getObsidianThemeResolution(): EditorThemeResolution {
-		const bodyClassList = document.body?.classList;
+		const bodyClassList = activeDocument.body.classList;
 		if (bodyClassList?.contains('theme-dark')) {
 			return 'dark';
 		}

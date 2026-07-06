@@ -953,11 +953,11 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 		.native-powerpoint-doc-editor-editor-settings-row.mod-action > button {
 	appearance: none;
 	-webkit-appearance: none;
-	background: var(--npde-dialog-button-bg) !important;
-	border: 1px solid var(--npde-settings-action-border, var(--npde-dialog-border)) !important;
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-settings-action-border, var(--npde-dialog-border));
 	border-radius: 5px;
-	box-shadow: none !important;
-	color: var(--npde-dialog-text) !important;
+	box-shadow: none;
+	color: var(--npde-dialog-text);
 	cursor: pointer;
 	flex: 0 0 auto;
 	font-size: 12px;
@@ -1003,9 +1003,9 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	.native-powerpoint-doc-editor-host
 		.ep-root
 		.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus {
-	background: var(--npde-dialog-button-hover-bg) !important;
-	border-color: var(--npde-settings-action-border, var(--npde-dialog-border)) !important;
-	color: var(--npde-dialog-text) !important;
+	background: var(--npde-dialog-button-hover-bg);
+	border-color: var(--npde-settings-action-border, var(--npde-dialog-border));
+	color: var(--npde-dialog-text);
 	outline: none;
 }
 
@@ -1255,13 +1255,13 @@ body > .ep-root,
 	.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'] {
-	display: none !important;
-	height: 0 !important;
-	max-height: 0 !important;
-	opacity: 0 !important;
-	overflow: hidden !important;
-	pointer-events: none !important;
-	visibility: hidden !important;
+	display: none;
+	height: 0;
+	max-height: 0;
+	opacity: 0;
+	overflow: hidden;
+	pointer-events: none;
+	visibility: hidden;
 }
 
 .native-powerpoint-doc-editor-toolbar-tooltip {
@@ -3896,9 +3896,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='editor-toolbar'] {
-	background: var(--npde-docx-toolbar-shell-bg) !important;
-	border-color: var(--npde-editor-border) !important;
-	color: var(--npde-editor-text) !important;
+	background: var(--npde-docx-toolbar-shell-bg);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -3906,7 +3906,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='formatting-bar'] {
-	background: var(--npde-docx-formatting-bar-bg) !important;
+	background: var(--npde-docx-formatting-bar-bg);
 	scrollbar-color: var(--npde-docx-formatting-scrollbar-thumb) var(--npde-docx-formatting-scrollbar-track);
 	scrollbar-width: thin;
 }
@@ -3916,7 +3916,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='formatting-bar']::-webkit-scrollbar {
-	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
+	background-color: var(--npde-docx-formatting-scrollbar-track);
 	height: 6px;
 }
 
@@ -3925,7 +3925,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='formatting-bar']::-webkit-scrollbar-track {
-	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
+	background-color: var(--npde-docx-formatting-scrollbar-track);
 	border-radius: 4px;
 }
 
@@ -3934,7 +3934,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='formatting-bar']::-webkit-scrollbar-thumb {
-	background-color: var(--npde-docx-formatting-scrollbar-thumb) !important;
+	background-color: var(--npde-docx-formatting-scrollbar-thumb);
 	border-radius: 4px;
 }
 
@@ -3943,7 +3943,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='formatting-bar']:hover::-webkit-scrollbar-thumb {
-	background-color: var(--npde-docx-formatting-scrollbar-thumb-hover) !important;
+	background-color: var(--npde-docx-formatting-scrollbar-thumb-hover);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -3951,7 +3951,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='formatting-bar']::-webkit-scrollbar-corner {
-	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
+	background-color: var(--npde-docx-formatting-scrollbar-track);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -3976,9 +3976,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	[data-testid='editor-toolbar']
 	:is(button:hover, button:focus, [role='button']:hover, [role='button']:focus, [aria-pressed='true'], [data-highlighted]):not(.docx-color-picker-dropdown button) {
-	background: var(--npde-editor-toolbar-hover) !important;
-	border-color: var(--npde-editor-border) !important;
-	color: var(--npde-editor-text) !important;
+	background: var(--npde-editor-toolbar-hover);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-slide-surface {
@@ -3993,10 +3993,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.native-powerpoint-doc-editor-host
 	.ep-root
 	.layout-page {
-	background: var(--npde-document-bg) !important;
-	color: var(--npde-document-text) !important;
-	color-scheme: light !important;
-	filter: none !important;
+	background: var(--npde-document-bg);
+	color: var(--npde-document-text);
+	color-scheme: light;
+	filter: none;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-slide-svg {
@@ -4009,7 +4009,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	.layout-page
 	:is(img, svg, canvas, video) {
-	filter: none !important;
+	filter: none;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface {
@@ -4135,10 +4135,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 		[role='menubar'],
 		[role='menubar'] > div
 	) {
-	background: var(--npde-editor-bg) !important;
-	border-color: var(--npde-editor-border) !important;
-	color: var(--npde-editor-text) !important;
-	color-scheme: dark !important;
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+	color-scheme: dark;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -4167,10 +4167,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	:is([data-testid='title-bar'], [data-testid='editor-toolbar'], [role='menubar'])
 	:is(button, input, select, textarea, [role='button'], [role='menuitem'], [role='option']):not(.docx-color-picker-dropdown button) {
-	background: transparent !important;
-	border-color: transparent !important;
-	box-shadow: none !important;
-	color: var(--npde-editor-text-muted) !important;
+	background: transparent;
+	border-color: transparent;
+	box-shadow: none;
+	color: var(--npde-editor-text-muted);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -4179,9 +4179,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	:is([data-testid='title-bar'], [data-testid='editor-toolbar'], [role='menubar'])
 	:is(button:hover, button:focus, [role='button']:hover, [role='button']:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [aria-pressed='true'], [data-highlighted]):not(.docx-color-picker-dropdown button) {
-	background: var(--npde-editor-toolbar-hover) !important;
-	border-color: var(--npde-editor-border) !important;
-	color: var(--npde-editor-text) !important;
+	background: var(--npde-editor-toolbar-hover);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -4190,10 +4190,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	:is([data-testid='title-bar'], [data-testid='editor-toolbar'])
 	:is(input, select, textarea, [role='listbox']) {
-	background: var(--npde-editor-bg) !important;
-	border-color: var(--npde-editor-border-strong) !important;
-	color: var(--npde-editor-text) !important;
-	color-scheme: dark !important;
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border-strong);
+	color: var(--npde-editor-text);
+	color-scheme: dark;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
@@ -4202,7 +4202,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	:is([data-testid='title-bar'], [data-testid='editor-toolbar'])
 	:is(.truncate, [data-testid='font-size-display'], [data-testid='font-size-input']) {
-	color: var(--npde-editor-text) !important;
+	color: var(--npde-editor-text);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
@@ -4232,10 +4232,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	.ep-root
 	[role='menubar']
 	[style*='position'] {
-	background: var(--npde-editor-bg) !important;
-	border-color: var(--npde-editor-border) !important;
-	color: var(--npde-editor-text) !important;
-	color-scheme: dark !important;
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+	color-scheme: dark;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
