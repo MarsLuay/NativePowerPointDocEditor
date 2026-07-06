@@ -1,4 +1,7 @@
-import { type App, type Menu, Notice, TFile, normalizePath } from 'obsidian';
+import { type App, type Menu, TFile, normalizePath } from 'obsidian';
+
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 
 import type { PresentationEngine } from '../PresentationEngine';
 import { debugLog, errorLog } from '../logger';
@@ -11,6 +14,7 @@ import { cleanError } from './runtimeCompat';
  * view supplies it via an adapter object so its own members stay `private`.
  */
 export interface ExportHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly currentSlide: number;
   readonly ownerDocument: Document;
@@ -29,38 +33,42 @@ export interface ExportHost {
  * Extracted verbatim from `NativePowerPointView`.
  */
 export class ExportController {
-  constructor(private readonly host: ExportHost) {}
+  private readonly notice: TranslateNoticeFn;
+
+  constructor(private readonly host: ExportHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   openMenu(anchor: HTMLElement): void {
     const engine = this.host.engine;
     if (!engine || engine.slideCount === 0) {
-      new Notice('Open a presentation with at least one slide to export.');
+      this.notice('powerpoint:notice.openToExport');
       return;
     }
 
     const menu = this.host.createNativeMenu();
     menu.addItem((item) =>
       item
-        .setTitle('Current slide as PNG')
+        .setTitle(this.host.t('powerpoint:export.currentSlidePng'))
         .setIcon('image')
         .onClick(() => void this.exportCurrentSlideAsPng())
     );
     menu.addItem((item) =>
       item
-        .setTitle('Current slide as PDF')
+        .setTitle(this.host.t('powerpoint:export.currentSlidePdf'))
         .setIcon('file-output')
         .onClick(() => void this.exportDeckAsPdf(true))
     );
     menu.addSeparator();
     menu.addItem((item) =>
       item
-        .setTitle('Whole deck as PDF')
+        .setTitle(this.host.t('powerpoint:export.wholeDeckPdf'))
         .setIcon('file-output')
         .onClick(() => void this.exportDeckAsPdf(false))
     );
     menu.addItem((item) =>
       item
-        .setTitle('Whole deck as PNGs (zip)')
+        .setTitle(this.host.t('powerpoint:export.wholeDeckPngsZip'))
         .setIcon('file-archive')
         .onClick(() => void this.exportDeckAsPngZip())
     );
@@ -91,7 +99,7 @@ export class ExportController {
       });
     } catch (error) {
       errorLog('export', 'PowerPoint PNG export failed', { slide: this.host.currentSlide, error });
-      new Notice(`Could not export slide as PNG: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotExportSlidePng', { message: cleanError(error) });
     }
   }
 
@@ -108,7 +116,7 @@ export class ExportController {
         throw new Error('No slides could be rendered for export.');
       }
 
-      new Notice(currentSlideOnly ? 'Exporting slide to PDF...' : 'Exporting deck to PDF...');
+      this.notice(currentSlideOnly ? 'powerpoint:notice.exportingSlideToPdf' : 'powerpoint:notice.exportingDeckToPdf');
       debugLog('export', 'PowerPoint PDF export started', {
         currentSlideOnly,
         slideCount: indices.length
@@ -125,7 +133,7 @@ export class ExportController {
       });
     } catch (error) {
       errorLog('export', 'PowerPoint PDF export failed', { currentSlideOnly, error });
-      new Notice(`Could not export PDF: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotExportPdf', { message: cleanError(error) });
     }
   }
 
@@ -140,7 +148,7 @@ export class ExportController {
         throw new Error('No slides could be rendered for export.');
       }
 
-      new Notice('Exporting deck to PNG images...');
+      this.notice('powerpoint:notice.exportingDeckPngs');
       const baseName = this.getExportBaseName();
       debugLog('export', 'PowerPoint PNG zip export started', { slideCount: indices.length });
       const bytes = await exportSlidesToPngZip(elements, this.host.ownerDocument, baseName);
@@ -151,7 +159,7 @@ export class ExportController {
       });
     } catch (error) {
       errorLog('export', 'PowerPoint PNG zip export failed', { error });
-      new Notice(`Could not export PNG images: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotExportPngImages', { message: cleanError(error) });
     }
   }
 
@@ -188,7 +196,7 @@ export class ExportController {
     const existing = this.host.app.vault.getAbstractFileByPath(targetPath);
     if (existing) {
       if (!(existing instanceof TFile)) {
-        new Notice(`${targetPath} already exists and is not a file.`);
+        this.notice('powerpoint:notice.pathExistsNotFile', { path: targetPath });
         return;
       }
 
@@ -223,6 +231,6 @@ export class ExportController {
       bytes: data.byteLength,
       replaced: existingTarget instanceof TFile
     });
-    new Notice(`Exported to ${targetPath}`);
+    this.notice('powerpoint:notice.exportedTo', { path: targetPath });
   }
 }

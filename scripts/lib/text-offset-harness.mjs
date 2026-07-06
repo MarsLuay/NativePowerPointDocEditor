@@ -16,6 +16,7 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const projectRoot = path.resolve(__dirname, "../..");
 export const electronMainPath = path.join(__dirname, "electron-eval-main.cjs");
+const electronApiProbeCache = new Map();
 
 export function resolveElectronBinary() {
   try {
@@ -25,6 +26,38 @@ export function resolveElectronBinary() {
     // not installed
   }
   return null;
+}
+
+export async function canUseElectronMainHarness(electronBinary, timeoutMs = 5000) {
+  if (!electronBinary) return false;
+  if (electronApiProbeCache.has(electronBinary)) {
+    return electronApiProbeCache.get(electronBinary);
+  }
+  const probe = await new Promise((resolve) => {
+    const child = spawn(electronBinary, [
+      "-e",
+      'process.stdout.write(typeof require("electron"))',
+    ], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve(false);
+    }, timeoutMs);
+
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.on("error", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve(code === 0 && stdout.trim() === "object");
+    });
+  });
+  electronApiProbeCache.set(electronBinary, probe);
+  return probe;
 }
 
 export function findChrome() {
@@ -206,18 +239,32 @@ export async function writeHarnessHtml({
   return htmlPath;
 }
 
-export async function runHeadlessHarness(htmlPath) {
+export async function runHeadlessHarness(htmlPath, options = {}) {
   const electronBinary = resolveElectronBinary();
-  if (electronBinary) {
-    const encoded = await runElectron(electronBinary, htmlPath);
-    return {
-      runtime: `Electron ${require("electron/package.json").version}`,
-      metrics: JSON.parse(decodeURIComponent(encoded)),
-    };
+  const electronUsable = await canUseElectronMainHarness(electronBinary);
+  if (electronBinary && electronUsable) {
+    try {
+      const encoded = await runElectron(electronBinary, htmlPath, options.electronTimeoutMs);
+      return {
+        runtime: `Electron ${require("electron/package.json").version}`,
+        metrics: JSON.parse(decodeURIComponent(encoded)),
+      };
+    } catch (error) {
+      if (!findChrome()) {
+        throw error;
+      }
+    }
   }
 
   const chromePath = findChrome();
   if (!chromePath) {
+    if (electronBinary) {
+      const encoded = await runElectron(electronBinary, htmlPath, options.electronTimeoutMs);
+      return {
+        runtime: `Electron ${require("electron/package.json").version}`,
+        metrics: JSON.parse(decodeURIComponent(encoded)),
+      };
+    }
     return null;
   }
 
@@ -236,18 +283,64 @@ export async function runHeadlessHarness(htmlPath) {
     ], { stdio: ["ignore", "pipe", "pipe"] });
 
     let stdout = "";
-    child.stdout.on("data", (chunk) => { stdout += chunk; });
-    child.on("close", (code) => {
-      const match = stdout.match(/data-metrics="([^"]+)"/);
-      if (!match) {
-        reject(new Error(`Chrome harness emitted no metrics (exit ${code})`));
-        return;
-      }
+    let stderr = "";
+    let timedOut = false;
+    let settled = false;
+    const timeoutMs = options.chromeTimeoutMs ?? 25000;
+    const finishWithMetrics = (match) => {
+      if (settled) return;
+      settled = true;
+      child.kill("SIGTERM");
+      child.unref();
+      setTimeout(() => {
+        if (child.exitCode === null) child.kill("SIGKILL");
+      }, 2000).unref();
       resolve({
         runtime: "headless Chrome",
         metrics: JSON.parse(decodeURIComponent(match[1])),
       });
+    };
+    const timer = setTimeout(() => {
+      timedOut = true;
+      const match = stdout.match(/data-metrics="([^"]+)"/);
+      if (match) {
+        clearTimeout(timer);
+        finishWithMetrics(match);
+        return;
+      }
+      child.kill("SIGTERM");
+      setTimeout(() => {
+        if (child.exitCode === null) child.kill("SIGKILL");
+      }, 2000).unref();
+    }, timeoutMs);
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      const match = stdout.match(/data-metrics="([^"]+)"/);
+      if (match) {
+        clearTimeout(timer);
+        finishWithMetrics(match);
+      }
     });
-    child.on("error", reject);
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("close", (code) => {
+      if (settled) return;
+      clearTimeout(timer);
+      const match = stdout.match(/data-metrics="([^"]+)"/);
+      if (match) {
+        finishWithMetrics(match);
+        return;
+      }
+      if (!match) {
+        settled = true;
+        reject(new Error(`Chrome harness emitted no metrics (exit ${code}): ${stderr || stdout}`));
+        return;
+      }
+    });
+    child.on("error", (error) => {
+      if (settled) return;
+      clearTimeout(timer);
+       settled = true;
+      reject(error);
+    });
   });
 }

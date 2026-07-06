@@ -1,22 +1,19 @@
 // Audit test for the "Global · Settings & commands" feature group.
 //
-// Targets the three pure helpers that gate how persisted settings are
+// Targets the pure helpers that gate how persisted settings are
 // normalized before they reach the editor views and the PowerPoint runtime:
 //
 //   1. normalizeDefaultZoom (src/settings.ts ~76-84): clamps the saved DOCX
 //      zoom into 0.5-2 and snaps it to the 0.05 slider step; non-numeric or
 //      non-finite input must fall back to the 1.0 default.
 //   2. getNativePowerPointSettings (src/settings.ts ~63-74): maps the flat
-//      DocxidianSettings.powerPoint* fields onto the NativePowerPointSettings
+//      NativePowerPointDocEditorSettings.powerPoint* fields onto the NativePowerPointSettings
 //      shape the view consumes, and threads the setOpenWithYoloMode callback.
-//   3. normalizeDocxidianLanguage (src/locales.ts ~40-42): keeps a known BCP-47
-//      code and falls back to the default ('en') for unknown/non-string input.
 //
 // settings.ts statically `extends PluginSettingTab` from 'obsidian', so the
 // module cannot be required without an 'obsidian' implementation. We mark
 // 'obsidian' external in the esbuild output and install a minimal Module._load
 // shim (mirroring tests/helpers/load-plugin-modules.mjs) for the require().
-// locales.ts has no 'obsidian' dependency, so it bundles cleanly on its own.
 
 import assert from "node:assert/strict";
 import { mkdtemp } from "node:fs/promises";
@@ -56,7 +53,7 @@ async function bundleSource(entry, outputName, external = []) {
 
 // Minimal 'obsidian' stub: settings.ts only needs PluginSettingTab to be a
 // constructable base class at module-evaluation time. Setting/Notice/App are
-// referenced inside DocxidianSettingTab.renderSettings(), which the pure
+// referenced inside NativePowerPointDocEditorSettingTab.renderSettings(), which the pure
 // helpers never invoke, but we provide harmless stubs anyway.
 function loadWithObsidianStub(outfile) {
   const originalLoad = Module._load;
@@ -89,14 +86,6 @@ function loadSettingsModule() {
     loadWithObsidianStub,
   );
   return settingsModulePromise;
-}
-
-let localesModulePromise;
-function loadLocalesModule() {
-  localesModulePromise ??= bundleSource("src/locales.ts", "locales.cjs").then((outfile) =>
-    require(outfile),
-  );
-  return localesModulePromise;
 }
 
 test("normalizeDefaultZoom clamps to 0.5-2 and snaps to the 0.05 step", async () => {
@@ -140,11 +129,12 @@ test("normalizeDefaultZoom falls back to default 1 for non-numeric / non-finite 
   assert.equal(normalizeDefaultZoom("1.5"), 1.5, "numeric string coerces");
 });
 
-test("getNativePowerPointSettings maps DocxidianSettings -> NativePowerPoint shape", async () => {
+test("getNativePowerPointSettings maps NativePowerPointDocEditorSettings -> NativePowerPoint shape", async () => {
   const { getNativePowerPointSettings, DEFAULT_SETTINGS } = await loadSettingsModule();
 
   const settings = {
     ...DEFAULT_SETTINGS,
+    editorTheme: "dark",
     powerPointAutosaveEnabled: false,
     powerPointHideUnsupportedSvgContent: true,
     powerPointOpenWithYoloMode: true,
@@ -158,6 +148,8 @@ test("getNativePowerPointSettings maps DocxidianSettings -> NativePowerPoint sha
 
   const result = getNativePowerPointSettings(settings, setOpenWithYoloMode);
 
+  assert.equal(result.editorTheme, "dark", "editorTheme <- editorTheme");
+  assert.equal(result.resolvedEditorTheme, "dark", "resolvedEditorTheme resolves from editorTheme when not supplied");
   assert.equal(result.autosaveEnabled, false, "autosaveEnabled <- powerPointAutosaveEnabled");
   assert.equal(
     result.hideUnsupportedSvgContent,
@@ -172,10 +164,10 @@ test("getNativePowerPointSettings maps DocxidianSettings -> NativePowerPoint sha
   await result.setOpenWithYoloMode(true);
   assert.equal(captured, true, "setOpenWithYoloMode callback invoked with the passed value");
 
-  // The mapped shape only carries the five expected keys.
+  // The mapped shape only carries the expected persisted view settings.
   assert.deepEqual(
     Object.keys(result).sort(),
-    ["autosaveEnabled", "hideUnsupportedSvgContent", "openWithYoloMode", "setOpenWithYoloMode", "showInspector"],
+    ["autosaveEnabled", "editorTheme", "hideUnsupportedSvgContent", "openWithYoloMode", "resolvedEditorTheme", "setOpenWithYoloMode", "showInspector"],
   );
 });
 
@@ -188,28 +180,82 @@ test("getNativePowerPointSettings supplies a no-op callback default", async () =
   await assert.doesNotReject(() => result.setOpenWithYoloMode(true));
 
   // DEFAULT_SETTINGS map straight through.
+  assert.equal(result.editorTheme, "system");
+  assert.equal(result.resolvedEditorTheme, "light");
   assert.equal(result.autosaveEnabled, true);
   assert.equal(result.hideUnsupportedSvgContent, false);
   assert.equal(result.openWithYoloMode, false);
   assert.equal(result.showInspector, false);
 });
 
-test("normalizeDocxidianLanguage keeps known codes and falls back to 'en'", async () => {
-  const { normalizeDocxidianLanguage, DEFAULT_LANGUAGE } = await loadLocalesModule();
+test("normalizeEditorThemePreference keeps light/dark/system and falls back to system", async () => {
+  const { normalizeEditorThemePreference } = await loadSettingsModule();
 
-  assert.equal(DEFAULT_LANGUAGE, "en");
+  assert.equal(normalizeEditorThemePreference("system"), "system");
+  assert.equal(normalizeEditorThemePreference("light"), "light");
+  assert.equal(normalizeEditorThemePreference("dark"), "dark");
+  assert.equal(normalizeEditorThemePreference("LIGHT"), "system");
+  assert.equal(normalizeEditorThemePreference(""), "system");
+  assert.equal(normalizeEditorThemePreference(undefined), "system");
+  assert.equal(normalizeEditorThemePreference(null), "system");
+  assert.equal(normalizeEditorThemePreference({}), "system");
+});
 
-  // Every supported code is preserved verbatim.
-  for (const code of ["en", "pl", "pt-BR", "tr", "he", "zh-CN"]) {
-    assert.equal(normalizeDocxidianLanguage(code), code, `${code} preserved`);
+test("resolveEditorThemePreference pins explicit themes and resolves system", async () => {
+  const { resolveEditorThemePreference } = await loadSettingsModule();
+
+  assert.equal(resolveEditorThemePreference("light", "dark"), "light");
+  assert.equal(resolveEditorThemePreference("dark", "light"), "dark");
+  assert.equal(resolveEditorThemePreference("system", "dark"), "dark");
+  assert.equal(resolveEditorThemePreference("system", "light"), "light");
+  assert.equal(resolveEditorThemePreference(undefined, "dark"), "dark");
+});
+
+test("settings catalog covers DOCX and PowerPoint configurable settings", async () => {
+  const {
+    DEFAULT_SETTINGS,
+    getNativePowerPointDocEditorSettingDescriptors,
+    getNativePowerPointDocEditorSettingsTabSections,
+  } = await loadSettingsModule();
+  const i18n = { t: (key) => key };
+  const descriptors = getNativePowerPointDocEditorSettingDescriptors(i18n);
+  const sections = getNativePowerPointDocEditorSettingsTabSections(i18n);
+  const tabSettingIds = sections.flatMap((section) => section.settings);
+
+  assert.deepEqual(
+    Object.keys(DEFAULT_SETTINGS).sort(),
+    [
+      "authorName",
+      "autoIndexDocxSearch",
+      "autosave",
+      "createBackupsBeforeSave",
+      "debugLogging",
+      "defaultZoom",
+      "disableDocxFiles",
+      "disablePowerPointFiles",
+      "editorTheme",
+      "enableDocxSearchIndex",
+      "powerPointAutosaveEnabled",
+      "powerPointHideUnsupportedSvgContent",
+      "powerPointOpenWithYoloMode",
+      "powerPointShowInspector",
+      "showRuler",
+    ].sort(),
+  );
+
+  for (const key of Object.keys(DEFAULT_SETTINGS)) {
+    assert.ok(descriptors[key], `${key} has a descriptor`);
+    assert.ok(tabSettingIds.includes(key), `${key} appears in settings tab sections`);
   }
 
-  // Unknown / non-string input falls back to the default.
-  assert.equal(normalizeDocxidianLanguage("fr"), "en", "unknown code");
-  assert.equal(normalizeDocxidianLanguage("EN"), "en", "wrong case is not a known code");
-  assert.equal(normalizeDocxidianLanguage(""), "en", "empty string");
-  assert.equal(normalizeDocxidianLanguage(undefined), "en", "undefined");
-  assert.equal(normalizeDocxidianLanguage(null), "en", "null");
-  assert.equal(normalizeDocxidianLanguage(42), "en", "number");
-  assert.equal(normalizeDocxidianLanguage({}), "en", "object");
+  for (const actionId of ["rebuildDocxSearchIndex", "copyDocxLog", "copyFullLog"]) {
+    assert.ok(descriptors[actionId], `${actionId} has a descriptor`);
+    assert.ok(tabSettingIds.includes(actionId), `${actionId} appears in settings tab sections`);
+    assert.equal(typeof descriptors[actionId].actionLabel, "string");
+  }
+
+  assert.deepEqual(
+    sections.map((section) => section.id),
+    ["identity", "fileHandoff", "editorDefaults", "saving", "powerpoint", "search", "diagnostics"],
+  );
 });

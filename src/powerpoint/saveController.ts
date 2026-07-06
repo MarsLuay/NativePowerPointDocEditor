@@ -1,4 +1,7 @@
-import { type App, Notice, TFile, normalizePath } from 'obsidian';
+import { type App, TFile, normalizePath } from 'obsidian';
+
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 
 import {
   inspectPowerPointPackage,
@@ -28,6 +31,7 @@ export interface SaveStatusElements {
  * members can stay `private`.
  */
 export interface SaveHost {
+  readonly t: TranslateFn;
   readonly app: App;
   readonly engine: PresentationEngine | null;
   readonly loadedFile: TFile | null;
@@ -60,8 +64,11 @@ export class SaveController {
   saveTimer: number | null = null;
   savePromise: Promise<void> = Promise.resolve();
   lastSaveError: string | null = null;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: SaveHost) {}
+  constructor(private readonly host: SaveHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   shouldPaintSaveProgress(): boolean {
     return this.host.getSaveStatusElements()?.statusLabelEl !== null;
@@ -116,12 +123,16 @@ export class SaveController {
     const sourcePackage = this.host.sourcePackage;
     const sourceBuffer = this.host.sourceBuffer;
     if (!file || !engine || !sourcePackage || !sourceBuffer || !isModernPowerPointExtension(file.extension)) {
-      new Notice('Open a modern PowerPoint file to save it.');
+      this.notice('powerpoint:notice.openModernToSave');
       return false;
     }
 
     if (!isEditablePowerPointExtension(file.extension)) {
-      new Notice(this.host.viewOnlyReason || 'This PowerPoint format is view-only in Native PowerPoint.');
+      if (this.host.viewOnlyReason) {
+        this.notice('powerpoint:notice.viewOnlyReason', { reason: this.host.viewOnlyReason });
+      } else {
+        this.notice('powerpoint:notice.viewOnlyDefault');
+      }
       return false;
     }
 
@@ -132,7 +143,7 @@ export class SaveController {
     const targetVersion = this.editVersion;
     const saveStartedAt = performance.now();
     this.clearAutosave();
-    this.setSaveState('saving', 'Exporting...');
+    this.setSaveState('saving', this.host.t('powerpoint:save.exporting'));
     debugLog('save', 'PowerPoint save started', {
       file: file.path,
       targetVersion,
@@ -150,7 +161,7 @@ export class SaveController {
         sourceBuffer,
         (message) => this.setSaveProgress(message)
       );
-      this.setSaveProgress('Writing to vault...');
+      this.setSaveProgress(this.host.t('powerpoint:save.writingToVault'));
       if (this.shouldPaintSaveProgress()) await flushUi();
       await this.host.app.vault.modifyBinary(file, output);
       debugLog('save', 'PowerPoint vault write completed', {
@@ -195,7 +206,7 @@ export class SaveController {
         targetVersion,
         error
       });
-      new Notice(`Could not save ${file.name}: ${message}`);
+      this.notice('powerpoint:notice.couldNotSave', { fileName: file.name, message });
       if (this.isDirty && this.host.autosaveEnabled()) {
         this.scheduleAutosave(5000);
       }
@@ -214,7 +225,7 @@ export class SaveController {
       throw new Error('Cannot verify the PowerPoint package before saving.');
     }
 
-    onProgress?.('Checking package...');
+    onProgress?.(this.host.t('powerpoint:save.checkingPackage'));
     debugLog('save', 'PowerPoint save validation started', {
       slideCount: engine.slideCount,
       sourceBytes: sourceBuffer.byteLength,
@@ -227,14 +238,14 @@ export class SaveController {
       throw new Error(`Export validation failed: ${summarizePackageMessages(validation.errors)}`);
     }
 
-    onProgress?.('Verifying contents...');
+    onProgress?.(this.host.t('powerpoint:save.verifyingContents'));
     if (this.shouldPaintSaveProgress()) await flushUi();
     const contentValidation = await validatePowerPointExportContents(sourceBuffer, output);
     if (!contentValidation.ok) {
       throw new Error(`Export validation failed: ${summarizePackageMessages(contentValidation.errors)}`);
     }
 
-    onProgress?.('Round-trip check...');
+    onProgress?.(this.host.t('powerpoint:save.roundTripCheck'));
     if (this.shouldPaintSaveProgress()) await flushUi();
     await PresentationEngine.validateRoundTrip(output, engine.slideCount);
     debugLog('save', 'PowerPoint save validation completed', {
@@ -272,7 +283,7 @@ export class SaveController {
     const sourcePackage = this.host.sourcePackage;
     const sourceBuffer = this.host.sourceBuffer;
     if (!file || !engine || !sourcePackage || !sourceBuffer) {
-      new Notice('Could not create a Native PowerPoint recovery copy because the open presentation is unavailable.');
+      this.notice('powerpoint:notice.recoveryCopyUnavailable');
       return false;
     }
 
@@ -282,7 +293,7 @@ export class SaveController {
         reason,
         editVersion: this.editVersion
       });
-      this.setSaveState('saving', 'Exporting recovery...');
+      this.setSaveState('saving', this.host.t('powerpoint:save.exportingRecovery'));
       if (this.shouldPaintSaveProgress()) await flushUi();
       const output = await engine.export();
       let isValidated = true;
@@ -306,7 +317,7 @@ export class SaveController {
         });
       }
 
-      this.setSaveProgress('Writing recovery...');
+      this.setSaveProgress(this.host.t('powerpoint:save.writingRecovery'));
       if (this.shouldPaintSaveProgress()) await flushUi();
 
       const recoveryPath = this.getAvailableRecoveryPath(file, isValidated);
@@ -322,10 +333,15 @@ export class SaveController {
       });
 
       if (isValidated) {
-        new Notice(`Unsaved edits were not written to ${file.name}. Recovery copy created while ${reason}: ${recoveryPath}`, 10000);
+        this.notice(
+          'powerpoint:notice.recoveryCopyCreated',
+          { fileName: file.name, reason, recoveryPath },
+          10000
+        );
       } else {
-        new Notice(
-          `Save validation failed, so ${file.name} was not overwritten. An unvalidated recovery export was created at ${recoveryPath}. ${validationError}`,
+        this.notice(
+          'powerpoint:notice.saveValidationFailedRecovery',
+          { fileName: file.name, recoveryPath, validationError },
           15000
         );
       }
@@ -338,8 +354,9 @@ export class SaveController {
         reason,
         error
       });
-      new Notice(
-        `Could not preserve unsaved edits from ${file.name} while ${reason}: ${cleanError(error)}. The original file was not overwritten.`,
+      this.notice(
+        'powerpoint:notice.recoveryCopyFailed',
+        { fileName: file.name, reason, message: cleanError(error) },
         15000
       );
       return false;
@@ -370,7 +387,7 @@ export class SaveController {
     this.host.getSaveStatusElements()?.statusLabelEl.setText(message);
   }
 
-  setSaveState(state: SaveState, savingMessage = 'Saving...'): void {
+  setSaveState(state: SaveState, savingMessage = this.host.t('powerpoint:save.saving')): void {
     this.saveState = state;
     const status = this.host.getSaveStatusElements();
     if (!status) return;
@@ -378,13 +395,13 @@ export class SaveController {
     const { statusEl, statusLabelEl, statusProgressEl } = status;
 
     const labels: Record<SaveState, string> = {
-      idle: 'Ready',
-      dirty: 'Unsaved',
+      idle: this.host.t('powerpoint:save.ready'),
+      dirty: this.host.t('powerpoint:save.unsaved'),
       saving: savingMessage,
-      saved: 'Saved',
-      failed: 'Save failed',
-      recovered: 'Recovery saved',
-      'view-only': 'View-only'
+      saved: this.host.t('powerpoint:save.saved'),
+      failed: this.host.t('powerpoint:save.failed'),
+      recovered: this.host.t('powerpoint:save.recovered'),
+      'view-only': this.host.t('powerpoint:save.viewOnly')
     };
 
     statusLabelEl.setText(labels[state]);
@@ -395,11 +412,11 @@ export class SaveController {
     if (state === 'failed') {
       statusEl.setAttribute('role', 'button');
       statusEl.setAttribute('tabindex', '0');
-      statusEl.setAttribute('aria-label', 'Save failed. Click to retry.');
+      statusEl.setAttribute('aria-label', this.host.t('powerpoint:save.failedAria'));
       if (this.lastSaveError) {
-        statusEl.title = `${this.lastSaveError} — click to retry`;
+        statusEl.title = this.host.t('powerpoint:save.retryTitleWithError', { error: this.lastSaveError });
       } else {
-        statusEl.title = 'Click to retry save';
+        statusEl.title = this.host.t('powerpoint:save.retryTitle');
       }
     } else {
       statusEl.setAttribute('role', 'status');

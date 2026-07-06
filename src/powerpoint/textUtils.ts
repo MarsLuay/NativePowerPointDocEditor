@@ -315,24 +315,3 @@ export function parsePrimaryFontFamily(fontFamily: string): string | null {
   ]);
   return generic.has(primary.toLowerCase()) ? null : primary;
 }
-
-export function getToolbarTooltipText(target: HTMLElement): string {
-  return (target.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
-}
-
-export function positionToolbarTooltip(target: HTMLElement, tooltip: HTMLDivElement): void {
-  const rect = target.getBoundingClientRect();
-  tooltip.style.setProperty('--docxidian-toolbar-tooltip-left', `${Math.round(rect.left + rect.width / 2)}px`);
-  tooltip.style.setProperty('--docxidian-toolbar-tooltip-top', `${Math.round(rect.bottom + 8)}px`);
-  tooltip.removeClasses(['is-left-aligned', 'is-right-aligned']);
-
-  const tooltipRect = tooltip.getBoundingClientRect();
-  const viewportPadding = 8;
-  if (tooltipRect.left < viewportPadding) {
-    tooltip.style.setProperty('--docxidian-toolbar-tooltip-left', `${viewportPadding}px`);
-    tooltip.addClass('is-left-aligned');
-  } else if (tooltipRect.right > window.innerWidth - viewportPadding) {
-    tooltip.style.setProperty('--docxidian-toolbar-tooltip-left', `${window.innerWidth - viewportPadding}px`);
-    tooltip.addClass('is-right-aligned');
-  }
-}

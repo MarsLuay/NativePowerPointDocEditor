@@ -1,0 +1,20 @@
+{
+	"generic": {
+		"message": "Something went wrong"
+	},
+	"saveFailed": "Could not save {fileName}: {message}",
+	"saveNoDocument": "Could not save {fileName}: the editor did not return a document.",
+	"exportFailed": "Could not export {path}: {message}",
+	"exportNoDocument": "Could not export {path}: the editor did not return a document.",
+	"exportPdfFailed": "Could not export {path}: formatted PDF rendering failed. No file was written.",
+	"exportPdfRenderFailed": "Could not render formatted PDF: {message}",
+	"exportNoPages": "Could not find rendered DOCX pages to export.",
+	"createFailed": "Could not create {path}: {message}",
+	"renameFailed": "Could not rename {fileName}: {message}",
+	"insertTableFailed": "Could not insert a table here.",
+	"fontImportFileFailed": "Could not import {fileName}.",
+	"fontImportFailed": "Could not import font: {message}",
+	"insertImageFailed": "Could not insert image: {message}",
+	"renderFailed": "Could not render {fileName}: {message}",
+	"loadFailed": "{message}"
+}

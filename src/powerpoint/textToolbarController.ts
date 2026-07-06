@@ -1,6 +1,9 @@
 import { setIcon } from 'obsidian';
 
-import { isNode, isSVGTSpanElement } from '../domGuards';
+import type { TranslateFn } from '../i18n/translate';
+
+import { isSVGTSpanElement } from '../domGuards';
+import { bindPopoverDismissHandlers, createMenuItem, createPopoverShell, positionPopoverBelow } from '../menuControls';
 import type {
   ParagraphAlignment,
   ParagraphTextRange,
@@ -25,6 +28,7 @@ import type {
 } from './types';
 
 export interface TextToolbarHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly svgEl: SVGSVGElement | null;
   readonly canvasPane: HTMLElement | null;
@@ -125,26 +129,21 @@ export class TextToolbarController {
   openToolbarPopover(anchor: HTMLElement, build: (popover: HTMLElement) => void): void {
     this.closeToolbarPopover();
 
-    const popover = activeDocument.body.createDiv({
-      cls: 'native-powerpoint-toolbar-popover native-powerpoint-light-surface'
+    const popover = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-toolbar-popover native-powerpoint-light-surface',
+      stopPointerDown: true
     });
-    popover.addEventListener('pointerdown', (event) => event.stopPropagation());
     build(popover);
 
-    const anchorRect = anchor.getBoundingClientRect();
-    popover.setCssProps({ left: `${anchorRect.left}px`, top: `${anchorRect.bottom + 4}px` });
-
-    const onOutsidePointerDown = (event: PointerEvent): void => {
-      const target = isNode(event.target) ? event.target : null;
-      if (target && (popover.contains(target) || anchor.contains(target))) return;
-      this.closeToolbarPopover();
-    };
-    activeDocument.addEventListener('pointerdown', onOutsidePointerDown, true);
+    positionPopoverBelow(popover, anchor);
 
     this.activeToolbarPopover = popover;
-    this.toolbarPopoverCleanup = () => {
-      activeDocument.removeEventListener('pointerdown', onOutsidePointerDown, true);
-    };
+    this.toolbarPopoverCleanup = bindPopoverDismissHandlers({
+      popover,
+      anchor,
+      onDismiss: () => this.closeToolbarPopover(),
+      closeOnEscape: false
+    });
   }
 
   closeToolbarPopover(): void {
@@ -325,7 +324,7 @@ export class TextToolbarController {
     this.textToolbarEl?.remove();
     const toolbar = this.host.canvasPane.createDiv({ cls: 'native-powerpoint-text-toolbar' });
     toolbar.setAttribute('role', 'toolbar');
-    toolbar.setAttribute('aria-label', 'Text formatting');
+    toolbar.setAttribute('aria-label', this.host.t('powerpoint:accessibility.textFormatting'));
     toolbar.addEventListener('pointerdown', (event) => event.stopPropagation());
 
     const styleGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
@@ -523,8 +522,8 @@ export class TextToolbarController {
     this.openToolbarPopover(anchor, (popover) => {
       popover.addClass('native-powerpoint-font-menu');
       for (const font of fonts) {
-        const item = popover.createEl('button', {
-          cls: 'native-powerpoint-color-popover-item native-powerpoint-font-menu-item',
+        const item = createMenuItem(popover, {
+          className: 'native-powerpoint-color-popover-item native-powerpoint-font-menu-item',
           text: font
         });
         item.style.setProperty('--np-font-family', font);
@@ -550,9 +549,9 @@ export class TextToolbarController {
       popover.addClass('native-powerpoint-color-popover');
 
       if (allowNone) {
-        const noneButton = popover.createEl('button', {
-          cls: 'native-powerpoint-color-popover-none',
-          text: 'No color'
+        const noneButton = createMenuItem(popover, {
+          className: 'native-powerpoint-color-popover-none',
+          text: this.host.t('powerpoint:color.noColor')
         });
         this.bindToolbarButton(noneButton, () => {
           this.closeToolbarPopover();
@@ -577,10 +576,13 @@ export class TextToolbarController {
       }
 
       const customRow = popover.createDiv({ cls: 'native-powerpoint-color-popover-custom' });
-      customRow.createSpan({ text: 'Custom' });
+      customRow.createSpan({ text: this.host.t('powerpoint:color.custom') });
       const customInput = customRow.createEl('input', {
         type: 'color',
-        attr: { 'aria-label': 'Custom color', value: `#${currentColor}` }
+        attr: {
+          'aria-label': this.host.t('powerpoint:accessibility.customColor'),
+          value: `#${currentColor}`
+        }
       });
       customInput.value = `#${currentColor}`;
       customInput.addEventListener('pointerdown', () => this.flushActiveEditorForToolbarInput(), true);

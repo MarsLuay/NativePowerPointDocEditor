@@ -1,9 +1,13 @@
-import { Notice, setIcon } from 'obsidian';
+import { Component, setIcon } from 'obsidian';
+
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 
 import type { PresentationEngine } from '../PresentationEngine';
 import type { ShapeTransform } from 'pptx-svg';
 import { isNode, isSVGTextElement } from '../domGuards';
 import { debugLog, errorLog } from '../logger';
+import { createMenuItem, createPopoverShell } from '../menuControls';
 import { cleanError } from './runtimeCompat';
 import { normalizeSearchText } from './textUtils';
 import { getShapeIndex } from './svgUtils';
@@ -19,6 +23,7 @@ import type { HistoryEntry, PowerPointFindMatch, SvgInlineSelectionBox } from '.
  * interface directly) so its own members can stay `private`.
  */
 export interface FindReplaceHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly isLoading: boolean;
   currentSlide: number;
@@ -58,11 +63,15 @@ export class FindReplaceController {
   private findReplaceInputEl: HTMLInputElement | null = null;
   private findReplaceToggleEl: HTMLButtonElement | null = null;
   private findButtonEl: HTMLButtonElement | null = null;
+  private findPanelDomScope: Component | null = null;
   private findPanelDismissHandler: ((event: Event) => void) | null = null;
   private findPanelRepositionHandler: (() => void) | null = null;
   private isFindReplaceMode = false;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: FindReplaceHost) {}
+  constructor(private readonly host: FindReplaceHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   /**
    * Builds the floating find/replace panel and anchors it to the toolbar's
@@ -77,14 +86,16 @@ export class FindReplaceController {
     // position:fixed child resolve against the transformed box and render in
     // the wrong place.
     this.findPanelEl?.remove();
-    const panel = activeDocument.body.createDiv({ cls: 'native-powerpoint-find-panel native-powerpoint-find-panel-floating native-powerpoint-light-surface' });
+    const panel = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-find-panel native-powerpoint-find-panel-floating native-powerpoint-light-surface'
+    });
     this.findPanelEl = panel;
 
     const findRow = panel.createDiv({ cls: 'native-powerpoint-find-row' });
 
-    const toggleButton = findRow.createEl('button', {
-      cls: 'native-powerpoint-find-btn native-powerpoint-find-replace-toggle',
-      attr: { 'aria-label': 'Toggle replace' }
+    const toggleButton = createMenuItem(findRow, {
+      className: 'native-powerpoint-find-btn native-powerpoint-find-replace-toggle',
+      ariaLabel: this.host.t('powerpoint:find.toggleReplace')
     });
     setIcon(toggleButton, 'chevron-right');
     this.findReplaceToggleEl = toggleButton;
@@ -93,29 +104,29 @@ export class FindReplaceController {
       cls: 'native-powerpoint-find-input',
       type: 'search',
       attr: {
-        'aria-label': 'Find text in presentation',
-        placeholder: 'Find text'
+        'aria-label': this.host.t('powerpoint:find.ariaLabel'),
+        placeholder: this.host.t('powerpoint:find.placeholder')
       }
     });
     this.findInputEl = input;
 
-    this.findStatusEl = findRow.createDiv({ cls: 'native-powerpoint-find-status', text: 'No search' });
+    this.findStatusEl = findRow.createDiv({ cls: 'native-powerpoint-find-status', text: this.host.t('powerpoint:find.noSearch') });
 
-    const previousButton = findRow.createEl('button', {
-      cls: 'native-powerpoint-find-btn',
-      attr: { 'aria-label': 'Previous match' }
+    const previousButton = createMenuItem(findRow, {
+      className: 'native-powerpoint-find-btn',
+      ariaLabel: this.host.t('powerpoint:find.previousMatch')
     });
     setIcon(previousButton, 'chevron-up');
 
-    const nextButton = findRow.createEl('button', {
-      cls: 'native-powerpoint-find-btn',
-      attr: { 'aria-label': 'Next match' }
+    const nextButton = createMenuItem(findRow, {
+      className: 'native-powerpoint-find-btn',
+      ariaLabel: this.host.t('powerpoint:find.nextMatch')
     });
     setIcon(nextButton, 'chevron-down');
 
-    const closeButton = findRow.createEl('button', {
-      cls: 'native-powerpoint-find-btn',
-      attr: { 'aria-label': 'Close find' }
+    const closeButton = createMenuItem(findRow, {
+      className: 'native-powerpoint-find-btn',
+      ariaLabel: this.host.t('powerpoint:find.closeFind')
     });
     setIcon(closeButton, 'x');
 
@@ -125,22 +136,22 @@ export class FindReplaceController {
       cls: 'native-powerpoint-find-input',
       type: 'text',
       attr: {
-        'aria-label': 'Replacement text',
-        placeholder: 'Replace with'
+        'aria-label': this.host.t('powerpoint:find.replacementAriaLabel'),
+        placeholder: this.host.t('powerpoint:find.replacePlaceholder')
       }
     });
     this.findReplaceInputEl = replaceInput;
 
-    const replaceButton = replaceRow.createEl('button', {
-      cls: 'native-powerpoint-find-replace-btn',
-      text: 'Replace',
-      attr: { 'aria-label': 'Replace current match' }
+    const replaceButton = createMenuItem(replaceRow, {
+      className: 'native-powerpoint-find-replace-btn',
+      text: this.host.t('powerpoint:find.replace'),
+      ariaLabel: this.host.t('powerpoint:find.replaceCurrentMatch')
     });
 
-    const replaceAllButton = replaceRow.createEl('button', {
-      cls: 'native-powerpoint-find-replace-btn',
-      text: 'Replace all',
-      attr: { 'aria-label': 'Replace all matches' }
+    const replaceAllButton = createMenuItem(replaceRow, {
+      className: 'native-powerpoint-find-replace-btn',
+      text: this.host.t('powerpoint:find.replaceAll'),
+      ariaLabel: this.host.t('powerpoint:find.replaceAllMatches')
     });
 
     input.addEventListener('input', () => {
@@ -189,7 +200,7 @@ export class FindReplaceController {
 
   open(options: { replace?: boolean } = {}): void {
     if (!this.host.engine || this.host.isLoading) {
-      new Notice('Open a loaded PowerPoint file to search it.');
+      this.notice('powerpoint:notice.openLoadedToSearch');
       return;
     }
 
@@ -264,33 +275,30 @@ export class FindReplaceController {
   }
 
   private attachFindPanelDismissHandlers(): void {
-    if (!this.findPanelDismissHandler) {
-      this.findPanelDismissHandler = (event: Event) => {
-        const target = event.target;
-        if (!isNode(target)) return;
-        if (this.findPanelEl?.contains(target)) return;
-        if (this.findButtonEl?.contains(target)) return;
-        this.closeFindPanel();
-      };
-      activeDocument.addEventListener('pointerdown', this.findPanelDismissHandler, true);
+    if (this.findPanelDomScope) {
+      return;
     }
-    if (!this.findPanelRepositionHandler) {
-      this.findPanelRepositionHandler = () => this.positionFindPanel();
-      window.addEventListener('resize', this.findPanelRepositionHandler);
-      window.addEventListener('scroll', this.findPanelRepositionHandler, true);
-    }
+
+    this.findPanelDismissHandler = (event: Event) => {
+      const target = event.target;
+      if (!isNode(target)) return;
+      if (this.findPanelEl?.contains(target)) return;
+      if (this.findButtonEl?.contains(target)) return;
+      this.closeFindPanel();
+    };
+    this.findPanelRepositionHandler = () => this.positionFindPanel();
+    this.findPanelDomScope = new Component();
+    this.findPanelDomScope.registerDomEvent(activeDocument, 'pointerdown', this.findPanelDismissHandler, true);
+    this.findPanelDomScope.registerDomEvent(window, 'resize', this.findPanelRepositionHandler);
+    this.findPanelDomScope.registerDomEvent(window, 'scroll', this.findPanelRepositionHandler, true);
+    this.findPanelDomScope.load();
   }
 
   private detachFindPanelDismissHandlers(): void {
-    if (this.findPanelDismissHandler) {
-      activeDocument.removeEventListener('pointerdown', this.findPanelDismissHandler, true);
-      this.findPanelDismissHandler = null;
-    }
-    if (this.findPanelRepositionHandler) {
-      window.removeEventListener('resize', this.findPanelRepositionHandler);
-      window.removeEventListener('scroll', this.findPanelRepositionHandler, true);
-      this.findPanelRepositionHandler = null;
-    }
+    this.findPanelDomScope?.unload();
+    this.findPanelDomScope = null;
+    this.findPanelDismissHandler = null;
+    this.findPanelRepositionHandler = null;
   }
 
   private async replaceCurrentMatch(): Promise<void> {
@@ -306,14 +314,14 @@ export class FindReplaceController {
     if (this.findMatches.length === 0) {
       await this.refreshFindMatches();
       if (this.findMatches.length === 0) {
-        new Notice('No matches to replace.');
+        this.notice('powerpoint:notice.noMatchesToReplace');
         return;
       }
     }
 
     const match = this.findMatches[this.currentFindMatchIndex];
     if (!match || match.shapeIndex === null) {
-      new Notice('Select a match to replace, or use Replace all.');
+      this.notice('powerpoint:notice.selectMatchToReplace');
       return;
     }
 
@@ -325,7 +333,7 @@ export class FindReplaceController {
         shapeIndex: match.shapeIndex
       });
       if (count === 0) {
-        new Notice('No matches to replace.');
+        this.notice('powerpoint:notice.noMatchesToReplace');
         return;
       }
       this.host.recordHistoryEntry(history);
@@ -340,14 +348,14 @@ export class FindReplaceController {
         slide: match.slideIndex,
         shapeIndex: match.shapeIndex
       });
-      new Notice(count === 1 ? 'Replaced 1 match.' : `Replaced ${count} matches.`);
+      this.notice('powerpoint:notice.replacedMatches', { count });
     } catch (error) {
       errorLog('search', 'PowerPoint replace-current failed', {
         queryLength: query.length,
         replacementLength: replacement.length,
         error
       });
-      new Notice(`Could not replace text: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotReplaceText', { message: cleanError(error) });
     }
   }
 
@@ -366,7 +374,7 @@ export class FindReplaceController {
       const history = await this.host.captureHistoryEntry('Replace all text');
       const count = await this.host.engine.replaceText(query, replacement);
       if (count === 0) {
-        new Notice('No matches to replace.');
+        this.notice('powerpoint:notice.noMatchesToReplace');
         return;
       }
       this.host.recordHistoryEntry(history);
@@ -379,14 +387,14 @@ export class FindReplaceController {
         replacementLength: replacement.length,
         replacedCount: count
       });
-      new Notice(count === 1 ? 'Replaced 1 match.' : `Replaced ${count} matches.`);
+      this.notice('powerpoint:notice.replacedMatches', { count });
     } catch (error) {
       errorLog('search', 'PowerPoint replace-all failed', {
         queryLength: query.length,
         replacementLength: replacement.length,
         error
       });
-      new Notice(`Could not replace text: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotReplaceText', { message: cleanError(error) });
     }
   }
 
@@ -609,20 +617,28 @@ export class FindReplaceController {
 
     const query = this.findInputEl?.value.trim() ?? '';
     if (!query) {
-      this.findStatusEl.setText('No search');
+      this.findStatusEl.setText(this.host.t('powerpoint:find.noSearch'));
       this.findStatusEl.removeAttribute('title');
       return;
     }
 
     if (this.findMatches.length === 0) {
-      this.findStatusEl.setText('No matches');
+      this.findStatusEl.setText(this.host.t('powerpoint:find.noMatches'));
       this.findStatusEl.removeAttribute('title');
       return;
     }
 
     const match = this.findMatches[this.currentFindMatchIndex];
-    const slideLabel = match ? `Slide ${match.slideIndex + 1}` : 'Slide';
-    this.findStatusEl.setText(`${this.currentFindMatchIndex + 1} / ${this.findMatches.length} | ${slideLabel}`);
+    const slideLabel = match
+      ? this.host.t('powerpoint:find.slideLabel', { slideNumber: match.slideIndex + 1 })
+      : '';
+    this.findStatusEl.setText(
+      this.host.t('powerpoint:find.resultCount', {
+        current: this.currentFindMatchIndex + 1,
+        total: this.findMatches.length,
+        slide: slideLabel
+      })
+    );
     if (match) {
       this.findStatusEl.setAttribute('title', match.text);
     }

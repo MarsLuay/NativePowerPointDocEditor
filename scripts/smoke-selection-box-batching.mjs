@@ -13,20 +13,15 @@
 // Usage: node scripts/smoke-selection-box-batching.mjs
 
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
-import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { buildZip, extractZip } from 'pptx-svg';
 import { readDeck, toArrayBuffer } from '../tests/helpers/renderer.mjs';
 import { loadPresentationEngineModule } from '../tests/helpers/load-plugin-modules.mjs';
+import { runHeadlessHarness } from './lib/text-offset-harness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
-const electronMainPath = path.join(__dirname, 'lib/electron-eval-main.cjs');
 const outputDir = path.resolve('scripts/visual-output');
 const htmlPath = path.join(outputDir, 'selection-box-batching.html');
 
@@ -148,55 +143,19 @@ const html = String.raw`<!doctype html><html lang="en"><head><meta charset="utf-
 
 await mkdir(outputDir, { recursive: true });
 await writeFile(htmlPath, html, 'utf8');
-
-function resolveElectronBinary() {
-  try {
-    const binary = require('electron');
-    if (typeof binary === 'string' && existsSync(binary)) return binary;
-  } catch {
-    // not installed
-  }
-  return null;
-}
-
-function runElectron(electronBinary, htmlFile, timeoutMs = 30000) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(electronBinary, [electronMainPath], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, HARNESS_HTML: htmlFile, ELECTRON_DISABLE_SECURITY_WARNINGS: 'true' }
-    });
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`Electron timed out: ${stderr || stdout}`)); }, timeoutMs);
-    child.stdout.on('data', (c) => { stdout += c; });
-    child.stderr.on('data', (c) => { stderr += c; });
-    child.on('error', (e) => { clearTimeout(timer); reject(e); });
-    child.on('close', () => {
-      clearTimeout(timer);
-      const error = stdout.match(/^HARNESS_ERROR:(.*)$/m);
-      if (error) { reject(new Error(`Electron harness error: ${error[1]}`)); return; }
-      const metrics = stdout.match(/^HARNESS_METRICS:(.*)$/m);
-      if (!metrics) { reject(new Error(`Electron emitted no metrics. stderr: ${stderr.slice(-400)}`)); return; }
-      resolve(metrics[1]);
-    });
-  });
-}
-
-const electronBinary = resolveElectronBinary();
-if (!electronBinary) {
-  console.log('Electron not installed; skipping selection-box-batching smoke (requires real Chromium text metrics).');
+const harness = await runHeadlessHarness(htmlPath, { chromeTimeoutMs: 25000 });
+if (!harness) {
+  console.log('No headless browser runtime available; skipping selection-box-batching smoke.');
   process.exit(0);
 }
-
-const encoded = await runElectron(electronBinary, htmlPath);
-const metrics = JSON.parse(decodeURIComponent(encoded));
+const { metrics, runtime } = harness;
 
 if (metrics.error) {
   console.error('Harness error:', metrics.error);
   process.exit(1);
 }
 
-console.log(`Runtime: Electron ${require('electron/package.json').version} (Obsidian-matched Chromium)`);
+console.log(`Runtime: ${runtime}`);
 console.log(`Run tspans checked: ${metrics.checked}`);
 assert.ok(metrics.checked > 0, 'expected at least one run tspan to check');
 assert.ok(

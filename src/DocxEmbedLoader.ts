@@ -51,7 +51,7 @@ function collectEmbedElements(el: HTMLElement) {
 
 function hasRenderableDocxEmbed(app: App, el: HTMLElement, ctx: MarkdownPostProcessorContext) {
 	return collectEmbedElements(el).some((embedEl) => {
-		if (!isHTMLElement(embedEl) || embedEl.dataset.docxidianEmbed === 'true') {
+		if (!isHTMLElement(embedEl) || embedEl.dataset.nativePowerPointDocEditorEmbed === 'true') {
 			return false;
 		}
 
@@ -71,7 +71,7 @@ class LazyDocxFileEmbed extends Component {
 		private subpath = '',
 	) {
 		super();
-		this.info.containerEl.addClasses(['docxidian-embed', 'docxidian-native-embed']);
+		this.info.containerEl.addClasses(['native-powerpoint-doc-editor-embed', 'native-powerpoint-doc-editor-native-embed']);
 		this.registerDomEvent(this.info.containerEl, 'click', (evt) => {
 			evt.stopImmediatePropagation();
 		});
@@ -90,7 +90,7 @@ class LazyDocxFileEmbed extends Component {
 	private async loadEmbed() {
 		const { containerEl } = this.info;
 		containerEl.empty();
-		containerEl.createDiv({ cls: 'docxidian-embed-loading', text: `Loading ${this.file.name}...` });
+		containerEl.createDiv({ cls: 'native-powerpoint-doc-editor-embed-loading', text: `Loading ${this.file.name}...` });
 		debugLog('embed', `Loading DOCX embed ${this.file.path}`);
 
 		try {
@@ -112,7 +112,7 @@ class LazyDocxFileEmbed extends Component {
 			errorLog('embed', `Could not load DOCX embed ${this.file.path}`, error);
 			containerEl.empty();
 			containerEl.createDiv({
-				cls: 'docxidian-embed-error',
+				cls: 'native-powerpoint-doc-editor-embed-error',
 				text: `Could not load the DOCX editor: ${message}`,
 			});
 		}

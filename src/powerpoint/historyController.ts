@@ -1,4 +1,7 @@
-import { Notice, Platform } from 'obsidian';
+import { Platform } from 'obsidian';
+
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 
 import type { PresentationEngine } from '../PresentationEngine';
 import { HISTORY_LIMIT } from './constants';
@@ -13,6 +16,7 @@ import type { HistoryEntry } from './types';
  * can stay `private`.
  */
 export interface HistoryHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   currentSlide: number;
   readonly activeEditor: HTMLTextAreaElement | null;
@@ -41,8 +45,11 @@ export class HistoryController {
 
   private undoButton: HTMLButtonElement | null = null;
   private redoButton: HTMLButtonElement | null = null;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: HistoryHost) {}
+  constructor(private readonly host: HistoryHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   /** True while a restore is in flight; mutations and history should be inert. */
   get isRestoring(): boolean {
@@ -161,7 +168,7 @@ export class HistoryController {
         label: entry.label,
         error
       });
-      new Notice(`Could not ${action}: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotHistoryAction', { action, message: cleanError(error) });
     } finally {
       this.isRestoringHistory = false;
       this.updateAvailability();

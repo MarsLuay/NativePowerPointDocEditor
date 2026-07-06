@@ -1,0 +1,115 @@
+{
+	"section": {
+		"identity": "Identity",
+		"editorDefaults": "Editor defaults",
+		"saving": "Saving",
+		"search": "Search",
+		"fileHandoff": "File handoff",
+		"diagnostics": "Diagnostics",
+		"powerpoint": "PowerPoint"
+	},
+	"docx": {
+		"authorName": {
+			"name": "Author name",
+			"description": "Used for comments and tracked changes.",
+			"placeholder": "Mars",
+			"resetLabel": "Reset"
+		},
+		"editorTheme": {
+			"name": "Theme",
+			"description": "Use the system theme by default, or pin this editor to light or dark mode."
+		},
+		"showRuler": {
+			"name": "Ruler",
+			"description": "Show the page ruler above the document body by default."
+		},
+		"defaultZoom": {
+			"name": "Default zoom",
+			"description": "Initial zoom for DOCX files when they open.",
+			"resetLabel": "Reset"
+		},
+		"autosave": {
+			"name": "Autosave",
+			"description": "Automatically save the document shortly after changes."
+		},
+		"createBackupsBeforeSave": {
+			"name": "Backups",
+			"description": "Create one timestamped backup before the first overwrite in each open DOCX session."
+		},
+		"enableDocxSearchIndex": {
+			"name": "DOCX search index",
+			"description": "Off by default. When enabled, extracts text from DOCX files into a local cache for vault-wide DOCX search."
+		},
+		"autoIndexDocxSearch": {
+			"name": "Auto-index DOCX changes",
+			"description": "Off by default. When enabled with the DOCX search index, keeps the cache updated as DOCX files change."
+		},
+		"rebuildDocxSearchIndex": {
+			"name": "Rebuild DOCX search index",
+			"description": "Refresh the searchable cache for DOCX files in this vault.",
+			"actionLabel": "Rebuild"
+		},
+		"disableDocxFiles": {
+			"name": "Turn off for DOCX files",
+			"description": "Turns off plugin specifically for DOCX files in favor of another plugin </3"
+		},
+		"debugLogging": {
+			"name": "Debug logging",
+			"description": "Log DOCX and PowerPoint diagnostics to the developer console and the in-memory Native PowerPoint Doc Editor log."
+		},
+		"copyDocxLog": {
+			"name": "Copy DOCX log",
+			"description": "Copy DOCX-specific Native PowerPoint Doc Editor logs to the clipboard.",
+			"actionLabel": "Copy"
+		}
+	},
+	"powerpoint": {
+		"autosave": {
+			"name": "Autosave edits",
+			"description": "Save editable PowerPoint files 1500 ms after edits settle. When disabled, closing or switching files writes unsaved edits to a recovery copy without overwriting the original."
+		},
+		"showInspector": {
+			"name": "Show inspector panel",
+			"description": "Show the object inspector panel on the right side of the PowerPoint editor. Off by default."
+		},
+		"hideUnsupportedSvg": {
+			"name": "Hide unsupported SVG details",
+			"description": "Temporarily hide unsupported PowerPoint SVG details in the Obsidian preview. Off by default. This does not delete them from the PPTX file."
+		},
+		"yoloMode": {
+			"name": "Open PowerPoints with YOLO mode",
+			"description": "Remember YOLO mode for future PPTX files so the original slide SVG is shown without preview cleanup."
+		}
+	},
+	"fileHandoff": {
+		"section": "File type handoff",
+		"disablePptx": {
+			"name": "Turn off for PPTX files",
+			"description": "Turns off plugin specifically for PPTX files in favor of another plugin </3"
+		},
+		"reloadDocxNotice": "Reload Obsidian or disable/re-enable this plugin to update DOCX file handling.",
+		"reloadPptxNotice": "Reload Obsidian or disable/re-enable this plugin to update PPTX file handling."
+	},
+	"theme": {
+		"system": "System",
+		"light": "Light",
+		"dark": "Dark",
+		"defaultSuffix": "(default)"
+	},
+	"templates": {
+		"title": "Free presentation templates",
+		"description": "A few places to find starter decks you can download or customize."
+	},
+	"debug": {
+		"copyFullLog": {
+			"name": "Copy full debug log",
+			"description": "Copy all Native PowerPoint Doc Editor logs produced for DOCX and PowerPoint to the clipboard.",
+			"actionLabel": "Copy log"
+		},
+		"logCopied": "Copied {count} {label} log entries.",
+		"logCopyFailed": "Could not copy Native PowerPoint Doc Editor debug log. Open the developer console and check window.nativePowerPointDocEditorDebugLogs."
+	},
+	"plugin": {
+		"reloaded": "Native PowerPoint Doc Editor reloaded."
+	}
+}

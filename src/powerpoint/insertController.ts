@@ -1,7 +1,11 @@
-import { type App, Notice, type TFile } from 'obsidian';
+import { type App, type TFile } from 'obsidian';
+
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 
 import { isElement, isNode } from '../domGuards';
 import { debugLog, errorLog } from '../logger';
+import { createMenuItem, createPopoverShell, positionPopoverBelow } from '../menuControls';
 import type { InsertableShapeGeometry, PresentationEngine } from '../PresentationEngine';
 import {
   getImageMimeType,
@@ -13,6 +17,7 @@ import { cleanError } from './runtimeCompat';
 import type { HistoryEntry, TextEditTarget } from './types';
 
 export interface InsertHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly app: App;
   readonly layoutEl: HTMLElement | null;
@@ -40,8 +45,15 @@ export class InsertController {
   private activeInsertMenu: HTMLElement | null = null;
   private insertTableButton: HTMLButtonElement | null = null;
   private imageFileInput: HTMLInputElement | null = null;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: InsertHost) {}
+  constructor(private readonly host: InsertHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
+
+  private tb(suffix: string): string {
+    return this.host.t(`powerpoint:toolbar.${suffix}`);
+  }
 
   registerMenus(): void {
     const closeMenus = (event: MouseEvent) => {
@@ -69,31 +81,31 @@ export class InsertController {
   createToolbarGroup(toolbar: HTMLElement): void {
     const insertGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
 
-    const imageButton = this.host.createEditIconButton(insertGroup, 'image', 'Insert image', () => {
+    const imageButton = this.host.createEditIconButton(insertGroup, 'image', this.tb('insertImage'), () => {
       this.toggleInsertMenu(imageButton, [
-        { label: 'From vault', onClick: () => this.openVaultImagePicker() },
-        { label: 'Upload file', onClick: () => this.imageFileInput?.click() }
+        { label: this.tb('fromVault'), onClick: () => this.openVaultImagePicker() },
+        { label: this.tb('uploadFile'), onClick: () => this.imageFileInput?.click() }
       ]);
     });
 
-    const shapeButton = this.host.createEditIconButton(insertGroup, 'shapes', 'Insert shape', () => {
+    const shapeButton = this.host.createEditIconButton(insertGroup, 'shapes', this.tb('insertShape'), () => {
       this.toggleInsertMenu(shapeButton, [
-        { label: 'Rectangle', onClick: () => void this.insertShape('rect') },
-        { label: 'Ellipse', onClick: () => void this.insertShape('ellipse') },
-        { label: 'Rounded rectangle', onClick: () => void this.insertShape('roundRect') },
-        { label: 'Line', onClick: () => void this.insertShape('line') },
-        { label: 'Arrow', onClick: () => void this.insertShape('rightArrow') }
+        { label: this.tb('rectangle'), onClick: () => void this.insertShape('rect') },
+        { label: this.tb('ellipse'), onClick: () => void this.insertShape('ellipse') },
+        { label: this.tb('roundedRectangle'), onClick: () => void this.insertShape('roundRect') },
+        { label: this.tb('line'), onClick: () => void this.insertShape('line') },
+        { label: this.tb('arrow'), onClick: () => void this.insertShape('rightArrow') }
       ]);
     });
 
-    this.host.createEditIconButton(insertGroup, 'type', 'Insert text box', () => void this.host.addTextBox());
-    const tableButton = this.host.createEditIconButton(insertGroup, 'table', 'Insert table', () =>
+    this.host.createEditIconButton(insertGroup, 'type', this.tb('insertTextBox'), () => void this.host.addTextBox());
+    const tableButton = this.host.createEditIconButton(insertGroup, 'table', this.tb('insertTable'), () =>
       this.openTableSizePicker(tableButton)
     );
     this.insertTableButton = tableButton;
-    this.host.createEditIconButton(insertGroup, 'bar-chart-3', 'Insert chart', () => void this.insertChart());
-    this.host.createEditIconButton(insertGroup, 'list', 'Bulleted list', () => void this.applyListStyle('bullet'));
-    this.host.createEditIconButton(insertGroup, 'list-ordered', 'Numbered list', () => void this.applyListStyle('number'));
+    this.host.createEditIconButton(insertGroup, 'bar-chart-3', this.tb('insertChart'), () => void this.insertChart());
+    this.host.createEditIconButton(insertGroup, 'list', this.tb('bulletedList'), () => void this.applyListStyle('bullet'));
+    this.host.createEditIconButton(insertGroup, 'list-ordered', this.tb('numberedList'), () => void this.applyListStyle('number'));
   }
 
   toggleInsertMenu(
@@ -115,26 +127,24 @@ export class InsertController {
     this.closeInsertMenus();
     anchor.classList.add('native-powerpoint-insert-menu-anchor');
 
-    const menu = activeDocument.body.createDiv({
-      cls: 'native-powerpoint-insert-menu native-powerpoint-light-surface'
+    const menu = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-insert-menu native-powerpoint-light-surface'
     });
     menu.dataset.anchorId = anchor.dataset.menuId;
     for (const item of items) {
-      const button = menu.createEl('button', {
-        cls: 'native-powerpoint-insert-menu-item',
-        text: item.label
-      });
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+      createMenuItem(menu, {
+        className: 'native-powerpoint-insert-menu-item',
+        text: item.label,
+        preventDefaultOnClick: true,
+        stopClickPropagation: true,
+        onClick: () => {
         this.closeInsertMenus();
         item.onClick();
+        }
       });
     }
 
-    const rect = anchor.getBoundingClientRect();
-    menu.style.left = `${rect.left}px`;
-    menu.style.top = `${rect.bottom + 4}px`;
+    positionPopoverBelow(menu, anchor);
     this.activeInsertMenu = menu;
   }
 
@@ -152,12 +162,12 @@ export class InsertController {
   }
 
   openVaultImagePicker(): void {
-    new VaultImageSuggestModal(this.host.app, (file) => void this.insertImageFromVaultFile(file)).open();
+    new VaultImageSuggestModal(this.host.app, (file) => void this.insertImageFromVaultFile(file), this.host.t).open();
   }
 
   openInsertTableModal(): void {
     if (!this.host.ensureEditable('insert table')) return;
-    new InsertTableModal(this.host.app, (rows, cols) => void this.insertTable(rows, cols)).open();
+    new InsertTableModal(this.host.app, (rows, cols) => void this.insertTable(rows, cols), this.host.t).open();
   }
 
   // Google Slides-style size picker: a hover grid that matches the look of the
@@ -175,9 +185,10 @@ export class InsertController {
       popover.addClass('native-powerpoint-table-picker');
 
       const grid = popover.createDiv({ cls: 'native-powerpoint-table-picker-grid' });
+      const insertTableLabel = this.tb('insertTable');
       const label = popover.createDiv({
         cls: 'native-powerpoint-table-picker-label',
-        text: 'Insert table'
+        text: insertTableLabel
       });
 
       const cells: HTMLButtonElement[] = [];
@@ -187,14 +198,23 @@ export class InsertController {
           const r = Math.floor(index / cols);
           cell.toggleClass('is-active', c < activeCols && r < activeRows);
         });
-        label.setText(activeCols > 0 && activeRows > 0 ? `${activeCols} × ${activeRows}` : 'Insert table');
+        label.setText(
+          activeCols > 0 && activeRows > 0
+            ? this.host.t('powerpoint:accessibility.tableCellSize', { columns: activeCols, rows: activeRows })
+            : insertTableLabel
+        );
       };
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cell = grid.createEl('button', {
             cls: 'native-powerpoint-table-picker-cell',
-            attr: { 'aria-label': `${c + 1} × ${r + 1}` }
+            attr: {
+              'aria-label': this.host.t('powerpoint:accessibility.tableCellSize', {
+                columns: c + 1,
+                rows: r + 1
+              })
+            }
           });
           cell.addEventListener('pointerenter', () => highlight(c + 1, r + 1));
           this.host.bindToolbarButton(cell, () => {
@@ -235,7 +255,7 @@ export class InsertController {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint vault image insertion failed', { file: file.path, error });
-      new Notice(`Could not insert image: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotInsertImage', { message: cleanError(error) });
     }
   }
 
@@ -270,7 +290,7 @@ export class InsertController {
         mimeType: file.type || null,
         error
       });
-      new Notice(`Could not insert image: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotInsertImage', { message: cleanError(error) });
     }
   }
 
@@ -294,7 +314,7 @@ export class InsertController {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint shape insertion failed', { geometry, error });
-      new Notice(`Could not insert shape: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotInsertShape', { message: cleanError(error) });
     }
   }
 
@@ -319,7 +339,7 @@ export class InsertController {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint table insertion failed', { rows, columns: cols, error });
-      new Notice(`Could not insert table: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotInsertTable', { message: cleanError(error) });
     }
   }
 
@@ -342,7 +362,7 @@ export class InsertController {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint chart insertion failed', { slide: this.host.currentSlide, error });
-      new Notice(`Could not insert chart: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotInsertChart', { message: cleanError(error) });
     }
   }
 
@@ -352,7 +372,7 @@ export class InsertController {
     const textTarget = this.host.getTextEditTarget(this.host.activeEditorTarget);
     const shapeIndex = textTarget?.shapeIndex ?? this.host.selectedShapeIndex;
     if (shapeIndex === null) {
-      new Notice('Select a text box or place the caret in text first.');
+      this.notice('powerpoint:notice.selectTextBoxFirst');
       return;
     }
 
@@ -380,7 +400,7 @@ export class InsertController {
         style,
         error
       });
-      new Notice(`Could not update list style: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotUpdateListStyle', { message: cleanError(error) });
     }
   }
 }

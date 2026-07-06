@@ -1,6 +1,9 @@
-import { App, Modal, Notice, TFile } from 'obsidian';
+import { App, Component, Modal, TFile } from 'obsidian';
 import { DocxSearchIndex, type DocxSearchIndexStats, type DocxSearchResult } from './docxSearchIndex';
+import { getPluginI18n } from './i18n/pluginI18n';
+import { showI18nNotice } from './i18n/notify';
 import { errorLog } from './logger';
+import { closeModalDomScope, loadModalDomScope, openModalDomScope } from './modalDomScope';
 
 const SEARCH_DEBOUNCE_MS = 150;
 
@@ -18,6 +21,7 @@ export class DocxSearchModal extends Modal {
 	private resultsEl: HTMLElement | null = null;
 	private debounceTimer: number | null = null;
 	private readyPromise: Promise<void> | null = null;
+	private domScope?: Component;
 
 	constructor(
 		app: App,
@@ -27,37 +31,42 @@ export class DocxSearchModal extends Modal {
 	}
 
 	onOpen(): void {
+		this.domScope = openModalDomScope();
 		const { contentEl } = this;
 		contentEl.empty();
-		contentEl.addClass('docxidian-search-modal');
+		contentEl.addClass('native-powerpoint-doc-editor-search-modal');
 		contentEl.createEl('h2', { text: 'Search DOCX files' });
 
-		const toolbarEl = contentEl.createDiv({ cls: 'docxidian-search-toolbar' });
+		const toolbarEl = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-toolbar' });
 		this.inputEl = toolbarEl.createEl('input', {
-			cls: 'docxidian-search-input',
+			cls: 'native-powerpoint-doc-editor-search-input',
 			type: 'search',
 		});
 		this.inputEl.placeholder = 'Search indexed DOCX text...';
 		this.inputEl.setAttribute('spellcheck', 'false');
 
 		const rebuildButton = toolbarEl.createEl('button', { text: 'Rebuild' });
-		rebuildButton.addEventListener('click', () => {
+		this.domScope.registerDomEvent(rebuildButton, 'click', () => {
 			void this.rebuildIndex(true);
 		});
 
 		this.statusEl = contentEl.createDiv({
-			cls: 'docxidian-search-status',
+			cls: 'native-powerpoint-doc-editor-search-status',
 			text: 'Preparing DOCX search index...',
 		});
-		this.resultsEl = contentEl.createDiv({ cls: 'docxidian-search-results' });
+		this.resultsEl = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-results' });
 
-		this.inputEl.addEventListener('input', () => this.queueSearch());
+		this.domScope.registerDomEvent(this.inputEl, 'input', () => this.queueSearch());
 		this.readyPromise = this.rebuildIndex(false);
+		this.inputEl.focus();
 
-		window.setTimeout(() => this.inputEl?.focus());
+		loadModalDomScope(this.domScope);
 	}
 
 	onClose(): void {
+		closeModalDomScope(this.domScope);
+		this.domScope = undefined;
+
 		if (this.debounceTimer !== null) {
 			window.clearTimeout(this.debounceTimer);
 			this.debounceTimer = null;
@@ -76,7 +85,7 @@ export class DocxSearchModal extends Modal {
 		} catch (error) {
 			errorLog('search', 'Could not rebuild DOCX search index', error);
 			this.setStatus('Could not rebuild DOCX search index.');
-			new Notice('Could not rebuild DOCX search index. Check the Native PowerPoint Doc Editor debug log.');
+			showI18nNotice(getPluginI18n(), 'docx:notice.searchIndexRebuildFailed');
 		}
 	}
 
@@ -102,7 +111,7 @@ export class DocxSearchModal extends Modal {
 		if (!query) {
 			const stats = this.searchIndex.getStats();
 			this.resultsEl.createDiv({
-				cls: 'docxidian-search-empty',
+				cls: 'native-powerpoint-doc-editor-search-empty',
 				text: stats.files > 0 ? 'Type to search DOCX files.' : 'No DOCX files are indexed yet.',
 			});
 			return;
@@ -110,7 +119,7 @@ export class DocxSearchModal extends Modal {
 
 		const results = this.searchIndex.search(query);
 		if (results.length === 0) {
-			this.resultsEl.createDiv({ cls: 'docxidian-search-empty', text: 'No DOCX matches found.' });
+			this.resultsEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-empty', text: 'No DOCX matches found.' });
 			return;
 		}
 
@@ -120,31 +129,31 @@ export class DocxSearchModal extends Modal {
 	}
 
 	private renderResult(result: DocxSearchResult): void {
-		if (!this.resultsEl) {
+		if (!this.resultsEl || !this.domScope) {
 			return;
 		}
 
-		const resultEl = this.resultsEl.createDiv({ cls: 'docxidian-search-result' });
+		const resultEl = this.resultsEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-result' });
 		resultEl.setAttribute('role', 'button');
 		resultEl.setAttribute('tabindex', '0');
 
-		const titleRow = resultEl.createDiv({ cls: 'docxidian-search-result-title-row' });
-		titleRow.createSpan({ cls: 'docxidian-search-result-title', text: result.name });
+		const titleRow = resultEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-result-title-row' });
+		titleRow.createSpan({ cls: 'native-powerpoint-doc-editor-search-result-title', text: result.name });
 		titleRow.createSpan({
-			cls: 'docxidian-search-result-count',
+			cls: 'native-powerpoint-doc-editor-search-result-count',
 			text: `${result.matchCount} ${result.matchCount === 1 ? 'match' : 'matches'}`,
 		});
 
-		resultEl.createDiv({ cls: 'docxidian-search-result-path', text: result.path });
+		resultEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-result-path', text: result.path });
 
 		for (const snippet of result.snippets) {
-			resultEl.createDiv({ cls: 'docxidian-search-snippet', text: snippet });
+			resultEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-snippet', text: snippet });
 		}
 
-		resultEl.addEventListener('click', () => {
+		this.domScope.registerDomEvent(resultEl, 'click', () => {
 			void this.openResult(result.path);
 		});
-		resultEl.addEventListener('keydown', (evt) => {
+		this.domScope.registerDomEvent(resultEl, 'keydown', (evt) => {
 			if (evt.key !== 'Enter' && evt.key !== ' ') {
 				return;
 			}
@@ -157,7 +166,7 @@ export class DocxSearchModal extends Modal {
 	private async openResult(path: string): Promise<void> {
 		const file = this.app.vault.getAbstractFileByPath(path);
 		if (!(file instanceof TFile)) {
-			new Notice('That DOCX file is no longer in the vault.');
+			showI18nNotice(getPluginI18n(), 'docx:notice.fileNoLongerInVault');
 			await this.searchIndex.removePath(path);
 			this.renderSearch();
 			return;

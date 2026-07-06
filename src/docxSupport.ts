@@ -1,5 +1,6 @@
 import type { TAbstractFile } from 'obsidian';
-import { Notice, TFile } from 'obsidian';
+import { TFile } from 'obsidian';
+import { showI18nNotice } from './i18n/notify';
 import { processDocxEmbeds, registerDocxFileEmbed } from './DocxEmbedLoader';
 import { DocxSearchModal } from './DocxSearchModal';
 import { DocxView } from './DocxView';
@@ -9,7 +10,7 @@ import { DocxSearchIndex } from './docxSearchIndex';
 import { scheduleIdleWork } from './idleSchedule';
 import { errorLog, infoLog } from './logger';
 import { getDocxEditorLocale, loadDocxEditorLocale, preloadDocxEditorLocale } from './locales';
-import type DocxidianPlugin from './main';
+import type NativePowerPointDocEditorPlugin from './main';
 import type { DocxEditorSettingsController } from './DocxView';
 
 export { createDocxReactMount, DocxFileEmbed, renderDocxEmbeds, hasReviewMarkup } from './docxEditorChunk';
@@ -18,22 +19,25 @@ export { DocxView, VIEW_TYPE_DOCX };
 const DOCX_EXTENSIONS = ['docx'];
 
 export async function registerDocxSupport(
-	plugin: DocxidianPlugin,
+	plugin: NativePowerPointDocEditorPlugin,
 	createDocxSettingsController: () => DocxEditorSettingsController,
 ): Promise<DocxSearchIndex> {
 	configureDocxEditorChunkPaths([]);
 	const docxSearchIndex = new DocxSearchIndex(plugin.app, plugin.manifest.dir);
 	plugin.setDocxSearchIndex(docxSearchIndex);
 
-	preloadDocxEditorLocale(plugin.settings.editorLanguage);
-	void loadDocxEditorLocale(plugin.settings.editorLanguage);
+	preloadDocxEditorLocale(plugin.getResolvedDocxEditorLanguage());
+	void loadDocxEditorLocale(plugin.getResolvedDocxEditorLanguage());
 
 	plugin.registerView(
 		VIEW_TYPE_DOCX,
 		(leaf) => new DocxView(
 			leaf,
 			() => plugin.settings.authorName,
-			() => getDocxEditorLocale(plugin.settings.editorLanguage),
+			() => plugin.settings.editorTheme,
+			() => plugin.getResolvedEditorTheme(),
+			() => getDocxEditorLocale(plugin.getResolvedDocxEditorLanguage()),
+			() => plugin.getI18n(),
 			() => plugin.settings.showRuler,
 			() => plugin.settings.autosave,
 			() => plugin.settings.createBackupsBeforeSave,
@@ -43,7 +47,7 @@ export async function registerDocxSupport(
 	);
 	plugin.registerExtensions(DOCX_EXTENSIONS, VIEW_TYPE_DOCX);
 
-	registerDocxFileEmbed(plugin, () => getDocxEditorLocale(plugin.settings.editorLanguage));
+	registerDocxFileEmbed(plugin, () => getDocxEditorLocale(plugin.getResolvedDocxEditorLanguage()));
 	registerDeferredDocxEmbedProcessor(plugin);
 
 	registerDocxCommands(plugin, docxSearchIndex);
@@ -54,7 +58,7 @@ export async function registerDocxSupport(
 	return docxSearchIndex;
 }
 
-function registerDeferredDocxEmbedProcessor(plugin: DocxidianPlugin) {
+function registerDeferredDocxEmbedProcessor(plugin: NativePowerPointDocEditorPlugin) {
 	let registered = false;
 
 	const register = () => {
@@ -64,7 +68,7 @@ function registerDeferredDocxEmbedProcessor(plugin: DocxidianPlugin) {
 
 		registered = true;
 		plugin.registerMarkdownPostProcessor((el, ctx) => {
-			processDocxEmbeds(plugin.app, el, ctx, () => getDocxEditorLocale(plugin.settings.editorLanguage));
+			processDocxEmbeds(plugin.app, el, ctx, () => getDocxEditorLocale(plugin.getResolvedDocxEditorLanguage()));
 		}, 1000);
 		infoLog('plugin', 'Registered deferred DOCX embed markdown processor');
 	};
@@ -76,14 +80,14 @@ function registerDeferredDocxEmbedProcessor(plugin: DocxidianPlugin) {
 	scheduleIdleWork(register, { timeout: 5000 });
 }
 
-function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSearchIndex) {
+function registerDocxCommands(plugin: NativePowerPointDocEditorPlugin, docxSearchIndex: DocxSearchIndex) {
 	plugin.addCommand({
 		id: 'save-current-docx',
 		name: 'Save current docx',
 		callback: async () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
-				new Notice('Open a docx file to save it.');
+				showI18nNotice(plugin.getI18n(), 'docx:notice.openToSave');
 				return;
 			}
 
@@ -96,7 +100,7 @@ function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSear
 		callback: async () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
-				new Notice('Open a docx file to save a copy.');
+				showI18nNotice(plugin.getI18n(), 'docx:notice.openToSaveCopy');
 				return;
 			}
 
@@ -109,7 +113,7 @@ function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSear
 		callback: async () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
-				new Notice('Open a docx file to duplicate it.');
+				showI18nNotice(plugin.getI18n(), 'docx:notice.openToDuplicate');
 				return;
 			}
 
@@ -122,7 +126,7 @@ function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSear
 		callback: () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
-				new Notice('Open a docx file to search it.');
+				showI18nNotice(plugin.getI18n(), 'docx:notice.openToSearch');
 				return;
 			}
 
@@ -135,7 +139,7 @@ function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSear
 		callback: () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
-				new Notice('Open a docx file to search it.');
+				showI18nNotice(plugin.getI18n(), 'docx:notice.openToSearch');
 				return;
 			}
 
@@ -147,7 +151,7 @@ function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSear
 		name: 'Search DOCX files in vault',
 		callback: async () => {
 			if (!plugin.settings.enableDocxSearchIndex) {
-				new Notice('Turn on the DOCX search index in Native PowerPoint Doc Editor settings first.');
+				showI18nNotice(plugin.getI18n(), 'docx:notice.enableSearchIndexFirst');
 				return;
 			}
 
@@ -164,7 +168,7 @@ function registerDocxCommands(plugin: DocxidianPlugin, docxSearchIndex: DocxSear
 	});
 }
 
-function registerDocxSearchEvents(plugin: DocxidianPlugin, docxSearchIndex: DocxSearchIndex) {
+function registerDocxSearchEvents(plugin: NativePowerPointDocEditorPlugin, docxSearchIndex: DocxSearchIndex) {
 	plugin.registerEvent(plugin.app.vault.on('create', file => handleDocxSearchFileChanged(plugin, docxSearchIndex, file)));
 	plugin.registerEvent(plugin.app.vault.on('modify', file => handleDocxSearchFileChanged(plugin, docxSearchIndex, file)));
 	plugin.registerEvent(plugin.app.vault.on('delete', file => handleDocxSearchFileDeleted(plugin, docxSearchIndex, file)));
@@ -174,7 +178,7 @@ function registerDocxSearchEvents(plugin: DocxidianPlugin, docxSearchIndex: Docx
 	}));
 }
 
-function queueInitialDocxSearchIndex(plugin: DocxidianPlugin, docxSearchIndex: DocxSearchIndex) {
+function queueInitialDocxSearchIndex(plugin: NativePowerPointDocEditorPlugin, docxSearchIndex: DocxSearchIndex) {
 	if (!plugin.settings.enableDocxSearchIndex || !plugin.settings.autoIndexDocxSearch) {
 		return;
 	}
@@ -187,7 +191,7 @@ function queueInitialDocxSearchIndex(plugin: DocxidianPlugin, docxSearchIndex: D
 }
 
 async function handleDocxSearchFileChanged(
-	plugin: DocxidianPlugin,
+	plugin: NativePowerPointDocEditorPlugin,
 	docxSearchIndex: DocxSearchIndex,
 	file: TAbstractFile,
 ) {
@@ -204,7 +208,7 @@ async function handleDocxSearchFileChanged(
 }
 
 function handleDocxSearchFileDeleted(
-	plugin: DocxidianPlugin,
+	plugin: NativePowerPointDocEditorPlugin,
 	docxSearchIndex: DocxSearchIndex,
 	fileOrPath: TAbstractFile | string,
 ) {
@@ -221,14 +225,14 @@ function handleDocxSearchFileDeleted(
 }
 
 export async function rebuildDocxSearchIndex(
-	plugin: DocxidianPlugin,
+	plugin: NativePowerPointDocEditorPlugin,
 	docxSearchIndex: DocxSearchIndex,
 	force = false,
 	showNotice = true,
 ) {
 	if (plugin.settings.disableDocxFiles) {
 		if (showNotice) {
-			new Notice('DOCX support is turned off for this plugin. Reload after turning it back on.');
+			showI18nNotice(plugin.getI18n(), 'docx:notice.supportDisabled');
 		}
 		return;
 	}
@@ -243,22 +247,25 @@ export async function rebuildDocxSearchIndex(
 			? await docxSearchIndex.rebuildSync({ force: true })
 			: await docxSearchIndex.rebuildIncremental({ force: false });
 		if (showNotice) {
-			new Notice(`DOCX search index ready: ${stats.total} files, ${stats.errors} errors.`);
+			showI18nNotice(plugin.getI18n(), 'docx:notice.searchIndexReady', {
+				total: stats.total,
+				errors: stats.errors,
+			});
 		}
 	} catch (error) {
 		errorLog('search', 'Could not rebuild DOCX search index', error);
 		if (showNotice) {
-			new Notice('Could not rebuild DOCX search index. Check the Native PowerPoint Doc Editor debug log.');
+			showI18nNotice(plugin.getI18n(), 'docx:notice.searchIndexRebuildFailed');
 		}
 	}
 }
 
-export function refreshDocxViews(plugin: DocxidianPlugin) {
+export function refreshDocxViews(plugin: NativePowerPointDocEditorPlugin) {
 	for (const leaf of plugin.app.workspace.getLeavesOfType(VIEW_TYPE_DOCX)) {
 		const view = leaf.view;
 		if (view instanceof DocxView) {
 			view.refreshSettings();
-			void loadDocxEditorLocale(plugin.settings.editorLanguage).then(() => {
+			void loadDocxEditorLocale(plugin.getResolvedDocxEditorLanguage()).then(() => {
 				view.refreshSettings();
 			});
 		}

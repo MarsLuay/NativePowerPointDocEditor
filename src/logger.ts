@@ -1,8 +1,8 @@
-export type DocxidianLogLevel = 'debug' | 'info' | 'warn' | 'error';
+export type NativePowerPointDocEditorLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export interface DocxidianLogEntry {
+export interface NativePowerPointDocEditorLogEntry {
 	time: string;
-	level: DocxidianLogLevel;
+	level: NativePowerPointDocEditorLogLevel;
 	area: string;
 	message: string;
 	data?: unknown;
@@ -11,16 +11,16 @@ export interface DocxidianLogEntry {
 const MAX_LOG_ENTRIES = 2000;
 const LOG_PREFIX = '[Native PowerPoint Doc Editor]';
 
-interface DocxidianLogState {
+interface NativePowerPointDocEditorLogState {
 	debugLoggingEnabled: boolean;
-	entries: DocxidianLogEntry[];
+	entries: NativePowerPointDocEditorLogEntry[];
 	totalEntries: number;
 	droppedEntries: number;
 }
 
-let logState: DocxidianLogState | null = null;
+let logState: NativePowerPointDocEditorLogState | null = null;
 
-export interface DocxidianLogStats {
+export interface NativePowerPointDocEditorLogStats {
 	debugLoggingEnabled: boolean;
 	maxRetainedEntries: number;
 	retainedEntries: number;
@@ -34,19 +34,19 @@ function getWindowWithLogs() {
 	}
 
 	return window as Window & {
-		docxidianDebugLogs?: DocxidianLogEntry[];
-		docxidianDebugLogging?: boolean;
+		nativePowerPointDocEditorDebugLogs?: NativePowerPointDocEditorLogEntry[];
+		nativePowerPointDocEditorDebugLogging?: boolean;
 	};
 }
 
 function getLogState() {
 	if (!logState) {
 		const logsWindow = getWindowWithLogs();
-		const existingEntries = Array.isArray(logsWindow?.docxidianDebugLogs)
-			? logsWindow.docxidianDebugLogs.slice(-MAX_LOG_ENTRIES)
+		const existingEntries = Array.isArray(logsWindow?.nativePowerPointDocEditorDebugLogs)
+			? logsWindow.nativePowerPointDocEditorDebugLogs.slice(-MAX_LOG_ENTRIES)
 			: [];
 		logState = {
-			debugLoggingEnabled: logsWindow?.docxidianDebugLogging === true,
+			debugLoggingEnabled: logsWindow?.nativePowerPointDocEditorDebugLogging === true,
 			entries: existingEntries,
 			totalEntries: existingEntries.length,
 			droppedEntries: 0,
@@ -56,11 +56,11 @@ function getLogState() {
 	return logState;
 }
 
-type DocxidianLogSink = (entry: DocxidianLogEntry) => void;
+type NativePowerPointDocEditorLogSink = (entry: NativePowerPointDocEditorLogEntry) => void;
 
-let logSink: DocxidianLogSink | null = null;
+let logSink: NativePowerPointDocEditorLogSink | null = null;
 
-export function setDocxidianLogSink(sink: DocxidianLogSink | null) {
+export function setNativePowerPointDocEditorLogSink(sink: NativePowerPointDocEditorLogSink | null) {
 	logSink = sink;
 }
 
@@ -71,15 +71,15 @@ function syncWindowLogState() {
 	}
 
 	const state = getLogState();
-	logsWindow.docxidianDebugLogging = state.debugLoggingEnabled;
-	logsWindow.docxidianDebugLogs = state.entries;
+	logsWindow.nativePowerPointDocEditorDebugLogging = state.debugLoggingEnabled;
+	logsWindow.nativePowerPointDocEditorDebugLogs = state.entries;
 }
 
-function shouldPrint(level: DocxidianLogLevel) {
+function shouldPrint(level: NativePowerPointDocEditorLogLevel) {
 	return getLogState().debugLoggingEnabled || level === 'warn' || level === 'error';
 }
 
-function writeConsole(level: DocxidianLogLevel, area: string, message: string, data?: unknown) {
+function writeConsole(level: NativePowerPointDocEditorLogLevel, area: string, message: string, data?: unknown) {
 	if (!shouldPrint(level)) {
 		return;
 	}
@@ -137,14 +137,14 @@ function normalizeLogData(data: unknown, seen = new WeakSet<object>(), depth = 0
 	return data;
 }
 
-export function configureDocxidianLogger(enabled: boolean) {
+export function configureNativePowerPointDocEditorLogger(enabled: boolean) {
 	getLogState().debugLoggingEnabled = enabled;
 	syncWindowLogState();
 }
 
-export function logDocxidian(level: DocxidianLogLevel, area: string, message: string, data?: unknown) {
+export function logNativePowerPointDocEditor(level: NativePowerPointDocEditorLogLevel, area: string, message: string, data?: unknown) {
 	const state = getLogState();
-	const entry: DocxidianLogEntry = {
+	const entry: NativePowerPointDocEditorLogEntry = {
 		time: new Date().toISOString(),
 		level,
 		area,
@@ -173,26 +173,26 @@ export function logDocxidian(level: DocxidianLogLevel, area: string, message: st
 }
 
 export function debugLog(area: string, message: string, data?: unknown) {
-	logDocxidian('debug', area, message, data);
+	logNativePowerPointDocEditor('debug', area, message, data);
 }
 
 export function infoLog(area: string, message: string, data?: unknown) {
-	logDocxidian('info', area, message, data);
+	logNativePowerPointDocEditor('info', area, message, data);
 }
 
 export function warnLog(area: string, message: string, data?: unknown) {
-	logDocxidian('warn', area, message, data);
+	logNativePowerPointDocEditor('warn', area, message, data);
 }
 
 export function errorLog(area: string, message: string, data?: unknown) {
-	logDocxidian('error', area, message, data);
+	logNativePowerPointDocEditor('error', area, message, data);
 }
 
-export function getDocxidianLogSnapshot() {
+export function getNativePowerPointDocEditorLogSnapshot() {
 	return getLogState().entries.slice();
 }
 
-export function getDocxidianLogStats(): DocxidianLogStats {
+export function getNativePowerPointDocEditorLogStats(): NativePowerPointDocEditorLogStats {
 	const state = getLogState();
 	return {
 		debugLoggingEnabled: state.debugLoggingEnabled,

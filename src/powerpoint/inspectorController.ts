@@ -1,4 +1,5 @@
-import { Notice } from 'obsidian';
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 import type { ShapeTransform } from 'pptx-svg';
 
 import type { ChartDataGrid, ChartDataUpdate } from '../ChartData';
@@ -11,6 +12,7 @@ import { cloneTransform } from './svgUtils';
 import type { HistoryEntry } from './types';
 
 export interface InspectorHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly inspectorEl: HTMLElement | null;
   readonly selectedShapeIndex: number | null;
@@ -38,14 +40,18 @@ export class InspectorController {
   private widthInput: HTMLInputElement | null = null;
   private heightInput: HTMLInputElement | null = null;
   private rotationInput: HTMLInputElement | null = null;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: InspectorHost) {}
+  constructor(private readonly host: InspectorHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   render(): void {
     if (!this.host.inspectorEl) return;
 
+    const t = this.host.t;
     this.host.inspectorEl.empty();
-    this.host.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-title', text: 'Inspector' });
+    this.host.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-title', text: t('powerpoint:inspector.title') });
     this.renderViewOnlyWarning(this.host.inspectorEl);
     this.renderFontFidelity(this.host.inspectorEl);
     this.renderSlideBackgroundControl(this.host.inspectorEl);
@@ -54,8 +60,8 @@ export class InspectorController {
       this.host.inspectorEl.createDiv({
         cls: 'native-powerpoint-inspector-empty',
         text: this.host.selectedShapeIndices.size > 1
-          ? `${this.host.selectedShapeIndices.size} objects selected. Drag to move them together, or press Delete to remove them.`
-          : 'Select a slide object to adjust its layout. Click text on the slide to edit it directly. Drag on empty space to select multiple objects.'
+          ? t('powerpoint:inspector.emptyMultiSelect', { count: this.host.selectedShapeIndices.size })
+          : t('powerpoint:inspector.emptySelectObject')
       });
       this.xInput = null;
       this.yInput = null;
@@ -68,23 +74,23 @@ export class InspectorController {
     const selected = this.host.getSelectedShapeElement();
     this.host.inspectorEl.createDiv({
       cls: 'native-powerpoint-inspector-subtitle',
-      text: `Object ${this.host.selectedShapeIndex + 1}`
+      text: t('powerpoint:inspector.objectNumber', { number: this.host.selectedShapeIndex + 1 })
     });
     this.host.inspectorEl.createDiv({
       cls: 'native-powerpoint-inspector-hint',
       text: selected?.closest(GENERATED_GRID_SELECTOR)
-        ? 'Click highlighted table or chart text on the slide to edit it directly. Generated numeric chart ticks remain read-only.'
-        : 'Click text on the slide to edit it directly.'
+        ? t('powerpoint:inspector.hintEditGenerated')
+        : t('powerpoint:inspector.hintEditText')
     });
 
     const grid = this.host.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-grid' });
-    this.xInput = this.createNumberField(grid, 'X', this.host.engine.emuToPx(this.host.selectedTransform.x));
-    this.yInput = this.createNumberField(grid, 'Y', this.host.engine.emuToPx(this.host.selectedTransform.y));
-    this.widthInput = this.createNumberField(grid, 'W', this.host.engine.emuToPx(this.host.selectedTransform.cx));
-    this.heightInput = this.createNumberField(grid, 'H', this.host.engine.emuToPx(this.host.selectedTransform.cy));
+    this.xInput = this.createNumberField(grid, t('powerpoint:inspector.fieldX'), this.host.engine.emuToPx(this.host.selectedTransform.x));
+    this.yInput = this.createNumberField(grid, t('powerpoint:inspector.fieldY'), this.host.engine.emuToPx(this.host.selectedTransform.y));
+    this.widthInput = this.createNumberField(grid, t('powerpoint:inspector.fieldW'), this.host.engine.emuToPx(this.host.selectedTransform.cx));
+    this.heightInput = this.createNumberField(grid, t('powerpoint:inspector.fieldH'), this.host.engine.emuToPx(this.host.selectedTransform.cy));
     this.rotationInput = this.createNumberField(
       grid,
-      'Rot',
+      t('powerpoint:inspector.fieldRot'),
       this.host.engine.ooxmlToDegrees(this.host.selectedTransform.rot)
     );
     this.xInput.disabled = !this.host.canEdit();
@@ -95,7 +101,7 @@ export class InspectorController {
 
     const applyLayout = this.host.inspectorEl.createEl('button', {
       cls: 'native-powerpoint-inspector-button',
-      text: 'Apply layout'
+      text: t('powerpoint:inspector.applyLayout')
     });
     applyLayout.disabled = !this.host.canEdit();
     applyLayout.addEventListener('click', () => void this.applyInspectorTransform());
@@ -133,11 +139,12 @@ export class InspectorController {
   private renderSlideBackgroundControl(container: HTMLElement): void {
     if (!this.host.engine || this.host.engine.slideCount === 0) return;
 
+    const t = this.host.t;
     const section = container.createDiv({ cls: 'native-powerpoint-slide-background' });
-    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: 'Slide background' });
+    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: t('powerpoint:inspector.slideBackground') });
     section.createDiv({
       cls: 'native-powerpoint-inspector-hint',
-      text: 'Set the background fill color for the current slide.'
+      text: t('powerpoint:inspector.slideBackgroundHint')
     });
 
     const currentColor = this.host.engine.getSlideBackgroundColor(this.host.currentSlide);
@@ -151,7 +158,7 @@ export class InspectorController {
 
     const applyButton = row.createEl('button', {
       cls: 'native-powerpoint-inspector-button',
-      text: 'Apply'
+      text: t('powerpoint:inspector.apply')
     });
     applyButton.disabled = !this.host.canEdit();
     applyButton.addEventListener('click', () => {
@@ -183,27 +190,28 @@ export class InspectorController {
         color: hexColor,
         error
       });
-      new Notice(`Could not change slide background: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotChangeSlideBackground', { message: cleanError(error) });
     }
   }
 
   private renderChartDataEditor(chartData: ChartDataGrid): void {
     if (!this.host.inspectorEl) return;
 
+    const t = this.host.t;
     const section = this.host.inspectorEl.createDiv({ cls: 'native-powerpoint-chart-data' });
-    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: 'Chart data' });
+    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: t('powerpoint:inspector.chartData') });
 
     if (!chartData.editable) {
       section.createDiv({
         cls: 'native-powerpoint-inspector-hint',
-        text: chartData.reason || 'This chart data grid is read-only.'
+        text: chartData.reason || t('powerpoint:inspector.chartDataReadOnly')
       });
       return;
     }
 
     section.createDiv({
       cls: 'native-powerpoint-inspector-hint',
-      text: 'Edit source-backed cells below. Apply updates the chart cache and its embedded Excel workbook.'
+      text: t('powerpoint:inspector.chartDataHint')
     });
 
     const viewport = section.createDiv({ cls: 'native-powerpoint-chart-data-scroll' });
@@ -213,7 +221,7 @@ export class InspectorController {
     chartData.series.forEach((series) => {
       header.createEl('th', { text: series.name });
       if (series.pointLabels !== null) {
-        header.createEl('th', { text: `${series.name} label` });
+        header.createEl('th', { text: t('powerpoint:inspector.seriesLabel', { seriesName: series.name }) });
       }
     });
 
@@ -238,7 +246,7 @@ export class InspectorController {
 
     const apply = section.createEl('button', {
       cls: 'native-powerpoint-inspector-button',
-      text: 'Apply chart data'
+      text: t('powerpoint:inspector.applyChartData')
     });
     apply.disabled = !this.host.canEdit();
     apply.addEventListener('click', () => {
@@ -291,7 +299,7 @@ export class InspectorController {
         seriesCount: update.series.length,
         error
       });
-      new Notice(`Could not update chart data: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotUpdateChartData', { message: cleanError(error) });
     }
   }
 
@@ -317,26 +325,27 @@ export class InspectorController {
   private renderFontFidelity(container: HTMLElement): void {
     if (!this.host.engine) return;
 
+    const t = this.host.t;
     const section = container.createDiv({ cls: 'native-powerpoint-font-fidelity' });
-    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: 'Fonts' });
+    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: t('powerpoint:inspector.fonts') });
 
     if (this.host.fontSubstitutions.length === 0) {
       section.createDiv({
         cls: 'native-powerpoint-inspector-hint',
-        text: 'Requested fonts on this slide are available.'
+        text: t('powerpoint:inspector.fontsAvailable')
       });
       return;
     }
 
     section.createDiv({
       cls: 'native-powerpoint-inspector-hint',
-      text: `${this.host.fontSubstitutions.length} missing font${this.host.fontSubstitutions.length === 1 ? '' : 's'} substituted. Text wrapping uses the displayed replacement font.`
+      text: t('powerpoint:inspector.fontsSubstituted', { count: this.host.fontSubstitutions.length })
     });
     const list = section.createDiv({ cls: 'native-powerpoint-font-substitution-list' });
     for (const substitution of this.host.fontSubstitutions) {
       const item = list.createDiv({ cls: 'native-powerpoint-font-substitution' });
       item.createSpan({ cls: 'native-powerpoint-font-substitution-source', text: substitution.requested });
-      item.createSpan({ cls: 'native-powerpoint-font-substitution-arrow', text: '->' });
+      item.createSpan({ cls: 'native-powerpoint-font-substitution-arrow', text: this.host.t('powerpoint:inspector.substitutionArrow') });
       item.createSpan({ cls: 'native-powerpoint-font-substitution-target', text: substitution.substitute });
     }
   }

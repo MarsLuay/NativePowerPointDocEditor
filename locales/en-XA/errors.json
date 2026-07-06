@@ -1,0 +1,20 @@
+{
+  "generic": {
+    "message": "[Şǫmęţhįñğ węñţ wrǫñğ]"
+  },
+  "saveFailed": "[Ćǫųſḑ ñǫţ şąvę {fileName}: {message}]",
+  "saveNoDocument": "[Ćǫųſḑ ñǫţ şąvę {fileName}: ţhę ęḑįţǫr ḑįḑ ñǫţ ręţųrñ ą ḑǫćųmęñţ.]",
+  "exportFailed": "[Ćǫųſḑ ñǫţ ęxpǫrţ {path}: {message}]",
+  "exportNoDocument": "[Ćǫųſḑ ñǫţ ęxpǫrţ {path}: ţhę ęḑįţǫr ḑįḑ ñǫţ ręţųrñ ą ḑǫćųmęñţ.]",
+  "exportPdfFailed": "[Ćǫųſḑ ñǫţ ęxpǫrţ {path}: fǫrmąţţęḑ PḐF ręñḑęrįñğ fąįſęḑ. Ñǫ fįſę wąş wrįţţęñ.]",
+  "exportPdfRenderFailed": "[Ćǫųſḑ ñǫţ ręñḑęr fǫrmąţţęḑ PḐF: {message}]",
+  "exportNoPages": "[Ćǫųſḑ ñǫţ fįñḑ ręñḑęręḑ ḐǪĆX pąğęş ţǫ ęxpǫrţ.]",
+  "createFailed": "[Ćǫųſḑ ñǫţ ćręąţę {path}: {message}]",
+  "renameFailed": "[Ćǫųſḑ ñǫţ ręñąmę {fileName}: {message}]",
+  "insertTableFailed": "[Ćǫųſḑ ñǫţ įñşęrţ ą ţąbſę hęrę.]",
+  "fontImportFileFailed": "[Ćǫųſḑ ñǫţ įmpǫrţ {fileName}.]",
+  "fontImportFailed": "[Ćǫųſḑ ñǫţ įmpǫrţ fǫñţ: {message}]",
+  "insertImageFailed": "[Ćǫųſḑ ñǫţ įñşęrţ įmąğę: {message}]",
+  "renderFailed": "[Ćǫųſḑ ñǫţ ręñḑęr {fileName}: {message}]",
+  "loadFailed": "[{message}]"
+}

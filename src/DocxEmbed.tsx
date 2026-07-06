@@ -4,6 +4,7 @@ import { createRoot, Root } from 'react-dom/client';
 import { DocxEditor } from '@eigenpal/docx-editor-react';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
+import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { ensureEditorStyles } from './DocxReactView';
 import { isHTMLElement } from './domGuards';
 import { Component, MarkdownRenderChild } from './obsidianRuntime';
@@ -66,8 +67,8 @@ function DocxEmbedPreview({
 
 		const pageRect = firstPage.getBoundingClientRect();
 		hostEl.setCssProps({
-			'--docxidian-embed-page-height': `${Math.ceil(pageRect.height)}px`,
-			'--docxidian-embed-page-width': `${Math.ceil(pageRect.width)}px`,
+			'--native-powerpoint-doc-editor-embed-page-height': `${Math.ceil(pageRect.height)}px`,
+			'--native-powerpoint-doc-editor-embed-page-width': `${Math.ceil(pageRect.width)}px`,
 		});
 	}, [hostEl]);
 
@@ -92,7 +93,7 @@ function DocxEmbedPreview({
 		let neutralizerRetryTimeout: number | undefined;
 
 		const attachNeutralizer = (): boolean => {
-			const editorRoot = sourceEl.querySelector<HTMLElement>('.docxidian-embed-editor, .ep-root');
+			const editorRoot = sourceEl.querySelector<HTMLElement>('.native-powerpoint-doc-editor-embed-editor, .ep-root');
 			if (!editorRoot) {
 				return false;
 			}
@@ -136,13 +137,13 @@ function DocxEmbedPreview({
 
 	return (
 		<>
-			<div className="docxidian-embed-viewport">
-				<div ref={pagesRef} className="docxidian-embed-pages" />
+			<div className="native-powerpoint-doc-editor-embed-viewport">
+				<div ref={pagesRef} className="native-powerpoint-doc-editor-embed-pages" />
 			</div>
-			<div ref={sourceRef} className="docxidian-embed-source" aria-hidden="true">
+			<div ref={sourceRef} className="native-powerpoint-doc-editor-embed-source" aria-hidden="true">
 				<DocxEditor
 					key={`${file.path}-${file.stat.mtime}`}
-					className="docxidian-embed-editor"
+					className="native-powerpoint-doc-editor-embed-editor"
 					documentBuffer={buffer}
 					disableFindReplaceShortcuts
 					i18n={i18n}
@@ -188,7 +189,7 @@ export class DocxFileEmbed extends Component {
 		private subpath = '',
 	) {
 		super();
-		this.info.containerEl.addClasses(['docxidian-embed', 'docxidian-native-embed']);
+		this.info.containerEl.addClasses(['native-powerpoint-doc-editor-embed', 'native-powerpoint-doc-editor-native-embed']);
 		this.registerDomEvent(this.info.containerEl, 'click', (evt) => {
 			evt.stopImmediatePropagation();
 		});
@@ -208,18 +209,19 @@ export class DocxFileEmbed extends Component {
 		this.root?.unmount();
 		this.root = null;
 		containerEl.empty();
-		containerEl.addClass('docxidian-embed');
-		containerEl.createDiv({ cls: 'docxidian-embed-loading', text: `Loading ${this.file.name}...` });
+		containerEl.addClass('native-powerpoint-doc-editor-embed');
+		containerEl.createDiv({ cls: 'native-powerpoint-doc-editor-embed-loading', text: `Loading ${this.file.name}...` });
 
 		try {
 			ensureEditorStyles();
-			const buffer = await this.app.vault.readBinary(this.file);
+			const sourceBuffer = await this.app.vault.readBinary(this.file);
+			const { buffer } = await ensureDocxDefaultStyles(sourceBuffer);
 			if (this.unloaded) {
 				return;
 			}
 
 			containerEl.empty();
-			const hostEl = containerEl.createDiv({ cls: 'docxidian-embed-host' });
+			const hostEl = containerEl.createDiv({ cls: 'native-powerpoint-doc-editor-embed-host' });
 			this.root = createRoot(hostEl);
 			this.root.render(<DocxEmbedPreview file={this.file} buffer={buffer} hostEl={hostEl} i18n={this.getEditorLocale()} />);
 		} catch (error) {
@@ -230,7 +232,7 @@ export class DocxFileEmbed extends Component {
 			const message = error instanceof Error ? error.message : 'Unknown error';
 			containerEl.empty();
 			containerEl.createDiv({
-				cls: 'docxidian-embed-error',
+				cls: 'native-powerpoint-doc-editor-embed-error',
 				text: `Could not render ${this.file.name}: ${message}`,
 			});
 		}
@@ -330,7 +332,7 @@ export function renderDocxEmbeds(
 	const embeds = collectEmbedElements(el);
 
 	for (const embedEl of embeds) {
-		if (!isHTMLElement(embedEl) || embedEl.dataset.docxidianEmbed === 'true') {
+		if (!isHTMLElement(embedEl) || embedEl.dataset.nativePowerPointDocEditorEmbed === 'true') {
 			continue;
 		}
 
@@ -344,7 +346,7 @@ export function renderDocxEmbeds(
 			continue;
 		}
 
-		embedEl.dataset.docxidianEmbed = 'true';
+		embedEl.dataset.nativePowerPointDocEditorEmbed = 'true';
 		ctx.addChild(new DocxEmbedRenderChild(embedEl, app, file, linkPath.split('#')[1] ?? '', getEditorLocale));
 	}
 }

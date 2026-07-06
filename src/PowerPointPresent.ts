@@ -1,9 +1,13 @@
+import type { TranslateFn } from './i18n/translate';
+import { pptT } from './i18n/powerpointNotify';
+
 export interface PowerPointPresentOptions {
   ownerDocument: Document;
   slideCount: number;
   startIndex: number;
   renderSlide: (index: number) => SVGSVGElement | null;
   onExit?: (lastIndex: number) => void;
+  t?: TranslateFn;
 }
 
 /**
@@ -17,6 +21,7 @@ export class PowerPointPresentController {
   private readonly slideCount: number;
   private readonly renderSlide: (index: number) => SVGSVGElement | null;
   private readonly onExit?: (lastIndex: number) => void;
+  private readonly t: TranslateFn;
 
   private index: number;
   private overlay: HTMLElement | null = null;
@@ -30,6 +35,7 @@ export class PowerPointPresentController {
     this.slideCount = options.slideCount;
     this.renderSlide = options.renderSlide;
     this.onExit = options.onExit;
+    this.t = options.t ?? pptT;
     this.index = Math.min(Math.max(0, options.startIndex), Math.max(0, options.slideCount - 1));
   }
 
@@ -45,10 +51,12 @@ export class PowerPointPresentController {
 
     const hud = overlay.createDiv({ cls: 'native-powerpoint-present-hud' });
     this.counterEl = hud.createDiv({ cls: 'native-powerpoint-present-counter' });
+    const exitLabel = this.t('powerpoint:present.exit');
+    const exitSlideshow = this.t('powerpoint:accessibility.exitSlideshow');
     const exitButton = hud.createEl('button', {
       cls: 'native-powerpoint-present-exit',
-      text: 'Exit',
-      attr: { 'aria-label': 'Exit slideshow (Esc)', title: 'Exit slideshow (Esc)' }
+      text: exitLabel,
+      attr: { 'aria-label': exitSlideshow, title: exitSlideshow }
     });
     exitButton.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -195,10 +203,13 @@ export class PowerPointPresentController {
     } else {
       this.stage.createDiv({
         cls: 'native-powerpoint-present-error',
-        text: 'This slide could not be rendered for the slideshow.'
+        text: this.t('powerpoint:loading.slideRenderFailed')
       });
     }
 
-    this.counterEl?.setText(`${this.index + 1} / ${this.slideCount}`);
+    this.counterEl?.setText(this.t('powerpoint:present.slideCount', {
+      current: this.index + 1,
+      total: this.slideCount,
+    }));
   }
 }

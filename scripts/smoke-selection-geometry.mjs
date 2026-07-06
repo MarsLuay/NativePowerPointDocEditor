@@ -13,24 +13,20 @@
 // Usage: node scripts/smoke-selection-geometry.mjs
 
 import assert from 'node:assert/strict';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { spawn } from 'node:child_process';
-import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { buildZip, extractZip } from 'pptx-svg';
 import { readDeck, toArrayBuffer } from '../tests/helpers/renderer.mjs';
 import { loadPresentationEngineModule } from '../tests/helpers/load-plugin-modules.mjs';
+import { runHeadlessHarness } from './lib/text-offset-harness.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 const outputDir = path.resolve('scripts/visual-output');
 const htmlPath = path.join(outputDir, 'selection-geometry.html');
-const electronMainPath = path.join(__dirname, 'lib/electron-eval-main.cjs');
-const require = createRequire(import.meta.url);
 
 // CLI: point the harness at a real deck instead of the synthetic fixture.
 //   node scripts/smoke-selection-geometry.mjs --deck=<path> --slide=<n> --match="<substr>"
@@ -55,20 +51,6 @@ const cli = parseArgs(process.argv.slice(2));
 const DEFAULT_MATCH = 'SmartThings-compatible appliances';
 const matchSubstring = cli.match ?? DEFAULT_MATCH;
 
-// Prefer Electron so the harness renders with the *same Chromium build Obsidian
-// ships* (text-metric quirks like getNumberOfChars differ between Electron and
-// standalone --headless Chrome). Fall back to headless Chrome when Electron is
-// not installed (e.g. minimal CI).
-function resolveElectronBinary() {
-  try {
-    const binary = require('electron');
-    if (typeof binary === 'string' && existsSync(binary)) return binary;
-  } catch {
-    // not installed
-  }
-  return null;
-}
-
 // Long, multi-run paragraph that soft-wraps across several visual lines. Mirrors
 // the fixture used by tests/paragraph-visual-lines.test.mjs so the rendered DOM
 // structure (bullet container + run tspans) matches what shipped offsets assume.
@@ -82,101 +64,6 @@ const bulletParagraph =
   '<a:r><a:rPr lang="en-US" sz="1800"/><a:t>art home automate, and manage all your Samsung and SmartThings-compatible appliances.</a:t></a:r>' +
   '<a:endParaRPr lang="en-US"/>' +
   '</a:p>';
-
-function findChrome() {
-  const candidates = [
-    process.env.CHROME_PATH,
-    path.join(process.env.ProgramFiles || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env['ProgramFiles(x86)'] || '', 'Google/Chrome/Application/chrome.exe'),
-    path.join(process.env.ProgramFiles || '', 'Microsoft/Edge/Application/msedge.exe'),
-    path.join(process.env['ProgramFiles(x86)'] || '', 'Microsoft/Edge/Application/msedge.exe'),
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-    '/usr/bin/google-chrome',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser'
-  ].filter(Boolean);
-
-  const chrome = candidates.find((candidate) => existsSync(candidate));
-  if (!chrome) {
-    throw new Error('Chrome/Edge was not found. Set CHROME_PATH to run the selection-geometry smoke.');
-  }
-  return chrome;
-}
-
-function runChrome(chromePath, args, options = {}) {
-  const timeoutMs = options.timeoutMs ?? 90000;
-  return new Promise((resolve, reject) => {
-    const child = spawn(chromePath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    let timedOut = false;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      child.kill('SIGTERM');
-      setTimeout(() => {
-        if (child.exitCode === null) child.kill('SIGKILL');
-      }, 2000).unref();
-    }, timeoutMs);
-
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on('close', (code) => {
-      clearTimeout(timer);
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      if (timedOut && options.resolveOnTimeout?.({ stdout, stderr }) === true) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      reject(new Error(timedOut
-        ? `Chrome timed out after ${timeoutMs} ms: ${stderr || stdout}`
-        : `Chrome exited with ${code}: ${stderr || stdout}`));
-    });
-  });
-}
-
-function runElectron(electronBinary, htmlFile, timeoutMs = 30000) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(electronBinary, [electronMainPath], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, HARNESS_HTML: htmlFile, ELECTRON_DISABLE_SECURITY_WARNINGS: 'true' }
-    });
-    let stdout = '';
-    let stderr = '';
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL');
-      reject(new Error(`Electron timed out after ${timeoutMs} ms: ${stderr || stdout}`));
-    }, timeoutMs);
-
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.on('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    child.on('close', () => {
-      clearTimeout(timer);
-      const error = stdout.match(/^HARNESS_ERROR:(.*)$/m);
-      if (error) {
-        reject(new Error(`Electron harness error: ${error[1]}`));
-        return;
-      }
-      const metrics = stdout.match(/^HARNESS_METRICS:(.*)$/m);
-      if (!metrics) {
-        reject(new Error(`Electron emitted no metrics. stderr: ${stderr.slice(-400)}`));
-        return;
-      }
-      resolve(metrics[1]);
-    });
-  });
-}
 
 async function renderFixtureSvg() {
   const input = await readDeck('features.pptx');
@@ -383,41 +270,9 @@ const html = String.raw`<!doctype html>
 await mkdir(outputDir, { recursive: true });
 await writeFile(htmlPath, html, 'utf8');
 
-const electronBinary = resolveElectronBinary();
-let encodedMetrics;
-let runtimeLabel;
-
-if (electronBinary) {
-  // Same Chromium build Obsidian ships — this is the environment where the
-  // text-metric quirks actually appear.
-  runtimeLabel = `Electron ${require('electron/package.json').version} (Obsidian-matched Chromium)`;
-  encodedMetrics = await runElectron(electronBinary, htmlPath);
-} else {
-  const chromePath = findChrome();
-  const url = pathToFileURL(htmlPath).href;
-  const userDataDir = path.join(os.tmpdir(), `native-powerpoint-selection-chrome-${process.pid}`);
-  const baseArgs = [
-    '--headless=new',
-    '--disable-gpu',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--user-data-dir=${userDataDir}`,
-    '--window-size=1700,1400',
-    '--virtual-time-budget=1500'
-  ];
-  runtimeLabel = 'headless Chrome fallback (Electron not installed)';
-  const dump = await runChrome(chromePath, [...baseArgs, '--dump-dom', url], {
-    timeoutMs: 25000,
-    resolveOnTimeout: ({ stdout }) => stdout.includes('data-metrics=')
-  });
-  const match = dump.stdout.match(/data-metrics="([^"]+)"/);
-  if (!match) {
-    throw new Error('Selection geometry metrics were not emitted by the fixture page.');
-  }
-  encodedMetrics = match[1];
-}
-
-const metrics = JSON.parse(decodeURIComponent(encodedMetrics));
+const harness = await runHeadlessHarness(htmlPath, { chromeTimeoutMs: 25000 });
+assert.ok(harness, 'no headless runtime available');
+const { metrics, runtime: runtimeLabel } = harness;
 
 if (metrics.error) {
   console.error('Harness error:', metrics.error);

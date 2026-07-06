@@ -1,0 +1,12 @@
+{
+  "actions": {
+    "close": "‫esolC",
+    "save": "‫evaS",
+    "cancel": "‫lecnaC",
+    "insert": "‫tresnI",
+    "reset": "‫teseR",
+    "copy": "‫ypoC",
+    "rebuild": "‫dliubeR",
+    "defaultOption": "‫)tluafed("
+  }
+}

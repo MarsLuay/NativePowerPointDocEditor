@@ -1,54 +1,44 @@
 import type { Translations } from '@eigenpal/docx-editor-i18n';
 
-export type DocxidianLanguage = 'en' | 'pl' | 'pt-BR' | 'tr' | 'he' | 'zh-CN';
+import { loadEigenpalMessages } from './i18n/eigenpalAdapter';
+import { localeCandidates } from './i18n/localeResolver';
 
-export interface DocxidianLanguageOption {
-	code: DocxidianLanguage;
-	label: string;
-}
+const SUPPORTED_DOCX_EDITOR_LANGUAGES = ['en', 'pl', 'pt-BR', 'tr', 'he', 'zh-CN'] as const;
 
-export const DEFAULT_LANGUAGE: DocxidianLanguage = 'en';
+export type NativePowerPointDocEditorLanguage = (typeof SUPPORTED_DOCX_EDITOR_LANGUAGES)[number];
 
-export const DOCXIDIAN_LANGUAGE_OPTIONS: DocxidianLanguageOption[] = [
-	{ code: 'en', label: 'English' },
-	{ code: 'pl', label: 'Polski' },
-	{ code: 'pt-BR', label: 'Portugues do Brasil' },
-	{ code: 'tr', label: 'Turkce' },
-	{ code: 'he', label: 'Hebrew' },
-	{ code: 'zh-CN', label: 'Simplified Chinese' },
-];
+export type LocaleCode = string;
 
-const SUPPORTED_LANGUAGES = new Set<string>(DOCXIDIAN_LANGUAGE_OPTIONS.map((option) => option.code));
+export const DEFAULT_LANGUAGE: NativePowerPointDocEditorLanguage = 'en';
 
-const localeCache = new Map<DocxidianLanguage, Translations>();
-const localePromises = new Map<DocxidianLanguage, Promise<Translations | undefined>>();
+const SUPPORTED_LANGUAGES = new Set<string>(SUPPORTED_DOCX_EDITOR_LANGUAGES);
 
-const localeLoaders: Record<DocxidianLanguage, () => Promise<Translations>> = {
-	en: async () => (await import('@eigenpal/docx-editor-i18n/en')).default,
-	pl: async () => (await import('@eigenpal/docx-editor-i18n/pl')).default,
-	'pt-BR': async () => (await import('@eigenpal/docx-editor-i18n/pt-BR')).default,
-	tr: async () => (await import('@eigenpal/docx-editor-i18n/tr')).default,
-	he: async () => (await import('@eigenpal/docx-editor-i18n/he')).default,
-	'zh-CN': async () => (await import('@eigenpal/docx-editor-i18n/zh-CN')).default,
-};
+const localeCache = new Map<string, Translations>();
+const localePromises = new Map<string, Promise<Translations | undefined>>();
 
-export function isDocxidianLanguage(value: string): value is DocxidianLanguage {
+export function isNativePowerPointDocEditorLanguage(value: string): value is NativePowerPointDocEditorLanguage {
 	return SUPPORTED_LANGUAGES.has(value);
 }
 
-export function normalizeDocxidianLanguage(value: unknown): DocxidianLanguage {
-	return typeof value === 'string' && isDocxidianLanguage(value) ? value : DEFAULT_LANGUAGE;
+export function resolveAutomaticDocxEditorLanguage(locale: string): NativePowerPointDocEditorLanguage {
+	for (const candidate of localeCandidates(locale)) {
+		if (isNativePowerPointDocEditorLanguage(candidate)) {
+			return candidate;
+		}
+	}
+
+	return DEFAULT_LANGUAGE;
 }
 
-export function getDocxEditorLocale(language: DocxidianLanguage): Translations | undefined {
+export function getDocxEditorLocale(language: NativePowerPointDocEditorLanguage): Translations | undefined {
 	return localeCache.get(language);
 }
 
-export function preloadDocxEditorLocale(language: DocxidianLanguage): void {
+export function preloadDocxEditorLocale(language: NativePowerPointDocEditorLanguage): void {
 	void loadDocxEditorLocale(language);
 }
 
-export function loadDocxEditorLocale(language: DocxidianLanguage): Promise<Translations | undefined> {
+export function loadDocxEditorLocale(language: LocaleCode): Promise<Translations | undefined> {
 	const cached = localeCache.get(language);
 	if (cached) {
 		return Promise.resolve(cached);
@@ -59,9 +49,11 @@ export function loadDocxEditorLocale(language: DocxidianLanguage): Promise<Trans
 		return pending;
 	}
 
-	const promise = localeLoaders[language]()
+	const promise = loadEigenpalMessages(language)
 		.then((translations) => {
-			localeCache.set(language, translations);
+			if (translations) {
+				localeCache.set(language, translations);
+			}
 			return translations;
 		})
 		.catch(() => undefined)

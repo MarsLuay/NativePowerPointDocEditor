@@ -1,0 +1,115 @@
+{
+  "section": {
+    "identity": "‫ytitnedI",
+    "editorDefaults": "‫stluafed rotidE",
+    "saving": "‫gnivaS",
+    "search": "‫hcraeS",
+    "fileHandoff": "‫ffodnah eliF",
+    "diagnostics": "‫scitsongaiD",
+    "powerpoint": "‫tnioPrewoP"
+  },
+  "docx": {
+    "authorName": {
+      "name": "‫eman rohtuA",
+      "description": "‫.segnahc dekcart dna stnemmoc rof desU",
+      "placeholder": "‫sraM",
+      "resetLabel": "‫teseR"
+    },
+    "editorTheme": {
+      "name": "‫emehT",
+      "description": "‫.edom krad ro thgil ot rotide siht nip ro ,tluafed yb emeht metsys eht esU"
+    },
+    "showRuler": {
+      "name": "‫reluR",
+      "description": "‫.tluafed yb ydob tnemucod eht evoba relur egap eht wohS"
+    },
+    "defaultZoom": {
+      "name": "‫mooz tluafeD",
+      "description": "‫.nepo yeht nehw selif XCOD rof mooz laitinI",
+      "resetLabel": "‫teseR"
+    },
+    "autosave": {
+      "name": "‫evasotuA",
+      "description": "‫.segnahc retfa yltrohs tnemucod eht evas yllacitamotuA"
+    },
+    "createBackupsBeforeSave": {
+      "name": "‫spukcaB",
+      "description": "‫.noisses XCOD nepo hcae ni etirwrevo tsrif eht erofeb pukcab depmatsemit eno etaerC"
+    },
+    "enableDocxSearchIndex": {
+      "name": "‫xedni hcraes XCOD",
+      "description": "‫.hcraes XCOD ediw-tluav rof ehcac lacol a otni selif XCOD morf txet stcartxe ,delbane nehW .tluafed yb ffO"
+    },
+    "autoIndexDocxSearch": {
+      "name": "‫segnahc XCOD xedni-otuA",
+      "description": "‫.egnahc selif XCOD sa detadpu ehcac eht speek ,xedni hcraes XCOD eht htiw delbane nehW .tluafed yb ffO"
+    },
+    "rebuildDocxSearchIndex": {
+      "name": "‫xedni hcraes XCOD dliubeR",
+      "description": "‫.tluav siht ni selif XCOD rof ehcac elbahcraes eht hserfeR",
+      "actionLabel": "‫dliubeR"
+    },
+    "disableDocxFiles": {
+      "name": "‫selif XCOD rof ffo nruT",
+      "description": "‫3/< nigulp rehtona fo rovaf ni selif XCOD rof yllacificeps nigulp ffo snruT"
+    },
+    "debugLogging": {
+      "name": "‫gniggol gubeD",
+      "description": "‫.gol rotidE coD tnioPrewoP evitaN yromem-ni eht dna elosnoc repoleved eht ot scitsongaid tnioPrewoP dna XCOD goL"
+    },
+    "copyDocxLog": {
+      "name": "‫gol XCOD ypoC",
+      "description": "‫.draobpilc eht ot sgol rotidE coD tnioPrewoP evitaN cificeps-XCOD ypoC",
+      "actionLabel": "‫ypoC"
+    }
+  },
+  "powerpoint": {
+    "autosave": {
+      "name": "‫stide evasotuA",
+      "description": "‫.lanigiro eht gnitirwrevo tuohtiw ypoc yrevocer a ot stide devasnu setirw selif gnihctiws ro gnisolc ,delbasid nehW .elttes stide retfa sm 0051 selif tnioPrewoP elbatide evaS"
+    },
+    "showInspector": {
+      "name": "‫lenap rotcepsni wohS",
+      "description": "‫.tluafed yb ffO .rotide tnioPrewoP eht fo edis thgir eht no lenap rotcepsni tcejbo eht wohS"
+    },
+    "hideUnsupportedSvg": {
+      "name": "‫sliated GVS detroppusnu ediH",
+      "description": "‫.elif XTPP eht morf meht eteled ton seod sihT .tluafed yb ffO .weiverp naidisbO eht ni sliated GVS tnioPrewoP detroppusnu edih yliraropmeT"
+    },
+    "yoloMode": {
+      "name": "‫edom OLOY htiw stnioPrewoP nepO",
+      "description": "‫.punaelc weiverp tuohtiw nwohs si GVS edils lanigiro eht os selif XTPP erutuf rof edom OLOY rebmemeR"
+    }
+  },
+  "fileHandoff": {
+    "section": "‫ffodnah epyt eliF",
+    "disablePptx": {
+      "name": "‫selif XTPP rof ffo nruT",
+      "description": "‫3/< nigulp rehtona fo rovaf ni selif XTPP rof yllacificeps nigulp ffo snruT"
+    },
+    "reloadDocxNotice": "‫.gnildnah elif XCOD etadpu ot nigulp siht elbane-er/elbasid ro naidisbO daoleR",
+    "reloadPptxNotice": "‫.gnildnah elif XTPP etadpu ot nigulp siht elbane-er/elbasid ro naidisbO daoleR"
+  },
+  "theme": {
+    "system": "‫metsyS",
+    "light": "‫thgiL",
+    "dark": "‫kraD",
+    "defaultSuffix": "‫)tluafed("
+  },
+  "templates": {
+    "title": "‫setalpmet noitatneserp eerF",
+    "description": "‫.ezimotsuc ro daolnwod nac uoy skced retrats dnif ot secalp wef A"
+  },
+  "debug": {
+    "copyFullLog": {
+      "name": "‫gol gubed lluf ypoC",
+      "description": "‫.draobpilc eht ot tnioPrewoP dna XCOD rof decudorp sgol rotidE coD tnioPrewoP evitaN lla ypoC",
+      "actionLabel": "‫gol ypoC"
+    },
+    "logCopied": "‫ deipoC{count} {label}.seirtne gol ",
+    "logCopyFailed": "‫.sgoLgubeDrotidEcoDtnioPrewoPevitan.wodniw kcehc dna elosnoc repoleved eht nepO .gol gubed rotidE coD tnioPrewoP evitaN ypoc ton dluoC"
+  },
+  "plugin": {
+    "reloaded": "‫.dedaoler rotidE coD tnioPrewoP evitaN"
+  }
+}

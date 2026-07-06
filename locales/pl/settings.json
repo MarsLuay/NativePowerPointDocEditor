@@ -1,0 +1,115 @@
+{
+	"section": {
+		"identity": "Tożsamość",
+		"editorDefaults": "Domyślne ustawienia edytora",
+		"saving": "Zapisywanie",
+		"search": "Wyszukiwanie",
+		"fileHandoff": "Przekazywanie plików",
+		"diagnostics": "Diagnostyka",
+		"powerpoint": "PowerPoint"
+	},
+	"docx": {
+		"authorName": {
+			"name": "Nazwa autora",
+			"description": "Używana w komentarzach i śledzonych zmianach.",
+			"placeholder": "Mars",
+			"resetLabel": "Resetuj"
+		},
+		"editorTheme": {
+			"name": "Motyw",
+			"description": "Domyślnie używaj motywu systemowego lub przypnij ten edytor do trybu jasnego albo ciemnego."
+		},
+		"showRuler": {
+			"name": "Linijka",
+			"description": "Domyślnie pokazuj linijkę strony nad treścią dokumentu."
+		},
+		"defaultZoom": {
+			"name": "Domyślne powiększenie",
+			"description": "Początkowe powiększenie plików DOCX po otwarciu.",
+			"resetLabel": "Resetuj"
+		},
+		"autosave": {
+			"name": "Autozapis",
+			"description": "Automatycznie zapisuj dokument chwilę po wprowadzeniu zmian."
+		},
+		"createBackupsBeforeSave": {
+			"name": "Kopie zapasowe",
+			"description": "Utwórz jedną kopie zapasową ze znacznikiem czasu przed pierwszym nadpisaniem w każdej sesji otwartego pliku DOCX."
+		},
+		"enableDocxSearchIndex": {
+			"name": "Indeks wyszukiwania DOCX",
+			"description": "Domyślnie wyłączone. Po włączeniu wyodrębnia tekst z plików DOCX do lokalnej pamięci podręcznej do wyszukiwania DOCX w całym skarbcu."
+		},
+		"autoIndexDocxSearch": {
+			"name": "Automatycznie indeksuj zmiany DOCX",
+			"description": "Domyślnie wyłączone. Po włączeniu wraz z indeksem wyszukiwania DOCX utrzymuje pamięć podręczną na bieżąco w miarę zmian plików DOCX."
+		},
+		"rebuildDocxSearchIndex": {
+			"name": "Odbuduj indeks wyszukiwania DOCX",
+			"description": "Odśwież przeszukiwalną pamięć podręczną plików DOCX w tym skarbcu.",
+			"actionLabel": "Odbuduj"
+		},
+		"disableDocxFiles": {
+			"name": "Wyłącz dla plików DOCX",
+			"description": "Wyłącza wtyczkę specjalnie dla plików DOCX na rzecz innej wtyczki </3"
+		},
+		"debugLogging": {
+			"name": "Logowanie debugowania",
+			"description": "Zapisuj diagnostykę DOCX i PowerPoint w konsoli deweloperskiej oraz w pamięciowym dzienniku Native PowerPoint Doc Editor."
+		},
+		"copyDocxLog": {
+			"name": "Kopiuj dziennik DOCX",
+			"description": "Skopiuj dzienniki DOCX Native PowerPoint Doc Editor do schowka.",
+			"actionLabel": "Kopiuj"
+		}
+	},
+	"powerpoint": {
+		"autosave": {
+			"name": "Autozapis edycji",
+			"description": "Zapisuj edytowalne pliki PowerPoint 1500 ms po ustabilizowaniu się edycji. Po wyłączeniu zamknięcie lub przełączenie pliku zapisuje niezapisane edycje do kopii odzyskiwania bez nadpisywania oryginału."
+		},
+		"showInspector": {
+			"name": "Pokaż panel inspektora",
+			"description": "Pokaż panel inspektora obiektów po prawej stronie edytora PowerPoint. Domyślnie wyłączone."
+		},
+		"hideUnsupportedSvg": {
+			"name": "Ukryj nieobsługiwane szczegóły SVG",
+			"description": "Tymczasowo ukryj nieobsługiwane szczegóły SVG PowerPoint w podglądzie Obsidian. Domyślnie wyłączone. Nie usuwa ich z pliku PPTX."
+		},
+		"yoloMode": {
+			"name": "Otwieraj PowerPointy w trybie YOLO",
+			"description": "Zapamiętaj tryb YOLO dla przyszłych plików PPTX, aby oryginalne SVG slajdu było widoczne bez czyszczenia podglądu."
+		}
+	},
+	"fileHandoff": {
+		"section": "Przekazywanie typów plików",
+		"disablePptx": {
+			"name": "Wyłącz dla plików PPTX",
+			"description": "Wyłącza wtyczkę specjalnie dla plików PPTX na rzecz innej wtyczki </3"
+		},
+		"reloadDocxNotice": "Załaduj ponownie Obsidian lub wyłącz i włącz tę wtyczkę, aby zaktualizować obsługę plików DOCX.",
+		"reloadPptxNotice": "Załaduj ponownie Obsidian lub wyłącz i włącz tę wtyczkę, aby zaktualizować obsługę plików PPTX."
+	},
+	"theme": {
+		"system": "Systemowy",
+		"light": "Jasny",
+		"dark": "Ciemny",
+		"defaultSuffix": "(domyślny)"
+	},
+	"templates": {
+		"title": "Darmowe szablony prezentacji",
+		"description": "Kilka miejsc, w których można znaleźć gotowe prezentacje do pobrania lub dostosowania."
+	},
+	"debug": {
+		"copyFullLog": {
+			"name": "Kopiuj pełny dziennik debugowania",
+			"description": "Skopiuj wszystkie dzienniki Native PowerPoint Doc Editor dla DOCX i PowerPoint do schowka.",
+			"actionLabel": "Kopiuj dziennik"
+		},
+		"logCopied": "Skopiowano {count} wpisów dziennika {label}.",
+		"logCopyFailed": "Nie udało się skopiować dziennika debugowania Native PowerPoint Doc Editor. Otwórz konsolę deweloperską i sprawdź window.nativePowerPointDocEditorDebugLogs."
+	},
+	"plugin": {
+		"reloaded": "Native PowerPoint Doc Editor został przeładowany."
+	}
+}

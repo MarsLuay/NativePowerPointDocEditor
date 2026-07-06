@@ -2,11 +2,11 @@ import { isHTMLElement } from './domGuards';
 import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
 import type { EditorView } from 'prosemirror-view';
 
-const IME_NEUTRALIZED_DATASET_KEY = 'docxidianImeNeutralized';
-const IME_ANCHORED_DATASET_KEY = 'docxidianImeAnchored';
-const IME_ORIGINAL_LEFT_DATASET_KEY = 'docxidianImeOriginalLeft';
-const IME_ORIGINAL_TOP_DATASET_KEY = 'docxidianImeOriginalTop';
-const IME_ORIGINAL_POSITION_DATASET_KEY = 'docxidianImeOriginalPosition';
+const IME_NEUTRALIZED_DATASET_KEY = 'nativePowerPointDocEditorImeNeutralized';
+const IME_ANCHORED_DATASET_KEY = 'nativePowerPointDocEditorImeAnchored';
+const IME_ORIGINAL_LEFT_DATASET_KEY = 'nativePowerPointDocEditorImeOriginalLeft';
+const IME_ORIGINAL_TOP_DATASET_KEY = 'nativePowerPointDocEditorImeOriginalTop';
+const IME_ORIGINAL_POSITION_DATASET_KEY = 'nativePowerPointDocEditorImeOriginalPosition';
 const HIDDEN_PROSEMIRROR_SELECTOR = '.paged-editor__hidden-pm';
 
 export interface ParsedEditorZoomTransform {

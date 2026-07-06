@@ -45,7 +45,7 @@ function inspectWrapper(editorRoot: HTMLElement): WrapperInspection | null {
 		inlineZoom: wrapper.style.zoom || '',
 		inlineMarginLeft: wrapper.style.marginLeft || '',
 		computedTransform: getComputedStyle(wrapper).transform,
-		neutralizedDataset: wrapper.dataset.docxidianImeNeutralized === 'true',
+		neutralizedDataset: wrapper.dataset.nativePowerPointDocEditorImeNeutralized === 'true',
 	};
 }
 
@@ -59,7 +59,7 @@ function findBodyEditable(hostEl: HTMLElement): HTMLElement | null {
 
 function findNeutralizerRoot(hostEl: HTMLElement): HTMLElement | null {
 	return (
-		hostEl.querySelector<HTMLElement>('.docxidian-editor-harness')
+		hostEl.querySelector<HTMLElement>('.native-powerpoint-doc-editor-editor-harness')
 		?? hostEl.querySelector<HTMLElement>('.ep-root.paged-editor')
 		?? hostEl.querySelector<HTMLElement>('.ep-root')
 	);
@@ -110,7 +110,7 @@ function collectMetrics(
 			hiddenCaretDelta = null;
 		}
 	}
-	const hiddenImeAnchored = hiddenRoot?.dataset.docxidianImeAnchored === 'true';
+	const hiddenImeAnchored = hiddenRoot?.dataset.nativePowerPointDocEditorImeAnchored === 'true';
 
 	const passed =
 		wrapper !== null
@@ -127,7 +127,7 @@ function collectMetrics(
 
 	return {
 		name: scenarioName,
-		neutralizerAttached: editorRoot.dataset.docxidianImeAttachProbe === 'true',
+		neutralizerAttached: editorRoot.dataset.nativePowerPointDocEditorImeAttachProbe === 'true',
 		wrapper,
 		transformAncestorsOnCaret,
 		editableFound: Boolean(editable),
@@ -178,7 +178,7 @@ function DocxLiveVerifyApp({
 					}
 				},
 			});
-			editorRoot.dataset.docxidianImeAttachProbe = 'true';
+			editorRoot.dataset.nativePowerPointDocEditorImeAttachProbe = 'true';
 			return true;
 		};
 
@@ -218,10 +218,10 @@ function DocxLiveVerifyApp({
 	}, [hostEl, scenarioName]);
 
 	return (
-		<div className="docxidian-host" ref={setHostEl}>
+		<div className="native-powerpoint-doc-editor-host" ref={setHostEl}>
 			<DocxEditor
 				ref={editorRef}
-				className="docxidian-editor-harness"
+				className="native-powerpoint-doc-editor-editor-harness"
 				documentBuffer={DOCX_BUFFER}
 				initialZoom={initialZoom}
 				showOutline={showOutline}
@@ -265,7 +265,7 @@ const styleTag = document.createElement('style');
 styleTag.textContent = `
 ${editorStyles}
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #e2e8f0; }
-.docxidian-host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: #f8fafc; }
+.native-powerpoint-doc-editor-host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: #f8fafc; }
 `;
 document.head.appendChild(styleTag);
 

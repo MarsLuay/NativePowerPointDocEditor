@@ -51,7 +51,7 @@ function createHarnessHtml(scenario) {
   <title>DOCX IME neutralizer harness</title>
   <style>
     html, body { margin: 0; width: 100%; height: 100%; background: #e2e8f0; }
-    .docxidian-host { width: 100%; height: 100%; background: #f8fafc; }
+    .native-powerpoint-doc-editor-host { width: 100%; height: 100%; background: #f8fafc; }
     .ep-root.paged-editor { width: 100%; height: 100%; }
     .editor-transform { width: 816px; margin: 0 auto; background: white; box-shadow: 0 0 0 1px #d1d5db; }
     .layout-page-content { padding: 96px 72px; min-height: 400px; }
@@ -60,8 +60,8 @@ function createHarnessHtml(scenario) {
   <script src="./neutralizer.js"></script>
 </head>
 <body>
-  <div class="docxidian-host">
-    <div class="ep-root paged-editor docxidian-editor-harness">
+  <div class="native-powerpoint-doc-editor-host">
+    <div class="ep-root paged-editor native-powerpoint-doc-editor-editor-harness">
       <div class="editor-transform">
         <div class="paged-editor__pages">
           <div class="layout-page-content">
@@ -80,7 +80,7 @@ function createHarnessHtml(scenario) {
       neutralizeDocxEditorZoomWrapper,
     } = DocxImeNeutralizer;
 
-    const editorRoot = document.querySelector('.docxidian-editor-harness');
+    const editorRoot = document.querySelector('.native-powerpoint-doc-editor-editor-harness');
     const editable = document.querySelector('.docx-run-editable');
     const wrapper = findDocxEditorZoomWrapper(editorRoot);
     wrapper.style.transform = ${JSON.stringify(scenario.transform)};
@@ -137,7 +137,7 @@ function createHarnessHtml(scenario) {
       synced: anchorSynced,
       hiddenLeft: hiddenRoot.style.left,
       hiddenTop: hiddenRoot.style.top,
-      hiddenAnchored: hiddenRoot.dataset.docxidianImeAnchored === 'true',
+      hiddenAnchored: hiddenRoot.dataset.nativePowerPointDocEditorImeAnchored === 'true',
     };
     const detachDiagnosticNeutralizer = attachDocxImeTransformNeutralizer(editorRoot, {
       getEditorView: () => fakeView,
@@ -150,7 +150,7 @@ function createHarnessHtml(scenario) {
       position: hiddenRoot.style.position,
       left: hiddenRoot.style.left,
       top: hiddenRoot.style.top,
-      anchored: hiddenRoot.dataset.docxidianImeAnchored === 'true',
+      anchored: hiddenRoot.dataset.nativePowerPointDocEditorImeAnchored === 'true',
     };
 
     detach();

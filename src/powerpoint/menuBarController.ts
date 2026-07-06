@@ -1,6 +1,7 @@
-import { Component, setIcon } from 'obsidian';
+import { Component } from 'obsidian';
 
 import { isNode } from '../domGuards';
+import { createMenuItem, createMenuSection, createPopoverShell, positionPopoverBelow } from '../menuControls';
 import type { MenuDropdownEntry } from './types';
 
 export type MenuBarTab =
@@ -89,36 +90,34 @@ export class MenuBarController extends Component {
     if (this.activeTab === tab && this.activeDropdown) return;
     this.closeDropdown();
 
-    const dropdown = activeDocument.body.createDiv({
-      cls: 'native-powerpoint-menubar-dropdown native-powerpoint-light-surface'
+    const dropdown = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-menubar-dropdown native-powerpoint-light-surface'
     });
     for (const entry of getItems()) {
       if (entry === 'separator') {
-        dropdown.createDiv({ cls: 'native-powerpoint-menubar-dropdown-sep' });
+        createMenuSection(dropdown, {
+          className: 'native-powerpoint-menubar-dropdown-sep',
+          role: 'separator'
+        });
         continue;
       }
-      const item = dropdown.createEl('button', { cls: 'native-powerpoint-menubar-dropdown-item' });
-      item.type = 'button';
-      if (entry.icon) {
-        setIcon(item.createSpan({ cls: 'native-powerpoint-menubar-dropdown-icon' }), entry.icon);
-      }
-      item.createSpan({ cls: 'native-powerpoint-menubar-dropdown-label', text: entry.label });
-      if (entry.disabled) {
-        item.disabled = true;
-      } else {
-        item.addEventListener('click', () => {
+      createMenuItem(dropdown, {
+        className: 'native-powerpoint-menubar-dropdown-item',
+        text: entry.label,
+        icon: entry.icon ? { name: entry.icon, className: 'native-powerpoint-menubar-dropdown-icon' } : undefined,
+        labelClassName: 'native-powerpoint-menubar-dropdown-label',
+        disabled: entry.disabled,
+        onClick: entry.disabled ? undefined : () => {
           this.closeDropdown();
           entry.onClick();
-        });
-      }
+        }
+      });
     }
 
     dropdown.addEventListener('mouseenter', () => this.cancelCloseTimer());
     dropdown.addEventListener('mouseleave', () => this.scheduleClose());
 
-    const rect = tab.getBoundingClientRect();
-    dropdown.style.left = `${rect.left}px`;
-    dropdown.style.top = `${rect.bottom + 2}px`;
+    positionPopoverBelow(dropdown, tab, 2);
 
     tab.addClass('is-active');
     this.activeTab = tab;

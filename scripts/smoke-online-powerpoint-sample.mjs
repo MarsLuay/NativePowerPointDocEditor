@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -7,11 +7,37 @@ import { build } from 'esbuild';
 
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require('@xmldom/xmldom');
-const sampleArgument = process.argv[2] || process.env.NATIVE_POWERPOINT_ONLINE_SAMPLE || 'test-results/online-powerpoint-samples/suu-example.pptx';
+const projectRoot = path.resolve(import.meta.dirname, '..');
+const defaultOnlineSample = 'test-results/online-powerpoint-samples/suu-example.pptx';
+const bundledFixtureSample = path.join(projectRoot, 'tests/fixtures/decks/simple-edit.pptx');
+const sampleArgument = process.argv[2] || process.env.NATIVE_POWERPOINT_ONLINE_SAMPLE || defaultOnlineSample;
 const tempDir = await mkdtemp(path.join(os.tmpdir(), 'native-powerpoint-online-sample-'));
 const engineBundlePath = path.join(tempDir, 'PresentationEngine.cjs');
 const packageBundlePath = path.join(tempDir, 'PowerPointPackage.cjs');
-const samplePath = path.resolve(sampleArgument);
+
+async function resolveSamplePath(requestedPath) {
+	const candidate = path.resolve(projectRoot, requestedPath);
+	try {
+		await access(candidate);
+		return candidate;
+	} catch {
+		// Optional downloaded corpus; fall back to the committed fixture deck.
+	}
+
+	try {
+		await access(bundledFixtureSample);
+		console.warn(
+			`Online sample not found at ${candidate}; using bundled fixture ${path.relative(projectRoot, bundledFixtureSample)}.`,
+		);
+		return bundledFixtureSample;
+	} catch {
+		throw new Error(
+			`PowerPoint sample not found. Download ${defaultOnlineSample} or pass a .pptx path: npm run smoke:pptx-sample -- path/to/deck.pptx`,
+		);
+	}
+}
+
+const samplePath = await resolveSamplePath(sampleArgument);
 const auditDir = path.resolve(
   'test-results',
   'online-powerpoint-audit',

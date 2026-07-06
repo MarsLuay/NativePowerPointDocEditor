@@ -1,4 +1,238 @@
-.workspace-leaf-content[data-type='docxidian-docx-view'] .view-content {
+.native-powerpoint-doc-editor-theme-light,
+.native-powerpoint-doc-editor-theme-system,
+body {
+	--npde-chrome-bg: #ffffff;
+	--npde-chrome-bg-alt: #f8f9fa;
+	--npde-chrome-bg-muted: #f1f3f4;
+	--npde-chrome-border: #e3e5e8;
+	--npde-chrome-border-muted: #e2e8f0;
+	--npde-chrome-border-strong: #cbd5e1;
+	--npde-chrome-border-hover: #dadce0;
+	--npde-chrome-canvas: #f8fafc;
+	--npde-chrome-text: #202124;
+	--npde-chrome-text-strong: #0f172a;
+	--npde-chrome-text-muted: #5f6368;
+	--npde-chrome-text-subtle: #64748b;
+	--npde-chrome-text-faint: #80868b;
+	--npde-chrome-accent: #1a73e8;
+	--npde-chrome-accent-strong: #2563eb;
+	--npde-chrome-accent-hover: #1763cc;
+	--npde-chrome-accent-strong-hover: #1d4ed8;
+	--npde-chrome-on-accent: #ffffff;
+	--npde-chrome-overlay: rgba(15, 23, 42, 0.28);
+	--npde-chrome-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.12);
+	--npde-chrome-shadow-md: 0 8px 22px rgba(15, 23, 42, 0.22);
+	--npde-chrome-shadow-lg: 0 10px 24px rgba(15, 23, 42, 0.18);
+	--npde-docx-toolbar-tooltip-bg: #0f172a;
+	--npde-docx-toolbar-tooltip-text: #f8fafc;
+	--npde-docx-toolbar-tooltip-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
+	--npde-chrome-shadow-xl: 0 18px 50px rgba(15, 23, 42, 0.22);
+	--npde-toolbar-bg: #f1f5f9;
+	--npde-toolbar-bg-hover: #e2e8f0;
+	--npde-toolbar-bg-subtle: rgba(241, 245, 249, 0.8);
+	--npde-toolbar-border: #e2e8f0;
+	--npde-toolbar-scrollbar-track: #ffffff;
+	--npde-toolbar-scrollbar-thumb: #cbd5e1;
+	--npde-toolbar-scrollbar-thumb-hover: #94a3b8;
+	--npde-docx-toolbar-shell-bg: var(--npde-chrome-bg);
+	--npde-docx-formatting-bar-bg: var(--npde-toolbar-bg);
+	--npde-docx-formatting-scrollbar-track: var(--npde-toolbar-scrollbar-track);
+	--npde-docx-formatting-scrollbar-thumb: var(--npde-toolbar-scrollbar-thumb);
+	--npde-docx-formatting-scrollbar-thumb-hover: var(--npde-toolbar-scrollbar-thumb-hover);
+	--npde-docx-document-scrollbar-track: var(--npde-chrome-bg);
+	--npde-docx-document-scrollbar-thumb: var(--npde-toolbar-scrollbar-thumb);
+	--npde-docx-document-scrollbar-thumb-hover: var(--npde-toolbar-scrollbar-thumb-hover);
+	--npde-toolbar-text: #202124;
+	--npde-toolbar-text-muted: #5f6368;
+	--npde-toolbar-focus-ring: color-mix(in srgb, var(--npde-chrome-accent) 18%, transparent);
+	--npde-toolbar-active-bg: color-mix(in srgb, var(--npde-chrome-accent) 14%, transparent);
+	--npde-menu-bg: #ffffff;
+	--npde-menu-border: #d1d5db;
+	--npde-menu-border-subtle: #e2e8f0;
+	--npde-menu-separator: #e2e8f0;
+	--npde-menu-text: #0f172a;
+	--npde-menu-item-text: #334155;
+	--npde-menu-text-muted: #64748b;
+	--npde-menu-hover-bg: #f1f5f9;
+	--npde-menu-hover-text: #0f172a;
+	--npde-menu-check: #1a73e8;
+	--npde-menu-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
+	--npde-menu-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.12);
+	--npde-dialog-bg: #ffffff;
+	--npde-dialog-bg-muted: #f8fafc;
+	--npde-dialog-border: #cbd5e1;
+	--npde-dialog-border-muted: #d1d5db;
+	--npde-dialog-border-subtle: #e2e8f0;
+	--npde-settings-action-border: var(--npde-dialog-border);
+	--npde-dialog-text: #0f172a;
+	--npde-dialog-text-muted: #475569;
+	--npde-dialog-text-subtle: #64748b;
+	--npde-dialog-input-bg: #ffffff;
+	--npde-dialog-input-border: #cbd5e1;
+	--npde-dialog-button-bg: #ffffff;
+	--npde-dialog-button-hover-bg: #f1f5f9;
+	--npde-dialog-primary-bg: #2563eb;
+	--npde-dialog-primary-bg-hover: #1d4ed8;
+	--npde-dialog-checkbox-bg: #ffffff;
+	--npde-dialog-checkbox-border: #94a3b8;
+	--npde-dialog-checkbox-checked-bg: #1a73e8;
+	--npde-dialog-checkbox-check: #ffffff;
+	--npde-dialog-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
+	--npde-dialog-shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.18);
+	--npde-document-bg: #ffffff;
+	--npde-document-text: #000000;
+	--npde-document-canvas: #c4c7cc;
+	--npde-document-shadow: 0 1px 4px rgba(60, 64, 67, 0.3), 0 4px 14px rgba(60, 64, 67, 0.22);
+	--npde-document-text-halo: rgba(255, 255, 255, 0.88);
+	--npde-document-ui-bg: #ffffff;
+	--npde-document-ui-bg-muted: #f8fafc;
+	--npde-document-ui-border: #e2e8f0;
+	--npde-document-ui-text: #0f172a;
+	--npde-document-ui-text-muted: #64748b;
+	--npde-warning-bg: #fff7ed;
+	--npde-warning-border: #fed7aa;
+	--npde-warning-text: #9a3412;
+	--npde-status-success: #22c55e;
+	--npde-status-success-text: #188038;
+	--npde-status-warning: #b06000;
+	--npde-status-danger: #d93025;
+	--npde-status-danger-bg: #fce8e6;
+	--npde-selection-find-bg: rgba(250, 204, 21, 0.45);
+	--npde-selection-find-current-bg: rgba(249, 115, 22, 0.58);
+	--npde-selection-find-current-outline: rgba(234, 88, 12, 0.85);
+	--npde-selection-subtle-bg: color-mix(in srgb, var(--npde-chrome-accent) 16%, transparent);
+	--npde-selection-active-bg: rgba(26, 115, 232, 0.3);
+	--npde-selection-object-bg: rgba(38, 132, 255, 0.28);
+	--npde-selection-highlight-bg: rgba(245, 158, 11, 0.6);
+	--npde-selection-guide: #ea4335;
+	--npde-selection-table-active-bg: #aecbfa;
+	--npde-selection-table-active-border: #4285f4;
+	--npde-selection-table-active-text: #202124;
+	--npde-presentation-bg: #000000;
+	--npde-presentation-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+	--npde-presentation-text: #ffffff;
+	--npde-presentation-hud-bg: rgba(0, 0, 0, 0.5);
+	--npde-presentation-button-bg: rgba(255, 255, 255, 0.15);
+	--npde-presentation-button-border: rgba(255, 255, 255, 0.3);
+	--npde-presentation-button-bg-hover: rgba(255, 255, 255, 0.28);
+	--npde-editor-bg: var(--npde-chrome-bg);
+	--npde-editor-bg-alt: var(--npde-chrome-bg-alt);
+	--npde-editor-bg-muted: var(--npde-chrome-bg-muted);
+	--npde-editor-border: var(--npde-chrome-border);
+	--npde-editor-border-strong: var(--npde-chrome-border-strong);
+	--npde-editor-hover: var(--npde-chrome-bg-muted);
+	--npde-editor-text: var(--npde-chrome-text);
+	--npde-editor-text-muted: var(--npde-chrome-text-muted);
+	--npde-editor-text-faint: var(--npde-chrome-text-faint);
+	--npde-editor-accent: var(--npde-chrome-accent);
+	--npde-editor-accent-hover: var(--npde-chrome-accent-hover);
+	--npde-editor-on-accent: var(--npde-chrome-on-accent);
+	--npde-editor-canvas: var(--npde-chrome-canvas);
+	--npde-editor-toolbar: var(--npde-toolbar-bg);
+	--npde-editor-toolbar-hover: var(--npde-toolbar-bg-hover);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark {
+	--npde-chrome-bg: #202124;
+	--npde-chrome-bg-alt: #252629;
+	--npde-chrome-bg-muted: #2b2c30;
+	--npde-chrome-border: #3c4043;
+	--npde-chrome-border-muted: #3c4043;
+	--npde-chrome-border-strong: #5f6368;
+	--npde-chrome-border-hover: #5f6368;
+	--npde-chrome-canvas: #1f2023;
+	--npde-chrome-text: #e8eaed;
+	--npde-chrome-text-strong: #e8eaed;
+	--npde-chrome-text-muted: #bdc1c6;
+	--npde-chrome-text-subtle: #bdc1c6;
+	--npde-chrome-text-faint: #9aa0a6;
+	--npde-chrome-accent: #8ab4f8;
+	--npde-chrome-accent-strong: #8ab4f8;
+	--npde-chrome-accent-hover: #aecbfa;
+	--npde-chrome-accent-strong-hover: #aecbfa;
+	--npde-chrome-on-accent: #202124;
+	--npde-chrome-overlay: rgba(0, 0, 0, 0.5);
+	--npde-chrome-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.36);
+	--npde-chrome-shadow-md: 0 8px 22px rgba(0, 0, 0, 0.42);
+	--npde-chrome-shadow-lg: 0 10px 24px rgba(0, 0, 0, 0.38);
+	--npde-docx-toolbar-tooltip-bg: #0f172a;
+	--npde-docx-toolbar-tooltip-text: #f8fafc;
+	--npde-docx-toolbar-tooltip-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+	--npde-chrome-shadow-xl: 0 18px 50px rgba(0, 0, 0, 0.42);
+	--npde-toolbar-bg: #303134;
+	--npde-toolbar-bg-hover: #3c4043;
+	--npde-toolbar-bg-subtle: #303134;
+	--npde-toolbar-border: #3c4043;
+	--npde-toolbar-scrollbar-track: #202124;
+	--npde-toolbar-scrollbar-thumb: #5f6368;
+	--npde-toolbar-scrollbar-thumb-hover: #9aa0a6;
+	--npde-toolbar-text: #e8eaed;
+	--npde-toolbar-text-muted: #bdc1c6;
+	--npde-toolbar-focus-ring: rgba(138, 180, 248, 0.45);
+	--npde-menu-bg: #202124;
+	--npde-menu-border: #3c4043;
+	--npde-menu-border-subtle: #3c4043;
+	--npde-menu-separator: #3c4043;
+	--npde-menu-text: #e8eaed;
+	--npde-menu-item-text: #bdc1c6;
+	--npde-menu-text-muted: #bdc1c6;
+	--npde-menu-hover-bg: #303134;
+	--npde-menu-hover-text: #e8eaed;
+	--npde-menu-check: #8ab4f8;
+	--npde-menu-shadow: var(--npde-chrome-shadow-lg);
+	--npde-menu-shadow-sm: var(--npde-chrome-shadow-sm);
+	--npde-dialog-bg: #202124;
+	--npde-dialog-bg-muted: #2b2c30;
+	--npde-dialog-border: #5f6368;
+	--npde-dialog-border-muted: #3c4043;
+	--npde-dialog-border-subtle: #3c4043;
+	--npde-settings-action-border: var(--npde-editor-border-strong);
+	--npde-dialog-text: #e8eaed;
+	--npde-dialog-text-muted: #bdc1c6;
+	--npde-dialog-text-subtle: #bdc1c6;
+	--npde-dialog-input-bg: #202124;
+	--npde-dialog-input-border: #5f6368;
+	--npde-dialog-button-bg: #202124;
+	--npde-dialog-button-hover-bg: #303134;
+	--npde-dialog-primary-bg: #8ab4f8;
+	--npde-dialog-primary-bg-hover: #aecbfa;
+	--npde-dialog-checkbox-bg: #202124;
+	--npde-dialog-checkbox-border: #5f6368;
+	--npde-dialog-checkbox-checked-bg: #8ab4f8;
+	--npde-dialog-checkbox-check: #202124;
+	--npde-dialog-shadow: var(--npde-chrome-shadow-xl);
+	--npde-dialog-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.36);
+	--npde-document-bg: #ffffff;
+	--npde-document-text: #000000;
+	--npde-document-canvas: #1f2023;
+	--npde-document-shadow: 0 1px 4px rgba(0, 0, 0, 0.28), 0 4px 14px rgba(0, 0, 0, 0.34);
+	--npde-document-text-halo: rgba(255, 255, 255, 0.88);
+	--npde-document-ui-bg: #202124;
+	--npde-document-ui-bg-muted: #2b2c30;
+	--npde-document-ui-border: #3c4043;
+	--npde-document-ui-text: #e8eaed;
+	--npde-document-ui-text-muted: #bdc1c6;
+	--npde-warning-bg: #3f2f16;
+	--npde-warning-border: #8a6d1f;
+	--npde-warning-text: #fdd663;
+	--npde-status-success: #81c995;
+	--npde-status-success-text: #81c995;
+	--npde-status-warning: #fdd663;
+	--npde-status-danger: #f28b82;
+	--npde-status-danger-bg: #4a1f1a;
+	--npde-selection-find-bg: rgba(250, 204, 21, 0.5);
+	--npde-selection-find-current-bg: rgba(249, 115, 22, 0.68);
+	--npde-selection-find-current-outline: rgba(251, 146, 60, 0.9);
+	--npde-selection-active-bg: rgba(138, 180, 248, 0.28);
+	--npde-selection-object-bg: rgba(138, 180, 248, 0.24);
+	--npde-selection-highlight-bg: rgba(245, 158, 11, 0.58);
+	--npde-selection-guide: #f28b82;
+	--npde-selection-table-active-bg: color-mix(in srgb, var(--npde-chrome-accent) 32%, transparent);
+	--npde-selection-table-active-border: var(--npde-chrome-accent);
+	--npde-selection-table-active-text: var(--npde-chrome-text);
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .view-content {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -7,8 +241,8 @@
 	padding: 0;
 }
 
-.docxidian-host {
-	background: #f8fafc;
+.native-powerpoint-doc-editor-host {
+	background: var(--npde-editor-canvas);
 	display: flex;
 	flex: 1 1 auto;
 	flex-direction: column;
@@ -18,19 +252,19 @@
 	width: 100%;
 }
 
-.docxidian-host > .ep-root {
+.native-powerpoint-doc-editor-host > .ep-root {
 	flex: 1;
 	height: 100%;
 	min-height: 0;
 	width: 100%;
 }
 
-.docxidian-host .ep-root,
-.docxidian-host .ep-root * {
+.native-powerpoint-doc-editor-host .ep-root,
+.native-powerpoint-doc-editor-host .ep-root * {
 	box-sizing: border-box;
 }
 
-.docxidian-fixed-probe {
+.native-powerpoint-doc-editor-fixed-probe {
 	left: 0;
 	pointer-events: none;
 	position: fixed;
@@ -38,214 +272,243 @@
 	visibility: hidden;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root {
-	--doc-bg: #ffffff;
-	--doc-bg-hover: #f1f5f9;
-	--doc-border: #d1d5db;
-	--doc-border-light: #e2e8f0;
-	--doc-hover: #f1f5f9;
-	--doc-text: #202124;
-	--doc-text-muted: #5f6368;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root {
+	--doc-bg: var(--npde-editor-bg);
+	--doc-bg-hover: var(--npde-editor-hover);
+	--doc-border: var(--npde-editor-border);
+	--doc-border-light: var(--npde-editor-border);
+	--doc-hover: var(--npde-editor-hover);
+	--doc-text: var(--npde-editor-text);
+	--doc-text-muted: var(--npde-editor-text-muted);
 }
 
-.docxidian-host .ep-root button,
-.docxidian-host .ep-root input,
-.docxidian-host .ep-root select,
-.docxidian-host .ep-root textarea {
+.native-powerpoint-doc-editor-host .ep-root button,
+.native-powerpoint-doc-editor-host .ep-root input,
+.native-powerpoint-doc-editor-host .ep-root select,
+.native-powerpoint-doc-editor-host .ep-root textarea {
 	font: inherit;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button {
 	appearance: none;
 	box-shadow: none;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root button:hover,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root button:focus,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root button:active {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button:focus,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button:active {
 	box-shadow: none;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docx-list-button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button {
 	background-color: transparent;
 	border-color: transparent;
 	border-style: solid;
 	border-width: 0;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7:hover,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7:focus,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docx-list-button:hover,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docx-list-button:focus {
-	background-color: rgba(241, 245, 249, 0.8);
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7:focus,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button:focus {
+	background-color: var(--npde-toolbar-bg-subtle);
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7[aria-pressed='true'],
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docx-list-button-active {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7[aria-pressed='true'],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button-active {
 	background-color: var(--doc-primary-light);
 }
 
-.docxidian-host .ep-root .docxidian-find-match {
-	background-color: rgba(250, 204, 21, 0.45);
+.native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-find-match {
+	background-color: var(--npde-selection-find-bg);
 	border-radius: 2px;
 }
 
-.docxidian-host .ep-root .docxidian-find-current {
-	background-color: rgba(249, 115, 22, 0.58);
+.native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-find-current {
+	background-color: var(--npde-selection-find-current-bg);
 	border-radius: 2px;
-	outline: 1px solid rgba(234, 88, 12, 0.85);
+	outline: 1px solid var(--npde-selection-find-current-outline);
 }
 
-.docxidian-host .ep-root .docx-text-context-menu {
+.native-powerpoint-doc-editor-host .ep-root .docx-text-context-menu {
 	transform: translate(
-		calc(-1 * var(--docxidian-fixed-left-offset, 0px)),
-		calc(-1 * var(--docxidian-fixed-top-offset, 0px))
+		calc(-1 * var(--native-powerpoint-doc-editor-fixed-left-offset, 0px)),
+		calc(-1 * var(--native-powerpoint-doc-editor-fixed-top-offset, 0px))
 	);
 }
 
-.docxidian-host .ep-root [style*='position: fixed'] {
-	--docxidian-fixed-correction: translate(
-		calc(-1 * var(--docxidian-fixed-left-offset, 0px)),
-		calc(-1 * var(--docxidian-fixed-top-offset, 0px))
+.native-powerpoint-doc-editor-host .ep-root [style*='position: fixed'] {
+	--native-powerpoint-doc-editor-fixed-correction: translate(
+		calc(-1 * var(--native-powerpoint-doc-editor-fixed-left-offset, 0px)),
+		calc(-1 * var(--native-powerpoint-doc-editor-fixed-top-offset, 0px))
 	);
-	transform: var(--docxidian-fixed-correction);
+	transform: var(--native-powerpoint-doc-editor-fixed-correction);
 }
 
-.docxidian-host .ep-root [style*='position: fixed'][style*='transform'] {
-	transform: var(--docxidian-fixed-correction) var(--docxidian-existing-transform, none);
+.native-powerpoint-doc-editor-host .ep-root [style*='position: fixed'][style*='transform'] {
+	transform: var(--native-powerpoint-doc-editor-fixed-correction) var(--native-powerpoint-doc-editor-existing-transform, none);
 }
 
-.docxidian-host.docxidian-host .ep-root .docxidian-fixed-dialog-layer,
-.docxidian-host.docxidian-host .ep-root [style*='position: fixed'][role='dialog'] {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-fixed-dialog-layer,
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host .ep-root [style*='position: fixed'][role='dialog'][aria-modal='true'] {
 	inset: 0;
 	transform: none;
 }
 
-.docxidian-host.docxidian-host .ep-root [data-testid='editor-toolbar'] {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] {
 	isolation: isolate;
 	position: relative;
 	z-index: 100010;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'],
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] > div:nth-child(2),
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] > div:nth-child(2) > div:first-child {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar'].native-powerpoint-doc-editor-formatting-dropdown-open {
+	overflow: visible;
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar'].native-powerpoint-doc-editor-formatting-dropdown-open
+	> * {
+	left: calc(-1 * var(--native-powerpoint-doc-editor-formatting-scroll-left, 0px));
+	position: relative;
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] > div:nth-child(2),
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] > div:nth-child(2) > div:first-child {
 	min-width: 0;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] > div:nth-child(2) > div:first-child {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] > div:nth-child(2) > div:first-child {
 	flex: 1 1 auto;
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] input.truncate,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] span.truncate {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] input.truncate,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] span.truncate {
 	flex: 1 1 auto;
 	max-width: none;
 	min-width: 0;
 	width: 100%;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] button.docxidian-comments-sidebar-toggle-disabled,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] button.docxidian-comments-sidebar-toggle-disabled[aria-disabled='true'],
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='title-bar'] button.docxidian-comments-sidebar-toggle-disabled:disabled {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled[aria-disabled='true'],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled:disabled {
 	cursor: not-allowed;
 	opacity: 0.35;
 	pointer-events: none;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] {
-	color: #0f172a;
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] {
+	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] input,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] select,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] textarea {
-	background: #ffffff;
-	border-color: #cbd5e1;
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] input,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] select,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] textarea {
+	background: var(--npde-dialog-input-bg);
+	border-color: var(--npde-dialog-input-border);
+	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] option {
-	background: #ffffff;
-	color: #0f172a;
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] option {
+	background: var(--npde-dialog-input-bg);
+	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] button {
-	background-color: #ffffff;
-	border-color: #cbd5e1;
-	color: #0f172a;
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] button {
+	background-color: var(--npde-dialog-button-bg);
+	border-color: var(--npde-dialog-border);
+	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] button:hover,
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='dialog'] button:focus {
-	background-color: #f8fafc;
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] button:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] button:focus {
+	background-color: var(--npde-dialog-button-hover-bg);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] {
-	background: #ffffff;
-	border-color: #e2e8f0;
-	color: #1e293b;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] {
+	background: var(--npde-menu-bg);
+	border-color: var(--npde-menu-border-subtle);
+	color: var(--npde-menu-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option'] {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option'] {
 	background: transparent;
 	border: 0;
 	box-shadow: none;
-	color: #334155;
+	color: var(--npde-menu-item-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option']:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option']:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='option'][aria-selected='true'],
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='editor-toolbar'] [role='option'][data-highlighted] {
-	background: #f1f5f9;
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option']:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option']:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='option'][aria-selected='true'],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='option'][data-highlighted] {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='font-size-display'],
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [data-testid='font-size-input'] {
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='font-size-display'],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='font-size-input'] {
+	color: var(--npde-toolbar-text);
 }
 
-body .docxidian-light-menu-shell.docxidian-light-menu-shell,
-body .docxidian-light-menu-surface.docxidian-light-menu-surface,
-body [data-docxidian-mode-menu='true'][data-docxidian-mode-menu='true'] {
-	background: #ffffff;
-	border-color: #d1d5db;
-	color: #0f172a;
+body .native-powerpoint-doc-editor-light-menu-shell.native-powerpoint-doc-editor-light-menu-shell,
+body .native-powerpoint-doc-editor-light-menu-surface.native-powerpoint-doc-editor-light-menu-surface,
+body [data-native-powerpoint-doc-editor-mode-menu='true'][data-native-powerpoint-doc-editor-mode-menu='true'] {
+	background: var(--npde-menu-bg);
+	border-color: var(--npde-menu-border);
+	color: var(--npde-menu-text);
 	color-scheme: light;
 }
 
-body .docxidian-light-menu-surface.docxidian-light-menu-surface :is(button, [role='menuitem'], [role='option']),
-body [data-docxidian-mode-menu='true'][data-docxidian-mode-menu='true'] :is(button, [role='menuitem'], [role='option']),
-body.theme-dark.theme-dark .docxidian-light-menu-surface :is(button, [role='menuitem'], [role='option']),
-body.theme-dark.theme-dark [data-docxidian-mode-menu='true'] :is(button, [role='menuitem'], [role='option']) {
+body .native-powerpoint-doc-editor-light-menu-surface.native-powerpoint-doc-editor-light-menu-surface :is(button, [role='menuitem'], [role='option']),
+body [data-native-powerpoint-doc-editor-mode-menu='true'][data-native-powerpoint-doc-editor-mode-menu='true'] :is(button, [role='menuitem'], [role='option']),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-light-menu-surface :is(button, [role='menuitem'], [role='option']),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light [data-native-powerpoint-doc-editor-mode-menu='true'] :is(button, [role='menuitem'], [role='option']) {
 	background: transparent;
 	border-color: transparent;
 	box-shadow: none;
-	color: #334155;
+	color: var(--npde-menu-item-text);
 }
 
-body .docxidian-light-menu-surface.docxidian-light-menu-surface :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]),
-body [data-docxidian-mode-menu='true'][data-docxidian-mode-menu='true'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]),
-body.theme-dark.theme-dark .docxidian-light-menu-surface :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]),
-body.theme-dark.theme-dark [data-docxidian-mode-menu='true'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]) {
-	background: #f1f5f9;
-	color: #0f172a;
+body .native-powerpoint-doc-editor-light-menu-surface.native-powerpoint-doc-editor-light-menu-surface :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]),
+body [data-native-powerpoint-doc-editor-mode-menu='true'][data-native-powerpoint-doc-editor-mode-menu='true'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-light-menu-surface :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light [data-native-powerpoint-doc-editor-mode-menu='true'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [data-highlighted]) {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 }
 
-body [data-docxidian-mode-menu='true'].docxidian-mode-menu-normalized {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light .ep-root .docx-outline-toggle {
+	background: var(--npde-toolbar-bg);
+	border-color: var(--npde-toolbar-border);
+	box-shadow: none;
+	color: var(--npde-toolbar-text-muted);
+}
+
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light .ep-root .docx-outline-toggle:hover,
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light .ep-root .docx-outline-toggle:focus {
+	background: var(--npde-toolbar-bg-hover);
+	color: var(--npde-toolbar-text);
+}
+
+body [data-native-powerpoint-doc-editor-mode-menu='true'].native-powerpoint-doc-editor-mode-menu-normalized {
 	min-width: 260px;
 	overflow: hidden;
 	padding: 4px 0;
 }
 
-body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-item.docxidian-mode-menu-item {
+body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-item.native-powerpoint-doc-editor-mode-menu-item {
 	align-items: center;
 	box-shadow: none;
 	display: grid;
@@ -259,7 +522,7 @@ body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-item.docxidian-mode-
 	width: 100%;
 }
 
-body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-icon {
+body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-icon {
 	display: inline-flex;
 	flex: 0 0 20px;
 	grid-column: 1;
@@ -269,7 +532,7 @@ body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-icon {
 	width: 20px;
 }
 
-body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-label {
+body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-label {
 	flex: 1 1 auto;
 	grid-column: 2;
 	justify-self: stretch;
@@ -277,26 +540,42 @@ body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-label {
 	min-width: 0;
 }
 
-body [data-docxidian-mode-menu='true'] .docxidian-mode-menu-check {
+body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-check {
+	color: var(--npde-menu-check);
 	grid-column: 3;
 	justify-self: end;
 	margin-left: 0;
+	opacity: 1;
+	stroke: currentColor;
+	fill: none;
 }
 
-.docxidian-import-font-separator.docxidian-import-font-separator {
-	background: #e2e8f0;
+body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-check :is(path, polyline, line) {
+	stroke: currentColor;
+}
+
+body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-check path:not([fill='none']) {
+	fill: currentColor;
+}
+
+.native-powerpoint-doc-editor-import-font-separator.native-powerpoint-doc-editor-import-font-separator {
+	background: var(--npde-menu-separator);
 	height: 1px;
 	margin: 4px 0;
 }
 
-body .docxidian-import-font-option.docxidian-import-font-option,
-body.theme-dark.theme-dark .docxidian-import-font-option {
+.native-powerpoint-doc-editor-font-menu-footer.native-powerpoint-doc-editor-font-menu-footer {
+	padding: 0 4px 4px;
+}
+
+body .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-import-font-option {
 	align-items: center;
 	background: transparent;
 	border: 0;
 	border-radius: 4px;
 	box-shadow: none;
-	color: #0f172a;
+	color: var(--npde-menu-text);
 	cursor: pointer;
 	display: flex;
 	font-size: 13px;
@@ -307,27 +586,27 @@ body.theme-dark.theme-dark .docxidian-import-font-option {
 	width: 100%;
 }
 
-body .docxidian-import-font-option.docxidian-import-font-option:hover,
-body .docxidian-import-font-option.docxidian-import-font-option:focus,
-body.theme-dark.theme-dark .docxidian-import-font-option:hover,
-body.theme-dark.theme-dark .docxidian-import-font-option:focus {
-	background: #f1f5f9;
+body .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option:hover,
+body .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-import-font-option:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-import-font-option:focus {
+	background: var(--npde-menu-hover-bg);
 	outline: none;
 }
 
-.docxidian-custom-table-separator.docxidian-custom-table-separator {
-	background: #e2e8f0;
+.native-powerpoint-doc-editor-custom-table-separator.native-powerpoint-doc-editor-custom-table-separator {
+	background: var(--npde-menu-separator);
 	height: 1px;
 	margin: 8px 0 4px;
 }
 
-body .docxidian-custom-table-option.docxidian-custom-table-option,
-body.theme-dark.theme-dark .docxidian-custom-table-option {
+body .native-powerpoint-doc-editor-custom-table-option.native-powerpoint-doc-editor-custom-table-option,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-custom-table-option {
 	background: transparent;
 	border: 0;
 	border-radius: 4px;
 	box-shadow: none;
-	color: #0f172a;
+	color: var(--npde-menu-text);
 	cursor: pointer;
 	font-size: 13px;
 	min-height: 30px;
@@ -336,17 +615,17 @@ body.theme-dark.theme-dark .docxidian-custom-table-option {
 	width: 100%;
 }
 
-body .docxidian-custom-table-option.docxidian-custom-table-option:hover,
-body .docxidian-custom-table-option.docxidian-custom-table-option:focus,
-body.theme-dark.theme-dark .docxidian-custom-table-option:hover,
-body.theme-dark.theme-dark .docxidian-custom-table-option:focus {
-	background: #f1f5f9;
+body .native-powerpoint-doc-editor-custom-table-option.native-powerpoint-doc-editor-custom-table-option:hover,
+body .native-powerpoint-doc-editor-custom-table-option.native-powerpoint-doc-editor-custom-table-option:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-custom-table-option:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-custom-table-option:focus {
+	background: var(--npde-menu-hover-bg);
 	outline: none;
 }
 
-.docxidian-custom-table-backdrop {
+.native-powerpoint-doc-editor-custom-table-backdrop {
 	align-items: center;
-	background: rgba(15, 23, 42, 0.28);
+	background: var(--npde-chrome-overlay);
 	display: flex;
 	inset: 0;
 	justify-content: center;
@@ -355,12 +634,12 @@ body.theme-dark.theme-dark .docxidian-custom-table-option:focus {
 	z-index: 100070;
 }
 
-.docxidian-custom-table-dialog.docxidian-custom-table-dialog {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+.native-powerpoint-doc-editor-custom-table-dialog.native-powerpoint-doc-editor-custom-table-dialog {
+	background: var(--npde-dialog-bg);
+	border: 1px solid var(--npde-dialog-border);
 	border-radius: 8px;
-	box-shadow: 0 18px 50px rgba(15, 23, 42, 0.22);
-	color: #0f172a;
+	box-shadow: var(--npde-dialog-shadow);
+	color: var(--npde-dialog-text);
 	color-scheme: light;
 	display: grid;
 	gap: 12px;
@@ -368,97 +647,97 @@ body.theme-dark.theme-dark .docxidian-custom-table-option:focus {
 	padding: 14px;
 }
 
-.docxidian-custom-table-title {
+.native-powerpoint-doc-editor-custom-table-title {
 	font-size: 14px;
 	font-weight: 600;
 }
 
-.docxidian-custom-table-field {
+.native-powerpoint-doc-editor-custom-table-field {
 	align-items: center;
 	display: grid;
 	gap: 10px;
 	grid-template-columns: 80px 1fr;
 }
 
-.docxidian-custom-table-field span {
-	color: #475569;
+.native-powerpoint-doc-editor-custom-table-field span {
+	color: var(--npde-dialog-text-muted);
 	font-size: 13px;
 }
 
-.docxidian-custom-table-field.docxidian-custom-table-field input {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+.native-powerpoint-doc-editor-custom-table-field.native-powerpoint-doc-editor-custom-table-field input {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
 	border-radius: 6px;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	font-size: 13px;
 	height: 32px;
 	padding: 4px 8px;
 	width: 100%;
 }
 
-.docxidian-custom-table-actions {
+.native-powerpoint-doc-editor-custom-table-actions {
 	display: flex;
 	gap: 8px;
 	justify-content: flex-end;
 	margin-top: 2px;
 }
 
-.docxidian-custom-table-actions.docxidian-custom-table-actions button {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+.native-powerpoint-doc-editor-custom-table-actions.native-powerpoint-doc-editor-custom-table-actions button {
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-dialog-border);
 	border-radius: 6px;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	cursor: pointer;
 	font-size: 13px;
 	height: 32px;
 	padding: 0 12px;
 }
 
-.docxidian-custom-table-actions.docxidian-custom-table-actions button:hover,
-.docxidian-custom-table-actions.docxidian-custom-table-actions button:focus {
-	background: #f8fafc;
+.native-powerpoint-doc-editor-custom-table-actions.native-powerpoint-doc-editor-custom-table-actions button:hover,
+.native-powerpoint-doc-editor-custom-table-actions.native-powerpoint-doc-editor-custom-table-actions button:focus {
+	background: var(--npde-dialog-button-hover-bg);
 	outline: none;
 }
 
-.docxidian-custom-table-actions.docxidian-custom-table-actions .docxidian-custom-table-primary {
-	background: #2563eb;
-	border-color: #2563eb;
-	color: #ffffff;
+.native-powerpoint-doc-editor-custom-table-actions.native-powerpoint-doc-editor-custom-table-actions .native-powerpoint-doc-editor-custom-table-primary {
+	background: var(--npde-dialog-primary-bg);
+	border-color: var(--npde-dialog-primary-bg);
+	color: var(--npde-chrome-on-accent);
 }
 
-.docxidian-custom-table-actions.docxidian-custom-table-actions .docxidian-custom-table-primary:hover,
-.docxidian-custom-table-actions.docxidian-custom-table-actions .docxidian-custom-table-primary:focus {
-	background: #1d4ed8;
-	border-color: #1d4ed8;
+.native-powerpoint-doc-editor-custom-table-actions.native-powerpoint-doc-editor-custom-table-actions .native-powerpoint-doc-editor-custom-table-primary:hover,
+.native-powerpoint-doc-editor-custom-table-actions.native-powerpoint-doc-editor-custom-table-actions .native-powerpoint-doc-editor-custom-table-primary:focus {
+	background: var(--npde-dialog-primary-bg-hover);
+	border-color: var(--npde-dialog-primary-bg-hover);
 }
 
 /* Match the editor's header/footer behavior so typed spaces stay visible in body text. */
-.docxidian-host .ep-root .layout-page-content .ProseMirror p,
-.docxidian-host .ep-root .docx-run-editable[contenteditable='true'] {
+.native-powerpoint-doc-editor-host .ep-root .layout-page-content .ProseMirror p,
+.native-powerpoint-doc-editor-host .ep-root .docx-run-editable[contenteditable='true'] {
 	white-space: pre-wrap;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .layout-list-marker,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .layout-list-marker-line,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docx-list-marker {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .layout-list-marker,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .layout-list-marker-line,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-marker {
 	-webkit-user-select: text;
 	cursor: text;
 	user-select: text;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-list-marker-selected {
-	background: rgba(26, 115, 232, 0.3);
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-list-marker-selected {
+	background: var(--npde-selection-active-bg);
 	border-radius: 2px;
 	color: inherit;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-search-menu-button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-search-menu-button {
 	align-items: center;
 	background: transparent;
 	border: none;
 	border-radius: 4px;
 	box-shadow: none;
-	color: var(--doc-text, #374151);
+	color: var(--doc-text, var(--npde-document-ui-text));
 	cursor: pointer;
 	display: flex;
 	font-size: 13px;
@@ -469,24 +748,24 @@ body.theme-dark.theme-dark .docxidian-custom-table-option:focus {
 	white-space: nowrap;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-search-menu-button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-search-menu-button:focus {
-	background: #f1f5f9;
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-search-menu-button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-search-menu-button:focus {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 	outline: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-menu,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-menu {
-	background: #ffffff;
-	border: 1px solid #d1d5db;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-menu,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-menu {
+	background: var(--npde-menu-bg);
+	border: 1px solid var(--npde-menu-border);
 	border-radius: 6px;
-	box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-	color: #0f172a;
+	box-shadow: var(--npde-menu-shadow);
+	color: var(--npde-menu-text);
 	color-scheme: light;
 	left: 0;
 	max-height: min(70vh, 620px);
@@ -498,13 +777,13 @@ body.theme-dark.theme-dark
 	z-index: 100060;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-section,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-section {
-	color: #475569;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-section,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-section {
+	color: var(--npde-menu-text-muted);
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: 0;
@@ -512,18 +791,18 @@ body.theme-dark.theme-dark
 	text-transform: uppercase;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-row,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-editor-settings-row {
+	.native-powerpoint-doc-editor-editor-settings-row {
 	align-items: center;
 	background: transparent;
 	border: 1px solid transparent;
 	border-radius: 6px;
 	box-sizing: border-box;
-	color: #0f172a;
+	color: var(--npde-menu-text);
 	display: flex;
 	gap: 12px;
 	justify-content: space-between;
@@ -531,104 +810,154 @@ body.theme-dark.theme-dark
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-row:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-row:focus-within,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row:focus-within,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-editor-settings-row:hover,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-row:focus-within {
-	background: #f8fafc;
-	border-color: #e2e8f0;
+	.native-powerpoint-doc-editor-editor-settings-row:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-row:focus-within {
+	background: var(--npde-dialog-bg-muted);
+	border-color: var(--npde-dialog-border-subtle);
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-copy {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-copy {
 	display: grid;
 	gap: 2px;
 	min-width: 0;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-label,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-label {
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-label,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-label {
+	color: var(--npde-menu-text);
 	font-size: 12px;
 	font-weight: 600;
 	line-height: 1.3;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-desc,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-desc {
-	color: #64748b;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-desc,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-desc {
+	color: var(--npde-menu-text-muted);
 	font-size: 11px;
 	line-height: 1.3;
 	max-width: 260px;
 	white-space: normal;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-checkbox,
-body.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-checkbox {
-	color-scheme: light;
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox-control {
+	display: inline-flex;
 	flex: 0 0 auto;
+	height: 18px;
+	position: relative;
+	width: 18px;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-inline-controls {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox {
+	appearance: none;
+	-webkit-appearance: none;
+	background: var(--npde-dialog-checkbox-bg);
+	border: 1px solid var(--npde-dialog-checkbox-border);
+	border-radius: 4px;
+	box-shadow: none;
+	cursor: pointer;
+	display: block;
+	height: 18px;
+	margin: 0;
+	width: 18px;
+	z-index: 1;
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox:checked {
+	background: var(--npde-dialog-checkbox-checked-bg);
+	border-color: var(--npde-dialog-checkbox-checked-bg);
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox-mark {
+	border-bottom: 2px solid var(--npde-dialog-checkbox-check);
+	border-right: 2px solid var(--npde-dialog-checkbox-check);
+	height: 10px;
+	left: 6px;
+	opacity: 0;
+	pointer-events: none;
+	position: absolute;
+	top: 2px;
+	transform: rotate(45deg);
+	width: 5px;
+	z-index: 2;
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox:checked + .native-powerpoint-doc-editor-editor-settings-checkbox-mark {
+	opacity: 1;
+}
+
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-inline-controls {
 	align-items: center;
 	display: flex;
 	flex: 0 0 auto;
 	gap: 6px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-input,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-select,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-input,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-select,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-editor-settings-input,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-select {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+	.native-powerpoint-doc-editor-editor-settings-input,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-select {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
 	border-radius: 5px;
 	box-shadow: none;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	font-size: 12px;
 	height: 30px;
 	min-width: 126px;
 	padding: 4px 7px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-action,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-editor-settings-action {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-action,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-row > button,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-row.mod-action > button {
+	appearance: none;
+	-webkit-appearance: none;
+	background: var(--npde-dialog-button-bg) !important;
+	border: 1px solid var(--npde-settings-action-border, var(--npde-dialog-border)) !important;
 	border-radius: 5px;
-	box-shadow: none;
-	color: #0f172a;
+	box-shadow: none !important;
+	color: var(--npde-dialog-text) !important;
 	cursor: pointer;
 	flex: 0 0 auto;
 	font-size: 12px;
@@ -638,50 +967,97 @@ body.theme-dark.theme-dark
 	white-space: nowrap;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-action:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-editor-settings-action:focus,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-editor-settings-action:hover,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+	.native-powerpoint-doc-editor-editor-settings-action:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-action:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-editor-settings-action:focus {
-	background: #f1f5f9;
-	color: #0f172a;
+	.native-powerpoint-doc-editor-editor-settings-row > button:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-row > button:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus {
+	background: var(--npde-dialog-button-hover-bg) !important;
+	border-color: var(--npde-settings-action-border, var(--npde-dialog-border)) !important;
+	color: var(--npde-dialog-text) !important;
 	outline: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action:focus-visible,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button:focus-visible,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus-visible,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.native-powerpoint-doc-editor-editor-settings-action:focus-visible,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.native-powerpoint-doc-editor-editor-settings-row > button:focus-visible,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus-visible {
+	outline: 2px solid var(--npde-toolbar-focus-ring);
+	outline-offset: 2px;
+}
+
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='editor-toolbar']
 	button:is([aria-label*='image' i], [aria-label*='picture' i], [title*='image' i], [title*='picture' i]) {
 	display: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
 	[data-testid='editor-toolbar']
 	button:is([aria-label='Search editor options'], [title='Search editor options']) {
 	display: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-menu,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-option-search-menu {
-	background: #ffffff;
-	border: 1px solid #d1d5db;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-menu,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-option-search-menu {
+	background: var(--npde-menu-bg);
+	border: 1px solid var(--npde-menu-border);
 	border-radius: 6px;
-	box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
-	color: #0f172a;
+	box-shadow: var(--npde-menu-shadow);
+	color: var(--npde-menu-text);
 	color-scheme: light;
 	left: 0;
 	min-width: 260px;
@@ -691,17 +1067,17 @@ body.theme-dark.theme-dark
 	z-index: 100050;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-input,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-option-search-input {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-input,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-option-search-input {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
 	border-radius: 5px;
 	box-shadow: none;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	font-size: 12px;
 	height: 28px;
 	margin: 0 0 4px;
@@ -709,24 +1085,24 @@ body.theme-dark.theme-dark
 	width: 100%;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-results {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-results {
 	display: grid;
 	gap: 2px;
 	max-height: 260px;
 	overflow: auto;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-result,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-option-search-result {
+	.native-powerpoint-doc-editor-option-search-result {
 	background: transparent;
 	border: 0;
 	border-radius: 4px;
 	box-shadow: none;
-	color: #334155;
+	color: var(--npde-menu-item-text);
 	cursor: pointer;
 	justify-content: flex-start;
 	font-size: 12px;
@@ -738,74 +1114,74 @@ body.theme-dark.theme-dark
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-result:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-result:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-result[aria-selected='true'],
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result[aria-selected='true'],
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-option-search-result:hover,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+	.native-powerpoint-doc-editor-option-search-result:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-option-search-result:focus,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-option-search-result[aria-selected='true'] {
-	background: #f1f5f9;
-	color: #0f172a;
+	.native-powerpoint-doc-editor-option-search-result:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-option-search-result[aria-selected='true'] {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-option-search-empty {
-	color: #64748b;
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-empty {
+	color: var(--npde-menu-text-muted);
 	font-size: 12px;
 	padding: 8px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: fixed'],
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: absolute'] {
-	background: #ffffff;
-	border-color: #d1d5db;
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: absolute'] {
+	background: var(--npde-menu-bg);
+	border-color: var(--npde-menu-border);
+	color: var(--npde-menu-text);
 	isolation: isolate;
 	opacity: 1;
 	z-index: 100020;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: fixed'] :is(button, [role='menuitem'], [role='option']),
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: absolute'] :is(button, [role='menuitem'], [role='option']) {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'] :is(button, [role='menuitem'], [role='option']),
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: absolute'] :is(button, [role='menuitem'], [role='option']) {
 	background: transparent;
 	box-shadow: none;
-	color: #334155;
+	color: var(--npde-menu-item-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: fixed'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: absolute'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
-	background: #f1f5f9;
-	color: #0f172a;
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: absolute'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docx-outline-nav {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-outline-nav {
 	z-index: 1;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root.docxidian-has-floating-menu
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root.native-powerpoint-doc-editor-has-floating-menu
 	.docx-outline-nav {
 	opacity: 0;
 	pointer-events: none;
 }
 
-.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root [role='menubar'] [style*='position: fixed'] > div:first-child {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'] > div:first-child {
 	display: none;
 }
 
-.docxidian-embed {
+.native-powerpoint-doc-editor-embed {
 	background: transparent;
 	display: block;
 	margin: 1em 0;
@@ -815,31 +1191,31 @@ body.theme-dark.theme-dark
 	width: 100%;
 }
 
-.docxidian-embed-host {
+.native-powerpoint-doc-editor-embed-host {
 	display: block;
 	min-height: 1px;
 	width: 100%;
 }
 
-.docxidian-embed-viewport {
-	max-height: min(70vh, var(--docxidian-embed-page-height, 720px));
+.native-powerpoint-doc-editor-embed-viewport {
+	max-height: min(70vh, var(--native-powerpoint-doc-editor-embed-page-height, 720px));
 	max-width: 100%;
 	overflow: auto;
 	width: fit-content;
 }
 
-.docxidian-embed-pages {
+.native-powerpoint-doc-editor-embed-pages {
 	display: flex;
 	flex-direction: column;
 	gap: 16px;
 	width: fit-content;
 }
 
-.docxidian-embed-pages .layout-page {
+.native-powerpoint-doc-editor-embed-pages .layout-page {
 	flex: 0 0 auto;
 }
 
-.docxidian-embed-source {
+.native-powerpoint-doc-editor-embed-source {
 	height: 1px;
 	left: -100000px;
 	overflow: hidden;
@@ -850,8 +1226,8 @@ body.theme-dark.theme-dark
 	width: 1200px;
 }
 
-.docxidian-embed-loading,
-.docxidian-embed-error {
+.native-powerpoint-doc-editor-embed-loading,
+.native-powerpoint-doc-editor-embed-error {
 	align-items: center;
 	color: var(--text-muted);
 	display: flex;
@@ -862,7 +1238,7 @@ body.theme-dark.theme-dark
 	text-align: center;
 }
 
-.docxidian-embed-error {
+.native-powerpoint-doc-editor-embed-error {
 	color: var(--text-error);
 }
 
@@ -871,128 +1247,126 @@ body > .ep-root,
 	z-index: 100000;
 }
 
-/* Hide the editor's tooltip; Docxidian positions its own labels after toolbar scroll. */
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+/* Hide Eigenpal toolbar tooltips; plugin renders the single dark label. */
+.native-powerpoint-doc-editor-host[data-native-powerpoint-doc-editor-toolbar-tooltips='custom']
 	.ep-root
-	.fixed.z-50.bg-slate-900.rounded-md.shadow-lg:not([role]),
-body.docxidian-editor-hovering.docxidian-editor-hovering
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.fixed.z-50.bg-slate-900.rounded-md.shadow-lg:not([role]) {
-	display: none;
-	pointer-events: none;
+	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'] {
+	display: none !important;
+	height: 0 !important;
+	max-height: 0 !important;
+	opacity: 0 !important;
+	overflow: hidden !important;
+	pointer-events: none !important;
+	visibility: hidden !important;
 }
 
-body.docxidian-editor-hovering.docxidian-editor-hovering > .fixed.z-50.bg-slate-900.rounded-md.shadow-lg:not([role]) {
-	display: none;
-	pointer-events: none;
-}
-
-.docxidian-toolbar-tooltip {
-	background: #0f172a;
+.native-powerpoint-doc-editor-toolbar-tooltip {
+	background: var(--npde-docx-toolbar-tooltip-bg);
 	border-radius: 5px;
-	box-shadow: 0 8px 22px rgba(15, 23, 42, 0.22);
-	color: #ffffff;
+	box-shadow: var(--npde-docx-toolbar-tooltip-shadow);
+	color: var(--npde-docx-toolbar-tooltip-text);
 	font-size: 12px;
 	font-weight: 500;
-	left: var(--docxidian-toolbar-tooltip-left);
+	left: var(--native-powerpoint-doc-editor-toolbar-tooltip-left);
 	line-height: 1.25;
 	max-width: min(260px, calc(100vw - 16px));
 	padding: 5px 8px;
 	pointer-events: none;
 	position: fixed;
 	text-align: center;
-	top: var(--docxidian-toolbar-tooltip-top);
+	top: var(--native-powerpoint-doc-editor-toolbar-tooltip-top);
 	transform: translateX(-50%);
 	white-space: nowrap;
 	z-index: 100200;
 }
 
-.docxidian-toolbar-tooltip.is-left-aligned {
+.native-powerpoint-doc-editor-toolbar-tooltip.is-left-aligned {
 	transform: translateX(0);
 }
 
-.docxidian-toolbar-tooltip.is-right-aligned {
+.native-powerpoint-doc-editor-toolbar-tooltip.is-right-aligned {
 	transform: translateX(-100%);
 }
 
-.docxidian-touch-pinch-root {
+.native-powerpoint-doc-editor-touch-pinch-root {
 	touch-action: pan-x pan-y;
 }
 
-.docxidian-pdf-export-page.docxidian-pdf-export-page {
+.native-powerpoint-doc-editor-pdf-export-page.native-powerpoint-doc-editor-pdf-export-page {
 	box-shadow: none;
 	margin: 0;
 	transform: none;
 	transform-origin: top left;
 }
 
-body .docxidian-find-dialog.docxidian-find-dialog,
-body.theme-dark.theme-dark .docxidian-find-dialog {
-	background: #ffffff;
-	border-color: #d1d5db;
-	color: #0f172a;
+body .native-powerpoint-doc-editor-find-dialog.native-powerpoint-doc-editor-find-dialog,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-find-dialog {
+	background: var(--npde-dialog-bg);
+	border-color: var(--npde-dialog-border-muted);
+	color: var(--npde-dialog-text);
 	color-scheme: light;
 }
 
-body .docxidian-find-dialog.docxidian-find-dialog input:not([type='checkbox']),
-body.theme-dark.theme-dark .docxidian-find-dialog input:not([type='checkbox']) {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+body .native-powerpoint-doc-editor-find-dialog.native-powerpoint-doc-editor-find-dialog input:not([type='checkbox']),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-find-dialog input:not([type='checkbox']) {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
 	border-radius: 6px;
 	box-shadow: none;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	padding: 4px 8px;
 }
 
-body .docxidian-find-dialog input[type='checkbox'],
-body.theme-dark .docxidian-find-dialog input[type='checkbox'] {
+body .native-powerpoint-doc-editor-find-dialog input[type='checkbox'],
+body.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-find-dialog input[type='checkbox'] {
 	color-scheme: light;
 }
 
-body .docxidian-find-dialog.docxidian-find-dialog button,
-body.theme-dark.theme-dark .docxidian-find-dialog button {
-	background: #ffffff;
-	border: 1px solid #cbd5e1;
+body .native-powerpoint-doc-editor-find-dialog.native-powerpoint-doc-editor-find-dialog button,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-find-dialog button {
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-dialog-border);
 	border-radius: 6px;
 	box-shadow: none;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	min-height: 28px;
 }
 
-body .docxidian-find-dialog.docxidian-find-dialog button:hover:not(:disabled),
-body .docxidian-find-dialog.docxidian-find-dialog button:focus:not(:disabled),
-body.theme-dark.theme-dark .docxidian-find-dialog button:hover:not(:disabled),
-body.theme-dark.theme-dark .docxidian-find-dialog button:focus:not(:disabled) {
-	background: #f1f5f9;
+body .native-powerpoint-doc-editor-find-dialog.native-powerpoint-doc-editor-find-dialog button:hover:not(:disabled),
+body .native-powerpoint-doc-editor-find-dialog.native-powerpoint-doc-editor-find-dialog button:focus:not(:disabled),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-find-dialog button:hover:not(:disabled),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-find-dialog button:focus:not(:disabled) {
+	background: var(--npde-dialog-button-hover-bg);
 	outline: none;
 }
 
-.docxidian-unsaved-actions {
+.native-powerpoint-doc-editor-unsaved-actions {
 	display: flex;
 	gap: 8px;
 	justify-content: flex-end;
 	margin-top: 20px;
 }
 
-.docxidian-path-form {
+.native-powerpoint-doc-editor-path-form {
 	margin-top: 14px;
 }
 
-.docxidian-export-field {
+.native-powerpoint-doc-editor-export-field {
 	display: grid;
 	gap: 6px;
 	margin-bottom: 12px;
 }
 
-.docxidian-export-field span {
+.native-powerpoint-doc-editor-export-field span {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 }
 
-.docxidian-path-input {
+.native-powerpoint-doc-editor-path-input {
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -1005,7 +1379,7 @@ body.theme-dark.theme-dark .docxidian-find-dialog button:focus:not(:disabled) {
 	width: 100%;
 }
 
-.docxidian-path-select {
+.native-powerpoint-doc-editor-path-select {
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -1017,35 +1391,35 @@ body.theme-dark.theme-dark .docxidian-find-dialog button:focus:not(:disabled) {
 	width: 100%;
 }
 
-.docxidian-path-input:focus,
-.docxidian-path-select:focus {
+.native-powerpoint-doc-editor-path-input:focus,
+.native-powerpoint-doc-editor-path-select:focus {
 	border-color: var(--interactive-accent);
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+	box-shadow: 0 0 0 2px var(--npde-toolbar-focus-ring);
 	outline: none;
 }
 
-.docxidian-file-menu-item,
-.docxidian-export-menu-item {
+.native-powerpoint-doc-editor-file-menu-item,
+.native-powerpoint-doc-editor-export-menu-item {
 	position: relative;
 }
 
-.docxidian-export-chevron {
+.native-powerpoint-doc-editor-export-chevron {
 	font-size: 14px;
 	margin-left: auto;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-file-menu-button,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-file-menu-button {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-file-menu-button {
 	align-items: center;
 	background: transparent;
 	border: 0;
 	border-radius: 4px;
 	box-shadow: none;
-	color: #334155;
+	color: var(--npde-menu-item-text);
 	cursor: pointer;
 	display: flex;
 	font-size: 12px;
@@ -1058,39 +1432,39 @@ body.theme-dark.theme-dark
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-file-menu-button *,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button *,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-file-menu-button * {
+	.native-powerpoint-doc-editor-file-menu-button * {
 	color: inherit;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-file-menu-button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='docxidian-docx-view'] .docxidian-host .ep-root .docxidian-file-menu-button:focus,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button:focus,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
 	.ep-root
-	.docxidian-file-menu-button:hover,
-body.theme-dark.theme-dark
-	.workspace-leaf-content[data-type='docxidian-docx-view']
-	.docxidian-host
-	.ep-root
-	.docxidian-file-menu-button:focus {
-	background: #f1f5f9;
-	color: #0f172a;
+	.native-powerpoint-doc-editor-file-menu-button:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+		.ep-root
+		.native-powerpoint-doc-editor-file-menu-button:focus {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 	outline: none;
 }
 
-body .docxidian-export-submenu.docxidian-export-submenu,
-body.theme-dark.theme-dark .docxidian-export-submenu {
-	background: #ffffff;
-	border: 1px solid var(--doc-border, #d1d5db);
+body .native-powerpoint-doc-editor-export-submenu.native-powerpoint-doc-editor-export-submenu,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-export-submenu {
+	background: var(--npde-menu-bg);
+	border: 1px solid var(--npde-menu-border);
 	border-radius: 6px;
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-	color: #0f172a;
+	box-shadow: var(--npde-menu-shadow-sm);
+	color: var(--npde-menu-text);
 	color-scheme: light;
 	display: none;
 	left: calc(100% + 2px);
@@ -1101,25 +1475,25 @@ body.theme-dark.theme-dark .docxidian-export-submenu {
 	z-index: 10005;
 }
 
-body .docxidian-export-submenu.docxidian-export-submenu :is(button, [role='menuitem'], [role='option']),
-body.theme-dark.theme-dark .docxidian-export-submenu :is(button, [role='menuitem'], [role='option']) {
+body .native-powerpoint-doc-editor-export-submenu.native-powerpoint-doc-editor-export-submenu :is(button, [role='menuitem'], [role='option']),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-export-submenu :is(button, [role='menuitem'], [role='option']) {
 	background: transparent;
 	box-shadow: none;
-	color: #334155;
+	color: var(--npde-menu-item-text);
 }
 
-body .docxidian-export-submenu.docxidian-export-submenu :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
-body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
-	background: #f1f5f9;
-	color: #0f172a;
+body .native-powerpoint-doc-editor-export-submenu.native-powerpoint-doc-editor-export-submenu :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-export-submenu :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
+	background: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 }
 
-.docxidian-export-menu-item:hover > .docxidian-export-submenu,
-.docxidian-export-menu-item:focus-within > .docxidian-export-submenu {
+.native-powerpoint-doc-editor-export-menu-item:hover > .native-powerpoint-doc-editor-export-submenu,
+.native-powerpoint-doc-editor-export-menu-item:focus-within > .native-powerpoint-doc-editor-export-submenu {
 	display: block;
 }
 
-.docxidian-setting-value {
+.native-powerpoint-doc-editor-setting-value {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	font-variant-numeric: tabular-nums;
@@ -1127,7 +1501,7 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	text-align: right;
 }
 
-.docxidian-title-save-button {
+.native-powerpoint-doc-editor-title-save-button {
 	align-items: center;
 	background: var(--interactive-accent);
 	border: 0;
@@ -1142,12 +1516,12 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	white-space: nowrap;
 }
 
-.docxidian-title-save-button:hover,
-.docxidian-title-save-button:focus {
+.native-powerpoint-doc-editor-title-save-button:hover,
+.native-powerpoint-doc-editor-title-save-button:focus {
 	background: var(--interactive-accent-hover);
 }
 
-.docxidian-save-status {
+.native-powerpoint-doc-editor-save-status {
 	align-items: center;
 	color: var(--text-muted);
 	display: inline-flex;
@@ -1160,54 +1534,54 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	white-space: nowrap;
 }
 
-.docxidian-save-status-dot {
+.native-powerpoint-doc-editor-save-status-dot {
 	background: currentColor;
 	border-radius: 50%;
 	height: 6px;
 	width: 6px;
 }
 
-.docxidian-save-status-saved {
+.native-powerpoint-doc-editor-save-status-saved {
 	color: var(--text-muted);
 }
 
-.docxidian-save-status-saving {
+.native-powerpoint-doc-editor-save-status-saving {
 	color: var(--text-accent);
 }
 
-.docxidian-save-status-unsaved {
+.native-powerpoint-doc-editor-save-status-unsaved {
 	color: var(--text-warning);
 }
 
-.docxidian-save-status-failed {
+.native-powerpoint-doc-editor-save-status-failed {
 	color: var(--text-error);
 }
 
 /* Dot signal: green when the document matches the last saved copy, red when not. */
-.docxidian-save-status-saved .docxidian-save-status-dot {
-	background: #22c55e;
+.native-powerpoint-doc-editor-save-status-saved .native-powerpoint-doc-editor-save-status-dot {
+	background: var(--npde-status-success);
 }
 
-.docxidian-save-status-saving .docxidian-save-status-dot {
-	background: #b06000;
+.native-powerpoint-doc-editor-save-status-saving .native-powerpoint-doc-editor-save-status-dot {
+	background: var(--npde-status-warning);
 }
 
-.docxidian-save-status-unsaved .docxidian-save-status-dot,
-.docxidian-save-status-failed .docxidian-save-status-dot {
-	background: #d93025;
+.native-powerpoint-doc-editor-save-status-unsaved .native-powerpoint-doc-editor-save-status-dot,
+.native-powerpoint-doc-editor-save-status-failed .native-powerpoint-doc-editor-save-status-dot {
+	background: var(--npde-status-danger);
 }
 
-.docxidian-search-modal {
+.native-powerpoint-doc-editor-search-modal {
 	min-width: min(720px, 90vw);
 }
 
-.docxidian-search-toolbar {
+.native-powerpoint-doc-editor-search-toolbar {
 	display: flex;
 	gap: 8px;
 	margin-bottom: 8px;
 }
 
-.docxidian-search-input {
+.native-powerpoint-doc-editor-search-input {
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
@@ -1219,19 +1593,19 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	width: 100%;
 }
 
-.docxidian-search-input:focus {
+.native-powerpoint-doc-editor-search-input:focus {
 	border-color: var(--interactive-accent);
-	box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 18%, transparent);
+	box-shadow: 0 0 0 2px var(--npde-toolbar-focus-ring);
 	outline: none;
 }
 
-.docxidian-search-status {
+.native-powerpoint-doc-editor-search-status {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	margin-bottom: 10px;
 }
 
-.docxidian-search-results {
+.native-powerpoint-doc-editor-search-results {
 	display: grid;
 	gap: 8px;
 	max-height: min(520px, 60vh);
@@ -1239,33 +1613,33 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	padding-right: 2px;
 }
 
-.docxidian-search-empty {
+.native-powerpoint-doc-editor-search-empty {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	padding: 14px 0;
 }
 
-.docxidian-search-result {
+.native-powerpoint-doc-editor-search-result {
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 6px;
 	cursor: pointer;
 	padding: 10px;
 }
 
-.docxidian-search-result:hover,
-.docxidian-search-result:focus {
+.native-powerpoint-doc-editor-search-result:hover,
+.native-powerpoint-doc-editor-search-result:focus {
 	background: var(--background-modifier-hover);
 	outline: none;
 }
 
-.docxidian-search-result-title-row {
+.native-powerpoint-doc-editor-search-result-title-row {
 	align-items: baseline;
 	display: flex;
 	gap: 10px;
 	justify-content: space-between;
 }
 
-.docxidian-search-result-title {
+.native-powerpoint-doc-editor-search-result-title {
 	color: var(--text-normal);
 	font-size: var(--font-ui-medium);
 	font-weight: 600;
@@ -1273,20 +1647,20 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	overflow-wrap: anywhere;
 }
 
-.docxidian-search-result-count {
+.native-powerpoint-doc-editor-search-result-count {
 	color: var(--text-muted);
 	flex: 0 0 auto;
 	font-size: var(--font-ui-smaller);
 }
 
-.docxidian-search-result-path {
+.native-powerpoint-doc-editor-search-result-path {
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
 	margin-top: 2px;
 	overflow-wrap: anywhere;
 }
 
-.docxidian-search-snippet {
+.native-powerpoint-doc-editor-search-snippet {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	line-height: 1.45;
@@ -1294,14 +1668,14 @@ body.theme-dark.theme-dark .docxidian-export-submenu :is(button:hover, button:fo
 	overflow-wrap: anywhere;
 }
 
-body .docxidian-hidden-text-shell.docxidian-hidden-text-shell,
-body.theme-dark.theme-dark .docxidian-hidden-text-shell {
-	background: #ffffff;
-	border: 1px solid #d1d5db;
+body .native-powerpoint-doc-editor-hidden-text-shell.native-powerpoint-doc-editor-hidden-text-shell,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-shell {
+	background: var(--npde-dialog-bg);
+	border: 1px solid var(--npde-dialog-border-muted);
 	border-radius: 8px;
 	box-sizing: border-box;
-	box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
-	color: #0f172a;
+	box-shadow: var(--npde-dialog-shadow-lg);
+	color: var(--npde-dialog-text);
 	color-scheme: light;
 	max-height: min(760px, calc(100vh - 80px));
 	max-width: min(760px, calc(100vw - 32px));
@@ -1310,10 +1684,10 @@ body.theme-dark.theme-dark .docxidian-hidden-text-shell {
 	width: min(760px, calc(100vw - 32px));
 }
 
-body .docxidian-hidden-text-shell.docxidian-hidden-text-shell .modal-close-button,
-body.theme-dark.theme-dark .docxidian-hidden-text-shell .modal-close-button {
+body .native-powerpoint-doc-editor-hidden-text-shell.native-powerpoint-doc-editor-hidden-text-shell .modal-close-button,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-shell .modal-close-button {
 	align-items: center;
-	color: #64748b;
+	color: var(--npde-dialog-text-subtle);
 	display: flex;
 	height: 28px;
 	justify-content: center;
@@ -1323,16 +1697,16 @@ body.theme-dark.theme-dark .docxidian-hidden-text-shell .modal-close-button {
 	z-index: 2;
 }
 
-body .docxidian-hidden-text-shell.docxidian-hidden-text-shell .modal-close-button:hover,
-body.theme-dark.theme-dark .docxidian-hidden-text-shell .modal-close-button:hover {
-	background: #f1f5f9;
-	color: #0f172a;
+body .native-powerpoint-doc-editor-hidden-text-shell.native-powerpoint-doc-editor-hidden-text-shell .modal-close-button:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-shell .modal-close-button:hover {
+	background: var(--npde-dialog-button-hover-bg);
+	color: var(--npde-dialog-text);
 }
 
-body .docxidian-hidden-text-modal.docxidian-hidden-text-modal,
-body.theme-dark.theme-dark .docxidian-hidden-text-modal {
+body .native-powerpoint-doc-editor-hidden-text-modal.native-powerpoint-doc-editor-hidden-text-modal,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-modal {
 	box-sizing: border-box;
-	color: #0f172a;
+	color: var(--npde-dialog-text);
 	display: flex;
 	flex-direction: column;
 	max-height: calc(min(760px, 100vh - 80px) - 32px);
@@ -1342,32 +1716,32 @@ body.theme-dark.theme-dark .docxidian-hidden-text-modal {
 	width: 100%;
 }
 
-body .docxidian-hidden-text-modal.docxidian-hidden-text-modal h2,
-body.theme-dark.theme-dark .docxidian-hidden-text-modal h2 {
-	color: #0f172a;
+body .native-powerpoint-doc-editor-hidden-text-modal.native-powerpoint-doc-editor-hidden-text-modal h2,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-modal h2 {
+	color: var(--npde-dialog-text);
 	font-size: 18px;
 	font-weight: 650;
 	line-height: 1.25;
 	margin: 0 28px 8px 0;
 }
 
-body .docxidian-hidden-text-summary.docxidian-hidden-text-summary,
-body.theme-dark.theme-dark .docxidian-hidden-text-summary {
-	color: #475569;
+body .native-powerpoint-doc-editor-hidden-text-summary.native-powerpoint-doc-editor-hidden-text-summary,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-summary {
+	color: var(--npde-dialog-text-muted);
 	font-size: var(--font-ui-small);
 	line-height: 1.45;
 	margin: 0 0 14px;
 }
 
-body .docxidian-hidden-text-empty,
-body.theme-dark .docxidian-hidden-text-empty {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
+body .native-powerpoint-doc-editor-hidden-text-empty,
+body.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-empty {
+	background: var(--npde-dialog-bg-muted);
+	border: 1px solid var(--npde-dialog-border-subtle);
 	border-radius: 6px;
 	padding: 12px;
 }
 
-.docxidian-hidden-text-results {
+.native-powerpoint-doc-editor-hidden-text-results {
 	display: grid;
 	gap: 8px;
 	max-height: min(560px, 62vh);
@@ -1377,17 +1751,17 @@ body.theme-dark .docxidian-hidden-text-empty {
 	padding-right: 2px;
 }
 
-body .docxidian-hidden-text-result,
-body.theme-dark .docxidian-hidden-text-result {
-	background: #ffffff;
-	border: 1px solid #e2e8f0;
+body .native-powerpoint-doc-editor-hidden-text-result,
+body.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-result {
+	background: var(--npde-document-ui-bg);
+	border: 1px solid var(--npde-document-ui-border);
 	border-radius: 6px;
 	min-width: 0;
 	overflow: hidden;
 	padding: 10px 12px;
 }
 
-.docxidian-hidden-text-header {
+.native-powerpoint-doc-editor-hidden-text-header {
 	align-items: baseline;
 	display: flex;
 	flex-wrap: wrap;
@@ -1396,35 +1770,35 @@ body.theme-dark .docxidian-hidden-text-result {
 	min-width: 0;
 }
 
-.docxidian-hidden-text-location {
-	color: #0f172a;
+.native-powerpoint-doc-editor-hidden-text-location {
+	color: var(--npde-document-ui-text);
 	font-size: var(--font-ui-medium);
 	font-weight: 600;
 	min-width: 0;
 	overflow-wrap: anywhere;
 }
 
-.docxidian-hidden-text-path {
-	color: #64748b;
+.native-powerpoint-doc-editor-hidden-text-path {
+	color: var(--npde-document-ui-text-muted);
 	font-size: var(--font-ui-smaller);
 	min-width: 0;
 	overflow-wrap: anywhere;
 	word-break: break-word;
 }
 
-.docxidian-hidden-text-reasons {
+.native-powerpoint-doc-editor-hidden-text-reasons {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
 	margin-top: 8px;
 }
 
-body .docxidian-hidden-text-reason,
-body.theme-dark .docxidian-hidden-text-reason {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
+body .native-powerpoint-doc-editor-hidden-text-reason,
+body.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-reason {
+	background: var(--npde-dialog-bg-muted);
+	border: 1px solid var(--npde-dialog-border-subtle);
 	border-radius: 4px;
-	color: #475569;
+	color: var(--npde-dialog-text-muted);
 	font-size: var(--font-ui-smaller);
 	line-height: 1;
 	max-width: 100%;
@@ -1433,19 +1807,19 @@ body.theme-dark .docxidian-hidden-text-reason {
 	word-break: break-word;
 }
 
-body .docxidian-hidden-text-reason.mod-warning,
-body.theme-dark .docxidian-hidden-text-reason.mod-warning {
-	background: #fff7ed;
-	border-color: #fed7aa;
-	color: #9a3412;
+body .native-powerpoint-doc-editor-hidden-text-reason.mod-warning,
+body.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-reason.mod-warning {
+	background: var(--npde-warning-bg);
+	border-color: var(--npde-warning-border);
+	color: var(--npde-warning-text);
 }
 
-body .docxidian-hidden-text-snippet,
-body.theme-dark .docxidian-hidden-text-snippet {
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
+body .native-powerpoint-doc-editor-hidden-text-snippet,
+body.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-hidden-text-snippet {
+	background: var(--npde-document-ui-bg-muted);
+	border: 1px solid var(--npde-document-ui-border);
 	border-radius: 6px;
-	color: #0f172a;
+	color: var(--npde-document-ui-text);
 	font-family: var(--font-monospace);
 	font-size: var(--font-ui-small);
 	line-height: 1.45;
@@ -1471,38 +1845,37 @@ body.theme-dark .docxidian-hidden-text-snippet {
 
 .native-powerpoint-root {
 	/*
-	 * Fixed Google Workspace "Slides" light palette, pinned the same way the
-	 * DOCX view pins a Google Docs palette. Locally overriding the Obsidian
-	 * theme variables keeps the PPTX editor consistently light + Google-styled
-	 * regardless of the active Obsidian theme.
+	 * Google Workspace "Slides" light palette. The editor starts from this
+	 * stable light palette; the resolved dark theme overrides these same
+	 * variables near the end of the stylesheet.
 	 */
-	--background-primary: #ffffff;
-	--background-primary-alt: #f8f9fa;
-	--background-secondary: #f8f9fa;
-	--background-secondary-alt: #f1f3f4;
-	--background-modifier-border: #e3e5e8;
-	--background-modifier-border-hover: #dadce0;
-	--background-modifier-hover: #f1f3f4;
-	--background-modifier-error: #fce8e6;
-	--text-normal: #202124;
-	--text-muted: #5f6368;
-	--text-faint: #80868b;
-	--text-accent: #1a73e8;
-	--text-accent-hover: #1763cc;
-	--text-on-accent: #ffffff;
-	--text-error: #d93025;
-	--text-warning: #b06000;
-	--text-success: #188038;
-	--interactive-accent: #1a73e8;
-	--interactive-accent-hover: #1763cc;
-	--interactive-accent-rgb: 26, 115, 232;
-	--interactive-normal: #f8f9fa;
-	--interactive-hover: #f1f3f4;
-	--menu-background: #ffffff;
-	--modal-background: #ffffff;
-	--input-shadow: none;
-	/* Slides signature: medium-gray editing canvas behind the white slide. */
-	--nps-canvas: #c4c7cc;
+		--background-primary: var(--npde-chrome-bg);
+		--background-primary-alt: var(--npde-chrome-bg-alt);
+		--background-secondary: var(--npde-chrome-bg-alt);
+		--background-secondary-alt: var(--npde-chrome-bg-muted);
+		--background-modifier-border: var(--npde-chrome-border);
+		--background-modifier-border-hover: var(--npde-chrome-border-hover);
+		--background-modifier-hover: var(--npde-chrome-bg-muted);
+		--background-modifier-error: var(--npde-status-danger-bg);
+		--text-normal: var(--npde-chrome-text);
+		--text-muted: var(--npde-chrome-text-muted);
+		--text-faint: var(--npde-chrome-text-faint);
+		--text-accent: var(--npde-chrome-accent);
+		--text-accent-hover: var(--npde-chrome-accent-hover);
+		--text-on-accent: var(--npde-chrome-on-accent);
+		--text-error: var(--npde-status-danger);
+		--text-warning: var(--npde-status-warning);
+		--text-success: var(--npde-status-success-text);
+		--interactive-accent: var(--npde-chrome-accent);
+		--interactive-accent-hover: var(--npde-chrome-accent-hover);
+		--interactive-accent-rgb: 26, 115, 232;
+		--interactive-normal: var(--npde-chrome-bg-alt);
+		--interactive-hover: var(--npde-chrome-bg-muted);
+		--menu-background: var(--npde-menu-bg);
+		--modal-background: var(--npde-dialog-bg);
+		--input-shadow: none;
+		/* Slides signature: medium-gray editing canvas behind the white slide. */
+		--nps-canvas: var(--npde-document-canvas);
 
 	background: var(--background-primary);
 	color: var(--text-normal);
@@ -1515,44 +1888,43 @@ body.theme-dark .docxidian-hidden-text-snippet {
 }
 
 /*
- * Force PPTX-owned native menus, popovers, and modals (which Obsidian appends
- * outside .native-powerpoint-root) to the same pinned Google Slides light
- * palette, so they don't fall back to the dark Obsidian theme. Mirrors the way
- * the DOCX view pins its own light menu surfaces.
+ * PPTX-owned native menus, popovers, and modals are appended outside
+ * .native-powerpoint-root, so give them the same base light palette here.
+ * The resolved dark theme overrides these body-mounted surfaces later.
  */
 body .native-powerpoint-light-surface.native-powerpoint-light-surface,
-body.theme-dark.theme-dark .native-powerpoint-light-surface.native-powerpoint-light-surface {
-	--background-primary: #ffffff;
-	--background-primary-alt: #f8f9fa;
-	--background-secondary: #f8f9fa;
-	--background-secondary-alt: #f1f3f4;
-	--background-modifier-border: #e3e5e8;
-	--background-modifier-border-hover: #dadce0;
-	--background-modifier-hover: #f1f3f4;
-	--text-normal: #202124;
-	--text-muted: #5f6368;
-	--text-faint: #80868b;
-	--text-accent: #1a73e8;
-	--text-on-accent: #ffffff;
-	--interactive-accent: #1a73e8;
-	--interactive-accent-hover: #1763cc;
-	--interactive-normal: #f8f9fa;
-	--interactive-hover: #f1f3f4;
-	--menu-background: #ffffff;
-	--modal-background: #ffffff;
-	background-color: #ffffff;
-	color: #202124;
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-light-surface.native-powerpoint-light-surface {
+	--background-primary: var(--npde-chrome-bg);
+	--background-primary-alt: var(--npde-chrome-bg-alt);
+	--background-secondary: var(--npde-chrome-bg-alt);
+	--background-secondary-alt: var(--npde-chrome-bg-muted);
+	--background-modifier-border: var(--npde-chrome-border);
+	--background-modifier-border-hover: var(--npde-chrome-border-hover);
+	--background-modifier-hover: var(--npde-chrome-bg-muted);
+	--text-normal: var(--npde-chrome-text);
+	--text-muted: var(--npde-chrome-text-muted);
+	--text-faint: var(--npde-chrome-text-faint);
+	--text-accent: var(--npde-chrome-accent);
+	--text-on-accent: var(--npde-chrome-on-accent);
+	--interactive-accent: var(--npde-chrome-accent);
+	--interactive-accent-hover: var(--npde-chrome-accent-hover);
+	--interactive-normal: var(--npde-chrome-bg-alt);
+	--interactive-hover: var(--npde-chrome-bg-muted);
+	--menu-background: var(--npde-menu-bg);
+	--modal-background: var(--npde-dialog-bg);
+	background-color: var(--npde-chrome-bg);
+	color: var(--npde-chrome-text);
 	color-scheme: light;
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(.menu-item, [role='menuitem']):is(:hover, :focus),
-body.theme-dark.theme-dark .native-powerpoint-light-surface :is(.menu-item, [role='menuitem']):is(:hover, :focus) {
-	background-color: #f1f3f4;
-	color: #202124;
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-light-surface :is(.menu-item, [role='menuitem']):is(:hover, :focus) {
+	background-color: var(--npde-menu-hover-bg);
+	color: var(--npde-menu-hover-text);
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .menu-separator {
-	border-color: #e3e5e8;
+	border-color: var(--npde-menu-separator);
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
@@ -1562,52 +1934,52 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
 	appearance: none;
 	background: transparent;
 	box-shadow: none;
-	color: #5f6368;
+	color: var(--npde-chrome-text-muted);
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
 	button:hover,
 	button:focus
 ) {
-	background: #f1f3f4;
+	background: var(--npde-chrome-bg-muted);
 	box-shadow: none;
-	color: #202124;
+	color: var(--npde-chrome-text);
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(input, select, textarea) {
 	appearance: none;
-	background: #ffffff;
+	background: var(--npde-dialog-input-bg);
 	box-shadow: none;
-	color: #202124;
+	color: var(--npde-dialog-text);
 }
 
 /*
- * Obsidian's dark theme applies global button/input chrome that can bleed into
- * the pinned Google Slides palette. Re-assert light styling with high specificity.
+ * Explicit light mode still needs to beat Obsidian's global button/input chrome.
+ * Re-assert light styling with high specificity.
  */
-body.theme-dark.theme-dark .native-powerpoint-root.native-powerpoint-root {
-	--background-primary: #ffffff;
-	--background-primary-alt: #f8f9fa;
-	--background-secondary: #f8f9fa;
-	--background-secondary-alt: #f1f3f4;
-	--background-modifier-border: #e3e5e8;
-	--background-modifier-border-hover: #dadce0;
-	--background-modifier-hover: #f1f3f4;
-	--text-normal: #202124;
-	--text-muted: #5f6368;
-	--text-faint: #80868b;
-	--interactive-accent: #1a73e8;
-	--interactive-accent-hover: #1763cc;
-	--interactive-normal: #f8f9fa;
-	--interactive-hover: #f1f3f4;
-	--menu-background: #ffffff;
-	--modal-background: #ffffff;
-	background: #ffffff;
-	color: #202124;
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root.native-powerpoint-root {
+	--background-primary: var(--npde-chrome-bg);
+	--background-primary-alt: var(--npde-chrome-bg-alt);
+	--background-secondary: var(--npde-chrome-bg-alt);
+	--background-secondary-alt: var(--npde-chrome-bg-muted);
+	--background-modifier-border: var(--npde-chrome-border);
+	--background-modifier-border-hover: var(--npde-chrome-border-hover);
+	--background-modifier-hover: var(--npde-chrome-bg-muted);
+	--text-normal: var(--npde-chrome-text);
+	--text-muted: var(--npde-chrome-text-muted);
+	--text-faint: var(--npde-chrome-text-faint);
+	--interactive-accent: var(--npde-chrome-accent);
+	--interactive-accent-hover: var(--npde-chrome-accent-hover);
+	--interactive-normal: var(--npde-chrome-bg-alt);
+	--interactive-hover: var(--npde-chrome-bg-muted);
+	--menu-background: var(--npde-menu-bg);
+	--modal-background: var(--npde-dialog-bg);
+	background: var(--npde-chrome-bg);
+	color: var(--npde-chrome-text);
 	color-scheme: light;
 }
 
-body.theme-dark.theme-dark .native-powerpoint-root :is(
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root :is(
 	.native-powerpoint-toolbar-btn,
 	.native-powerpoint-menubar-item,
 	.native-powerpoint-menubar-dropdown-item,
@@ -1625,7 +1997,7 @@ body.theme-dark.theme-dark .native-powerpoint-root :is(
 	color: var(--text-muted);
 }
 
-body.theme-dark.theme-dark .native-powerpoint-root :is(
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root :is(
 	.native-powerpoint-toolbar-btn:hover,
 	.native-powerpoint-toolbar-btn:focus,
 	.native-powerpoint-menubar-item:hover,
@@ -1653,7 +2025,7 @@ body.theme-dark.theme-dark .native-powerpoint-root :is(
 	color: var(--text-normal);
 }
 
-body.theme-dark.theme-dark .native-powerpoint-root :is(
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root :is(
 	.native-powerpoint-find-input,
 	.native-powerpoint-text-toolbar-size,
 	.native-powerpoint-header-name-input,
@@ -1667,9 +2039,9 @@ body.theme-dark.theme-dark .native-powerpoint-root :is(
 	color: var(--text-normal);
 }
 
-body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-text-toolbar-btn.is-active,
-body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-text-toolbar-btn[aria-pressed='true'] {
-	background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-text-toolbar-btn.is-active,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-text-toolbar-btn[aria-pressed='true'] {
+	background: var(--npde-toolbar-active-bg);
 	color: var(--text-normal);
 }
 
@@ -1679,7 +2051,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-text-toolb
  * specificity so Obsidian's global button styles cannot blank them out.
  */
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch,
-body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch {
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch {
 	appearance: none;
 	background: var(--np-swatch-color, transparent);
 	box-shadow: none;
@@ -1688,8 +2060,8 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:hover,
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:focus,
-body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch:hover,
-body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popover-swatch:focus {
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch:hover,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch:focus {
 	background: var(--np-swatch-color, transparent);
 	box-shadow: inset 0 0 0 1px var(--background-modifier-border-hover);
 	color: var(--text-normal);
@@ -1832,7 +2204,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
-	box-shadow: 0 8px 24px rgba(60, 64, 67, 0.18);
+	box-shadow: var(--npde-menu-shadow);
 	display: flex;
 	flex-direction: column;
 	gap: 1px;
@@ -1976,7 +2348,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-thumbnail.is-selected {
-	background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+	background: var(--npde-selection-subtle-bg);
 	border-color: var(--interactive-accent);
 }
 
@@ -2033,7 +2405,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 
 .native-powerpoint-thumbnail-preview {
 	aspect-ratio: 16 / 9;
-	background: white;
+	background: var(--npde-document-bg);
 	border-radius: 3px;
 	overflow: hidden;
 	width: 100%;
@@ -2046,10 +2418,10 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-thumbnail-number {
-	background: rgba(0, 0, 0, 0.62);
+	background: var(--npde-presentation-hud-bg);
 	border-radius: 3px;
 	bottom: 7px;
-	color: white;
+	color: var(--npde-presentation-text);
 	font-size: 10px;
 	line-height: 1;
 	padding: 3px 5px;
@@ -2086,6 +2458,8 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	overflow-x: auto;
 	overflow-y: hidden;
 	padding: 4px 12px;
+	scrollbar-color: var(--npde-toolbar-scrollbar-thumb) var(--npde-toolbar-scrollbar-track);
+	scrollbar-width: thin;
 }
 
 .native-powerpoint-toolbar::-webkit-scrollbar {
@@ -2093,16 +2467,17 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-toolbar::-webkit-scrollbar-track {
-	background: transparent;
+	background: var(--npde-toolbar-scrollbar-track);
+	border-radius: 4px;
 }
 
 .native-powerpoint-toolbar::-webkit-scrollbar-thumb {
-	background: var(--background-modifier-border);
+	background: var(--npde-toolbar-scrollbar-thumb);
 	border-radius: 4px;
 }
 
 .native-powerpoint-toolbar:hover::-webkit-scrollbar-thumb {
-	background: var(--background-modifier-border-hover);
+	background: var(--npde-toolbar-scrollbar-thumb-hover);
 }
 
 .native-powerpoint-toolbar-group {
@@ -2136,7 +2511,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
-	box-shadow: 0 8px 24px rgba(60, 64, 67, 0.18);
+	box-shadow: var(--npde-menu-shadow);
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
@@ -2255,7 +2630,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	flex: 0 0 auto;
 	padding: 8px;
 	gap: 6px;
-	box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+	box-shadow: var(--npde-chrome-shadow-lg);
 }
 
 .native-powerpoint-find-panel.is-open {
@@ -2472,18 +2847,18 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 
 /* Dot signal: green when the presentation matches the last saved copy, red when not. */
 .native-powerpoint-save-status[data-state='saved'] .native-powerpoint-save-status-label::before {
-	background: #22c55e;
+	background: var(--npde-status-success);
 }
 
 .native-powerpoint-save-status[data-state='saving'] .native-powerpoint-save-status-label::before {
 	animation: native-powerpoint-save-pulse 1s ease-in-out infinite;
-	background: #b06000;
+	background: var(--npde-status-warning);
 }
 
 .native-powerpoint-save-status[data-state='dirty'] .native-powerpoint-save-status-label::before,
 .native-powerpoint-save-status[data-state='recovered'] .native-powerpoint-save-status-label::before,
 .native-powerpoint-save-status[data-state='failed'] .native-powerpoint-save-status-label::before {
-	background: #d93025;
+	background: var(--npde-status-danger);
 }
 
 .native-powerpoint-save-status[data-state='idle'] .native-powerpoint-save-status-label::before,
@@ -2504,9 +2879,9 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-slide-surface {
-	background: white;
-	box-shadow: 0 1px 4px rgba(60, 64, 67, 0.3), 0 4px 14px rgba(60, 64, 67, 0.22);
-	color: black;
+	background: var(--npde-document-bg);
+	box-shadow: var(--npde-document-shadow);
+	color: var(--npde-document-text);
 	flex: 0 0 auto;
 	min-height: 320px;
 	min-width: 560px;
@@ -2563,7 +2938,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 
 .native-powerpoint-grid-label {
 	paint-order: stroke fill;
-	stroke: var(--native-powerpoint-text-halo, rgba(255, 255, 255, 0.88));
+	stroke: var(--native-powerpoint-text-halo, var(--npde-document-text-halo));
 	stroke-linejoin: round;
 	stroke-width: 1.35px;
 }
@@ -2573,12 +2948,12 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-slide-svg .native-powerpoint-find-highlight {
-	fill: rgba(250, 204, 21, 0.45);
+	fill: var(--npde-selection-find-bg);
 	pointer-events: none;
 }
 
 .native-powerpoint-slide-svg .native-powerpoint-find-highlight.is-current {
-	fill: rgba(245, 158, 11, 0.6);
+	fill: var(--npde-selection-highlight-bg);
 }
 
 /*
@@ -2609,7 +2984,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-marquee-box {
-	background: rgba(var(--interactive-accent-rgb, 80, 130, 230), 0.16);
+	background: var(--npde-selection-subtle-bg);
 	border: 1px solid var(--interactive-accent);
 	box-sizing: border-box;
 	pointer-events: none;
@@ -2724,7 +3099,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-snap-guide {
-	background: #ea4335;
+	background: var(--npde-selection-guide);
 	pointer-events: none;
 	position: absolute;
 	z-index: 7;
@@ -2742,7 +3117,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	background: var(--background-primary);
 	border: 2px solid var(--interactive-accent);
 	border-radius: 4px;
-	box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+	box-shadow: var(--npde-dialog-shadow);
 	color: var(--text-normal);
 	font: inherit;
 	padding: 8px;
@@ -2780,7 +3155,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
-	box-shadow: 0 6px 20px rgba(60, 64, 67, 0.22);
+	box-shadow: var(--npde-menu-shadow);
 	display: none;
 	gap: 4px;
 	padding: 4px 6px;
@@ -2806,7 +3181,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-text-toolbar-btn.is-active {
-	background: color-mix(in srgb, var(--interactive-accent) 16%, transparent);
+	background: var(--npde-selection-subtle-bg);
 	color: var(--interactive-accent);
 }
 
@@ -2876,7 +3251,7 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 	background: var(--background-primary);
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 8px;
-	box-shadow: 0 8px 24px rgba(60, 64, 67, 0.22);
+	box-shadow: var(--npde-menu-shadow);
 	padding: 8px;
 	position: fixed;
 	z-index: 100025;
@@ -2952,8 +3327,8 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
 }
 
 .native-powerpoint-table-picker-cell.is-active {
-	background: #aecbfa;
-	border-color: #4285f4;
+	background: var(--npde-selection-table-active-bg);
+	border-color: var(--npde-selection-table-active-border);
 }
 
 .native-powerpoint-table-picker-label {
@@ -2966,9 +3341,9 @@ body.theme-dark.theme-dark .native-powerpoint-root .native-powerpoint-color-popo
  * accent fill (and keep it while hovered) for highlighted picker cells. */
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-table-picker-cell.is-active,
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-table-picker-cell.is-active:hover {
-	background: #aecbfa;
-	border-color: #4285f4;
-	color: #202124;
+	background: var(--npde-selection-table-active-bg);
+	border-color: var(--npde-selection-table-active-border);
+	color: var(--npde-selection-table-active-text);
 }
 
 .native-powerpoint-font-menu {
@@ -3001,12 +3376,12 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 .native-powerpoint-svg-caret {
 	animation: native-powerpoint-caret-blink 1s steps(1, end) infinite;
 	pointer-events: none;
-	stroke: #000;
+	stroke: var(--npde-document-text);
 	stroke-linecap: square;
 }
 
 .native-powerpoint-svg-selection {
-	fill: rgba(38, 132, 255, 0.28);
+	fill: var(--npde-selection-object-bg);
 	pointer-events: none;
 }
 
@@ -3250,7 +3625,9 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 }
 
 .native-powerpoint-report-bug {
+	align-items: center;
 	display: flex;
+	gap: 16px;
 	justify-content: center;
 	margin-top: 24px;
 	padding-top: 16px;
@@ -3397,7 +3774,7 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	background: #000000;
+	background: var(--npde-presentation-bg);
 	cursor: pointer;
 	outline: none;
 }
@@ -3417,11 +3794,11 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 	width: auto;
 	height: auto;
 	object-fit: contain;
-	box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+	box-shadow: var(--npde-presentation-shadow);
 }
 
 .native-powerpoint-present-error {
-	color: #ffffff;
+	color: var(--npde-presentation-text);
 	font-size: 18px;
 	text-align: center;
 	max-width: 60%;
@@ -3443,18 +3820,18 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 }
 
 .native-powerpoint-present-counter {
-	color: #ffffff;
+	color: var(--npde-presentation-text);
 	font-size: 13px;
 	font-variant-numeric: tabular-nums;
-	background: rgba(0, 0, 0, 0.5);
+	background: var(--npde-presentation-hud-bg);
 	border-radius: 6px;
 	padding: 4px 10px;
 }
 
 .native-powerpoint-present-exit {
-	color: #ffffff;
-	background: rgba(255, 255, 255, 0.15);
-	border: 1px solid rgba(255, 255, 255, 0.3);
+	color: var(--npde-presentation-text);
+	background: var(--npde-presentation-button-bg);
+	border: 1px solid var(--npde-presentation-button-border);
 	border-radius: 6px;
 	padding: 4px 12px;
 	font-size: 13px;
@@ -3462,5 +3839,652 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 }
 
 .native-powerpoint-present-exit:hover {
-	background: rgba(255, 255, 255, 0.28);
+	background: var(--npde-presentation-button-bg-hover);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root,
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface.native-powerpoint-light-surface {
+	--background-primary: var(--npde-editor-bg);
+	--background-primary-alt: var(--npde-editor-bg-alt);
+	--background-secondary: var(--npde-editor-bg-muted);
+	--background-secondary-alt: var(--npde-editor-toolbar);
+	--background-modifier-border: var(--npde-editor-border);
+	--background-modifier-border-hover: var(--npde-editor-border-strong);
+	--background-modifier-hover: var(--npde-editor-hover);
+	--background-modifier-error: var(--npde-status-danger-bg);
+	--text-normal: var(--npde-editor-text);
+	--text-muted: var(--npde-editor-text-muted);
+	--text-faint: var(--npde-editor-text-faint);
+	--text-accent: var(--npde-editor-accent);
+	--text-accent-hover: var(--npde-editor-accent-hover);
+	--text-on-accent: var(--npde-editor-on-accent);
+	--text-error: var(--npde-status-danger);
+	--text-warning: var(--npde-warning-text);
+	--text-success: var(--npde-status-success-text);
+	--interactive-accent: var(--npde-editor-accent);
+	--interactive-accent-hover: var(--npde-editor-accent-hover);
+	--interactive-accent-rgb: 138, 180, 248;
+	--interactive-normal: var(--npde-editor-toolbar);
+	--interactive-hover: var(--npde-editor-toolbar-hover);
+	--menu-background: var(--npde-editor-bg-muted);
+	--modal-background: var(--npde-editor-bg-muted);
+	--nps-canvas: var(--npde-editor-canvas);
+
+	background: var(--npde-editor-bg);
+	color: var(--npde-editor-text);
+	color-scheme: dark;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root :is(
+	.native-powerpoint-headerbar,
+	.native-powerpoint-header,
+	.native-powerpoint-menubar
+) {
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-toolbar {
+	background: var(--npde-editor-toolbar);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='editor-toolbar'] {
+	background: var(--npde-docx-toolbar-shell-bg) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar'] {
+	background: var(--npde-docx-formatting-bar-bg) !important;
+	scrollbar-color: var(--npde-docx-formatting-scrollbar-thumb) var(--npde-docx-formatting-scrollbar-track);
+	scrollbar-width: thin;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar']::-webkit-scrollbar {
+	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
+	height: 6px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar']::-webkit-scrollbar-track {
+	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
+	border-radius: 4px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar']::-webkit-scrollbar-thumb {
+	background-color: var(--npde-docx-formatting-scrollbar-thumb) !important;
+	border-radius: 4px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar']:hover::-webkit-scrollbar-thumb {
+	background-color: var(--npde-docx-formatting-scrollbar-thumb-hover) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='formatting-bar']::-webkit-scrollbar-corner {
+	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	.docx-editor__scroll-container {
+	--doc-scrollbar-track: var(--npde-docx-document-scrollbar-track);
+	--doc-scrollbar-thumb: var(--npde-docx-document-scrollbar-thumb);
+	--doc-scrollbar-thumb-hover: var(--npde-docx-document-scrollbar-thumb-hover);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-toolbar :is(.native-powerpoint-toolbar-btn:hover, .native-powerpoint-toolbar-btn:focus) {
+	background: var(--npde-editor-toolbar-hover);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	[data-testid='editor-toolbar']
+	:is(button:hover, button:focus, [role='button']:hover, [role='button']:focus, [aria-pressed='true'], [data-highlighted]):not(.docx-color-picker-dropdown button) {
+	background: var(--npde-editor-toolbar-hover) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-slide-surface {
+	background: var(--npde-document-bg);
+	color: var(--npde-document-text);
+	color-scheme: light;
+	filter: none;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.layout-page {
+	background: var(--npde-document-bg) !important;
+	color: var(--npde-document-text) !important;
+	color-scheme: light !important;
+	filter: none !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-slide-svg {
+	filter: none;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.layout-page
+	:is(img, svg, canvas, video) {
+	filter: none !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface {
+	background-color: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface :is(
+	button,
+	.menu-item,
+	[role='menuitem'],
+	[role='option']
+) {
+	background: transparent;
+	border-color: transparent;
+	box-shadow: none;
+	color: var(--npde-editor-text-muted);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface :is(
+	button:hover,
+	button:focus,
+	.menu-item:hover,
+	.menu-item:focus,
+	[role='menuitem']:hover,
+	[role='menuitem']:focus,
+	[role='option']:hover,
+	[role='option']:focus,
+	[aria-selected='true'],
+	[data-highlighted]
+) {
+	background: var(--npde-editor-hover);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface :is(
+	.native-powerpoint-menubar-dropdown-icon,
+	.native-powerpoint-menubar-dropdown-icon svg,
+	.native-powerpoint-menubar-dropdown-icon :is(path, polyline, line)
+) {
+	color: var(--npde-editor-text);
+	stroke: currentColor;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-check,
+body.native-powerpoint-doc-editor-theme-resolved-dark [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc-editor-mode-menu-check :is(path, polyline, line) {
+	color: var(--npde-editor-accent);
+	opacity: 1;
+	stroke: currentColor;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface :is(input, select, textarea) {
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border-strong);
+	box-shadow: none;
+	color: var(--npde-editor-text);
+	color-scheme: dark;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark :is(
+	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-find-dialog,
+	.native-powerpoint-doc-editor-editor-settings-menu,
+	.native-powerpoint-doc-editor-option-search-menu
+) :is(input:not([type='checkbox']), select, textarea) {
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border-strong);
+	box-shadow: none;
+	color: var(--npde-editor-text);
+	color-scheme: dark;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .menu-separator {
+	border-color: var(--npde-editor-border);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch {
+	background: var(--np-swatch-color, transparent);
+	border-color: var(--npde-editor-border-strong);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:hover,
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:focus {
+	background: var(--np-swatch-color, transparent);
+	box-shadow: inset 0 0 0 1px var(--npde-editor-border-strong);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-table-picker-cell.is-active,
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-table-picker-cell.is-active:hover {
+	background: var(--npde-selection-table-active-bg);
+	border-color: var(--npde-selection-table-active-border);
+	color: var(--npde-selection-table-active-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-doc-editor-host {
+	background: var(--npde-editor-canvas);
+	color-scheme: dark;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root {
+	--doc-bg: var(--npde-editor-bg);
+	--doc-bg-hover: var(--npde-editor-hover);
+	--doc-border: var(--npde-editor-border);
+	--doc-border-light: var(--npde-editor-border);
+	--doc-hover: var(--npde-editor-hover);
+	--doc-text: var(--npde-editor-text);
+	--doc-text-muted: var(--npde-editor-text-muted);
+	--doc-caret: var(--npde-document-text);
+	color-scheme: dark;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	:is(
+		[data-testid='title-bar'],
+		[data-testid='title-bar'] > div,
+		[data-testid='title-bar'] > div > div,
+		[role='menubar'],
+		[role='menubar'] > div
+	) {
+	background: var(--npde-editor-bg) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+	color-scheme: dark !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.docx-outline-toggle {
+	background: var(--npde-editor-toolbar);
+	border-color: var(--npde-editor-border);
+	box-shadow: none;
+	color: var(--npde-editor-text-muted);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	.docx-outline-toggle:is(:hover, :focus) {
+	background: var(--npde-editor-toolbar-hover);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	:is([data-testid='title-bar'], [data-testid='editor-toolbar'], [role='menubar'])
+	:is(button, input, select, textarea, [role='button'], [role='menuitem'], [role='option']):not(.docx-color-picker-dropdown button) {
+	background: transparent !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+	color: var(--npde-editor-text-muted) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	:is([data-testid='title-bar'], [data-testid='editor-toolbar'], [role='menubar'])
+	:is(button:hover, button:focus, [role='button']:hover, [role='button']:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [aria-pressed='true'], [data-highlighted]):not(.docx-color-picker-dropdown button) {
+	background: var(--npde-editor-toolbar-hover) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	:is([data-testid='title-bar'], [data-testid='editor-toolbar'])
+	:is(input, select, textarea, [role='listbox']) {
+	background: var(--npde-editor-bg) !important;
+	border-color: var(--npde-editor-border-strong) !important;
+	color: var(--npde-editor-text) !important;
+	color-scheme: dark !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
+	.ep-root
+	:is([data-testid='title-bar'], [data-testid='editor-toolbar'])
+	:is(.truncate, [data-testid='font-size-display'], [data-testid='font-size-input']) {
+	color: var(--npde-editor-text) !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark :is(
+	.native-powerpoint-doc-editor-light-menu-shell,
+	.native-powerpoint-doc-editor-light-menu-surface,
+	[data-native-powerpoint-doc-editor-mode-menu='true'],
+	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-find-dialog,
+	.native-powerpoint-doc-editor-export-submenu,
+	.native-powerpoint-doc-editor-hidden-text-shell,
+	.native-powerpoint-doc-editor-editor-settings-menu,
+	.native-powerpoint-doc-editor-option-search-menu,
+	.native-powerpoint-doc-editor-hidden-text-result,
+	.native-powerpoint-doc-editor-hidden-text-empty,
+	.native-powerpoint-doc-editor-hidden-text-reason,
+	.native-powerpoint-doc-editor-hidden-text-snippet
+) {
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+	color-scheme: dark;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
+	.native-powerpoint-doc-editor-host
+	.ep-root
+	[role='menubar']
+	[style*='position'] {
+	background: var(--npde-editor-bg) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+	color-scheme: dark !important;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark :is(
+	.native-powerpoint-doc-editor-light-menu-surface,
+	[data-native-powerpoint-doc-editor-mode-menu='true'],
+	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-find-dialog,
+	.native-powerpoint-doc-editor-export-submenu,
+	.native-powerpoint-doc-editor-editor-settings-menu,
+	.native-powerpoint-doc-editor-option-search-menu
+) :is(button, [role='menuitem'], [role='option'], .native-powerpoint-doc-editor-editor-settings-row, .native-powerpoint-doc-editor-option-search-result, .native-powerpoint-doc-editor-file-menu-button) {
+	background: transparent;
+	border-color: transparent;
+	box-shadow: none;
+	color: var(--npde-editor-text-muted);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark :is(
+	.native-powerpoint-doc-editor-light-menu-surface,
+	[data-native-powerpoint-doc-editor-mode-menu='true'],
+	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-find-dialog,
+	.native-powerpoint-doc-editor-export-submenu,
+	.native-powerpoint-doc-editor-editor-settings-menu,
+	.native-powerpoint-doc-editor-option-search-menu
+) :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, .native-powerpoint-doc-editor-editor-settings-row:hover, .native-powerpoint-doc-editor-editor-settings-row:focus-within, .native-powerpoint-doc-editor-option-search-result:hover, .native-powerpoint-doc-editor-option-search-result:focus, .native-powerpoint-doc-editor-option-search-result[aria-selected='true'], .native-powerpoint-doc-editor-file-menu-button:hover, .native-powerpoint-doc-editor-file-menu-button:focus, [aria-selected='true'], [data-highlighted]) {
+	background: var(--npde-editor-hover);
+	border-color: var(--npde-editor-border);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-action,
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-row > button,
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button {
+	appearance: none;
+	-webkit-appearance: none;
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-editor-border-strong);
+	box-shadow: none;
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-action:is(:hover, :focus),
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-row > button:is(:hover, :focus),
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:is(:hover, :focus) {
+	background: var(--npde-dialog-button-hover-bg);
+	border-color: var(--npde-editor-border-strong);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-action:focus-visible,
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-row > button:focus-visible,
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus-visible {
+	outline: 2px solid var(--npde-toolbar-focus-ring);
+	outline-offset: 2px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-checkbox {
+	background: var(--npde-editor-bg);
+	border-color: var(--npde-editor-border-strong);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-checkbox:checked {
+	background: var(--npde-editor-accent);
+	border-color: var(--npde-editor-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-checkbox-mark {
+	border-color: var(--npde-editor-on-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-editor-settings-menu
+	.native-powerpoint-doc-editor-editor-settings-checkbox:focus {
+	outline: 2px solid var(--npde-toolbar-focus-ring);
+	outline-offset: 2px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	.setting-item-control
+	button:not(.clickable-icon) {
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-editor-border-strong);
+	box-shadow: none;
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	.setting-item-control
+	button:not(.clickable-icon):is(:hover, :focus) {
+	background: var(--npde-dialog-button-hover-bg);
+	border-color: var(--npde-editor-border-strong);
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	.setting-item-control
+	button:not(.clickable-icon):focus-visible {
+	outline: 2px solid var(--npde-toolbar-focus-ring);
+	outline-offset: 2px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	input[type='checkbox'] {
+	accent-color: var(--npde-editor-accent);
+	color-scheme: dark;
+	--checkbox-color: var(--npde-editor-accent);
+	--checkbox-color-hover: var(--npde-editor-accent-hover);
+	--checkbox-marker-color: var(--npde-editor-on-accent);
+	--checkbox-border-color: var(--npde-editor-accent);
+	--checkbox-border-color-hover: var(--npde-editor-accent-hover);
+	--toggle-thumb-color: var(--npde-editor-on-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	.checkbox-container {
+	background-color: var(--npde-editor-toolbar);
+	box-shadow: inset 0 0 0 1px var(--npde-editor-border-strong);
+	--toggle-thumb-color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	.checkbox-container.is-enabled {
+	background-color: var(--npde-editor-accent);
+	box-shadow: none;
+	--toggle-thumb-color: var(--npde-editor-on-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark
+	.native-powerpoint-doc-editor-settings-tab
+	.checkbox-container.is-enabled::after {
+	background-color: var(--npde-editor-on-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark :is(
+	.native-powerpoint-doc-editor-custom-table-field span,
+	.native-powerpoint-doc-editor-editor-settings-section,
+	.native-powerpoint-doc-editor-editor-settings-desc,
+	.native-powerpoint-doc-editor-option-search-empty,
+	.native-powerpoint-doc-editor-hidden-text-summary,
+	.native-powerpoint-doc-editor-hidden-text-path,
+	.native-powerpoint-doc-editor-hidden-text-reason
+) {
+	color: var(--npde-editor-text-muted);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark :is(
+	.native-powerpoint-doc-editor-editor-settings-label,
+	.native-powerpoint-doc-editor-hidden-text-modal,
+	.native-powerpoint-doc-editor-hidden-text-modal h2,
+	.native-powerpoint-doc-editor-hidden-text-location
+) {
+	color: var(--npde-editor-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-doc-editor-hidden-text-reason.mod-warning {
+	background: var(--npde-warning-bg);
+	border-color: var(--npde-warning-border);
+	color: var(--npde-warning-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	input[type='checkbox'] {
+	accent-color: var(--npde-editor-accent);
+	color-scheme: light;
+	--checkbox-color: var(--npde-editor-accent);
+	--checkbox-color-hover: var(--npde-editor-accent-hover);
+	--checkbox-marker-color: var(--npde-editor-on-accent);
+	--checkbox-border-color: var(--npde-editor-accent);
+	--checkbox-border-color-hover: var(--npde-editor-accent-hover);
+	--toggle-thumb-color: var(--npde-editor-on-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	.setting-item-control
+	button:not(.clickable-icon) {
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-dialog-border);
+	box-shadow: none;
+	color: var(--npde-dialog-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	.setting-item-control
+	button:not(.clickable-icon):is(:hover, :focus) {
+	background: var(--npde-dialog-button-hover-bg);
+	border-color: var(--npde-dialog-border);
+	color: var(--npde-dialog-text);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	.setting-item-control
+	button:not(.clickable-icon):focus-visible {
+	outline: 2px solid var(--npde-toolbar-focus-ring);
+	outline-offset: 2px;
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	.checkbox-container {
+	background-color: var(--npde-toolbar-bg-hover);
+	box-shadow: inset 0 0 0 1px var(--npde-dialog-border);
+	--toggle-thumb-color: var(--npde-dialog-checkbox-check);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	.checkbox-container.is-enabled {
+	background-color: var(--npde-editor-accent);
+	box-shadow: none;
+	--toggle-thumb-color: var(--npde-editor-on-accent);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-light
+	.native-powerpoint-doc-editor-settings-tab
+	.checkbox-container.is-enabled::after {
+	background-color: var(--npde-editor-on-accent);
 }

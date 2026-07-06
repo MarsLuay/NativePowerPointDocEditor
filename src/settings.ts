@@ -1,12 +1,43 @@
-import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
-import type DocxidianPlugin from './main';
-import { configureDocxidianLogger, infoLog } from './logger';
-import { DOCXIDIAN_LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, normalizeDocxidianLanguage, type DocxidianLanguage } from './locales';
+import { App, PluginSettingTab, Setting } from 'obsidian';
+import type NativePowerPointDocEditorPlugin from './main';
+import { configureNativePowerPointDocEditorLogger, infoLog } from './logger';
+import type { I18nService } from './i18n/I18nService';
+import {
+	getNativePowerPointDocEditorSettingDescriptors,
+	getNativePowerPointDocEditorSettingsTabSections,
+	getEditorThemeSettingOptions as getEditorThemeSettingOptionsI18n,
+} from './i18n/settingsCatalog';
+import { showI18nNotice } from './i18n/notify';
 
-const DEFAULT_ZOOM = 1;
-const MIN_DEFAULT_ZOOM = 0.5;
-const MAX_DEFAULT_ZOOM = 2;
-const DEFAULT_ZOOM_STEP = 0.05;
+export type {
+	DocxEditorSettingDescriptor,
+	NativePowerPointDocEditorSettingDescriptor,
+} from './i18n/settingsCatalog';
+export {
+	getDocxEditorSettingDescriptors,
+	getDocxEditorSettingSectionLabels,
+	getDocxEditorSettingsMenuSections,
+} from './i18n/docxSettingsCatalog';
+export {
+	getNativePowerPointDocEditorSettingDescriptors,
+	getNativePowerPointDocEditorSettingSectionLabels,
+	getNativePowerPointDocEditorSettingsTabSections,
+} from './i18n/settingsCatalog';
+
+export const DEFAULT_ZOOM = 1;
+export const MIN_DEFAULT_ZOOM = 0.5;
+export const MAX_DEFAULT_ZOOM = 2;
+export const DEFAULT_ZOOM_STEP = 0.05;
+export const DEFAULT_ZOOM_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5, 2] as const;
+
+export type EditorThemePreference = 'system' | 'light' | 'dark';
+export type EditorThemeResolution = Exclude<EditorThemePreference, 'system'>;
+
+const ENGLISH_EDITOR_THEME_OPTIONS: Array<{ value: EditorThemePreference; label: string }> = [
+	{ value: 'system', label: 'System' },
+	{ value: 'light', label: 'Light' },
+	{ value: 'dark', label: 'Dark' },
+];
 
 const FREE_TEMPLATE_LINKS = [
 	{ name: 'Microsoft Create', url: 'https://create.microsoft.com/en-us/templates/presentations' },
@@ -17,6 +48,8 @@ const FREE_TEMPLATE_LINKS = [
 ];
 
 export interface NativePowerPointSettings {
+	editorTheme: EditorThemePreference;
+	resolvedEditorTheme: EditorThemeResolution;
 	autosaveEnabled: boolean;
 	hideUnsupportedSvgContent: boolean;
 	openWithYoloMode: boolean;
@@ -24,9 +57,9 @@ export interface NativePowerPointSettings {
 	setOpenWithYoloMode: (value: boolean) => Promise<void>;
 }
 
-export interface DocxidianSettings {
+export interface NativePowerPointDocEditorSettings {
 	authorName: string;
-	editorLanguage: DocxidianLanguage;
+	editorTheme: EditorThemePreference;
 	showRuler: boolean;
 	autosave: boolean;
 	createBackupsBeforeSave: boolean;
@@ -42,9 +75,9 @@ export interface DocxidianSettings {
 	disablePowerPointFiles: boolean;
 }
 
-export const DEFAULT_SETTINGS: DocxidianSettings = {
+export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
 	authorName: 'Mars',
-	editorLanguage: DEFAULT_LANGUAGE,
+	editorTheme: 'system',
 	showRuler: false,
 	autosave: true,
 	createBackupsBeforeSave: false,
@@ -60,16 +93,193 @@ export const DEFAULT_SETTINGS: DocxidianSettings = {
 	disablePowerPointFiles: false,
 };
 
+export type NativePowerPointDocEditorSettingSectionId =
+	| 'identity'
+	| 'fileHandoff'
+	| 'editorDefaults'
+	| 'saving'
+	| 'powerpoint'
+	| 'search'
+	| 'diagnostics';
+
+export type DocxEditorSettingSectionId = Exclude<NativePowerPointDocEditorSettingSectionId, 'powerpoint'>;
+
+export type NativePowerPointDocEditorSettingId =
+	| 'authorName'
+	| 'disableDocxFiles'
+	| 'disablePowerPointFiles'
+	| 'editorTheme'
+	| 'showRuler'
+	| 'defaultZoom'
+	| 'autosave'
+	| 'createBackupsBeforeSave'
+	| 'powerPointAutosaveEnabled'
+	| 'powerPointShowInspector'
+	| 'powerPointHideUnsupportedSvgContent'
+	| 'powerPointOpenWithYoloMode'
+	| 'enableDocxSearchIndex'
+	| 'autoIndexDocxSearch'
+	| 'rebuildDocxSearchIndex'
+	| 'debugLogging'
+	| 'copyDocxLog'
+	| 'copyFullLog';
+
+export type DocxEditorSettingId = Extract<
+	NativePowerPointDocEditorSettingId,
+	| 'authorName'
+	| 'editorTheme'
+	| 'showRuler'
+	| 'defaultZoom'
+	| 'autosave'
+	| 'createBackupsBeforeSave'
+	| 'enableDocxSearchIndex'
+	| 'autoIndexDocxSearch'
+	| 'rebuildDocxSearchIndex'
+	| 'disableDocxFiles'
+	| 'debugLogging'
+	| 'copyDocxLog'
+>;
+
+export interface SettingsOption<TValue extends string = string> {
+	value: TValue;
+	label: string;
+}
+
+function withDefaultLabel<TValue extends string>(
+	options: ReadonlyArray<{ value: TValue; label: string }>,
+	defaultValue: TValue,
+	defaultSuffix = '(default)',
+): SettingsOption<TValue>[] {
+	return options.map(option => ({
+		value: option.value,
+		label: option.value === defaultValue ? `${option.label} ${defaultSuffix}` : option.label,
+	}));
+}
+
+export function getEditorThemeSettingOptions(
+	i18n?: I18nService,
+	defaultTheme: EditorThemePreference = DEFAULT_SETTINGS.editorTheme,
+): SettingsOption<EditorThemePreference>[] {
+	const theme = normalizeEditorThemePreference(defaultTheme);
+	if (i18n) {
+		return getEditorThemeSettingOptionsI18n(i18n, theme);
+	}
+	return withDefaultLabel(ENGLISH_EDITOR_THEME_OPTIONS, theme);
+}
+
+function readString(value: unknown, fallback: string): string {
+	return typeof value === 'string' && value.trim().length > 0 ? value.trim() : fallback;
+}
+
+function hasSavedSetting(
+	saved: Record<string, unknown> | null | undefined,
+	key: keyof NativePowerPointDocEditorSettings,
+): boolean {
+	return saved != null && Object.prototype.hasOwnProperty.call(saved, key);
+}
+
+export interface ReadNativePowerPointDocEditorSettingsResult {
+	settings: NativePowerPointDocEditorSettings;
+	hadLegacyEditorLanguage: boolean;
+	shouldPersistSettings: boolean;
+}
+
+export function readNativePowerPointDocEditorSettings(
+	saved: Record<string, unknown> | null | undefined,
+	systemTheme: EditorThemeResolution = 'light',
+): ReadNativePowerPointDocEditorSettingsResult {
+	const raw = saved ?? {};
+	const hadLegacyEditorLanguage = Object.hasOwn(raw, 'editorLanguage');
+
+	const normalizedEditorTheme = hasSavedSetting(raw, 'editorTheme')
+		? normalizeEditorThemePreference(raw.editorTheme)
+		: saved
+			? systemTheme
+			: DEFAULT_SETTINGS.editorTheme;
+	const normalizedDefaultZoom = normalizeDefaultZoom(raw.defaultZoom);
+	const normalizedDebugLogging = raw.debugLogging === true;
+	const normalizedEnableDocxSearchIndex = raw.enableDocxSearchIndex === true;
+	const normalizedAutoIndexDocxSearch = raw.autoIndexDocxSearch === true;
+	const normalizedPowerPointAutosaveEnabled = raw.powerPointAutosaveEnabled !== false;
+	const normalizedPowerPointHideUnsupportedSvgContent =
+		typeof raw.powerPointHideUnsupportedSvgContent === 'boolean'
+			? raw.powerPointHideUnsupportedSvgContent
+			: raw.powerPointRemoveUnsupportedSvgContent === true;
+	const normalizedPowerPointOpenWithYoloMode =
+		typeof raw.powerPointOpenWithYoloMode === 'boolean'
+			? raw.powerPointOpenWithYoloMode
+			: raw.powerPointYoloMode === true;
+	const normalizedPowerPointShowInspector = raw.powerPointShowInspector === true;
+	const normalizedDisableDocxFiles = raw.disableDocxFiles === true;
+	const normalizedDisablePowerPointFiles = raw.disablePowerPointFiles === true;
+
+	const settings: NativePowerPointDocEditorSettings = {
+		authorName: readString(raw.authorName, DEFAULT_SETTINGS.authorName),
+		editorTheme: normalizedEditorTheme,
+		showRuler: raw.showRuler === true,
+		autosave: raw.autosave !== false,
+		createBackupsBeforeSave: raw.createBackupsBeforeSave === true,
+		defaultZoom: normalizedDefaultZoom,
+		enableDocxSearchIndex: normalizedEnableDocxSearchIndex,
+		autoIndexDocxSearch: normalizedAutoIndexDocxSearch,
+		debugLogging: normalizedDebugLogging,
+		powerPointAutosaveEnabled: normalizedPowerPointAutosaveEnabled,
+		powerPointHideUnsupportedSvgContent: normalizedPowerPointHideUnsupportedSvgContent,
+		powerPointOpenWithYoloMode: normalizedPowerPointOpenWithYoloMode,
+		powerPointShowInspector: normalizedPowerPointShowInspector,
+		disableDocxFiles: normalizedDisableDocxFiles,
+		disablePowerPointFiles: normalizedDisablePowerPointFiles,
+	};
+
+	const shouldPersistSettings = hadLegacyEditorLanguage
+		|| raw.editorTheme !== normalizedEditorTheme
+		|| raw.defaultZoom !== normalizedDefaultZoom
+		|| raw.debugLogging !== normalizedDebugLogging
+		|| raw.enableDocxSearchIndex !== normalizedEnableDocxSearchIndex
+		|| raw.autoIndexDocxSearch !== normalizedAutoIndexDocxSearch
+		|| raw.powerPointAutosaveEnabled !== normalizedPowerPointAutosaveEnabled
+		|| raw.powerPointHideUnsupportedSvgContent !== normalizedPowerPointHideUnsupportedSvgContent
+		|| raw.powerPointOpenWithYoloMode !== normalizedPowerPointOpenWithYoloMode
+		|| raw.powerPointShowInspector !== normalizedPowerPointShowInspector
+		|| raw.powerPointRemoveUnsupportedSvgContent !== undefined
+		|| raw.powerPointYoloMode !== undefined
+		|| raw.disableDocxFiles !== normalizedDisableDocxFiles
+		|| raw.disablePowerPointFiles !== normalizedDisablePowerPointFiles;
+
+	return {
+		settings,
+		hadLegacyEditorLanguage,
+		shouldPersistSettings,
+	};
+}
+
+export function getDefaultZoomSettingOptions(): SettingsOption[] {
+	return DEFAULT_ZOOM_OPTIONS.map(zoom => ({
+		value: String(zoom),
+		label: formatZoom(zoom),
+	}));
+}
+
 export function getNativePowerPointSettings(
-	settings: DocxidianSettings,
+	settings: NativePowerPointDocEditorSettings,
+	resolvedEditorThemeOrSetOpenWithYoloMode: EditorThemeResolution | ((value: boolean) => Promise<void>) = resolveEditorThemePreference(settings.editorTheme),
 	setOpenWithYoloMode: (value: boolean) => Promise<void> = async () => {}
 ): NativePowerPointSettings {
+	const resolvedEditorTheme = typeof resolvedEditorThemeOrSetOpenWithYoloMode === 'function'
+		? resolveEditorThemePreference(settings.editorTheme)
+		: resolvedEditorThemeOrSetOpenWithYoloMode;
+	const setOpenWithYoloModeHandler = typeof resolvedEditorThemeOrSetOpenWithYoloMode === 'function'
+		? resolvedEditorThemeOrSetOpenWithYoloMode
+		: setOpenWithYoloMode;
+
 	return {
+		editorTheme: settings.editorTheme,
+		resolvedEditorTheme,
 		autosaveEnabled: settings.powerPointAutosaveEnabled,
 		hideUnsupportedSvgContent: settings.powerPointHideUnsupportedSvgContent,
 		openWithYoloMode: settings.powerPointOpenWithYoloMode,
 		showInspector: settings.powerPointShowInspector,
-		setOpenWithYoloMode,
+		setOpenWithYoloMode: setOpenWithYoloModeHandler,
 	};
 }
 
@@ -83,14 +293,29 @@ export function normalizeDefaultZoom(value: unknown): number {
 	return Math.round(clampedValue / DEFAULT_ZOOM_STEP) * DEFAULT_ZOOM_STEP;
 }
 
-function formatZoom(value: number): string {
+export function normalizeEditorThemePreference(value: unknown): EditorThemePreference {
+	return value === 'light' || value === 'dark' || value === 'system' ? value : DEFAULT_SETTINGS.editorTheme;
+}
+
+export function resolveEditorThemePreference(
+	value: unknown,
+	systemTheme: EditorThemeResolution = 'light',
+): EditorThemeResolution {
+	const normalizedTheme = normalizeEditorThemePreference(value);
+	if (normalizedTheme === 'light' || normalizedTheme === 'dark') {
+		return normalizedTheme;
+	}
+	return systemTheme === 'dark' ? 'dark' : 'light';
+}
+
+export function formatZoom(value: number): string {
 	return `${Math.round(value * 100)}%`;
 }
 
-export class DocxidianSettingTab extends PluginSettingTab {
-	plugin: DocxidianPlugin;
+export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
+	plugin: NativePowerPointDocEditorPlugin;
 
-	constructor(app: App, plugin: DocxidianPlugin) {
+	constructor(app: App, plugin: NativePowerPointDocEditorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
@@ -101,95 +326,94 @@ export class DocxidianSettingTab extends PluginSettingTab {
 
 	private renderSettings(): void {
 		const { containerEl } = this;
-		const selectedLanguage = normalizeDocxidianLanguage(this.plugin.settings.editorLanguage);
+		const i18n = this.plugin.getI18n()!;
 		const selectedZoom = normalizeDefaultZoom(this.plugin.settings.defaultZoom);
 
-		this.plugin.settings.editorLanguage = selectedLanguage;
 		this.plugin.settings.defaultZoom = selectedZoom;
 
 		containerEl.empty();
+		containerEl.addClass('native-powerpoint-doc-editor-settings-tab');
+		const settingDescriptors = getNativePowerPointDocEditorSettingDescriptors(i18n);
+		const sectionLabels = Object.fromEntries(
+			getNativePowerPointDocEditorSettingsTabSections(i18n).map(({ id, label }) => [id, label]),
+		) as Record<NativePowerPointDocEditorSettingSectionId, string>;
+		const defaultAuthorName = String(settingDescriptors.authorName.defaultValue ?? DEFAULT_SETTINGS.authorName);
+		const defaultTheme = normalizeEditorThemePreference(settingDescriptors.editorTheme.defaultValue);
+		const defaultZoom = normalizeDefaultZoom(settingDescriptors.defaultZoom.defaultValue);
 
 		new Setting(containerEl)
-			.setName('Identity')
+			.setName(sectionLabels.identity)
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Author name')
-			.setDesc('Used for comments and tracked changes.')
+			.setName(settingDescriptors.authorName.name)
+			.setDesc(settingDescriptors.authorName.description)
 			.addText(text => text
-				.setPlaceholder('Mars')
+				.setPlaceholder(settingDescriptors.authorName.placeholder ?? defaultAuthorName)
 				.setValue(this.plugin.settings.authorName)
 				.onChange(async (value) => {
-					this.plugin.settings.authorName = value.trim() || DEFAULT_SETTINGS.authorName;
+					this.plugin.settings.authorName = value.trim() || defaultAuthorName;
 					await this.plugin.saveSettings();
 				}))
 			.addButton(button => button
-				.setButtonText('Reset')
+				.setButtonText(settingDescriptors.authorName.resetLabel ?? i18n.t('common:actions.reset'))
 				.onClick(async () => {
-					this.plugin.settings.authorName = DEFAULT_SETTINGS.authorName;
+					this.plugin.settings.authorName = defaultAuthorName;
 					await this.plugin.saveSettings();
 					this.renderSettings();
 				}));
 
 		new Setting(containerEl)
-			.setName('File type handoff')
+			.setName(i18n.t('settings:fileHandoff.section'))
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Turn off for DOCX files')
-			.setDesc('Turns off plugin specifically for DOCX files in favor of another plugin </3')
+			.setName(settingDescriptors.disableDocxFiles.name)
+			.setDesc(settingDescriptors.disableDocxFiles.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.disableDocxFiles)
 				.onChange(async (value) => {
 					this.plugin.settings.disableDocxFiles = value;
 					await this.plugin.saveSettings();
-					new Notice('Reload Obsidian or disable/re-enable this plugin to update DOCX file handling.');
+					showI18nNotice(i18n, 'settings:fileHandoff.reloadDocxNotice');
 				}));
 
 		new Setting(containerEl)
-			.setName('Turn off for PPTX files')
-			.setDesc('Turns off plugin specifically for PPTX files in favor of another plugin </3')
+			.setName(settingDescriptors.disablePowerPointFiles.name)
+			.setDesc(settingDescriptors.disablePowerPointFiles.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.disablePowerPointFiles)
 				.onChange(async (value) => {
 					this.plugin.settings.disablePowerPointFiles = value;
 					await this.plugin.saveSettings();
-					new Notice('Reload Obsidian or disable/re-enable this plugin to update PPTX file handling.');
+					showI18nNotice(i18n, 'settings:fileHandoff.reloadPptxNotice');
 				}));
 
 		new Setting(containerEl)
-			.setName('Editor defaults')
+			.setName(sectionLabels.editorDefaults)
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Default language')
-			.setDesc('English is the default language for the editor toolbar, dialogs, and messages.')
+			.setName(settingDescriptors.editorTheme.name)
+			.setDesc(settingDescriptors.editorTheme.description)
 			.addDropdown(dropdown => {
-				for (const option of DOCXIDIAN_LANGUAGE_OPTIONS) {
-					const label = option.code === DEFAULT_LANGUAGE ? `${option.label} (default)` : option.label;
-					dropdown.addOption(option.code, label);
+				for (const option of getEditorThemeSettingOptions(i18n, defaultTheme)) {
+					dropdown.addOption(option.value, option.label);
 				}
 
 				dropdown
-					.setValue(selectedLanguage)
+					.setValue(this.plugin.settings.editorTheme)
 					.onChange(async (value) => {
-						this.plugin.settings.editorLanguage = normalizeDocxidianLanguage(value);
+						this.plugin.settings.editorTheme = normalizeEditorThemePreference(value);
 						await this.plugin.saveSettings();
 						this.plugin.refreshDocxViews();
+						this.plugin.refreshPowerPointViews();
 					});
-			})
-			.addButton(button => button
-				.setButtonText('Use English')
-				.onClick(async () => {
-					this.plugin.settings.editorLanguage = DEFAULT_LANGUAGE;
-					await this.plugin.saveSettings();
-					this.plugin.refreshDocxViews();
-					this.renderSettings();
-				}));
+			});
 
 		new Setting(containerEl)
-			.setName('Ruler')
-			.setDesc('Show the page ruler above the document body by default.')
+			.setName(settingDescriptors.showRuler.name)
+			.setDesc(settingDescriptors.showRuler.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.showRuler)
 				.onChange(async (value) => {
@@ -199,10 +423,10 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		const zoomSetting = new Setting(containerEl)
-			.setName('Default zoom')
-			.setDesc('Initial zoom for DOCX files when they open.');
+			.setName(settingDescriptors.defaultZoom.name)
+			.setDesc(settingDescriptors.defaultZoom.description);
 		const zoomValueEl = zoomSetting.controlEl.createSpan({
-			cls: 'docxidian-setting-value',
+			cls: 'native-powerpoint-doc-editor-setting-value',
 			text: formatZoom(selectedZoom),
 		});
 
@@ -215,22 +439,22 @@ export class DocxidianSettingTab extends PluginSettingTab {
 					this.plugin.settings.defaultZoom = zoom;
 					zoomValueEl.setText(formatZoom(zoom));
 					await this.plugin.saveSettings();
-				}))
+			}))
 			.addButton(button => button
-				.setButtonText('Reset')
+				.setButtonText(settingDescriptors.defaultZoom.resetLabel ?? i18n.t('common:actions.reset'))
 				.onClick(async () => {
-					this.plugin.settings.defaultZoom = DEFAULT_SETTINGS.defaultZoom;
+					this.plugin.settings.defaultZoom = defaultZoom;
 					await this.plugin.saveSettings();
 					this.renderSettings();
 				}));
 
 		new Setting(containerEl)
-			.setName('Saving')
+			.setName(sectionLabels.saving)
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Autosave')
-			.setDesc('Automatically save the document shortly after changes.')
+			.setName(settingDescriptors.autosave.name)
+			.setDesc(settingDescriptors.autosave.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.autosave)
 				.onChange(async (value) => {
@@ -240,8 +464,8 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Backups')
-			.setDesc('Create one timestamped backup before the first overwrite in each open DOCX session.')
+			.setName(settingDescriptors.createBackupsBeforeSave.name)
+			.setDesc(settingDescriptors.createBackupsBeforeSave.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.createBackupsBeforeSave)
 				.onChange(async (value) => {
@@ -251,12 +475,8 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('PowerPoint')
-			.setHeading();
-
-		new Setting(containerEl)
-			.setName('Autosave edits')
-			.setDesc('Save editable PowerPoint files 1500 ms after edits settle. When disabled, closing or switching files writes unsaved edits to a recovery copy without overwriting the original.')
+			.setName(settingDescriptors.powerPointAutosaveEnabled.name)
+			.setDesc(settingDescriptors.powerPointAutosaveEnabled.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.powerPointAutosaveEnabled)
 				.onChange(async (value) => {
@@ -265,8 +485,12 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Show inspector panel')
-			.setDesc('Show the object inspector panel on the right side of the PowerPoint editor. Off by default.')
+			.setName(sectionLabels.powerpoint)
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName(settingDescriptors.powerPointShowInspector.name)
+			.setDesc(settingDescriptors.powerPointShowInspector.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.powerPointShowInspector)
 				.onChange(async (value) => {
@@ -276,8 +500,8 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Hide unsupported SVG details')
-			.setDesc('Temporarily hide unsupported PowerPoint SVG details in the Obsidian preview. Off by default. This does not delete them from the PPTX file.')
+			.setName(settingDescriptors.powerPointHideUnsupportedSvgContent.name)
+			.setDesc(settingDescriptors.powerPointHideUnsupportedSvgContent.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.powerPointHideUnsupportedSvgContent)
 				.onChange(async (value) => {
@@ -286,8 +510,8 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Open PowerPoints with YOLO mode')
-			.setDesc('Remember YOLO mode for future PPTX files so the original slide SVG is shown without preview cleanup.')
+			.setName(settingDescriptors.powerPointOpenWithYoloMode.name)
+			.setDesc(settingDescriptors.powerPointOpenWithYoloMode.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.powerPointOpenWithYoloMode)
 				.onChange(async (value) => {
@@ -296,10 +520,10 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		const templateBox = containerEl.createDiv({ cls: 'native-powerpoint-template-box' });
-		templateBox.createDiv({ cls: 'native-powerpoint-template-title', text: 'Free presentation templates' });
+		templateBox.createDiv({ cls: 'native-powerpoint-template-title', text: i18n.t('settings:templates.title') });
 		templateBox.createDiv({
 			cls: 'native-powerpoint-template-desc',
-			text: 'A few places to find starter decks you can download or customize.',
+			text: i18n.t('settings:templates.description'),
 		});
 
 		const templateLinks = templateBox.createDiv({ cls: 'native-powerpoint-template-links' });
@@ -316,12 +540,12 @@ export class DocxidianSettingTab extends PluginSettingTab {
 		}
 
 		new Setting(containerEl)
-			.setName('Search')
+			.setName(sectionLabels.search)
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('DOCX search index')
-			.setDesc('Off by default. When enabled, extracts text from DOCX files into a local cache so the vault-wide DOCX search command can find them.')
+			.setName(settingDescriptors.enableDocxSearchIndex.name)
+			.setDesc(settingDescriptors.enableDocxSearchIndex.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enableDocxSearchIndex)
 				.onChange(async (value) => {
@@ -333,8 +557,8 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Auto-index DOCX changes')
-			.setDesc('Off by default. When enabled with the DOCX search index, keeps the cache updated as DOCX files change.')
+			.setName(settingDescriptors.autoIndexDocxSearch.name)
+			.setDesc(settingDescriptors.autoIndexDocxSearch.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.autoIndexDocxSearch)
 				.onChange(async (value) => {
@@ -346,26 +570,44 @@ export class DocxidianSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Diagnostics')
+			.setName(settingDescriptors.rebuildDocxSearchIndex.name)
+			.setDesc(settingDescriptors.rebuildDocxSearchIndex.description)
+			.addButton(button => button
+				.setButtonText(settingDescriptors.rebuildDocxSearchIndex.actionLabel ?? i18n.t('common:actions.rebuild'))
+				.onClick(async () => {
+					await this.plugin.rebuildDocxSearchIndex(true);
+				}));
+
+		new Setting(containerEl)
+			.setName(sectionLabels.diagnostics)
 			.setHeading();
 
 		new Setting(containerEl)
-			.setName('Debug logging')
-			.setDesc('Log DOCX and PowerPoint diagnostics to the developer console and the in-memory Native PowerPoint Doc Editor log.')
+			.setName(settingDescriptors.debugLogging.name)
+			.setDesc(settingDescriptors.debugLogging.description)
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.debugLogging)
 				.onChange(async (value) => {
 					this.plugin.settings.debugLogging = value;
-					configureDocxidianLogger(value);
+					configureNativePowerPointDocEditorLogger(value);
 					infoLog('settings', `Debug logging ${value ? 'enabled' : 'disabled'}`);
 					await this.plugin.saveSettings();
 				}));
 
 		new Setting(containerEl)
-			.setName('Copy full debug log')
-			.setDesc('Copy all Native PowerPoint Doc Editor logs produced for DOCX and PowerPoint to the clipboard.')
+			.setName(settingDescriptors.copyDocxLog.name)
+			.setDesc(settingDescriptors.copyDocxLog.description)
 			.addButton(button => button
-				.setButtonText('Copy log')
+				.setButtonText(settingDescriptors.copyDocxLog.actionLabel ?? i18n.t('common:actions.copy'))
+				.onClick(async () => {
+					await this.plugin.copyDebugLog('docx');
+				}));
+
+		new Setting(containerEl)
+			.setName(settingDescriptors.copyFullLog.name)
+			.setDesc(settingDescriptors.copyFullLog.description)
+			.addButton(button => button
+				.setButtonText(settingDescriptors.copyFullLog.actionLabel ?? i18n.t('common:actions.copy'))
 				.onClick(async () => {
 					await this.plugin.copyDebugLog('all');
 				}));
@@ -376,6 +618,15 @@ export class DocxidianSettingTab extends PluginSettingTab {
 			text: 'Report bug',
 			attr: {
 				href: 'https://github.com/MarsLuay/NativePowerPointDocEditor/issues',
+				rel: 'noopener noreferrer',
+				target: '_blank',
+			},
+		});
+		reportBugBox.createEl('a', {
+			cls: 'native-powerpoint-report-bug-link',
+			text: 'Buy Me a Coffee',
+			attr: {
+				href: 'https://buymeacoffee.com/marwanluaye',
 				rel: 'noopener noreferrer',
 				target: '_blank',
 			},

@@ -4,14 +4,14 @@ import { loadLoggerModule } from "./helpers/load-plugin-modules.mjs";
 
 test("logger retains diagnostic history and reports dropped entries", async () => {
   globalThis.window = {
-    docxidianDebugLogging: false,
-    docxidianDebugLogs: [],
+    nativePowerPointDocEditorDebugLogging: false,
+    nativePowerPointDocEditorDebugLogs: [],
   };
 
   const {
     debugLog,
-    getDocxidianLogSnapshot,
-    getDocxidianLogStats,
+    getNativePowerPointDocEditorLogSnapshot,
+    getNativePowerPointDocEditorLogStats,
   } = await loadLoggerModule();
 
   debugLog("diagnostics", "nested error", {
@@ -21,8 +21,8 @@ test("logger retains diagnostic history and reports dropped entries", async () =
     debugLog("feature", "retention probe", { index });
   }
 
-  const logs = getDocxidianLogSnapshot();
-  const stats = getDocxidianLogStats();
+  const logs = getNativePowerPointDocEditorLogSnapshot();
+  const stats = getNativePowerPointDocEditorLogStats();
   assert.equal(logs.length, 2000);
   assert.equal(stats.maxRetainedEntries, 2000);
   assert.equal(stats.retainedEntries, 2000);
@@ -33,16 +33,16 @@ test("logger retains diagnostic history and reports dropped entries", async () =
 
 test("logger serializes nested Error values", async () => {
   globalThis.window = {
-    docxidianDebugLogging: false,
-    docxidianDebugLogs: [],
+    nativePowerPointDocEditorDebugLogging: false,
+    nativePowerPointDocEditorDebugLogs: [],
   };
 
-  const { debugLog, getDocxidianLogSnapshot } = await loadLoggerModule();
+  const { debugLog, getNativePowerPointDocEditorLogSnapshot } = await loadLoggerModule();
   debugLog("diagnostics", "nested error probe", {
     error: new Error("serialized failure"),
   });
 
-  const data = getDocxidianLogSnapshot().at(-1)?.data;
+  const data = getNativePowerPointDocEditorLogSnapshot().at(-1)?.data;
   assert.equal(data.error.name, "Error");
   assert.equal(data.error.message, "serialized failure");
 });

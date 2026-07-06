@@ -95,7 +95,7 @@ function collectCaretMetrics(hostEl: HTMLElement): Pick<
 
 function collectScenarioMetrics(name: string, hostEl: HTMLElement): ScenarioMetrics {
 	const fixedProbe = document.createElement('div');
-	fixedProbe.className = 'docxidian-fixed-probe';
+	fixedProbe.className = 'native-powerpoint-doc-editor-fixed-probe';
 	fixedProbe.style.position = 'fixed';
 	fixedProbe.style.left = '0';
 	fixedProbe.style.top = '0';
@@ -151,7 +151,7 @@ function DocxHarnessApp({
 
 	return (
 		<div className="workspace-shell" style={workspaceStyle}>
-			<div className="docxidian-host" ref={hostRef}>
+			<div className="native-powerpoint-doc-editor-host" ref={hostRef}>
 				<DocxEditor
 					documentBuffer={DOCX_BUFFER}
 					initialZoom={initialZoom ?? 1}
@@ -186,8 +186,8 @@ styleTag.textContent = `
 ${editorStyles}
 html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #e2e8f0; }
 .workspace-shell { width: 100%; height: 100%; padding: 24px; box-sizing: border-box; }
-.docxidian-host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: #f8fafc; }
-.docxidian-fixed-probe { left: 0; position: fixed; top: 0; visibility: hidden; pointer-events: none; }
+.native-powerpoint-doc-editor-host { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: #f8fafc; }
+.native-powerpoint-doc-editor-fixed-probe { left: 0; position: fixed; top: 0; visibility: hidden; pointer-events: none; }
 `;
 document.head.appendChild(styleTag);
 

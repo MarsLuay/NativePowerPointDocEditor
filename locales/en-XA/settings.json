@@ -1,0 +1,115 @@
+{
+  "section": {
+    "identity": "[Įḑęñţįţÿ]",
+    "editorDefaults": "[Ęḑįţǫr ḑęfąųſţş]",
+    "saving": "[Şąvįñğ]",
+    "search": "[Şęąrćh]",
+    "fileHandoff": "[Fįſę hąñḑǫff]",
+    "diagnostics": "[Ḑįąğñǫşţįćş]",
+    "powerpoint": "[PǫwęrPǫįñţ]"
+  },
+  "docx": {
+    "authorName": {
+      "name": "[Ąųţhǫr ñąmę]",
+      "description": "[Ųşęḑ fǫr ćǫmmęñţş ąñḑ ţrąćkęḑ ćhąñğęş.]",
+      "placeholder": "[Mąrş]",
+      "resetLabel": "[Ręşęţ]"
+    },
+    "editorTheme": {
+      "name": "[Ţhęmę]",
+      "description": "[Ųşę ţhę şÿşţęm ţhęmę bÿ ḑęfąųſţ, ǫr pįñ ţhįş ęḑįţǫr ţǫ ſįğhţ ǫr ḑąrk mǫḑę.]"
+    },
+    "showRuler": {
+      "name": "[Rųſęr]",
+      "description": "[Şhǫw ţhę pąğę rųſęr ąbǫvę ţhę ḑǫćųmęñţ bǫḑÿ bÿ ḑęfąųſţ.]"
+    },
+    "defaultZoom": {
+      "name": "[Ḑęfąųſţ zǫǫm]",
+      "description": "[Įñįţįąſ zǫǫm fǫr ḐǪĆX fįſęş whęñ ţhęÿ ǫpęñ.]",
+      "resetLabel": "[Ręşęţ]"
+    },
+    "autosave": {
+      "name": "[Ąųţǫşąvę]",
+      "description": "[Ąųţǫmąţįćąſſÿ şąvę ţhę ḑǫćųmęñţ şhǫrţſÿ ąfţęr ćhąñğęş.]"
+    },
+    "createBackupsBeforeSave": {
+      "name": "[Bąćkųpş]",
+      "description": "[Ćręąţę ǫñę ţįmęşţąmpęḑ bąćkųp bęfǫrę ţhę fįrşţ ǫvęrwrįţę įñ ęąćh ǫpęñ ḐǪĆX şęşşįǫñ.]"
+    },
+    "enableDocxSearchIndex": {
+      "name": "[ḐǪĆX şęąrćh įñḑęx]",
+      "description": "[Ǫff bÿ ḑęfąųſţ. Whęñ ęñąbſęḑ, ęxţrąćţş ţęxţ frǫm ḐǪĆX fįſęş įñţǫ ą ſǫćąſ ćąćhę fǫr vąųſţ-wįḑę ḐǪĆX şęąrćh.]"
+    },
+    "autoIndexDocxSearch": {
+      "name": "[Ąųţǫ-įñḑęx ḐǪĆX ćhąñğęş]",
+      "description": "[Ǫff bÿ ḑęfąųſţ. Whęñ ęñąbſęḑ wįţh ţhę ḐǪĆX şęąrćh įñḑęx, kęępş ţhę ćąćhę ųpḑąţęḑ ąş ḐǪĆX fįſęş ćhąñğę.]"
+    },
+    "rebuildDocxSearchIndex": {
+      "name": "[Rębųįſḑ ḐǪĆX şęąrćh įñḑęx]",
+      "description": "[Ręfręşh ţhę şęąrćhąbſę ćąćhę fǫr ḐǪĆX fįſęş įñ ţhįş vąųſţ.]",
+      "actionLabel": "[Rębųįſḑ]"
+    },
+    "disableDocxFiles": {
+      "name": "[Ţųrñ ǫff fǫr ḐǪĆX fįſęş]",
+      "description": "[Ţųrñş ǫff pſųğįñ şpęćįfįćąſſÿ fǫr ḐǪĆX fįſęş įñ fąvǫr ǫf ąñǫţhęr pſųğįñ </3]"
+    },
+    "debugLogging": {
+      "name": "[Ḑębųğ ſǫğğįñğ]",
+      "description": "[Łǫğ ḐǪĆX ąñḑ PǫwęrPǫįñţ ḑįąğñǫşţįćş ţǫ ţhę ḑęvęſǫpęr ćǫñşǫſę ąñḑ ţhę įñ-męmǫrÿ Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ſǫğ.]"
+    },
+    "copyDocxLog": {
+      "name": "[Ćǫpÿ ḐǪĆX ſǫğ]",
+      "description": "[Ćǫpÿ ḐǪĆX-şpęćįfįć Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ſǫğş ţǫ ţhę ćſįpbǫąrḑ.]",
+      "actionLabel": "[Ćǫpÿ]"
+    }
+  },
+  "powerpoint": {
+    "autosave": {
+      "name": "[Ąųţǫşąvę ęḑįţş]",
+      "description": "[Şąvę ęḑįţąbſę PǫwęrPǫįñţ fįſęş 1500 mş ąfţęr ęḑįţş şęţţſę. Whęñ ḑįşąbſęḑ, ćſǫşįñğ ǫr şwįţćhįñğ fįſęş wrįţęş ųñşąvęḑ ęḑįţş ţǫ ą ręćǫvęrÿ ćǫpÿ wįţhǫųţ ǫvęrwrįţįñğ ţhę ǫrįğįñąſ.]"
+    },
+    "showInspector": {
+      "name": "[Şhǫw įñşpęćţǫr pąñęſ]",
+      "description": "[Şhǫw ţhę ǫbjęćţ įñşpęćţǫr pąñęſ ǫñ ţhę rįğhţ şįḑę ǫf ţhę PǫwęrPǫįñţ ęḑįţǫr. Ǫff bÿ ḑęfąųſţ.]"
+    },
+    "hideUnsupportedSvg": {
+      "name": "[Hįḑę ųñşųppǫrţęḑ ŞVĞ ḑęţąįſş]",
+      "description": "[Ţęmpǫrąrįſÿ hįḑę ųñşųppǫrţęḑ PǫwęrPǫįñţ ŞVĞ ḑęţąįſş įñ ţhę Ǫbşįḑįąñ pręvįęw. Ǫff bÿ ḑęfąųſţ. Ţhįş ḑǫęş ñǫţ ḑęſęţę ţhęm frǫm ţhę PPŢX fįſę.]"
+    },
+    "yoloMode": {
+      "name": "[Ǫpęñ PǫwęrPǫįñţş wįţh ŸǪŁǪ mǫḑę]",
+      "description": "[Ręmęmbęr ŸǪŁǪ mǫḑę fǫr fųţųrę PPŢX fįſęş şǫ ţhę ǫrįğįñąſ şſįḑę ŞVĞ įş şhǫwñ wįţhǫųţ pręvįęw ćſęąñųp.]"
+    }
+  },
+  "fileHandoff": {
+    "section": "[Fįſę ţÿpę hąñḑǫff]",
+    "disablePptx": {
+      "name": "[Ţųrñ ǫff fǫr PPŢX fįſęş]",
+      "description": "[Ţųrñş ǫff pſųğįñ şpęćįfįćąſſÿ fǫr PPŢX fįſęş įñ fąvǫr ǫf ąñǫţhęr pſųğįñ </3]"
+    },
+    "reloadDocxNotice": "[Ręſǫąḑ Ǫbşįḑįąñ ǫr ḑįşąbſę/rę-ęñąbſę ţhįş pſųğįñ ţǫ ųpḑąţę ḐǪĆX fįſę hąñḑſįñğ.]",
+    "reloadPptxNotice": "[Ręſǫąḑ Ǫbşįḑįąñ ǫr ḑįşąbſę/rę-ęñąbſę ţhįş pſųğįñ ţǫ ųpḑąţę PPŢX fįſę hąñḑſįñğ.]"
+  },
+  "theme": {
+    "system": "[Şÿşţęm]",
+    "light": "[Łįğhţ]",
+    "dark": "[Ḑąrk]",
+    "defaultSuffix": "[(ḑęfąųſţ)]"
+  },
+  "templates": {
+    "title": "[Fręę pręşęñţąţįǫñ ţęmpſąţęş]",
+    "description": "[Ą fęw pſąćęş ţǫ fįñḑ şţąrţęr ḑęćkş ÿǫų ćąñ ḑǫwñſǫąḑ ǫr ćųşţǫmįzę.]"
+  },
+  "debug": {
+    "copyFullLog": {
+      "name": "[Ćǫpÿ fųſſ ḑębųğ ſǫğ]",
+      "description": "[Ćǫpÿ ąſſ Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ſǫğş prǫḑųćęḑ fǫr ḐǪĆX ąñḑ PǫwęrPǫįñţ ţǫ ţhę ćſįpbǫąrḑ.]",
+      "actionLabel": "[Ćǫpÿ ſǫğ]"
+    },
+    "logCopied": "[Ćǫpįęḑ {count} {label} ſǫğ ęñţrįęş.]",
+    "logCopyFailed": "[Ćǫųſḑ ñǫţ ćǫpÿ Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ḑębųğ ſǫğ. Ǫpęñ ţhę ḑęvęſǫpęr ćǫñşǫſę ąñḑ ćhęćk wįñḑǫw.ñąţįvęPǫwęrPǫįñţḐǫćĘḑįţǫrḐębųğŁǫğş.]"
+  },
+  "plugin": {
+    "reloaded": "[Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ręſǫąḑęḑ.]"
+  }
+}

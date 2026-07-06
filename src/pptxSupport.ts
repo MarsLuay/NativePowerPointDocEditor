@@ -1,4 +1,3 @@
-import { Notice } from 'obsidian';
 import {
 	NativePowerPointView,
 	NATIVE_POWERPOINT_VIEW_TYPE,
@@ -6,13 +5,14 @@ import {
 	isPowerPointExtension,
 } from './NativePowerPointView';
 import { infoLog } from './logger';
-import type DocxidianPlugin from './main';
+import type NativePowerPointDocEditorPlugin from './main';
+import { pptNotice, pptT } from './i18n/powerpointNotify';
 import type { NativePowerPointSettings } from './settings';
 
 export { NativePowerPointView, NATIVE_POWERPOINT_VIEW_TYPE, isPowerPointExtension };
 
 export function registerPowerPointSupport(
-	plugin: DocxidianPlugin,
+	plugin: NativePowerPointDocEditorPlugin,
 	getPowerPointSettings: () => NativePowerPointSettings,
 ) {
 	plugin.registerView(
@@ -23,11 +23,11 @@ export function registerPowerPointSupport(
 
 	plugin.addCommand({
 		id: 'open-powerpoint-file',
-		name: 'Open PowerPoint file',
+		name: pptT('powerpoint:commands.openPowerPointFile'),
 		callback: () => {
 			const file = plugin.app.workspace.getActiveFile();
 			if (!file || !isPowerPointExtension(file.extension)) {
-				new Notice('Select a PowerPoint file to open it.');
+				pptNotice('powerpoint:notice.selectPowerPointToOpen');
 				return;
 			}
 
@@ -37,11 +37,11 @@ export function registerPowerPointSupport(
 	});
 	plugin.addCommand({
 		id: 'save-current-powerpoint-file',
-		name: 'Save current PowerPoint file',
+		name: pptT('powerpoint:commands.saveCurrentPowerPointFile'),
 		callback: async () => {
 			const view = plugin.app.workspace.getActiveViewOfType(NativePowerPointView);
 			if (!view) {
-				new Notice('Open a PowerPoint file to save it.');
+				pptNotice('powerpoint:notice.openPowerPointToSave');
 				return;
 			}
 
@@ -52,7 +52,7 @@ export function registerPowerPointSupport(
 	infoLog('plugin', 'PowerPoint support registered');
 }
 
-export function refreshPowerPointViews(plugin: DocxidianPlugin) {
+export function refreshPowerPointViews(plugin: NativePowerPointDocEditorPlugin) {
 	for (const leaf of plugin.app.workspace.getLeavesOfType(NATIVE_POWERPOINT_VIEW_TYPE)) {
 		const view = leaf.view;
 		if (view instanceof NativePowerPointView) {

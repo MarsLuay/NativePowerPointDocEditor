@@ -5,7 +5,7 @@ const RENDERED_PDF_EXPORT_SCALE = 2;
 const RENDERED_PDF_PAGE_READY_TIMEOUT_MS = 4000;
 const RENDERED_PDF_MAX_TEXT_RUNS_PER_PAGE = 4500;
 const PDF_POINTS_PER_CSS_PIXEL = 72 / 96;
-const SELECTED_LIST_MARKER_CLASS = 'docxidian-list-marker-selected';
+const SELECTED_LIST_MARKER_CLASS = 'native-powerpoint-doc-editor-list-marker-selected';
 const LIST_PARAGRAPH_SELECTOR = '.layout-paragraph[data-pm-start]';
 const LIST_MARKER_SELECTOR = '.layout-list-marker, .docx-list-marker';
 const RENDERED_PDF_PM_SPAN_SELECTOR = 'span[data-pm-start][data-pm-end]';
@@ -67,7 +67,7 @@ function toCdata(value: string) {
 }
 
 function serializeElementForSvg(element: HTMLElement) {
-	const cloneDocument = activeDocument.implementation.createHTMLDocument('docxidian-pdf-export');
+	const cloneDocument = activeDocument.implementation.createHTMLDocument('native-powerpoint-doc-editor-pdf-export');
 	const importedElement = cloneDocument.importNode(element, true);
 	importedElement.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
 	return new XMLSerializer().serializeToString(importedElement);
@@ -577,7 +577,7 @@ async function renderPageElementToCanvasJpeg(page: HTMLElement) {
 		windowWidth: Math.max(activeDocument.documentElement.clientWidth, pageWidth),
 		windowHeight: Math.max(activeDocument.documentElement.clientHeight, pageHeight),
 		onclone: (_clonedDocument, clonedPage) => {
-			clonedPage.classList.add('docxidian-pdf-export-page');
+			clonedPage.classList.add('native-powerpoint-doc-editor-pdf-export-page');
 			// Neutralize the on-screen zoom transform inline: stylesheet rules
 			// (even high-specificity ones) cannot override an inline transform.
 			clonedPage.setCssProps({
@@ -606,16 +606,16 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 	}
 
 	const clone = page.cloneNode(true) as HTMLElement;
-	clone.classList.add('docxidian-pdf-export-page');
+	clone.classList.add('native-powerpoint-doc-editor-pdf-export-page');
 
 	const exportCss = [
 		cssText,
 		'html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #ffffff; }',
-		'.docxidian-pdf-export-root { margin: 0; padding: 0; background: #ffffff; color: #000000; }',
-		'.docxidian-pdf-export-root .paged-editor__pages { margin: 0 !important; padding: 0 !important; display: block !important; }',
-		'.docxidian-pdf-export-page { margin: 0 !important; box-shadow: none !important; transform: none !important; transform-origin: top left !important; }',
-		'.docxidian-pdf-export-root * { animation: none !important; transition: none !important; caret-color: transparent !important; }',
-		`.docxidian-pdf-export-root .${SELECTED_LIST_MARKER_CLASS} { background: transparent !important; outline: none !important; }`,
+		'.native-powerpoint-doc-editor-pdf-export-root { margin: 0; padding: 0; background: #ffffff; color: #000000; }',
+		'.native-powerpoint-doc-editor-pdf-export-root .paged-editor__pages { margin: 0 !important; padding: 0 !important; display: block !important; }',
+		'.native-powerpoint-doc-editor-pdf-export-page { margin: 0 !important; box-shadow: none !important; transform: none !important; transform-origin: top left !important; }',
+		'.native-powerpoint-doc-editor-pdf-export-root * { animation: none !important; transition: none !important; caret-color: transparent !important; }',
+		`.native-powerpoint-doc-editor-pdf-export-root .${SELECTED_LIST_MARKER_CLASS} { background: transparent !important; outline: none !important; }`,
 	].join('\n');
 
 	const rootClassName = escapeSvgText(editorRoot.className);
@@ -626,7 +626,7 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 		toCdata(exportCss),
 		']]></style>',
 		`<foreignObject x="0" y="0" width="${pageWidth}" height="${pageHeight}">`,
-		`<div xmlns="http://www.w3.org/1999/xhtml" class="${rootClassName} docxidian-pdf-export-root" style="width:${pageWidth}px;height:${pageHeight}px;">`,
+		`<div xmlns="http://www.w3.org/1999/xhtml" class="${rootClassName} native-powerpoint-doc-editor-pdf-export-root" style="width:${pageWidth}px;height:${pageHeight}px;">`,
 		'<div class="paged-editor__pages">',
 		pageHtml,
 		'</div>',

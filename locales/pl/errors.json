@@ -1,0 +1,20 @@
+{
+	"generic": {
+		"message": "Wystąpił błąd. Spróbuj ponownie."
+	},
+	"saveFailed": "Nie udało się zapisać {fileName}: {message}",
+	"saveNoDocument": "Nie udało się zapisać {fileName}: edytor nie zwrócił dokumentu.",
+	"exportFailed": "Nie udało się wyeksportować {path}: {message}",
+	"exportNoDocument": "Nie udało się wyeksportować {path}: edytor nie zwrócił dokumentu.",
+	"exportPdfFailed": "Nie udało się wyeksportować {path}: renderowanie sformatowanego PDF nie powiodło się. Nie zapisano pliku.",
+	"exportPdfRenderFailed": "Nie udało się wyrenderować sformatowanego PDF: {message}",
+	"exportNoPages": "Nie znaleziono wyrenderowanych stron DOCX do eksportu.",
+	"createFailed": "Nie udało się utworzyć {path}: {message}",
+	"renameFailed": "Nie udało się zmienić nazwy {fileName}: {message}",
+	"insertTableFailed": "Nie udało się wstawić tabeli w tym miejscu.",
+	"fontImportFileFailed": "Nie udało się zaimportować {fileName}.",
+	"fontImportFailed": "Nie udało się zaimportować czcionki: {message}",
+	"insertImageFailed": "Nie udało się wstawić obrazu: {message}",
+	"renderFailed": "Nie udało się wyrenderować {fileName}: {message}",
+	"loadFailed": "{message}"
+}

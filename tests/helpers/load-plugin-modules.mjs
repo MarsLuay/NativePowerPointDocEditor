@@ -17,7 +17,13 @@ let viewModulePromise;
 let docxTextExtractorModulePromise;
 let docxReviewMarkupModulePromise;
 let docxHiddenTextScannerModulePromise;
+let docxStyleDefaultsModulePromise;
+let docxParagraphLayoutRelayoutModulePromise;
 let docxTableCellFontSizePreserverModulePromise;
+let docxFloatingLayerLayoutModulePromise;
+let docxEditorChromeMarkersModulePromise;
+let tooltipControllerModulePromise;
+let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
@@ -185,12 +191,67 @@ export function loadDocxHiddenTextScannerModule() {
   return docxHiddenTextScannerModulePromise;
 }
 
+export function loadDocxStyleDefaultsModule() {
+  docxStyleDefaultsModulePromise ??= bundleSource("src/docxStyleDefaults.ts", "docx-style-defaults.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxStyleDefaultsModulePromise;
+}
+
+export function loadDocxParagraphLayoutRelayoutModule() {
+  docxParagraphLayoutRelayoutModulePromise ??= bundleSource(
+    "src/docxParagraphLayoutRelayout.ts",
+    "docx-paragraph-layout-relayout.cjs",
+    ["prosemirror-model"],
+  ).then((outfile) => require(outfile));
+  return docxParagraphLayoutRelayoutModulePromise;
+}
+
 export function loadDocxTableCellFontSizePreserverModule() {
   docxTableCellFontSizePreserverModulePromise ??= bundleSource(
     "src/docxTableCellFontSizePreserver.ts",
     "docx-table-cell-font-size-preserver.cjs",
   ).then((outfile) => require(outfile));
   return docxTableCellFontSizePreserverModulePromise;
+}
+
+export function loadDocxFloatingLayerLayoutModule() {
+  docxFloatingLayerLayoutModulePromise ??= bundleSource(
+    "src/docxFloatingLayerLayout.ts",
+    "docx-floating-layer-layout.cjs",
+  ).then((outfile) => require(outfile));
+  return docxFloatingLayerLayoutModulePromise;
+}
+
+export function loadDocxEditorChromeMarkersModule() {
+  docxEditorChromeMarkersModulePromise ??= bundleSource(
+    "src/docxEditorChromeMarkers.ts",
+    "docx-editor-chrome-markers.cjs",
+  ).then((outfile) => require(outfile));
+  return docxEditorChromeMarkersModulePromise;
+}
+
+export function loadDocxToolbarTooltipModule() {
+  return bundleSource(
+    "src/docxToolbarTooltip.ts",
+    "docx-toolbar-tooltip.cjs",
+  ).then((outfile) => require(outfile));
+}
+
+export function loadTooltipControllerModule() {
+  tooltipControllerModulePromise ??= bundleSource(
+    "src/ui/TooltipController.ts",
+    "tooltip-controller.cjs",
+  ).then((outfile) => require(outfile));
+  return tooltipControllerModulePromise;
+}
+
+export function loadPowerPointToolbarTooltipTargetModule() {
+  powerPointToolbarTooltipTargetModulePromise ??= bundleSource(
+    "src/powerpoint/toolbarTooltipTarget.ts",
+    "powerpoint-toolbar-tooltip-target.cjs",
+  ).then((outfile) => require(outfile));
+  return powerPointToolbarTooltipTargetModulePromise;
 }
 
 export function loadLoggerModule() {

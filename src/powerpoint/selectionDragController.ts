@@ -1,4 +1,5 @@
-import { Notice } from 'obsidian';
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 import type { ShapeTransform } from 'pptx-svg';
 import { isSVGGElement } from '../domGuards';
 import type { PresentationEngine } from '../PresentationEngine';
@@ -8,6 +9,7 @@ import type { DragState, GroupDragState, HandleName, HistoryEntry, MarqueeState,
 import { cloneTransform, getShapeIndex, transformsMatch } from './svgUtils';
 
 export interface SelectionDragHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly svgEl: SVGSVGElement | null;
   readonly canvasPane: HTMLElement | null;
@@ -41,8 +43,11 @@ export class SelectionDragController {
   groupDrag: GroupDragState | null = null;
   multiSelectionBoxes: HTMLElement[] = [];
   selectionOverlay: HTMLElement | null = null;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: SelectionDragHost) {}
+  constructor(private readonly host: SelectionDragHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   clearDragState(): void {
     this.dragState = null;
@@ -128,7 +133,8 @@ export class SelectionDragController {
           const rotateStem = this.selectionOverlay.createDiv({ cls: 'native-powerpoint-rotate-stem' });
           rotateStem.setAttribute('aria-hidden', 'true');
           const rotateHandle = this.selectionOverlay.createDiv({ cls: 'native-powerpoint-rotate-handle' });
-          rotateHandle.setAttribute('aria-label', 'Rotate object');
+          rotateHandle.setAttribute('aria-label', this.host.t('powerpoint:accessibility.rotateObject'));
+          rotateHandle.setAttribute('data-tooltip', this.host.t('powerpoint:accessibility.rotateObject'));
           rotateHandle.addEventListener('pointerdown', (event) => {
             event.preventDefault();
             event.stopPropagation();
@@ -427,7 +433,7 @@ export class SelectionDragController {
           await this.host.renderThumbnails();
         }
       } catch (error) {
-        new Notice(`Could not move objects: ${cleanError(error)}`);
+        this.notice('powerpoint:notice.couldNotMoveObjects', { message: cleanError(error) });
       }
     }
 
@@ -592,7 +598,7 @@ export class SelectionDragController {
         const rendered = await this.host.renderEditedShape(shapeIndex);
         if (rendered) await this.host.renderThumbnails();
       } catch (error) {
-        new Notice(`Could not update object: ${cleanError(error)}`);
+        this.notice('powerpoint:notice.couldNotUpdateObject', { message: cleanError(error) });
       }
     }
 

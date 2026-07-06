@@ -1,4 +1,7 @@
-import { Menu, Notice } from 'obsidian';
+import { Menu } from 'obsidian';
+
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 
 import type { PresentationEngine, SlideLayoutKind } from '../PresentationEngine';
 import { createSvgElementFromString, type SvgSecurityIssue } from '../SvgSecurity';
@@ -15,6 +18,7 @@ import type { HistoryEntry } from './types';
  * lived on the view, filmstrip behavior is unchanged.
  */
 export interface SlideFilmstripHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly thumbnailContainer: HTMLElement | null;
   readonly isLoading: boolean;
@@ -50,8 +54,11 @@ export class SlideFilmstripController {
   readonly selectedSlideIndices = new Set<number>();
   private thumbnailDragIndex: number | null = null;
   private slideNavigationPromise: Promise<void> = Promise.resolve();
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: SlideFilmstripHost) {}
+  constructor(private readonly host: SlideFilmstripHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   async renderThumbnails(): Promise<void> {
     if (!this.host.engine || !this.host.thumbnailContainer) return;
@@ -76,7 +83,10 @@ export class SlideFilmstripController {
         }
         preview.appendChild(thumbnailSvg);
       } catch {
-        preview.createDiv({ cls: 'native-powerpoint-thumbnail-error', text: '!' });
+        preview.createDiv({
+          cls: 'native-powerpoint-thumbnail-error',
+          text: this.host.t('powerpoint:loading.thumbnailError')
+        });
       }
       const thumbnailSvg = preview.querySelector('svg');
       if (thumbnailSvg) {
@@ -86,7 +96,8 @@ export class SlideFilmstripController {
         thumbnailSvg.addClass('native-powerpoint-thumbnail-svg');
       }
 
-      item.createDiv({ cls: 'native-powerpoint-thumbnail-number', text: `${index + 1}` });
+      const numberEl = item.createDiv({ cls: 'native-powerpoint-thumbnail-number' });
+      numberEl.textContent = String(index + 1);
       item.addEventListener('click', (event) => {
         this.host.lastInteractionRegion = 'thumbnails';
         if (event.shiftKey) {
@@ -236,7 +247,7 @@ export class SlideFilmstripController {
       }
     } catch (error) {
       errorLog('slide', 'goToSlide failed', { from: fromSlide, to: index, reason, generation, error });
-      new Notice(`Could not open slide ${index + 1}: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotOpenSlide', { slideNumber: index + 1, message: cleanError(error) });
     } finally {
       if (generation === this.host.slideRenderGeneration) {
         this.host.isNavigatingSlide = false;
@@ -260,7 +271,7 @@ export class SlideFilmstripController {
       debugLog('slide', 'Add slide completed', { slide: this.host.currentSlide, slideCount: this.host.engine.slideCount });
     } catch (error) {
       errorLog('slide', 'Add slide failed', { slide: this.host.currentSlide, error });
-      new Notice(`Could not add slide: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotAddSlide', { message: cleanError(error) });
     }
   }
 
@@ -281,7 +292,7 @@ export class SlideFilmstripController {
       debugLog('slide', 'Delete slide completed', { slide: this.host.currentSlide, slideCount: this.host.engine.slideCount });
     } catch (error) {
       errorLog('slide', 'Delete slide failed', { slide: this.host.currentSlide, error });
-      new Notice(`Could not delete slide: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotDeleteSlide', { message: cleanError(error) });
     }
   }
 
@@ -292,7 +303,7 @@ export class SlideFilmstripController {
     const targets = Array.from(this.selectedSlideIndices).sort((a, b) => b - a);
     if (targets.length === 0) return;
     if (targets.length >= this.host.engine.slideCount) {
-      new Notice('You cannot delete every slide.');
+      this.notice('powerpoint:notice.cannotDeleteEverySlide');
       return;
     }
 
@@ -318,7 +329,7 @@ export class SlideFilmstripController {
       });
     } catch (error) {
       errorLog('slide', 'Delete selected slides failed', { targets, error });
-      new Notice(`Could not delete slides: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotDeleteSlides', { message: cleanError(error) });
     }
   }
 
@@ -345,7 +356,7 @@ export class SlideFilmstripController {
       debugLog('slide', 'Move slide completed', { from: index, to: this.host.currentSlide });
     } catch (error) {
       errorLog('slide', 'Move slide failed', { index, direction, error });
-      new Notice(`Could not move slide: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotMoveSlide', { message: cleanError(error) });
     }
   }
 
@@ -370,7 +381,7 @@ export class SlideFilmstripController {
       });
     } catch (error) {
       errorLog('slide', 'Add slide with layout failed', { layout, error });
-      new Notice(`Could not add slide: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotAddSlide', { message: cleanError(error) });
     }
   }
 
@@ -396,7 +407,7 @@ export class SlideFilmstripController {
       });
     } catch (error) {
       errorLog('slide', 'Duplicate slide failed', { targetIndex, error });
-      new Notice(`Could not duplicate slide: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotDuplicateSlide', { message: cleanError(error) });
     }
   }
 
@@ -422,7 +433,7 @@ export class SlideFilmstripController {
       });
     } catch (error) {
       errorLog('slide', 'Delete slide at index failed', { targetIndex, error });
-      new Notice(`Could not delete slide: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotDeleteSlide', { message: cleanError(error) });
     }
   }
 
@@ -459,7 +470,7 @@ export class SlideFilmstripController {
       debugLog('slide', 'Reorder slides completed', { fromIndex, toIndex });
     } catch (error) {
       errorLog('slide', 'Reorder slides failed', { fromIndex, toIndex, error });
-      new Notice(`Could not reorder slides: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotReorderSlides', { message: cleanError(error) });
     }
   }
 

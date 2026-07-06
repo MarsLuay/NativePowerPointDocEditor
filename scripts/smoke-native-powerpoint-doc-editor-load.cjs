@@ -6,15 +6,15 @@ const path = require('node:path');
 
 const projectRoot = path.resolve(__dirname, '..');
 const inferredVaultRoot = path.resolve(projectRoot, '..', '..');
-const vaultRoot = process.env.DOCXIDIAN_VAULT_ROOT
-	? path.resolve(process.env.DOCXIDIAN_VAULT_ROOT)
+const vaultRoot = process.env.NATIVE_POWERPOINT_DOC_EDITOR_VAULT_ROOT
+	? path.resolve(process.env.NATIVE_POWERPOINT_DOC_EDITOR_VAULT_ROOT)
 	: fs.existsSync(path.join(inferredVaultRoot, '.obsidian'))
 		? inferredVaultRoot
 		: projectRoot;
 let temporaryPluginDir = null;
 const installedPluginDir = path.resolve(vaultRoot, '.obsidian', 'plugins', 'native-powerpoint-doc-editor');
 const pluginDir = resolvePluginDir();
-const maxDocxFiles = Number(process.env.DOCXIDIAN_SMOKE_DOCX_LIMIT ?? 5);
+const maxDocxFiles = Number(process.env.NATIVE_POWERPOINT_DOC_EDITOR_SMOKE_DOCX_LIMIT ?? 5);
 
 const originalLoad = Module._load;
 const originalConsole = {
@@ -35,7 +35,6 @@ const DEFAULT_PLUGIN_DATA = {
 	defaultZoom: 1,
 	disableDocxFiles: false,
 	disablePowerPointFiles: false,
-	editorLanguage: 'en',
 	enableDocxSearchIndex: true,
 	autoIndexDocxSearch: true,
 	powerPointAutosaveEnabled: true,
@@ -75,8 +74,8 @@ function createActiveDocumentStub() {
 }
 
 function resolvePluginDir() {
-	if (process.env.DOCXIDIAN_PLUGIN_DIR) {
-		return path.resolve(process.env.DOCXIDIAN_PLUGIN_DIR);
+	if (process.env.NATIVE_POWERPOINT_DOC_EDITOR_PLUGIN_DIR) {
+		return path.resolve(process.env.NATIVE_POWERPOINT_DOC_EDITOR_PLUGIN_DIR);
 	}
 
 	if (fs.existsSync(path.join(installedPluginDir, 'main.js'))) {
@@ -347,7 +346,7 @@ function findDocxFiles(dir, limit, results = []) {
 
 function loadBundledDocxSupport() {
 	const esbuild = require('esbuild');
-	const outfile = path.join(os.tmpdir(), `docxidian-smoke-docx-support-${process.pid}.cjs`);
+	const outfile = path.join(os.tmpdir(), `native-powerpoint-doc-editor-smoke-docx-support-${process.pid}.cjs`);
 	esbuild.buildSync({
 		absWorkingDir: projectRoot,
 		entryPoints: ['src/docxSupport.ts'],
@@ -405,17 +404,17 @@ async function runSmoke() {
 
 	await plugin.onload();
 	assert.equal(plugin.registeredViews.length, 2, 'Plugin should register the DOCX and PowerPoint views.');
-	assert.ok(plugin.registeredViews.some((view) => view.viewType === 'docxidian-docx-view'), 'Plugin should register the DOCX view.');
+	assert.ok(plugin.registeredViews.some((view) => view.viewType === 'native-powerpoint-doc-editor-docx-view'), 'Plugin should register the DOCX view.');
 	assert.ok(plugin.registeredViews.some((view) => view.viewType === 'native-powerpoint-view'), 'Plugin should register the PowerPoint view.');
 	assert.ok(
-		plugin.registeredExtensions.some((entry) => entry.viewType === 'docxidian-docx-view' && entry.extensions.includes('docx')),
+		plugin.registeredExtensions.some((entry) => entry.viewType === 'native-powerpoint-doc-editor-docx-view' && entry.extensions.includes('docx')),
 		'Plugin should register DOCX file extensions.'
 	);
 	assert.ok(
 		plugin.registeredExtensions.some((entry) => entry.viewType === 'native-powerpoint-view' && entry.extensions.includes('pptx')),
 		'Plugin should register PowerPoint file extensions.'
 	);
-	const copyLogCommand = plugin.commands.find((command) => command.id === 'copy-docxidian-debug-log');
+	const copyLogCommand = plugin.commands.find((command) => command.id === 'copy-native-powerpoint-doc-editor-debug-log');
 	assert.ok(copyLogCommand, 'Plugin should register the copy debug log command.');
 	assert.ok(plugin.commands.some((command) => command.id === 'search-docx-files'), 'Plugin should register the vault-wide DOCX search command.');
 	assert.ok(plugin.commands.some((command) => command.id === 'rebuild-docx-search-index'), 'Plugin should register the DOCX search rebuild command.');
@@ -423,7 +422,7 @@ async function runSmoke() {
 	assert.ok(capturedLogs.some((entry) => entry.args.join(' ').includes('[Native PowerPoint Doc Editor] plugin: Plugin loaded')), 'Debug logging should emit a plugin loaded entry.');
 	assert.ok(capturedLogs.some((entry) => entry.args.join(' ').includes('[Native PowerPoint Doc Editor] chunk: DOCX editor is bundled into main.js')), 'Debug logging should emit bundled DOCX editor mode.');
 
-	const docxViewFactory = plugin.registeredViews.find((view) => view.viewType === 'docxidian-docx-view')?.factory;
+	const docxViewFactory = plugin.registeredViews.find((view) => view.viewType === 'native-powerpoint-doc-editor-docx-view')?.factory;
 	assert.equal(typeof docxViewFactory, 'function', 'Plugin should expose a DOCX view factory.');
 	const docxView = docxViewFactory({ app });
 	const sourceDocx = {
@@ -470,7 +469,7 @@ async function runSmoke() {
 	assert.equal(disabledPlugin.registeredExtensions.length, 0, 'Disabled file handoff should not register DOCX or PowerPoint extensions.');
 	assert.ok(!disabledPlugin.commands.some((command) => command.id === 'save-current-docx'), 'Disabled DOCX handoff should skip DOCX commands.');
 	assert.ok(!disabledPlugin.commands.some((command) => command.id === 'save-current-powerpoint-file'), 'Disabled PPTX handoff should skip PowerPoint commands.');
-	assert.ok(disabledPlugin.commands.some((command) => command.id === 'copy-docxidian-debug-log'), 'Disabled file handoff should keep diagnostics available.');
+	assert.ok(disabledPlugin.commands.some((command) => command.id === 'copy-native-powerpoint-doc-editor-debug-log'), 'Disabled file handoff should keep diagnostics available.');
 	pluginData = { ...DEFAULT_PLUGIN_DATA };
 
 	await copyLogCommand.callback();
@@ -489,8 +488,8 @@ async function runSmoke() {
 		assert.equal(typeof chunk[exportName], 'function', `docx support bundle should export bundled ${exportName}.`);
 	}
 
-	const docxFiles = process.env.DOCXIDIAN_SMOKE_DOCX
-		? [path.resolve(process.env.DOCXIDIAN_SMOKE_DOCX)]
+	const docxFiles = process.env.NATIVE_POWERPOINT_DOC_EDITOR_SMOKE_DOCX
+		? [path.resolve(process.env.NATIVE_POWERPOINT_DOC_EDITOR_SMOKE_DOCX)]
 		: findDocxFiles(vaultRoot, maxDocxFiles);
 
 	for (const docxFile of docxFiles) {
@@ -511,7 +510,7 @@ runSmoke()
 		restoreEnvironment();
 	console.log(`Native PowerPoint Doc Editor smoke passed: ${result.logCount} logs captured; ${result.docxCount} DOCX file(s) inspected.`);
 	if (result.docxCount === 0) {
-		console.log('- DOCX review-markup scan skipped: set DOCXIDIAN_SMOKE_DOCX or DOCXIDIAN_VAULT_ROOT to include sample documents.');
+		console.log('- DOCX review-markup scan skipped: set NATIVE_POWERPOINT_DOC_EDITOR_SMOKE_DOCX or NATIVE_POWERPOINT_DOC_EDITOR_VAULT_ROOT to include sample documents.');
 	}
 	for (const docxFile of result.docxFiles) {
 			console.log(`- ${docxFile}`);

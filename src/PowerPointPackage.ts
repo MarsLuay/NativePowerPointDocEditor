@@ -270,7 +270,7 @@ export async function validatePowerPointExportContents(
       const originalCount = countMatches(originalSlideXml, marker.pattern);
       const exportedCount = countMatches(exportedSlideXml, marker.pattern);
       if (exportedCount < originalCount) {
-        errors.push(`Slide edit dropped ${marker.label} markup.`);
+        errors.push(`Slide edit dropped ${marker.featureId} markup.`);
       }
     }
 
@@ -345,13 +345,13 @@ function sameStoredContent(a: PowerPointPackageEntry, b: PowerPointPackageEntry)
 }
 
 const PROTECTED_SLIDE_MARKERS = [
-  { label: 'animation timing', pattern: /<p:timing\b/g },
-  { label: 'chart', pattern: /<c:chart\b/g },
-  { label: 'grouped shape', pattern: /<p:grpSp\b/g },
-  { label: 'hyperlink', pattern: /<a:hlinkClick\b/g },
-  { label: 'image', pattern: /<p:pic\b/g },
-  { label: 'slide extension', pattern: /<p:ext\b/g },
-  { label: 'table', pattern: /<a:tbl\b/g }
+  { featureId: 'animationTiming', pattern: /<p:timing\b/g },
+  { featureId: 'chart', pattern: /<c:chart\b/g },
+  { featureId: 'groupedShape', pattern: /<p:grpSp\b/g },
+  { featureId: 'hyperlink', pattern: /<a:hlinkClick\b/g },
+  { featureId: 'image', pattern: /<p:pic\b/g },
+  { featureId: 'slideExtension', pattern: /<p:ext\b/g },
+  { featureId: 'table', pattern: /<a:tbl\b/g }
 ];
 
 const KNOWN_OOXML_PREFIXES = new Set(['a', 'c', 'm', 'mc', 'p', 'r']);

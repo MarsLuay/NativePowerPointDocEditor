@@ -59,8 +59,8 @@ function createStructuralHarnessHtml(scenario) {
   <style>
     html, body { margin: 0; width: 100%; height: 100%; background: #e2e8f0; }
     .workspace-shell { width: 100%; height: 100%; padding: 24px; box-sizing: border-box; transform: ${scenario.workspaceTransform}; transform-origin: top left; }
-    .docxidian-host { width: 100%; height: 100%; background: #f8fafc; position: relative; }
-    .docxidian-fixed-probe { left: 0; position: fixed; top: 0; visibility: hidden; pointer-events: none; }
+    .native-powerpoint-doc-editor-host { width: 100%; height: 100%; background: #f8fafc; position: relative; }
+    .native-powerpoint-doc-editor-fixed-probe { left: 0; position: fixed; top: 0; visibility: hidden; pointer-events: none; }
     .ep-root.paged-editor { width: 100%; height: 100%; }
     .editor-transform { transform: ${scenario.editorTransform}; transform-origin: top center; width: 816px; margin: 0 auto; background: white; box-shadow: 0 0 0 1px #d1d5db; }
     .layout-page-content { padding: 96px 72px; min-height: 400px; }
@@ -69,7 +69,7 @@ function createStructuralHarnessHtml(scenario) {
 </head>
 <body>
   <div class="workspace-shell">
-    <div class="docxidian-host">
+    <div class="native-powerpoint-doc-editor-host">
       <div class="ep-root paged-editor">
         <div class="editor-transform">
           <div class="layout-page-content">
@@ -98,9 +98,9 @@ function createStructuralHarnessHtml(scenario) {
         return ancestors;
       }
 
-      const hostEl = document.querySelector('.docxidian-host');
+      const hostEl = document.querySelector('.native-powerpoint-doc-editor-host');
       const fixedProbe = document.createElement('div');
-      fixedProbe.className = 'docxidian-fixed-probe';
+      fixedProbe.className = 'native-powerpoint-doc-editor-fixed-probe';
       hostEl.appendChild(fixedProbe);
       const fixedRect = fixedProbe.getBoundingClientRect();
       fixedProbe.remove();

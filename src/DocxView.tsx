@@ -1,20 +1,66 @@
-import { App, FileView, Modal, Notice, Platform, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
+import { App, Component, FileView, Modal, Platform, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
-import { createEditorTranslator } from './editorTranslations';
+import type { I18nService } from './i18n/I18nService';
+import { showI18nNotice } from './i18n/notify';
+import {
+	getDocxEditorSettingDescriptors,
+	getDocxEditorSettingsMenuSections,
+} from './i18n/docxSettingsCatalog';
 import { loadDocxEditorChunk } from './docxEditorLoader';
 import { findHiddenDocxText, type HiddenTextFinding } from './docxHiddenTextScanner';
+import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { extractDocxMarkdown, extractDocxText } from './docxTextExtractor';
 import { isElement, isHTMLElement, isNode } from './domGuards';
 import { scheduleIdleWork } from './idleSchedule';
+import { createLoadTrace, monotonicNow, type LoadTrace } from './loadTrace';
+import {
+	createObservedMutationObserver,
+	logLifecycleStep,
+	startOpenHeartbeat,
+	traceSyncStep,
+} from './debugInstrumentation';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
-import { DOCXIDIAN_LANGUAGE_OPTIONS, DEFAULT_LANGUAGE, normalizeDocxidianLanguage, type DocxidianLanguage } from './locales';
-import { DEFAULT_SETTINGS, normalizeDefaultZoom } from './settings';
+import { closeModalDomScope, loadModalDomScope, openModalDomScope } from './modalDomScope';
+import {
+	DEFAULT_SETTINGS,
+	getDefaultZoomSettingOptions,
+	getEditorThemeSettingOptions,
+	normalizeDefaultZoom,
+	normalizeEditorThemePreference,
+	type DocxEditorSettingId,
+	type EditorThemeResolution,
+	type EditorThemePreference,
+} from './settings';
 import type { DocxReactMount } from './DocxReactMount';
 import type { DocxReactViewHandle, DocxReactViewProps } from './DocxReactView';
+import {
+	bindPopoverDismissHandlers,
+	configureMenuItemButton,
+	createActionRow,
+	createCheckboxRow,
+	createMenuItem,
+	createMenuRow,
+	createMenuSection,
+	createPopoverShell,
+	createSelectRow,
+} from './menuControls';
+import {
+	EDITOR_CHROME_MENU_ITEMS,
+	markEditorChromeMenuItem,
+	markEditorChromeNoToolbarTooltip,
+} from './docxEditorChromeMarkers';
 
+import { neutralizeToolbarButtonTooltipSources } from './docxToolbarTooltip';
 import { VIEW_TYPE_DOCX } from './docxViewConstants';
 
 export { VIEW_TYPE_DOCX };
+
+const EDITOR_CHROME_OBSERVER_OPTIONS: MutationObserverInit = {
+	childList: true,
+	subtree: true,
+	attributes: true,
+	attributeFilter: ['title', 'aria-label'],
+};
 
 type UnsavedDocxChoice = 'save' | 'discard' | 'cancel';
 type DocxPathChoice = string | null;
@@ -60,7 +106,8 @@ interface DocxFileSignature {
 
 export interface DocxEditorSettingsSnapshot {
 	authorName: string;
-	editorLanguage: DocxidianLanguage;
+	editorTheme: EditorThemePreference;
+	resolvedEditorTheme: EditorThemeResolution;
 	showRuler: boolean;
 	autosave: boolean;
 	createBackupsBeforeSave: boolean;
@@ -74,7 +121,7 @@ export interface DocxEditorSettingsSnapshot {
 export interface DocxEditorSettingsController {
 	getSettings: () => DocxEditorSettingsSnapshot;
 	setAuthorName: (value: string) => Promise<void>;
-	setEditorLanguage: (value: string) => Promise<void>;
+	setEditorTheme: (value: string) => Promise<void>;
 	setShowRuler: (value: boolean) => Promise<void>;
 	setAutosave: (value: boolean) => Promise<void>;
 	setCreateBackupsBeforeSave: (value: boolean) => Promise<void>;
@@ -118,6 +165,13 @@ type EditorOptionSearchItem =
 	| EditorOptionSearchActionItem
 	| EditorOptionSearchControlQueryItem
 	| EditorOptionSearchControlItem;
+
+const DOCX_SETTINGS_ROW_CLASSES = {
+	rowClassName: 'native-powerpoint-doc-editor-editor-settings-row',
+	copyClassName: 'native-powerpoint-doc-editor-editor-settings-copy',
+	labelClassName: 'native-powerpoint-doc-editor-editor-settings-label',
+	descriptionClassName: 'native-powerpoint-doc-editor-editor-settings-desc',
+};
 
 const DOCX_EXPORT_FORMATS: readonly DocxExportFormat[] = [
 	{ id: 'pdf', label: 'PDF document (.pdf)', extension: 'pdf' },
@@ -226,14 +280,17 @@ function createPlainTextHtml(text: string, title: string): string {
 
 	return [
 		'<!doctype html>',
-		'<html>',
+		'<html lang="en">',
 		'<head>',
 		'<meta charset="utf-8">',
+		'<meta name="viewport" content="width=device-width, initial-scale=1">',
 		`<title>${escapeHtml(title)}</title>`,
 		'<style>body{font-family:Arial,Helvetica,sans-serif;line-height:1.5;margin:48px;max-width:760px;}p{margin:0 0 1em;}</style>',
 		'</head>',
 		'<body>',
+		'<main>',
 		body,
+		'</main>',
 		'</body>',
 		'</html>',
 		'',
@@ -316,6 +373,7 @@ function getBinaryExportContent(content: ArrayBuffer | ArrayBufferView | string)
 class UnsavedDocxModal extends Modal {
 	private resolveChoice: (choice: UnsavedDocxChoice) => void;
 	private resolved = false;
+	private domScope?: Component;
 
 	constructor(
 		app: App,
@@ -327,23 +385,27 @@ class UnsavedDocxModal extends Modal {
 	}
 
 	onOpen() {
+		this.domScope = openModalDomScope();
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'Save changes?' });
 		contentEl.createEl('p', { text: `${this.fileName} has unsaved changes.` });
 
-		const buttonRow = contentEl.createDiv({ cls: 'docxidian-unsaved-actions' });
+		const buttonRow = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-unsaved-actions' });
 		const cancelButton = buttonRow.createEl('button', { text: 'Cancel' });
 		const discardButton = buttonRow.createEl('button', { text: 'Discard' });
 		const saveButton = buttonRow.createEl('button', { text: 'Save' });
 		saveButton.addClass('mod-cta');
 
-		cancelButton.addEventListener('click', () => this.choose('cancel'));
-		discardButton.addEventListener('click', () => this.choose('discard'));
-		saveButton.addEventListener('click', () => this.choose('save'));
+		this.domScope.registerDomEvent(cancelButton, 'click', () => this.choose('cancel'));
+		this.domScope.registerDomEvent(discardButton, 'click', () => this.choose('discard'));
+		this.domScope.registerDomEvent(saveButton, 'click', () => this.choose('save'));
+		loadModalDomScope(this.domScope);
 	}
 
 	onClose() {
+		closeModalDomScope(this.domScope);
+		this.domScope = undefined;
 		this.contentEl.empty();
 		if (!this.resolved) {
 			this.choose('cancel');
@@ -364,6 +426,7 @@ class UnsavedDocxModal extends Modal {
 class DocxPathModal extends Modal {
 	private resolveChoice: (choice: DocxPathChoice) => void;
 	private resolved = false;
+	private domScope?: Component;
 
 	constructor(
 		app: App,
@@ -378,37 +441,39 @@ class DocxPathModal extends Modal {
 	}
 
 	onOpen() {
+		this.domScope = openModalDomScope();
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: this.title });
 		contentEl.createEl('p', { text: this.description });
 
-		const form = contentEl.createEl('form', { cls: 'docxidian-path-form' });
+		const form = contentEl.createEl('form', { cls: 'native-powerpoint-doc-editor-path-form' });
 		const input = form.createEl('input', {
-			cls: 'docxidian-path-input',
+			cls: 'native-powerpoint-doc-editor-path-input',
 			type: 'text',
 		});
 		input.value = this.initialPath;
 		input.setAttribute('spellcheck', 'false');
 
-		const buttonRow = form.createDiv({ cls: 'docxidian-unsaved-actions' });
+		const buttonRow = form.createDiv({ cls: 'native-powerpoint-doc-editor-unsaved-actions' });
 		const cancelButton = buttonRow.createEl('button', { text: 'Cancel', type: 'button' });
 		const saveButton = buttonRow.createEl('button', { text: this.actionLabel, type: 'submit' });
 		saveButton.addClass('mod-cta');
 
-		cancelButton.addEventListener('click', () => this.choose(null));
-		form.addEventListener('submit', (evt) => {
+		this.domScope.registerDomEvent(cancelButton, 'click', () => this.choose(null));
+		this.domScope.registerDomEvent(form, 'submit', (evt) => {
 			evt.preventDefault();
 			this.choose(input.value);
 		});
 
-		window.setTimeout(() => {
-			input.focus();
-			input.select();
-		});
+		input.focus();
+		input.select();
+		loadModalDomScope(this.domScope);
 	}
 
 	onClose() {
+		closeModalDomScope(this.domScope);
+		this.domScope = undefined;
 		this.contentEl.empty();
 		if (!this.resolved) {
 			this.choose(null);
@@ -429,6 +494,7 @@ class DocxPathModal extends Modal {
 class DocxExportModal extends Modal {
 	private resolveChoice: (choice: DocxExportChoice) => void;
 	private resolved = false;
+	private domScope?: Component;
 
 	constructor(
 		app: App,
@@ -441,40 +507,41 @@ class DocxExportModal extends Modal {
 	}
 
 	onOpen() {
+		this.domScope = openModalDomScope();
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'Export as' });
 		contentEl.createEl('p', { text: 'Export a copy next to the original file. If the file already exists, you can replace it or keep both.' });
 
-		const form = contentEl.createEl('form', { cls: 'docxidian-path-form' });
-		const formatLabel = form.createEl('label', { cls: 'docxidian-export-field' });
+		const form = contentEl.createEl('form', { cls: 'native-powerpoint-doc-editor-path-form' });
+		const formatLabel = form.createEl('label', { cls: 'native-powerpoint-doc-editor-export-field' });
 		formatLabel.createSpan({ text: 'Format' });
-		const formatSelect = formatLabel.createEl('select', { cls: 'docxidian-path-select' });
+		const formatSelect = formatLabel.createEl('select', { cls: 'native-powerpoint-doc-editor-path-select' });
 		for (const format of DOCX_EXPORT_FORMATS) {
 			const option = formatSelect.createEl('option', { text: format.label, value: format.id });
 			option.selected = format.id === this.initialFormat;
 		}
 
-		const nameLabel = form.createEl('label', { cls: 'docxidian-export-field' });
+		const nameLabel = form.createEl('label', { cls: 'native-powerpoint-doc-editor-export-field' });
 		nameLabel.createSpan({ text: 'File name' });
 		const input = nameLabel.createEl('input', {
-			cls: 'docxidian-path-input',
+			cls: 'native-powerpoint-doc-editor-path-input',
 			type: 'text',
 		});
 		input.value = withExportExtension(this.initialName, this.initialFormat);
 		input.setAttribute('spellcheck', 'false');
 
-		formatSelect.addEventListener('change', () => {
+		this.domScope.registerDomEvent(formatSelect, 'change', () => {
 			input.value = withExportExtension(input.value, formatSelect.value as DocxExportFormatId);
 		});
 
-		const buttonRow = form.createDiv({ cls: 'docxidian-unsaved-actions' });
+		const buttonRow = form.createDiv({ cls: 'native-powerpoint-doc-editor-unsaved-actions' });
 		const cancelButton = buttonRow.createEl('button', { text: 'Cancel', type: 'button' });
 		const exportButton = buttonRow.createEl('button', { text: 'Export', type: 'submit' });
 		exportButton.addClass('mod-cta');
 
-		cancelButton.addEventListener('click', () => this.choose(null));
-		form.addEventListener('submit', (evt) => {
+		this.domScope.registerDomEvent(cancelButton, 'click', () => this.choose(null));
+		this.domScope.registerDomEvent(form, 'submit', (evt) => {
 			evt.preventDefault();
 			this.choose({
 				name: input.value,
@@ -482,13 +549,14 @@ class DocxExportModal extends Modal {
 			});
 		});
 
-		window.setTimeout(() => {
-			input.focus();
-			input.select();
-		});
+		input.focus();
+		input.select();
+		loadModalDomScope(this.domScope);
 	}
 
 	onClose() {
+		closeModalDomScope(this.domScope);
+		this.domScope = undefined;
 		this.contentEl.empty();
 		if (!this.resolved) {
 			this.choose(null);
@@ -509,6 +577,7 @@ class DocxExportModal extends Modal {
 class ExistingFileModal extends Modal {
 	private resolveChoice: (choice: ExistingFileChoice) => void;
 	private resolved = false;
+	private domScope?: Component;
 
 	constructor(
 		app: App,
@@ -520,22 +589,26 @@ class ExistingFileModal extends Modal {
 	}
 
 	onOpen() {
+		this.domScope = openModalDomScope();
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'This file already exists.' });
 		contentEl.createEl('p', { text: 'Replace it?' });
 		contentEl.createEl('p', { text: this.filePath });
 
-		const buttonRow = contentEl.createDiv({ cls: 'docxidian-unsaved-actions' });
+		const buttonRow = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-unsaved-actions' });
 		const noButton = buttonRow.createEl('button', { text: 'No' });
 		const yesButton = buttonRow.createEl('button', { text: 'Yes' });
 		yesButton.addClass('mod-warning');
 
-		noButton.addEventListener('click', () => this.choose('copy'));
-		yesButton.addEventListener('click', () => this.choose('replace'));
+		this.domScope.registerDomEvent(noButton, 'click', () => this.choose('copy'));
+		this.domScope.registerDomEvent(yesButton, 'click', () => this.choose('replace'));
+		loadModalDomScope(this.domScope);
 	}
 
 	onClose() {
+		closeModalDomScope(this.domScope);
+		this.domScope = undefined;
 		this.contentEl.empty();
 		if (!this.resolved) {
 			this.choose('copy');
@@ -565,54 +638,54 @@ class HiddenTextScanModal extends Modal {
 
 	onOpen() {
 		const { contentEl } = this;
-		this.modalEl.addClass('docxidian-hidden-text-shell');
+		this.modalEl.addClass('native-powerpoint-doc-editor-hidden-text-shell');
 		contentEl.empty();
-		contentEl.addClass('docxidian-hidden-text-modal');
+		contentEl.addClass('native-powerpoint-doc-editor-hidden-text-modal');
 		contentEl.createEl('h2', { text: 'Find hidden text' });
 
 		if (this.findings.length === 0) {
 			contentEl.createEl('p', {
-				cls: 'docxidian-hidden-text-summary docxidian-hidden-text-empty',
+				cls: 'native-powerpoint-doc-editor-hidden-text-summary native-powerpoint-doc-editor-hidden-text-empty',
 				text: `No hidden, white, or tiny text was found in ${this.fileName}. Scanned ${this.partsScanned} document part(s).`,
 			});
 			return;
 		}
 
 		contentEl.createEl('p', {
-			cls: 'docxidian-hidden-text-summary',
+			cls: 'native-powerpoint-doc-editor-hidden-text-summary',
 			text: `Found ${this.findings.length} suspicious hidden text item(s) in ${this.fileName}. Review before pasting this document into an AI tool.`,
 		});
 
-		const list = contentEl.createDiv({ cls: 'docxidian-hidden-text-results' });
+		const list = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-hidden-text-results' });
 		for (const finding of this.findings) {
-			const resultEl = list.createDiv({ cls: 'docxidian-hidden-text-result' });
-			const header = resultEl.createDiv({ cls: 'docxidian-hidden-text-header' });
+			const resultEl = list.createDiv({ cls: 'native-powerpoint-doc-editor-hidden-text-result' });
+			const header = resultEl.createDiv({ cls: 'native-powerpoint-doc-editor-hidden-text-header' });
 			header.createSpan({
-				cls: 'docxidian-hidden-text-location',
+				cls: 'native-powerpoint-doc-editor-hidden-text-location',
 				text: `${finding.partLabel}, paragraph ${finding.paragraphNumber}`,
 			});
 			header.createSpan({
-				cls: 'docxidian-hidden-text-path',
+				cls: 'native-powerpoint-doc-editor-hidden-text-path',
 				text: finding.partPath,
 			});
 
-			const reasons = resultEl.createDiv({ cls: 'docxidian-hidden-text-reasons' });
+			const reasons = resultEl.createDiv({ cls: 'native-powerpoint-doc-editor-hidden-text-reasons' });
 			for (const reason of finding.reasons) {
-				reasons.createSpan({ cls: 'docxidian-hidden-text-reason', text: reason });
+				reasons.createSpan({ cls: 'native-powerpoint-doc-editor-hidden-text-reason', text: reason });
 			}
 			for (const signal of finding.promptInjectionSignals) {
-				reasons.createSpan({ cls: 'docxidian-hidden-text-reason mod-warning', text: `Prompt-like text: ${signal}` });
+				reasons.createSpan({ cls: 'native-powerpoint-doc-editor-hidden-text-reason mod-warning', text: `Prompt-like text: ${signal}` });
 			}
 
 			resultEl.createEl('pre', {
-				cls: 'docxidian-hidden-text-snippet',
+				cls: 'native-powerpoint-doc-editor-hidden-text-snippet',
 				text: finding.text,
 			});
 		}
 	}
 
 	onClose() {
-		this.modalEl.removeClass('docxidian-hidden-text-shell');
+		this.modalEl.removeClass('native-powerpoint-doc-editor-hidden-text-shell');
 		this.contentEl.empty();
 	}
 }
@@ -620,6 +693,7 @@ class HiddenTextScanModal extends Modal {
 class ExternalDocxChangeModal extends Modal {
 	private resolveChoice: (choice: DocxConflictChoice) => void;
 	private resolved = false;
+	private domScope?: Component;
 
 	constructor(
 		app: App,
@@ -631,6 +705,7 @@ class ExternalDocxChangeModal extends Modal {
 	}
 
 	onOpen() {
+		this.domScope = openModalDomScope();
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.createEl('h2', { text: 'File changed on disk' });
@@ -641,16 +716,19 @@ class ExternalDocxChangeModal extends Modal {
 			text: 'Saving now will overwrite those outside changes. Cancel and use Save as... or Duplicate current DOCX if you want to keep both versions.',
 		});
 
-		const buttonRow = contentEl.createDiv({ cls: 'docxidian-unsaved-actions' });
+		const buttonRow = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-unsaved-actions' });
 		const cancelButton = buttonRow.createEl('button', { text: 'Cancel save' });
 		const overwriteButton = buttonRow.createEl('button', { text: 'Overwrite anyway' });
 		overwriteButton.addClass('mod-warning');
 
-		cancelButton.addEventListener('click', () => this.choose('cancel'));
-		overwriteButton.addEventListener('click', () => this.choose('overwrite'));
+		this.domScope.registerDomEvent(cancelButton, 'click', () => this.choose('cancel'));
+		this.domScope.registerDomEvent(overwriteButton, 'click', () => this.choose('overwrite'));
+		loadModalDomScope(this.domScope);
 	}
 
 	onClose() {
+		closeModalDomScope(this.domScope);
+		this.domScope = undefined;
 		this.contentEl.empty();
 		if (!this.resolved) {
 			this.choose('cancel');
@@ -692,10 +770,11 @@ function cleanEditorOptionLabel(rawLabel: string): string {
 }
 
 function getEditorOptionRawLabel(element: HTMLElement): string {
-	return element.getAttribute('data-docxidian-search-label')
+	return element.getAttribute('data-native-powerpoint-doc-editor-search-label')
 		?? element.getAttribute('aria-label')
-		?? element.dataset.docxidianNativeTitle
-		?? element.dataset.docxidianTooltipTitle
+		?? element.dataset.nativePowerPointDocEditorToolbarLabel
+		?? element.dataset.nativePowerPointDocEditorNativeTitle
+		?? element.dataset.nativePowerPointDocEditorTooltipTitle
 		?? element.getAttribute('title')
 		?? element.textContent
 		?? element.dataset.testid
@@ -711,7 +790,7 @@ function getEditorOptionControlKeywords(element: HTMLElement, label: string): st
 	const testId = element.dataset.testid;
 	const rawText = element.textContent?.trim();
 	const groupLabel = element.closest<HTMLElement>('[role="group"][aria-label]')?.getAttribute('aria-label');
-	const nativeTitle = element.dataset.docxidianNativeTitle ?? element.dataset.docxidianTooltipTitle ?? element.getAttribute('title');
+	const nativeTitle = element.dataset.nativePowerPointDocEditorNativeTitle ?? element.dataset.nativePowerPointDocEditorTooltipTitle ?? element.getAttribute('title');
 
 	for (const value of [label, testId, rawText, groupLabel, nativeTitle]) {
 		const normalized = cleanEditorOptionLabel(value ?? '');
@@ -732,14 +811,70 @@ function isTopLevelEditorMenuButton(element: HTMLElement): boolean {
 	);
 }
 
+function getActiveEditorMenubar(hostEl: HTMLElement): HTMLElement | null {
+	const menubars = hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"]');
+	if (menubars.length === 0) {
+		return null;
+	}
+
+	return menubars[menubars.length - 1] ?? null;
+}
+
+function dedupeEditorChromeMenuItem(hostEl: HTMLElement, selector: string): HTMLElement | null {
+	const menubar = getActiveEditorMenubar(hostEl);
+	const matches = Array.from(hostEl.querySelectorAll<HTMLElement>(selector));
+	if (matches.length === 0) {
+		return null;
+	}
+
+	const inActiveMenubar = menubar
+		? matches.filter((item) => menubar.contains(item))
+		: [];
+	const preferred = inActiveMenubar[0] ?? matches[matches.length - 1] ?? null;
+	if (!preferred) {
+		return null;
+	}
+
+	for (const item of matches) {
+		if (item !== preferred) {
+			item.remove();
+		}
+	}
+
+	return preferred;
+}
+
+function ensureEditorChromeMenuItemPosition(
+	menubar: HTMLElement,
+	item: HTMLElement,
+	insertBeforeSelector?: string,
+) {
+	const anchor = insertBeforeSelector
+		? menubar.querySelector<HTMLElement>(insertBeforeSelector)
+		: null;
+
+	if (item.parentElement !== menubar) {
+		if (anchor) {
+			menubar.insertBefore(item, anchor);
+		} else {
+			menubar.appendChild(item);
+		}
+		return;
+	}
+
+	if (anchor && item.nextElementSibling !== anchor) {
+		menubar.insertBefore(item, anchor);
+	}
+}
+
 function shouldSkipEditorOptionControl(element: HTMLElement): boolean {
 	return Boolean(
-		element.closest('.docxidian-option-search-menu')
-		|| element.closest('.docxidian-edit-menu')
-		|| element.closest('[data-docxidian-edit-menu-item]')
-		|| element.closest('[data-docxidian-search-menu-item]')
-		|| element.closest('[data-docxidian-settings-menu-item]')
-		|| element.closest('[data-docxidian-no-toolbar-tooltip]')
+		element.closest('.native-powerpoint-doc-editor-option-search-menu')
+		|| element.closest('.native-powerpoint-doc-editor-edit-menu')
+		|| element.closest('[data-native-powerpoint-doc-editor-edit-menu-item]')
+		|| element.closest('[data-native-powerpoint-doc-editor-search-menu-item]')
+		|| element.closest('[data-native-powerpoint-doc-editor-settings-menu-item]')
+		|| element.closest('[data-native-powerpoint-doc-editor-no-toolbar-tooltip]')
 		|| element.closest('[data-testid="title-bar"] input')
 		|| isTopLevelEditorMenuButton(element)
 	);
@@ -776,24 +911,22 @@ function isPrimaryFindShortcut(evt: KeyboardEvent): boolean {
 	return key === 'f' && hasPrimaryModifier && !evt.altKey && !evt.shiftKey;
 }
 
-function getEditorMenuLabels(locale: Translations | undefined) {
-	const translate = createEditorTranslator(locale);
-
+function getEditorMenuLabels(i18n: I18nService) {
 	return {
-		file: normalizeMenuText(translate('toolbar.file', undefined, 'File')),
+		file: normalizeMenuText(i18n.t('docx:toolbar.file')),
 		edit: 'edit',
-		format: normalizeMenuText(translate('toolbar.format', undefined, 'Format')),
-		insert: normalizeMenuText(translate('toolbar.insert', undefined, 'Insert')),
-		help: normalizeMenuText(translate('toolbar.help', undefined, 'Help')),
+		format: normalizeMenuText(i18n.t('docx:toolbar.format')),
+		insert: normalizeMenuText(i18n.t('docx:toolbar.insert')),
+		help: normalizeMenuText(i18n.t('docx:toolbar.help')),
 		save: [
-			translate('toolbar.save', undefined, 'Save'),
-			translate('common.save', undefined, 'Save'),
+			i18n.t('docx:toolbar.save'),
+			i18n.t('common:actions.save'),
 		],
-		pageSetup: [translate('toolbar.pageSetup', undefined, 'Page Setup'), 'Page setup'],
-		pageBreak: [translate('toolbar.pageBreak', undefined, 'Page Break'), 'Page break'],
-		tableOfContents: [translate('toolbar.tableOfContents', undefined, 'Table of Contents'), 'Table of contents'],
-		leftToRight: [translate('toolbar.leftToRight', undefined, 'Left to Right'), 'Left to right'],
-		rightToLeft: [translate('toolbar.rightToLeft', undefined, 'Right to Left'), 'Right to left'],
+		pageSetup: [i18n.t('docx:toolbar.pageSetup'), 'Page setup'],
+		pageBreak: [i18n.t('docx:toolbar.pageBreak'), 'Page break'],
+		tableOfContents: [i18n.t('docx:toolbar.tableOfContents'), 'Table of contents'],
+		leftToRight: [i18n.t('docx:toolbar.leftToRight'), 'Left to right'],
+		rightToLeft: [i18n.t('docx:toolbar.rightToLeft'), 'Right to left'],
 	};
 }
 
@@ -832,25 +965,26 @@ export class DocxView extends FileView {
 	private backupCreatedForOpenFile = false;
 	private reserveReviewSidebar = false;
 	private hostResizeObserver: ResizeObserver | null = null;
-	private titleObserver: MutationObserver | null = null;
-	private helpMenuObserver: MutationObserver | null = null;
-	private searchMenuObserver: MutationObserver | null = null;
-	private editMenuObserver: MutationObserver | null = null;
-	private fileMenuObserver: MutationObserver | null = null;
-	private insertMenuObserver: MutationObserver | null = null;
-	private nativeMenuStyleObserver: MutationObserver | null = null;
-	private settingsMenuObserver: MutationObserver | null = null;
+	private editorChromeObserver: MutationObserver | null = null;
+	private editorChromeSyncQueued = false;
+	private editorChromeSyncing = false;
 	private optionSearchPopoverEl: HTMLElement | null = null;
 	private optionSearchCleanup: (() => void) | null = null;
 	private editorEditPopoverEl: HTMLElement | null = null;
 	private editorEditCleanup: (() => void) | null = null;
 	private editorSettingsPopoverEl: HTMLElement | null = null;
 	private editorSettingsCleanup: (() => void) | null = null;
+	private openLoadTrace: LoadTrace | null = null;
+	private stopOpenHeartbeat: (() => void) | null = null;
+	private editorChromeObserversRegistered = false;
 
 	constructor(
 		leaf: WorkspaceLeaf,
 		private getAuthorName: () => string,
+		private getEditorTheme: () => EditorThemePreference,
+		private getResolvedEditorTheme: () => EditorThemeResolution,
 		private getEditorLocale: () => Translations | undefined,
+		private getPluginI18n: () => I18nService | null,
 		private getShowRuler: () => boolean,
 		private getAutosave: () => boolean,
 		private getCreateBackupsBeforeSave: () => boolean,
@@ -868,6 +1002,22 @@ export class DocxView extends FileView {
 		return this.file?.basename ?? 'DOCX';
 	}
 
+	private resolveEditorMenuLabels() {
+		const i18n = this.getPluginI18n();
+		if (!i18n) {
+			throw new Error('Plugin i18n is not initialized');
+		}
+		return getEditorMenuLabels(i18n);
+	}
+
+	private showNotice(key: string, values?: Record<string, string | number | boolean>) {
+		showI18nNotice(this.getPluginI18n(), key, values);
+	}
+
+	private docxT(key: string): string {
+		return this.getPluginI18n()?.t(key) ?? key;
+	}
+
 	getIcon() {
 		return 'file-text';
 	}
@@ -876,28 +1026,126 @@ export class DocxView extends FileView {
 		return extension.toLowerCase() === 'docx';
 	}
 
+	private beginOpenLoadTrace(phase: string, data?: Record<string, unknown>) {
+		if (!this.openLoadTrace) {
+			this.openLoadTrace = createLoadTrace('docx-open', {
+				file: this.file?.path,
+				documentSession: this.documentSession,
+			});
+		}
+
+		this.openLoadTrace.mark(phase, data);
+	}
+
+	private markOpenLoadPhase(phase: string, data?: Record<string, unknown>) {
+		this.openLoadTrace?.mark(phase, data);
+	}
+
+	private finishOpenLoadTrace(message: string, data?: Record<string, unknown>) {
+		this.openLoadTrace?.finish(message, data);
+		this.openLoadTrace = null;
+		this.stopOpenHeartbeat?.();
+		this.stopOpenHeartbeat = null;
+	}
+
+	private startOpenHeartbeat() {
+		this.stopOpenHeartbeat?.();
+		this.stopOpenHeartbeat = startOpenHeartbeat('docx-open', () => ({
+			file: this.file?.path,
+			documentSession: this.documentSession,
+			hasReactMount: Boolean(this.reactMount),
+			isLoading: this.isLoading,
+			chromeObserversRegistered: this.editorChromeObserversRegistered,
+		}));
+	}
+
 	async onOpen() {
+		this.beginOpenLoadTrace('view-onOpen-start');
+		this.startOpenHeartbeat();
+		logLifecycleStep('view-onOpen', { file: this.file?.path });
 		debugLog('view', 'Opening DOCX view');
-		this.contentEl.empty();
-		this.hostEl = this.contentEl.createDiv({ cls: 'docxidian-host' });
-		this.prepareViewHost();
-		this.registerHostMetrics();
-		this.removeNativeButtonTitles();
-		this.removeEditorHelpMenu();
-			this.addEditorEditMenuButton();
-			this.addEditorSearchMenuButton();
-			this.addEditorSettingsMenuButton();
-			this.addEditorFileExportAsMenuItem();
-			this.addEditorInsertMenuItems();
-			this.normalizeNativeEditorMenuActionItems();
-		this.trackEditorHoverState();
-		this.registerEditorSaveInterceptor();
-		this.registerEditorListAwareCopyInterceptor();
-		this.registerSaveShortcut();
-		this.registerFindShortcut();
-		this.registerEditorDropdownScrollGuard();
-		this.registerActiveLeafMounting();
+		traceSyncStep('view-onOpen:empty-content', () => {
+			this.contentEl.empty();
+			this.hostEl = this.contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-host' });
+		}, { file: this.file?.path });
+		traceSyncStep('view-onOpen:apply-theme', () => this.applyThemeClass());
+		traceSyncStep('view-onOpen:prepare-host', () => this.prepareViewHost());
+		traceSyncStep('view-onOpen:host-metrics', () => this.registerHostMetrics());
+		traceSyncStep('view-onOpen:save-interceptor', () => this.registerEditorSaveInterceptor());
+		traceSyncStep('view-onOpen:copy-interceptor', () => this.registerEditorListAwareCopyInterceptor());
+		traceSyncStep('view-onOpen:save-shortcut', () => this.registerSaveShortcut());
+		traceSyncStep('view-onOpen:find-shortcut', () => this.registerFindShortcut());
+		traceSyncStep('view-onOpen:scroll-guard', () => this.registerEditorDropdownScrollGuard());
+		traceSyncStep('view-onOpen:active-leaf', () => this.registerActiveLeafMounting());
+		this.markOpenLoadPhase('view-onOpen-ready');
 		this.render();
+	}
+
+	private registerEditorChromeCustomization() {
+		if (this.editorChromeObserversRegistered || !this.hostEl || !this.reactMount) {
+			return;
+		}
+
+		this.editorChromeObserversRegistered = true;
+		this.markOpenLoadPhase('editor-chrome-observers-start');
+		logLifecycleStep('editor-chrome-observers:start', { file: this.file?.path });
+		this.syncEditorChromeCustomizations(true);
+		this.editorChromeObserver = createObservedMutationObserver('docx-editor-chrome', () => {
+			this.scheduleEditorChromeSync();
+		});
+		this.editorChromeObserver.observe(this.hostEl, EDITOR_CHROME_OBSERVER_OPTIONS);
+		this.register(() => {
+			this.editorChromeObserver?.disconnect();
+			this.editorChromeObserver = null;
+		});
+		this.markOpenLoadPhase('editor-chrome-observers-ready');
+		logLifecycleStep('editor-chrome-observers:ready', { file: this.file?.path });
+	}
+
+	private syncEditorChromeCustomizations(traceSteps = false) {
+		const run = traceSteps
+			? <T,>(step: string, fn: () => T) => traceSyncStep(step, fn)
+			: <T,>(_step: string, fn: () => T) => fn();
+
+		run('editor-chrome:dedupe-menu-items', () => this.dedupeEditorChromeMenuItems());
+		run('editor-chrome:remove-titles', () => this.removeNativeButtonTitles());
+		run('editor-chrome:sync-toolbar-tooltip-metadata', () => this.syncToolbarTooltipMetadata());
+		run('editor-chrome:remove-help-menu', () => this.removeEditorHelpMenu());
+		run('editor-chrome:edit-menu', () => this.addEditorEditMenuButton());
+		run('editor-chrome:search-menu', () => this.addEditorSearchMenuButton());
+		run('editor-chrome:settings-menu', () => this.addEditorSettingsMenuButton());
+		run('editor-chrome:export-menu', () => this.addEditorFileExportAsMenuItem());
+		run('editor-chrome:insert-menu', () => this.addEditorInsertMenuItems());
+		run('editor-chrome:normalize-menu-items', () => this.normalizeNativeEditorMenuActionItems());
+	}
+
+	private scheduleEditorChromeSync() {
+		if (this.editorChromeSyncQueued || this.editorChromeSyncing) {
+			return;
+		}
+
+		this.editorChromeSyncQueued = true;
+		requestAnimationFrame(() => {
+			this.editorChromeSyncQueued = false;
+			this.runEditorChromeSync();
+		});
+	}
+
+	private runEditorChromeSync() {
+		if (!this.hostEl || this.editorChromeSyncing) {
+			return;
+		}
+
+		this.editorChromeSyncing = true;
+		this.editorChromeObserver?.disconnect();
+		try {
+			this.syncEditorChromeCustomizations(false);
+		} finally {
+			this.editorChromeSyncing = false;
+			if (this.hostEl && this.editorChromeObserversRegistered && this.editorChromeObserver) {
+				this.editorChromeObserver.observe(this.hostEl, EDITOR_CHROME_OBSERVER_OPTIONS);
+			}
+		}
 	}
 
 	private registerActiveLeafMounting() {
@@ -909,10 +1157,31 @@ export class DocxView extends FileView {
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
 			this.render();
 		}));
+		this.app.workspace.onLayoutReady(() => {
+			this.render();
+		});
+		const cancelStartupRender = scheduleIdleWork(() => {
+			this.render();
+		}, { timeout: 0 });
+		this.register(() => cancelStartupRender());
 	}
 
 	private isLeafActive(): boolean {
-		return this.app.workspace.getActiveViewOfType(DocxView) === this;
+		if (this.app.workspace.getActiveViewOfType(DocxView) === this) {
+			return true;
+		}
+		if (this.app.workspace.activeLeaf?.view === this) {
+			return true;
+		}
+		if (!this.file) {
+			return false;
+		}
+		const activeFile = this.app.workspace.getActiveFile();
+		if (!activeFile || activeFile.path !== this.file.path) {
+			return false;
+		}
+		const docxLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_DOCX);
+		return docxLeaves.length === 1 && docxLeaves[0]?.view === this;
 	}
 
 	private renderInactivePlaceholder() {
@@ -922,7 +1191,7 @@ export class DocxView extends FileView {
 
 		this.hostEl.empty();
 		this.hostEl.createDiv({
-			cls: 'docxidian-editor-inactive',
+			cls: 'native-powerpoint-doc-editor-editor-inactive',
 			text: 'Activate this tab to load the DOCX editor.',
 		});
 	}
@@ -933,20 +1202,29 @@ export class DocxView extends FileView {
 		}
 
 		this.editorMountScheduled = true;
+		this.markOpenLoadPhase('editor-mount-idle-scheduled', { idleTimeoutMs: 16 });
 		const cancelIdle = scheduleIdleWork(() => {
 			this.editorMountScheduled = false;
 			if (!this.isLeafActive() || !this.hostEl) {
+				this.markOpenLoadPhase('editor-mount-idle-skipped', {
+					isLeafActive: this.isLeafActive(),
+					hasHost: Boolean(this.hostEl),
+				});
 				return;
 			}
 
+			this.markOpenLoadPhase('editor-mount-idle-fired');
 			void this.ensureReactMount();
-		}, { timeout: 750 });
+		}, { timeout: 16 });
 
 		this.register(() => cancelIdle());
 	}
 
 	async onClose() {
 		debugLog('view', 'Closing DOCX view', { file: this.file?.path });
+		if (this.openLoadTrace) {
+			this.finishOpenLoadTrace('view-closed-before-ready', { file: this.file?.path });
+		}
 		if (!await this.promptToSaveIfDirty()) {
 			warnLog('view', 'Canceled DOCX view close because unsaved changes were kept', { file: this.file?.path });
 			return;
@@ -956,26 +1234,13 @@ export class DocxView extends FileView {
 		this.reactMountLoading = false;
 		this.hostResizeObserver?.disconnect();
 		this.hostResizeObserver = null;
-		this.titleObserver?.disconnect();
-		this.titleObserver = null;
-		this.helpMenuObserver?.disconnect();
-		this.helpMenuObserver = null;
-		this.searchMenuObserver?.disconnect();
-		this.searchMenuObserver = null;
-		this.editMenuObserver?.disconnect();
-		this.editMenuObserver = null;
-		this.fileMenuObserver?.disconnect();
-		this.fileMenuObserver = null;
-		this.insertMenuObserver?.disconnect();
-		this.insertMenuObserver = null;
-		this.nativeMenuStyleObserver?.disconnect();
-		this.nativeMenuStyleObserver = null;
-		this.settingsMenuObserver?.disconnect();
-		this.settingsMenuObserver = null;
+		this.editorChromeObserver?.disconnect();
+		this.editorChromeObserver = null;
+		this.editorChromeSyncQueued = false;
+		this.editorChromeSyncing = false;
 		this.closeEditorOptionSearchMenu();
 		this.closeEditorEditMenu();
 		this.closeEditorSettingsMenu();
-		activeDocument.body.classList.remove('docxidian-editor-hovering');
 		this.hostEl = null;
 		this.buffer = null;
 		this.error = null;
@@ -984,9 +1249,16 @@ export class DocxView extends FileView {
 		this.lastKnownFileSignature = null;
 		this.backupCreatedForOpenFile = false;
 		this.reserveReviewSidebar = false;
+		this.editorChromeObserversRegistered = false;
 	}
 
 	async onLoadFile(file: TFile) {
+		logLifecycleStep('file-onLoadFile', { file: file.path, bytes: file.stat.size });
+		this.beginOpenLoadTrace('file-load-start', {
+			file: file.path,
+			bytes: file.stat.size,
+			mtime: file.stat.mtime,
+		});
 		infoLog('file', `Loading ${file.path}`, {
 			mtime: file.stat.mtime,
 			size: file.stat.size,
@@ -1005,17 +1277,44 @@ export class DocxView extends FileView {
 		this.render();
 
 		try {
-			this.buffer = await this.app.vault.readBinary(file);
+			const readStartedAt = monotonicNow();
+			const sourceBuffer = await this.app.vault.readBinary(file);
+			this.markOpenLoadPhase('vault-readBinary-complete', {
+				bytes: sourceBuffer.byteLength,
+				durationMs: Math.round((monotonicNow() - readStartedAt) * 10) / 10,
+			});
+
+			const styleStartedAt = monotonicNow();
+			const styledDocument = await ensureDocxDefaultStyles(sourceBuffer);
+			this.markOpenLoadPhase('ensure-default-styles-complete', {
+				addedDefaultStyles: styledDocument.addedDefaultStyles,
+				durationMs: Math.round((monotonicNow() - styleStartedAt) * 10) / 10,
+			});
+
+			this.buffer = styledDocument.buffer;
+
+			const signatureStartedAt = monotonicNow();
 			this.lastKnownFileSignature = await this.readFileSignature(file);
+			this.markOpenLoadPhase('read-file-signature-complete', {
+				durationMs: Math.round((monotonicNow() - signatureStartedAt) * 10) / 10,
+				signature: this.lastKnownFileSignature,
+			});
+			if (styledDocument.addedDefaultStyles) {
+				debugLog('file', `Added default DOCX styles for ${file.path}`, {
+					sourceBytes: sourceBuffer.byteLength,
+					bufferBytes: this.buffer.byteLength,
+				});
+			}
 			infoLog('file', `Loaded ${file.path}`, {
 				bytes: this.buffer.byteLength,
 				signature: this.lastKnownFileSignature,
 			});
+			this.markOpenLoadPhase('file-load-complete');
 		} catch (readError) {
 			const message = readError instanceof Error ? readError.message : 'Unknown read error';
 			this.error = `Could not load ${file.name}: ${message}`;
 			errorLog('file', this.error, readError);
-			new Notice(this.error);
+			showI18nNotice(this.getPluginI18n(), this.error);
 		} finally {
 			this.isLoading = false;
 			this.render();
@@ -1023,6 +1322,16 @@ export class DocxView extends FileView {
 
 		void this.updateReviewSidebarReservation();
 	}
+
+	private handleEditorLoadPhase = (phase: string, data?: Record<string, unknown>) => {
+		this.markOpenLoadPhase(phase, data);
+		if (phase === 'editor-fonts-loaded') {
+			this.finishOpenLoadTrace('editor-ready', {
+				file: this.file?.path,
+				...data,
+			});
+		}
+	};
 
 	async onUnloadFile(_file: TFile) {
 		debugLog('file', `Unloading ${_file.path}`);
@@ -1051,12 +1360,12 @@ export class DocxView extends FileView {
 	async saveCurrentDocument() {
 		debugLog('save', 'Save requested', { file: this.file?.path, isLoading: this.isLoading });
 		if (!this.file) {
-			new Notice('No docx file is open.');
+			this.showNotice('docx:notice.noFileOpen');
 			return false;
 		}
 
 		if (this.isLoading) {
-			new Notice(`Still loading ${this.file.name}.`);
+			this.showNotice('docx:notice.stillLoading', { fileName: this.file.name });
 			return false;
 		}
 
@@ -1075,12 +1384,12 @@ export class DocxView extends FileView {
 		const file = this.file;
 		debugLog('copy', 'Save as requested', { file: file?.path });
 		if (!file) {
-			new Notice('Open a docx file to save a copy.');
+			this.showNotice('docx:notice.openToSaveCopy');
 			return false;
 		}
 
 		if (this.isLoading) {
-			new Notice(`Still loading ${file.name}.`);
+			this.showNotice('docx:notice.stillLoading', { fileName: file.name });
 			return false;
 		}
 
@@ -1107,12 +1416,12 @@ export class DocxView extends FileView {
 		const file = this.file;
 		debugLog('copy', 'Duplicate requested', { file: file?.path });
 		if (!file) {
-			new Notice('Open a docx file to duplicate it.');
+			this.showNotice('docx:notice.openToDuplicate');
 			return false;
 		}
 
 		if (this.isLoading) {
-			new Notice(`Still loading ${file.name}.`);
+			this.showNotice('docx:notice.stillLoading', { fileName: file.name });
 			return false;
 		}
 
@@ -1123,12 +1432,12 @@ export class DocxView extends FileView {
 		const file = this.file;
 		debugLog('copy', 'Export as requested', { file: file?.path, initialFormat });
 		if (!file) {
-			new Notice('Open a docx file to export it.');
+			this.showNotice('docx:notice.openToExport');
 			return false;
 		}
 
 		if (this.isLoading) {
-			new Notice(`Still loading ${file.name}.`);
+			this.showNotice('docx:notice.stillLoading', { fileName: file.name });
 			return false;
 		}
 
@@ -1149,7 +1458,7 @@ export class DocxView extends FileView {
 
 		const exportPath = this.getSiblingExportPath(file, choice.name, choice.format);
 		if (!exportPath) {
-			new Notice('Enter a file name.');
+			this.showNotice('docx:notice.enterFileName');
 			return false;
 		}
 
@@ -1160,12 +1469,12 @@ export class DocxView extends FileView {
 		const file = this.file;
 		debugLog('security', 'Find Hidden Text requested', { file: file?.path });
 		if (!file) {
-			new Notice('Open a docx file to scan it for hidden text.');
+			this.showNotice('docx:notice.openToScanHiddenText');
 			return false;
 		}
 
 		if (this.isLoading) {
-			new Notice(`Still loading ${file.name}.`);
+			this.showNotice('docx:notice.stillLoading', { fileName: file.name });
 			return false;
 		}
 
@@ -1173,7 +1482,7 @@ export class DocxView extends FileView {
 			const liveBuffer = await this.getReactHandle()?.exportBuffer({ preserveAutosave: true });
 			const scanBuffer = liveBuffer ?? this.buffer;
 			if (!scanBuffer) {
-				new Notice('No loaded DOCX data is available to scan.');
+				this.showNotice('docx:notice.noDataToScan');
 				return false;
 			}
 
@@ -1184,20 +1493,20 @@ export class DocxView extends FileView {
 			});
 			new HiddenTextScanModal(this.app, file.name, result.findings, result.partsScanned).open();
 			if (result.findings.length > 0) {
-				new Notice(`Found ${result.findings.length} suspicious hidden text item(s).`);
+				this.showNotice('docx:notice.hiddenTextFound', { count: result.findings.length });
 			}
 			return true;
 		} catch (error) {
 			errorLog('security', `Could not scan ${file.path} for hidden text`, error);
 			const message = error instanceof Error ? error.message : 'Unknown error';
-			new Notice(`Could not scan hidden text: ${message}`);
+			this.showNotice('docx:notice.hiddenTextScanFailed', { message });
 			return false;
 		}
 	}
 
 	openFindDialog() {
 		if (!this.file || this.isLoading) {
-			new Notice('Open a loaded docx file to search it.');
+			this.showNotice('docx:notice.openLoadedToSearch');
 			return;
 		}
 
@@ -1212,7 +1521,7 @@ export class DocxView extends FileView {
 
 	openFindReplaceDialog() {
 		if (!this.file || this.isLoading) {
-			new Notice('Open a loaded docx file to search it.');
+			this.showNotice('docx:notice.openLoadedToSearch');
 			return;
 		}
 
@@ -1222,7 +1531,7 @@ export class DocxView extends FileView {
 	openImagePicker() {
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The DOCX editor is still loading.');
+			this.showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
@@ -1232,7 +1541,7 @@ export class DocxView extends FileView {
 	openCustomTableDialog() {
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The DOCX editor is still loading.');
+			this.showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
@@ -1242,7 +1551,7 @@ export class DocxView extends FileView {
 	openFontPicker() {
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The DOCX editor is still loading.');
+			this.showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
@@ -1252,7 +1561,7 @@ export class DocxView extends FileView {
 	setEditorMode(mode: 'editing' | 'suggesting' | 'viewing') {
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The DOCX editor is still loading.');
+			this.showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
@@ -1262,7 +1571,7 @@ export class DocxView extends FileView {
 	setEditorZoom(zoom: number) {
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The DOCX editor is still loading.');
+			this.showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
@@ -1272,13 +1581,13 @@ export class DocxView extends FileView {
 	pasteFromClipboard(preserveFormatting: boolean) {
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The DOCX editor is still loading.');
+			this.showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
 		void editor.pasteFromClipboard({ preserveFormatting }).then((pasted) => {
 			if (!pasted) {
-				new Notice('Nothing was pasted. Check that the clipboard contains text.');
+				this.showNotice('docx:notice.nothingPasted');
 			}
 		});
 	}
@@ -1337,7 +1646,7 @@ export class DocxView extends FileView {
 
 	private activateEditorControl(element: HTMLElement) {
 		if (element.getAttribute('aria-disabled') === 'true' || ('disabled' in element && element.disabled === true)) {
-			new Notice(`${getEditorOptionControlLabel(element)} is not available right now.`);
+			this.showNotice('docx:menu.optionUnavailable', { option: getEditorOptionControlLabel(element) });
 			return false;
 		}
 
@@ -1366,8 +1675,8 @@ export class DocxView extends FileView {
 				getEditorOptionControlLabel(element),
 				element.dataset.testid ?? '',
 				element.textContent ?? '',
-				element.dataset.docxidianNativeTitle ?? '',
-				element.dataset.docxidianTooltipTitle ?? '',
+				element.dataset.nativePowerPointDocEditorNativeTitle ?? '',
+				element.dataset.nativePowerPointDocEditorTooltipTitle ?? '',
 			].map(label => normalizeMenuText(cleanEditorOptionLabel(label))).filter(Boolean);
 
 			if (candidateLabels.some(candidate => normalizedLabels.some(label => (
@@ -1385,7 +1694,7 @@ export class DocxView extends FileView {
 	private clickEditorControlByLabels(labels: readonly string[]) {
 		const control = this.findEditorControlByLabels(labels);
 		if (!control) {
-			new Notice(`${labels[0] ?? 'That option'} is not available right now.`);
+			this.showNotice('docx:menu.notAvailable', { option: labels[0] ?? 'That option' });
 			return false;
 		}
 
@@ -1413,7 +1722,7 @@ export class DocxView extends FileView {
 	private clickEditorMenuOption(menuLabel: string, optionLabels: readonly string[]) {
 		const menuButton = this.findEditorMenuButton(menuLabel);
 		if (!menuButton) {
-			new Notice(`${menuLabel} menu is not available right now.`);
+			this.showNotice('docx:menu.menuUnavailable', { menu: menuLabel });
 			return;
 		}
 
@@ -1489,27 +1798,27 @@ export class DocxView extends FileView {
 				void this.findHiddenText();
 				break;
 			case 'page-setup': {
-				const labels = getEditorMenuLabels(this.getEditorLocale());
+				const labels = this.resolveEditorMenuLabels();
 				this.clickEditorMenuOption(labels.file, labels.pageSetup);
 				break;
 			}
 			case 'page-break': {
-				const labels = getEditorMenuLabels(this.getEditorLocale());
+				const labels = this.resolveEditorMenuLabels();
 				this.clickEditorMenuOption(labels.insert, labels.pageBreak);
 				break;
 			}
 			case 'table-of-contents': {
-				const labels = getEditorMenuLabels(this.getEditorLocale());
+				const labels = this.resolveEditorMenuLabels();
 				this.clickEditorMenuOption(labels.insert, labels.tableOfContents);
 				break;
 			}
 			case 'left-to-right': {
-				const labels = getEditorMenuLabels(this.getEditorLocale());
+				const labels = this.resolveEditorMenuLabels();
 				this.clickEditorMenuOption(labels.format, labels.leftToRight);
 				break;
 			}
 			case 'right-to-left': {
-				const labels = getEditorMenuLabels(this.getEditorLocale());
+				const labels = this.resolveEditorMenuLabels();
 				this.clickEditorMenuOption(labels.format, labels.rightToLeft);
 				break;
 			}
@@ -1535,7 +1844,25 @@ export class DocxView extends FileView {
 	}
 
 	refreshSettings() {
+		this.applyThemeClass();
 		this.render();
+	}
+
+	private applyThemeClass() {
+		if (!this.hostEl) {
+			return;
+		}
+
+		this.hostEl.removeClasses([
+			'native-powerpoint-doc-editor-theme-system',
+			'native-powerpoint-doc-editor-theme-light',
+			'native-powerpoint-doc-editor-theme-dark',
+			'native-powerpoint-doc-editor-theme-resolved-light',
+			'native-powerpoint-doc-editor-theme-resolved-dark',
+		]);
+		const editorTheme = normalizeEditorThemePreference(this.getEditorTheme());
+		this.hostEl.addClass(`native-powerpoint-doc-editor-theme-${editorTheme}`);
+		this.hostEl.addClass(`native-powerpoint-doc-editor-theme-resolved-${this.getResolvedEditorTheme()}`);
 	}
 
 	private async updateReviewSidebarReservation() {
@@ -1547,8 +1874,13 @@ export class DocxView extends FileView {
 
 		try {
 			debugLog('review', `Inspecting review markup for ${file.path}`);
+			const reviewStartedAt = monotonicNow();
 			const { hasReviewMarkup } = await loadDocxEditorChunk();
 			const hasMarkup = await hasReviewMarkup(buffer);
+			this.markOpenLoadPhase('review-markup-inspection-complete', {
+				hasMarkup,
+				durationMs: Math.round((monotonicNow() - reviewStartedAt) * 10) / 10,
+			});
 			if (buffer !== this.buffer || file !== this.file) {
 				debugLog('review', `Discarded stale review markup result for ${file.path}`);
 				return;
@@ -1601,7 +1933,7 @@ export class DocxView extends FileView {
 			openFile: options.openFile !== false,
 		});
 		if (!normalizedPath) {
-			new Notice('Enter a DOCX file path.');
+			this.showNotice('docx:notice.enterDocxPath');
 			return false;
 		}
 
@@ -1612,7 +1944,7 @@ export class DocxView extends FileView {
 
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The docx editor is not ready yet.');
+			this.showNotice('docx:notice.editorNotReady');
 			return false;
 		}
 
@@ -1634,7 +1966,7 @@ export class DocxView extends FileView {
 		} catch (copyError) {
 			const message = copyError instanceof Error ? copyError.message : 'Unknown copy error';
 			errorLog('copy', `Could not create ${outputPath.path}`, copyError);
-			new Notice(`Could not create ${outputPath.path}: ${message}`);
+			this.showNotice('errors:createFailed', { path: outputPath.path, message });
 			return false;
 		}
 
@@ -1647,12 +1979,17 @@ export class DocxView extends FileView {
 				this.isDirty = wasDirty;
 				const message = openError instanceof Error ? openError.message : 'Unknown open error';
 				errorLog('copy', `Created ${newFile.path}, but could not open it`, openError);
-				new Notice(`Created ${newFile.path}, but could not open it: ${message}`);
+				this.showNotice('docx:notice.createdButCouldNotOpen', { path: newFile.path, message });
 				return true;
 			}
 		}
 
-		new Notice(`${outputPath.replace ? 'Replaced' : successPrefix} ${newFile.path}`);
+		const successKey = outputPath.replace
+			? 'docx:notice.replaced'
+			: successPrefix === 'Saved as'
+				? 'docx:notice.savedAs'
+				: 'docx:notice.duplicatedTo';
+		this.showNotice(successKey, { path: newFile.path });
 		return true;
 	}
 
@@ -1664,7 +2001,7 @@ export class DocxView extends FileView {
 			format: formatId,
 		});
 		if (!normalizedPath) {
-			new Notice('Enter a file path.');
+			this.showNotice('docx:notice.enterFilePath');
 			return false;
 		}
 
@@ -1675,13 +2012,13 @@ export class DocxView extends FileView {
 
 		const editor = this.getReactHandle();
 		if (!editor) {
-			new Notice('The docx editor is not ready yet.');
+			this.showNotice('docx:notice.editorNotReady');
 			return false;
 		}
 
 		try {
 			await this.ensureParentFolders(outputPath.path);
-			new Notice(`Exporting to ${outputPath.path}...`);
+			this.showNotice('docx:notice.exportingTo', { path: outputPath.path });
 			let exportContent: ArrayBuffer | ArrayBufferView | string | null = null;
 			if (formatId === 'pdf') {
 				exportContent = await editor.exportRenderedPdf();
@@ -1689,14 +2026,14 @@ export class DocxView extends FileView {
 					warnLog('copy', 'Rendered PDF export did not finish; no PDF file was written', {
 						path: outputPath.path,
 					});
-					new Notice(`Could not export ${outputPath.path}: formatted PDF rendering failed. No file was written.`);
+					this.showNotice('errors:exportPdfFailed', { path: outputPath.path });
 					return false;
 				}
 			}
 			if (!exportContent) {
 				const buffer = await editor.exportBuffer();
 				if (!buffer) {
-					new Notice(`Could not export ${outputPath.path}: the editor did not return a document.`);
+					this.showNotice('errors:exportNoDocument', { path: outputPath.path });
 					return false;
 				}
 				exportContent = await this.createExportContent(buffer, formatId, this.file?.basename ?? 'Document');
@@ -1724,12 +2061,12 @@ export class DocxView extends FileView {
 				}
 			}
 			infoLog('copy', `${outputPath.replace ? 'Replaced' : 'Exported'} ${newFile.path}`, { format: formatId });
-			new Notice(`${outputPath.replace ? 'Replaced' : 'Exported to'} ${newFile.path}`);
+			this.showNotice(outputPath.replace ? 'docx:notice.replaced' : 'docx:notice.exportedTo', { path: newFile.path });
 			return true;
 		} catch (exportError) {
 			const message = exportError instanceof Error ? exportError.message : 'Unknown export error';
 			errorLog('copy', `Could not export ${outputPath.path}`, exportError);
-			new Notice(`Could not export ${outputPath.path}: ${message}`);
+			this.showNotice('errors:exportFailed', { path: outputPath.path, message });
 			return false;
 		}
 	}
@@ -1766,7 +2103,7 @@ export class DocxView extends FileView {
 		}
 
 		if (!(existingFile instanceof TFile)) {
-			new Notice(`${path} already exists and is not a file.`);
+			this.showNotice('docx:notice.pathExistsNotFile', { path });
 			return null;
 		}
 
@@ -1831,7 +2168,7 @@ export class DocxView extends FileView {
 		infoLog('file', `Renaming ${file.path} to ${newPath}`);
 		await this.app.fileManager.renameFile(file, newPath);
 		this.lastKnownFileSignature = await this.readFileSignature(file);
-		new Notice(`Renamed to ${normalizedName}`);
+		this.showNotice('docx:notice.renamedTo', { name: normalizedName });
 	}
 
 	private async readFileSignature(file: TFile): Promise<DocxFileSignature> {
@@ -1902,7 +2239,7 @@ export class DocxView extends FileView {
 
 	private getAvailableBackupPath(file: TFile) {
 		const folderPath = file.parent?.path;
-		const backupFolder = normalizePath(`${folderPath && folderPath !== '/' ? `${folderPath}/` : ''}.docxidian-backups`);
+		const backupFolder = normalizePath(`${folderPath && folderPath !== '/' ? `${folderPath}/` : ''}.native-powerpoint-doc-editor-backups`);
 		const baseName = file.basename || file.name.replace(/\.docx$/i, '');
 		const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, '').replace('T', ' ').replace(/:/g, '-');
 
@@ -2056,7 +2393,7 @@ export class DocxView extends FileView {
 			const saved = await this.saveCurrentDocument();
 			if (!saved) {
 				warnLog('save', `Keeping ${this.file.path} open because save did not complete`);
-				new Notice('Save did not complete. Your DOCX edits are still open.');
+				this.showNotice('docx:notice.saveIncomplete');
 				return false;
 			}
 			return true;
@@ -2076,9 +2413,18 @@ export class DocxView extends FileView {
 		}
 
 		this.hostEl.setCssProps({
-			'--docxidian-fixed-left-offset': '0px',
-			'--docxidian-fixed-top-offset': '0px',
+			'--native-powerpoint-doc-editor-fixed-left-offset': '0px',
+			'--native-powerpoint-doc-editor-fixed-top-offset': '0px',
 		});
+		this.hostEl.setAttribute('data-native-powerpoint-doc-editor-toolbar-tooltips', 'custom');
+	}
+
+	private syncToolbarTooltipMetadata() {
+		if (!this.hostEl) {
+			return;
+		}
+
+		neutralizeToolbarButtonTooltipSources(this.hostEl);
 	}
 
 	private registerHostMetrics() {
@@ -2087,13 +2433,13 @@ export class DocxView extends FileView {
 				return;
 			}
 
-			const fixedProbe = this.hostEl.createDiv({ cls: 'docxidian-fixed-probe' });
+			const fixedProbe = this.hostEl.createDiv({ cls: 'native-powerpoint-doc-editor-fixed-probe' });
 			const fixedRect = fixedProbe.getBoundingClientRect();
 			fixedProbe.remove();
 
 			this.hostEl.setCssProps({
-				'--docxidian-fixed-left-offset': `${Math.round(fixedRect.left)}px`,
-				'--docxidian-fixed-top-offset': `${Math.round(fixedRect.top)}px`,
+				'--native-powerpoint-doc-editor-fixed-left-offset': `${Math.round(fixedRect.left)}px`,
+				'--native-powerpoint-doc-editor-fixed-top-offset': `${Math.round(fixedRect.top)}px`,
 			});
 		};
 
@@ -2113,29 +2459,14 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		const removeTitles = () => {
-			this.hostEl?.querySelectorAll('.ep-root button[title]').forEach((button) => {
-				if (isHTMLElement(button)) {
-					const title = button.getAttribute('title');
-					if (title) {
-						button.dataset.docxidianNativeTitle = title;
-					}
+		this.hostEl?.querySelectorAll('.ep-root button[title]').forEach((button) => {
+			if (isHTMLElement(button)) {
+				const title = button.getAttribute('title');
+				if (title) {
+					button.dataset.nativePowerPointDocEditorNativeTitle = title;
 				}
-				button.removeAttribute('title');
-			});
-		};
-
-		removeTitles();
-		this.titleObserver = new MutationObserver(removeTitles);
-		this.titleObserver.observe(this.hostEl, {
-			attributes: true,
-			attributeFilter: ['title'],
-			childList: true,
-			subtree: true,
-		});
-		this.register(() => {
-			this.titleObserver?.disconnect();
-			this.titleObserver = null;
+			}
+			button.removeAttribute('title');
 		});
 	}
 
@@ -2144,28 +2475,25 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		const removeHelpMenu = () => {
-			const helpLabel = getEditorMenuLabels(this.getEditorLocale()).help;
+		const helpLabel = this.resolveEditorMenuLabels().help;
 
-			this.hostEl?.querySelectorAll('.ep-root [role="menubar"] > div').forEach((menuItem) => {
-				const button = menuItem.querySelector(':scope > button');
-				const label = normalizeMenuText(button?.textContent ?? '');
-				if (label === helpLabel) {
-					menuItem.remove();
-				}
-			});
-		};
+		this.hostEl?.querySelectorAll('.ep-root [role="menubar"] > div').forEach((menuItem) => {
+			const button = menuItem.querySelector(':scope > button');
+			const label = normalizeMenuText(button?.textContent ?? '');
+			if (label === helpLabel) {
+				menuItem.remove();
+			}
+		});
+	}
 
-		removeHelpMenu();
-		this.helpMenuObserver = new MutationObserver(removeHelpMenu);
-		this.helpMenuObserver.observe(this.hostEl, {
-			childList: true,
-			subtree: true,
-		});
-		this.register(() => {
-			this.helpMenuObserver?.disconnect();
-			this.helpMenuObserver = null;
-		});
+	private dedupeEditorChromeMenuItems() {
+		if (!this.hostEl) {
+			return;
+		}
+
+		for (const item of Object.values(EDITOR_CHROME_MENU_ITEMS)) {
+			dedupeEditorChromeMenuItem(this.hostEl, item.selector);
+		}
 	}
 
 	private addEditorEditMenuButton() {
@@ -2173,14 +2501,18 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		const addEditButton = () => {
-			if (!this.hostEl) {
+		const labels = this.resolveEditorMenuLabels();
+			const menubar = getActiveEditorMenubar(this.hostEl);
+			if (!menubar) {
 				return;
 			}
 
-			const labels = getEditorMenuLabels(this.getEditorLocale());
-			const menubar = this.hostEl.querySelector<HTMLElement>('.ep-root [role="menubar"]');
-			if (!menubar || menubar.querySelector('[data-docxidian-edit-menu-item]')) {
+			const existingEditItem = dedupeEditorChromeMenuItem(
+				this.hostEl,
+				EDITOR_CHROME_MENU_ITEMS.edit.selector,
+			);
+			if (existingEditItem) {
+				markEditorChromeMenuItem(existingEditItem, 'edit');
 				return;
 			}
 
@@ -2194,14 +2526,13 @@ export class DocxView extends FileView {
 			const existingEditWrapper = findTopLevelMenu(labels.edit);
 			const sourceWrapper = existingEditWrapper
 				?? menuItems.find((child) => (
-					!child.matches('[data-docxidian-edit-menu-item], [data-docxidian-search-menu-item], [data-docxidian-settings-menu-item]')
+					!child.matches('[data-native-powerpoint-doc-editor-edit-menu-item], [data-native-powerpoint-doc-editor-search-menu-item], [data-native-powerpoint-doc-editor-settings-menu-item]')
 					&& Boolean(child.querySelector(':scope > button'))
 				));
 			const wrapper = existingEditWrapper
 				?? (sourceWrapper ? sourceWrapper.cloneNode(true) as HTMLElement : activeDocument.createElement('div'));
-			wrapper.dataset.docxidianEditMenuItem = 'true';
-			wrapper.dataset.docxidianNoToolbarTooltip = 'true';
-			wrapper.addClass('docxidian-edit-menu-item');
+			markEditorChromeMenuItem(wrapper, 'edit');
+			wrapper.addClass('native-powerpoint-doc-editor-edit-menu-item');
 			wrapper.setCssProps({ position: 'relative' });
 			wrapper.removeAttribute('id');
 
@@ -2217,13 +2548,13 @@ export class DocxView extends FileView {
 			}
 
 			button.type = 'button';
-			button.textContent = 'Edit';
-			button.dataset.docxidianNoToolbarTooltip = 'true';
-			button.addClasses(['docxidian-search-menu-button', 'docxidian-edit-menu-button']);
+			button.textContent = this.docxT('docx:chrome.edit');
+			markEditorChromeNoToolbarTooltip(button);
+			button.addClasses(['native-powerpoint-doc-editor-search-menu-button', 'native-powerpoint-doc-editor-edit-menu-button']);
 			button.removeAttribute('aria-haspopup');
 			button.removeAttribute('data-state');
 			button.removeAttribute('id');
-			button.setAttribute('aria-label', 'Edit');
+			button.setAttribute('aria-label', this.docxT('docx:chrome.edit'));
 			button.setAttribute('aria-expanded', 'false');
 			button.setAttribute('role', 'menuitem');
 			button.addEventListener('mousedown', (evt) => {
@@ -2237,25 +2568,13 @@ export class DocxView extends FileView {
 				button?.setAttribute('aria-expanded', this.editorEditPopoverEl ? 'true' : 'false');
 			});
 
-			if (fileWrapper && fileWrapper.parentElement === menubar) {
-				fileWrapper.after(wrapper);
-			} else if (formatWrapper && formatWrapper.parentElement === menubar) {
-				menubar.insertBefore(wrapper, formatWrapper);
-			} else {
-				menubar.prepend(wrapper);
-			}
-		};
-
-		addEditButton();
-		this.editMenuObserver = new MutationObserver(addEditButton);
-		this.editMenuObserver.observe(this.hostEl, {
-			childList: true,
-			subtree: true,
-		});
-		this.register(() => {
-			this.editMenuObserver?.disconnect();
-			this.editMenuObserver = null;
-		});
+		if (fileWrapper && fileWrapper.parentElement === menubar) {
+			fileWrapper.after(wrapper);
+		} else if (formatWrapper && formatWrapper.parentElement === menubar) {
+			menubar.insertBefore(wrapper, formatWrapper);
+		} else {
+			menubar.prepend(wrapper);
+		}
 	}
 
 	private closeEditorEditMenu() {
@@ -2263,7 +2582,7 @@ export class DocxView extends FileView {
 		this.editorEditCleanup = null;
 		this.editorEditPopoverEl?.remove();
 		this.editorEditPopoverEl = null;
-		this.hostEl?.querySelector('[data-docxidian-edit-menu-item] > button')?.setAttribute('aria-expanded', 'false');
+		this.hostEl?.querySelector('[data-native-powerpoint-doc-editor-edit-menu-item] > button')?.setAttribute('aria-expanded', 'false');
 	}
 
 	private openEditorEditMenu(anchorEl: HTMLElement) {
@@ -2276,49 +2595,36 @@ export class DocxView extends FileView {
 		this.closeEditorSettingsMenu();
 		this.closeEditorEditMenu();
 
-		const popoverEl = anchorEl.createDiv({ cls: 'docxidian-edit-menu docxidian-option-search-menu' });
-		popoverEl.setAttribute('role', 'menu');
+		const popoverEl = createPopoverShell(anchorEl, {
+			className: 'native-powerpoint-doc-editor-edit-menu native-powerpoint-doc-editor-option-search-menu',
+			role: 'menu',
+		});
 		this.editorEditPopoverEl = popoverEl;
 
 		const addAction = (label: string, preserveFormatting: boolean) => {
-			const button = popoverEl.createEl('button', {
-				cls: 'docxidian-option-search-result docxidian-file-menu-button',
+			createMenuItem(popoverEl, {
+				className: 'native-powerpoint-doc-editor-option-search-result native-powerpoint-doc-editor-file-menu-button',
 				text: label,
-				type: 'button',
-			});
-			button.setAttribute('role', 'menuitem');
-			button.addEventListener('mousedown', (evt) => {
-				evt.preventDefault();
-			});
-			button.addEventListener('click', (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
+				role: 'menuitem',
+				preventMouseDown: true,
+				preventDefaultOnClick: true,
+				stopClickPropagation: true,
+				onClick: () => {
 				this.closeEditorEditMenu();
 				this.pasteFromClipboard(preserveFormatting);
+				},
 			});
 		};
 
 		addAction('Paste', true);
 		addAction('Paste without formatting', false);
 
-		const handleOutsidePointer = (evt: MouseEvent) => {
-					if (isNode(evt.target) && !popoverEl.contains(evt.target) && !anchorEl.contains(evt.target)) {
-				this.closeEditorEditMenu();
-			}
-		};
-		const handleKeyDown = (evt: KeyboardEvent) => {
-			if (evt.key === 'Escape') {
-				evt.preventDefault();
-				this.closeEditorEditMenu();
-			}
-		};
-
-		activeDocument.addEventListener('mousedown', handleOutsidePointer, true);
-		popoverEl.addEventListener('keydown', handleKeyDown);
-		this.editorEditCleanup = () => {
-			activeDocument.removeEventListener('mousedown', handleOutsidePointer, true);
-			popoverEl.removeEventListener('keydown', handleKeyDown);
-		};
+		this.editorEditCleanup = bindPopoverDismissHandlers({
+			popover: popoverEl,
+			anchor: anchorEl,
+			onDismiss: () => this.closeEditorEditMenu(),
+			pointerEvent: 'mousedown',
+		});
 	}
 
 	private addEditorSearchMenuButton() {
@@ -2326,27 +2632,35 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		const addSearchButton = () => {
-			if (!this.hostEl) {
+		const menubar = getActiveEditorMenubar(this.hostEl);
+			if (!menubar) {
 				return;
 			}
 
-			const menubar = this.hostEl.querySelector<HTMLElement>('.ep-root [role="menubar"]');
-			if (!menubar || menubar.querySelector('[data-docxidian-search-menu-item]')) {
+			const existingSearchItem = dedupeEditorChromeMenuItem(
+				this.hostEl,
+				EDITOR_CHROME_MENU_ITEMS.search.selector,
+			);
+			if (existingSearchItem) {
+				markEditorChromeMenuItem(existingSearchItem, 'search');
+				ensureEditorChromeMenuItemPosition(
+					menubar,
+					existingSearchItem,
+					EDITOR_CHROME_MENU_ITEMS.settings.selector,
+				);
 				return;
 			}
 
 				const sourceWrapper = Array.from(menubar.children).find((child): child is HTMLElement => (
 					isHTMLElement(child)
-					&& !child.matches('[data-docxidian-edit-menu-item], [data-docxidian-search-menu-item], [data-docxidian-settings-menu-item]')
+					&& !child.matches('[data-native-powerpoint-doc-editor-edit-menu-item], [data-native-powerpoint-doc-editor-search-menu-item], [data-native-powerpoint-doc-editor-settings-menu-item]')
 					&& Boolean(child.querySelector(':scope > button'))
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
 					: activeDocument.createElement('div');
-				wrapper.dataset.docxidianSearchMenuItem = 'true';
-				wrapper.dataset.docxidianNoToolbarTooltip = 'true';
-				wrapper.addClass('docxidian-search-menu-item');
+				markEditorChromeMenuItem(wrapper, 'search');
+				wrapper.addClass('native-powerpoint-doc-editor-search-menu-item');
 				wrapper.setCssProps({ position: 'relative' });
 				wrapper.removeAttribute('id');
 
@@ -2361,14 +2675,14 @@ export class DocxView extends FileView {
 					wrapper.appendChild(button);
 				}
 				button.type = 'button';
-				button.textContent = 'Search';
-				button.dataset.docxidianNoToolbarTooltip = 'true';
-				button.addClass('docxidian-search-menu-button');
+				button.textContent = this.docxT('docx:chrome.search');
+				markEditorChromeNoToolbarTooltip(button);
+				button.addClass('native-powerpoint-doc-editor-search-menu-button');
 				button.removeAttribute('aria-expanded');
 				button.removeAttribute('aria-haspopup');
 				button.removeAttribute('data-state');
 				button.removeAttribute('id');
-				button.setAttribute('aria-label', 'Search');
+				button.setAttribute('aria-label', this.docxT('docx:chrome.search'));
 			button.setAttribute('role', 'menuitem');
 			button.addEventListener('mousedown', (evt) => {
 				evt.preventDefault();
@@ -2380,25 +2694,13 @@ export class DocxView extends FileView {
 					this.openEditorOptionSearchMenu(wrapper);
 				});
 
-				const settingsWrapper = menubar.querySelector('[data-docxidian-settings-menu-item]');
-				if (settingsWrapper) {
-					menubar.insertBefore(wrapper, settingsWrapper);
-				} else {
-					menubar.appendChild(wrapper);
-				}
-			};
-
-		addSearchButton();
-		this.searchMenuObserver = new MutationObserver(addSearchButton);
-		this.searchMenuObserver.observe(this.hostEl, {
-			childList: true,
-			subtree: true,
-		});
-		this.register(() => {
-			this.searchMenuObserver?.disconnect();
-			this.searchMenuObserver = null;
-		});
-		}
+			const settingsWrapper = menubar.querySelector('[data-native-powerpoint-doc-editor-settings-menu-item]');
+			if (settingsWrapper) {
+				menubar.insertBefore(wrapper, settingsWrapper);
+			} else {
+				menubar.appendChild(wrapper);
+			}
+	}
 
 		private closeEditorOptionSearchMenu() {
 			this.optionSearchCleanup?.();
@@ -2417,15 +2719,15 @@ export class DocxView extends FileView {
 			this.closeEditorEditMenu();
 
 			let activeIndex = 0;
-			const popoverEl = anchorEl.createDiv({ cls: 'docxidian-option-search-menu' });
+			const popoverEl = createPopoverShell(anchorEl, { className: 'native-powerpoint-doc-editor-option-search-menu' });
 			const inputEl = popoverEl.createEl('input', {
-				cls: 'docxidian-option-search-input',
+				cls: 'native-powerpoint-doc-editor-option-search-input',
 				type: 'search',
 			});
-			inputEl.placeholder = 'Search options';
-			inputEl.setAttribute('aria-label', 'Search editor options');
+			inputEl.placeholder = this.docxT('docx:chrome.searchOptionsPlaceholder');
+			inputEl.setAttribute('aria-label', this.docxT('docx:chrome.searchOptions'));
 
-			const resultsEl = popoverEl.createDiv({ cls: 'docxidian-option-search-results' });
+			const resultsEl = popoverEl.createDiv({ cls: 'native-powerpoint-doc-editor-option-search-results' });
 			this.optionSearchPopoverEl = popoverEl;
 
 			const getMatches = () => {
@@ -2452,27 +2754,23 @@ export class DocxView extends FileView {
 				resultsEl.empty();
 
 				if (matches.length === 0) {
-					resultsEl.createDiv({ cls: 'docxidian-option-search-empty', text: 'No options found' });
+					resultsEl.createDiv({ cls: 'native-powerpoint-doc-editor-option-search-empty', text: 'No options found' });
 					return;
 				}
 
 				matches.forEach((item, index) => {
-					const button = resultsEl.createEl('button', {
-						cls: 'docxidian-option-search-result',
+					createMenuItem(resultsEl, {
+						className: 'native-powerpoint-doc-editor-option-search-result native-powerpoint-doc-editor-file-menu-button',
 						text: item.label,
-						type: 'button',
-					});
-					button.addClass('docxidian-file-menu-button');
-					button.setAttribute('role', 'option');
-					button.setAttribute('aria-selected', index === activeIndex ? 'true' : 'false');
-					button.addEventListener('mouseenter', () => {
-						activeIndex = index;
-						renderResults();
-					});
-					button.addEventListener('click', (evt) => {
-						evt.preventDefault();
-						evt.stopPropagation();
-						chooseItem(item);
+						role: 'option',
+						selected: index === activeIndex,
+						preventDefaultOnClick: true,
+						stopClickPropagation: true,
+						onMouseEnter: () => {
+							activeIndex = index;
+							renderResults();
+						},
+						onClick: () => chooseItem(item),
 					});
 				});
 			};
@@ -2508,51 +2806,56 @@ export class DocxView extends FileView {
 					}
 				}
 			};
-			const handleOutsidePointer = (evt: MouseEvent) => {
-				if (isNode(evt.target) && !popoverEl.contains(evt.target) && !anchorEl.contains(evt.target)) {
-					this.closeEditorOptionSearchMenu();
-				}
-			};
+			const dismissCleanup = bindPopoverDismissHandlers({
+				popover: popoverEl,
+				anchor: anchorEl,
+				onDismiss: () => this.closeEditorOptionSearchMenu(),
+				pointerEvent: 'mousedown',
+				closeOnEscape: false,
+			});
 
 			inputEl.addEventListener('input', handleInput);
 			inputEl.addEventListener('keydown', handleKeyDown);
-			activeDocument.addEventListener('mousedown', handleOutsidePointer, true);
 			this.optionSearchCleanup = () => {
 				inputEl.removeEventListener('input', handleInput);
 				inputEl.removeEventListener('keydown', handleKeyDown);
-				activeDocument.removeEventListener('mousedown', handleOutsidePointer, true);
+				dismissCleanup();
 			};
 
 			renderResults();
 			window.setTimeout(() => inputEl.focus());
 		}
 
-		private addEditorSettingsMenuButton() {
-			if (!this.hostEl) {
-				return;
-			}
+	private addEditorSettingsMenuButton() {
+		if (!this.hostEl) {
+			return;
+		}
 
-			const addSettingsButton = () => {
-				if (!this.hostEl) {
+		const menubar = getActiveEditorMenubar(this.hostEl);
+				if (!menubar) {
 					return;
 				}
 
-				const menubar = this.hostEl.querySelector<HTMLElement>('.ep-root [role="menubar"]');
-				if (!menubar || menubar.querySelector('[data-docxidian-settings-menu-item]')) {
+				const existingSettingsItem = dedupeEditorChromeMenuItem(
+					this.hostEl,
+					EDITOR_CHROME_MENU_ITEMS.settings.selector,
+				);
+				if (existingSettingsItem) {
+					markEditorChromeMenuItem(existingSettingsItem, 'settings');
+					ensureEditorChromeMenuItemPosition(menubar, existingSettingsItem);
 					return;
 				}
 
 				const sourceWrapper = Array.from(menubar.children).find((child): child is HTMLElement => (
 					isHTMLElement(child)
-					&& !child.matches('[data-docxidian-edit-menu-item], [data-docxidian-search-menu-item], [data-docxidian-settings-menu-item]')
+					&& !child.matches('[data-native-powerpoint-doc-editor-edit-menu-item], [data-native-powerpoint-doc-editor-search-menu-item], [data-native-powerpoint-doc-editor-settings-menu-item]')
 					&& Boolean(child.querySelector(':scope > button'))
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
 					: activeDocument.createElement('div');
-				wrapper.dataset.docxidianSettingsMenuItem = 'true';
-				wrapper.dataset.docxidianNoToolbarTooltip = 'true';
-				wrapper.addClass('docxidian-settings-menu-item');
+				markEditorChromeMenuItem(wrapper, 'settings');
+				wrapper.addClass('native-powerpoint-doc-editor-settings-menu-item');
 				wrapper.setCssProps({ position: 'relative' });
 				wrapper.removeAttribute('id');
 
@@ -2568,13 +2871,13 @@ export class DocxView extends FileView {
 				}
 
 				button.type = 'button';
-				button.textContent = 'Settings';
-				button.dataset.docxidianNoToolbarTooltip = 'true';
-				button.addClasses(['docxidian-search-menu-button', 'docxidian-settings-menu-button']);
+				button.textContent = this.docxT('docx:chrome.settings');
+				markEditorChromeNoToolbarTooltip(button);
+				button.addClasses(['native-powerpoint-doc-editor-search-menu-button', 'native-powerpoint-doc-editor-settings-menu-button']);
 				button.removeAttribute('aria-haspopup');
 				button.removeAttribute('data-state');
 				button.removeAttribute('id');
-				button.setAttribute('aria-label', 'Settings');
+				button.setAttribute('aria-label', this.docxT('docx:chrome.settings'));
 				button.setAttribute('aria-expanded', 'false');
 				button.setAttribute('role', 'menuitem');
 				button.addEventListener('mousedown', (evt) => {
@@ -2588,32 +2891,20 @@ export class DocxView extends FileView {
 					button?.setAttribute('aria-expanded', this.editorSettingsPopoverEl ? 'true' : 'false');
 				});
 
-				const searchWrapper = menubar.querySelector('[data-docxidian-search-menu-item]');
-				if (searchWrapper) {
-					searchWrapper.after(wrapper);
-				} else {
-					menubar.appendChild(wrapper);
-				}
-			};
-
-			addSettingsButton();
-			this.settingsMenuObserver = new MutationObserver(addSettingsButton);
-			this.settingsMenuObserver.observe(this.hostEl, {
-				childList: true,
-				subtree: true,
-			});
-			this.register(() => {
-				this.settingsMenuObserver?.disconnect();
-				this.settingsMenuObserver = null;
-			});
-		}
+			const searchWrapper = menubar.querySelector('[data-native-powerpoint-doc-editor-search-menu-item]');
+			if (searchWrapper) {
+				searchWrapper.after(wrapper);
+			} else {
+				menubar.appendChild(wrapper);
+			}
+	}
 
 		private closeEditorSettingsMenu() {
 			this.editorSettingsCleanup?.();
 			this.editorSettingsCleanup = null;
 			this.editorSettingsPopoverEl?.remove();
 			this.editorSettingsPopoverEl = null;
-			this.hostEl?.querySelector('[data-docxidian-settings-menu-item] > button')?.setAttribute('aria-expanded', 'false');
+			this.hostEl?.querySelector('[data-native-powerpoint-doc-editor-settings-menu-item] > button')?.setAttribute('aria-expanded', 'false');
 		}
 
 		private openEditorSettingsMenu(anchorEl: HTMLElement) {
@@ -2626,161 +2917,160 @@ export class DocxView extends FileView {
 			this.closeEditorEditMenu();
 			this.closeEditorSettingsMenu();
 
-			const popoverEl = anchorEl.createDiv({ cls: 'docxidian-editor-settings-menu' });
-			popoverEl.setAttribute('role', 'menu');
+			const popoverEl = createPopoverShell(anchorEl, {
+				className: 'native-powerpoint-doc-editor-editor-settings-menu',
+				role: 'menu',
+			});
 			this.editorSettingsPopoverEl = popoverEl;
 			this.renderEditorSettingsMenu(popoverEl);
 
-			const handleOutsidePointer = (evt: MouseEvent) => {
-				if (isNode(evt.target) && !popoverEl.contains(evt.target) && !anchorEl.contains(evt.target)) {
-					this.closeEditorSettingsMenu();
-				}
-			};
-			const handleKeyDown = (evt: KeyboardEvent) => {
-				if (evt.key === 'Escape') {
-					evt.preventDefault();
-					this.closeEditorSettingsMenu();
-				}
-			};
-
-			activeDocument.addEventListener('mousedown', handleOutsidePointer, true);
-			popoverEl.addEventListener('keydown', handleKeyDown);
-			this.editorSettingsCleanup = () => {
-				activeDocument.removeEventListener('mousedown', handleOutsidePointer, true);
-				popoverEl.removeEventListener('keydown', handleKeyDown);
-			};
+			this.editorSettingsCleanup = bindPopoverDismissHandlers({
+				popover: popoverEl,
+				anchor: anchorEl,
+				onDismiss: () => this.closeEditorSettingsMenu(),
+				pointerEvent: 'mousedown',
+			});
 		}
 
 		private renderEditorSettingsMenu(menuEl: HTMLElement) {
 			menuEl.empty();
 			const settings = this.settingsController.getSettings();
-
-			const addSection = (text: string) => {
-				menuEl.createDiv({ cls: 'docxidian-editor-settings-section', text });
-			};
-			const addDescription = (parentEl: HTMLElement, text: string) => {
-				parentEl.createDiv({ cls: 'docxidian-editor-settings-desc', text });
-			};
+			const i18n = this.getPluginI18n()!;
+			const descriptors = getDocxEditorSettingDescriptors(i18n);
+			const addSection = (text: string) => createMenuSection(menuEl, {
+				className: 'native-powerpoint-doc-editor-editor-settings-section',
+				text,
+			});
 			const addToggle = (
-				label: string,
-				description: string,
+				id: DocxEditorSettingId,
 				value: boolean,
 				onChange: (nextValue: boolean) => Promise<void>,
 			) => {
-				const row = menuEl.createEl('label', { cls: 'docxidian-editor-settings-row mod-toggle' });
-				const copy = row.createDiv({ cls: 'docxidian-editor-settings-copy' });
-				copy.createSpan({ cls: 'docxidian-editor-settings-label', text: label });
-				addDescription(copy, description);
-				const input = row.createEl('input', {
-					cls: 'docxidian-editor-settings-checkbox',
-					type: 'checkbox',
-				});
-				input.checked = value;
-				input.addEventListener('change', () => {
-					void onChange(input.checked);
+				const setting = descriptors[id];
+				createCheckboxRow(menuEl, {
+					...DOCX_SETTINGS_ROW_CLASSES,
+					rowExtraClassName: 'mod-toggle',
+					controlClassName: 'native-powerpoint-doc-editor-editor-settings-checkbox-control',
+					inputClassName: 'native-powerpoint-doc-editor-editor-settings-checkbox',
+					markClassName: 'native-powerpoint-doc-editor-editor-settings-checkbox-mark',
+					label: setting.name,
+					description: setting.description,
+					checked: value,
+					onChange,
 				});
 			};
 			const addButtonRow = (
-				label: string,
-				description: string,
-				buttonLabel: string,
+				id: DocxEditorSettingId,
 				onClick: () => Promise<void>,
 			) => {
-				const row = menuEl.createDiv({ cls: 'docxidian-editor-settings-row' });
-				const copy = row.createDiv({ cls: 'docxidian-editor-settings-copy' });
-				copy.createSpan({ cls: 'docxidian-editor-settings-label', text: label });
-				addDescription(copy, description);
-				const button = row.createEl('button', {
-					cls: 'docxidian-editor-settings-action',
-					text: buttonLabel,
-					type: 'button',
-				});
-				button.addEventListener('click', (evt) => {
-					evt.preventDefault();
-					evt.stopPropagation();
-					void onClick();
+				const setting = descriptors[id];
+				createActionRow(menuEl, {
+					...DOCX_SETTINGS_ROW_CLASSES,
+					actionClassName: 'native-powerpoint-doc-editor-editor-settings-action',
+					label: setting.name,
+					description: setting.description,
+					actionLabel: setting.actionLabel ?? 'Run',
+					onClick,
 				});
 			};
 
 			menuEl.addEventListener('mousedown', (evt) => evt.stopPropagation());
 			menuEl.addEventListener('click', (evt) => evt.stopPropagation());
 
-			addSection('Identity');
-			const authorRow = menuEl.createDiv({ cls: 'docxidian-editor-settings-row mod-input' });
-			const authorCopy = authorRow.createDiv({ cls: 'docxidian-editor-settings-copy' });
-			authorCopy.createSpan({ cls: 'docxidian-editor-settings-label', text: 'Author name' });
-			addDescription(authorCopy, 'Used for comments and tracked changes.');
-			const authorControl = authorRow.createDiv({ cls: 'docxidian-editor-settings-inline-controls' });
-			const authorInput = authorControl.createEl('input', {
-				cls: 'docxidian-editor-settings-input',
-				type: 'text',
-			});
-			authorInput.value = settings.authorName;
-			authorInput.addEventListener('change', () => {
-				void this.settingsController.setAuthorName(authorInput.value);
-			});
-			const resetAuthor = authorControl.createEl('button', {
-				cls: 'docxidian-editor-settings-action',
-				text: 'Reset',
-				type: 'button',
-			});
-			resetAuthor.addEventListener('click', (evt) => {
-				evt.preventDefault();
-				authorInput.value = DEFAULT_SETTINGS.authorName;
-				void this.settingsController.setAuthorName(DEFAULT_SETTINGS.authorName);
-			});
+			const renderSetting = (id: DocxEditorSettingId) => {
+				const setting = descriptors[id];
+				switch (id) {
+					case 'authorName': {
+						const defaultAuthorName = String(setting.defaultValue ?? setting.placeholder ?? '');
+						const { row: authorRow } = createMenuRow(menuEl, {
+							...DOCX_SETTINGS_ROW_CLASSES,
+							rowExtraClassName: 'mod-input',
+							label: setting.name,
+							description: setting.description,
+						});
+						const authorControl = authorRow.createDiv({ cls: 'native-powerpoint-doc-editor-editor-settings-inline-controls' });
+						const authorInput = authorControl.createEl('input', {
+							cls: 'native-powerpoint-doc-editor-editor-settings-input',
+							type: 'text',
+						});
+						authorInput.value = settings.authorName;
+						authorInput.addEventListener('change', () => {
+							void this.settingsController.setAuthorName(authorInput.value);
+						});
+						const resetAuthor = authorControl.createEl('button', {
+							cls: 'native-powerpoint-doc-editor-editor-settings-action',
+							text: setting.resetLabel ?? 'Reset',
+							type: 'button',
+						});
+						resetAuthor.addEventListener('click', (evt) => {
+							evt.preventDefault();
+							authorInput.value = defaultAuthorName;
+							void this.settingsController.setAuthorName(defaultAuthorName);
+						});
+						break;
+					}
+					case 'editorTheme':
+						createSelectRow(menuEl, {
+							...DOCX_SETTINGS_ROW_CLASSES,
+							selectClassName: 'native-powerpoint-doc-editor-editor-settings-select',
+							label: setting.name,
+							description: setting.description,
+							options: getEditorThemeSettingOptions(i18n, DEFAULT_SETTINGS.editorTheme),
+							selectedValue: normalizeEditorThemePreference(settings.editorTheme),
+							onChange: (value) => this.settingsController.setEditorTheme(value),
+						});
+						break;
+					case 'showRuler':
+						addToggle(id, settings.showRuler, this.settingsController.setShowRuler);
+						break;
+					case 'defaultZoom':
+						createSelectRow(menuEl, {
+							...DOCX_SETTINGS_ROW_CLASSES,
+							selectClassName: 'native-powerpoint-doc-editor-editor-settings-select',
+							label: setting.name,
+							description: setting.description,
+							options: getDefaultZoomSettingOptions(),
+							selectedValue: String(normalizeDefaultZoom(settings.defaultZoom)),
+							onChange: (value) => {
+								const zoom = Number(value);
+								void this.settingsController.setDefaultZoom(zoom);
+								this.getReactHandle()?.setZoom(normalizeDefaultZoom(zoom));
+							},
+						});
+						break;
+					case 'autosave':
+						addToggle(id, settings.autosave, this.settingsController.setAutosave);
+						break;
+					case 'createBackupsBeforeSave':
+						addToggle(id, settings.createBackupsBeforeSave, this.settingsController.setCreateBackupsBeforeSave);
+						break;
+					case 'enableDocxSearchIndex':
+						addToggle(id, settings.enableDocxSearchIndex, this.settingsController.setEnableDocxSearchIndex);
+						break;
+					case 'autoIndexDocxSearch':
+						addToggle(id, settings.autoIndexDocxSearch, this.settingsController.setAutoIndexDocxSearch);
+						break;
+					case 'rebuildDocxSearchIndex':
+						addButtonRow(id, this.settingsController.rebuildDocxSearchIndex);
+						break;
+					case 'disableDocxFiles':
+						addToggle(id, settings.disableDocxFiles, this.settingsController.setDisableDocxFiles);
+						break;
+					case 'debugLogging':
+						addToggle(id, settings.debugLogging, this.settingsController.setDebugLogging);
+						break;
+					case 'copyDocxLog':
+						addButtonRow(id, () => this.settingsController.copyDocxLog(this.file?.path));
+						break;
+				}
+			};
 
-			addSection('Editor defaults');
-			const languageRow = menuEl.createDiv({ cls: 'docxidian-editor-settings-row mod-input' });
-			const languageCopy = languageRow.createDiv({ cls: 'docxidian-editor-settings-copy' });
-			languageCopy.createSpan({ cls: 'docxidian-editor-settings-label', text: 'Default language' });
-			addDescription(languageCopy, 'English is the default language for the editor toolbar, dialogs, and messages.');
-			const languageSelect = languageRow.createEl('select', { cls: 'docxidian-editor-settings-select' });
-			const selectedLanguage = normalizeDocxidianLanguage(settings.editorLanguage);
-			for (const option of DOCXIDIAN_LANGUAGE_OPTIONS) {
-				const label = option.code === DEFAULT_LANGUAGE ? `${option.label} (default)` : option.label;
-				const optionEl = languageSelect.createEl('option', { text: label, value: option.code });
-				optionEl.selected = option.code === selectedLanguage;
+			for (const section of getDocxEditorSettingsMenuSections(i18n)) {
+				addSection(section.label);
+				for (const id of section.settings) {
+					renderSetting(id);
+				}
 			}
-			languageSelect.addEventListener('change', () => {
-				void this.settingsController.setEditorLanguage(languageSelect.value);
-			});
-
-			addToggle('Ruler', 'Show the page ruler above the document body by default.', settings.showRuler, this.settingsController.setShowRuler);
-			const zoomRow = menuEl.createDiv({ cls: 'docxidian-editor-settings-row mod-input' });
-			const zoomCopy = zoomRow.createDiv({ cls: 'docxidian-editor-settings-copy' });
-			zoomCopy.createSpan({ cls: 'docxidian-editor-settings-label', text: 'Default zoom' });
-			addDescription(zoomCopy, 'Initial zoom for DOCX files when they open.');
-			const zoomSelect = zoomRow.createEl('select', { cls: 'docxidian-editor-settings-select' });
-			const selectedZoom = normalizeDefaultZoom(settings.defaultZoom);
-			for (const zoom of [0.5, 0.75, 1, 1.25, 1.5, 2]) {
-				const optionEl = zoomSelect.createEl('option', {
-					text: `${Math.round(zoom * 100)}%`,
-					value: String(zoom),
-				});
-				optionEl.selected = zoom === selectedZoom;
-			}
-			zoomSelect.addEventListener('change', () => {
-				const zoom = Number(zoomSelect.value);
-				void this.settingsController.setDefaultZoom(zoom);
-				this.getReactHandle()?.setZoom(normalizeDefaultZoom(zoom));
-			});
-
-			addSection('Saving');
-			addToggle('Autosave', 'Automatically save the document shortly after changes.', settings.autosave, this.settingsController.setAutosave);
-			addToggle('Backups', 'Create one timestamped backup before the first overwrite in each open DOCX session.', settings.createBackupsBeforeSave, this.settingsController.setCreateBackupsBeforeSave);
-
-			addSection('Search');
-			addToggle('DOCX search index', 'Off by default. When enabled, extracts text from DOCX files into a local cache for vault-wide DOCX search.', settings.enableDocxSearchIndex, this.settingsController.setEnableDocxSearchIndex);
-			addToggle('Auto-index DOCX changes', 'Off by default. When enabled with the DOCX search index, keeps the cache updated as DOCX files change.', settings.autoIndexDocxSearch, this.settingsController.setAutoIndexDocxSearch);
-			addButtonRow('Rebuild DOCX search index', 'Refresh the searchable cache for DOCX files in this vault.', 'Rebuild', this.settingsController.rebuildDocxSearchIndex);
-
-			addSection('File handoff');
-			addToggle('Turn off for DOCX files', 'Turns off plugin specifically for DOCX files in favor of another plugin </3', settings.disableDocxFiles, this.settingsController.setDisableDocxFiles);
-
-			addSection('Diagnostics');
-			addToggle('Debug logging', 'Print Native PowerPoint Doc Editor diagnostics to the developer console.', settings.debugLogging, this.settingsController.setDebugLogging);
-			addButtonRow('Copy DOCX log', 'Copy DOCX-specific Native PowerPoint Doc Editor logs to the clipboard.', 'Copy', () => this.settingsController.copyDocxLog(this.file?.path));
 		}
 
 		private addEditorFileExportAsMenuItem() {
@@ -2814,23 +3104,18 @@ export class DocxView extends FileView {
 				button.textContent = label;
 			}
 
-			button.querySelectorAll('[data-docxidian-export-chevron]').forEach(chevron => chevron.remove());
+			button.querySelectorAll('[data-native-powerpoint-doc-editor-export-chevron]').forEach(chevron => chevron.remove());
 				if (options.showChevron) {
 					const chevron = activeDocument.createElement('span');
-					chevron.dataset.docxidianExportChevron = 'true';
+					chevron.dataset.nativePowerPointDocEditorExportChevron = 'true';
 					chevron.textContent = '›';
-					chevron.addClass('docxidian-export-chevron');
+					chevron.addClass('native-powerpoint-doc-editor-export-chevron');
 					button.appendChild(chevron);
 				}
 			};
 
-		const addExportAsItem = () => {
-			if (!this.hostEl) {
-				return;
-			}
-
-			const labels = getEditorMenuLabels(this.getEditorLocale());
-			this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
+		const labels = this.resolveEditorMenuLabels();
+		this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
 				const menuButton = menuItem.querySelector(':scope > button');
 				const menuLabel = normalizeMenuText(menuButton?.textContent ?? '');
 				if (menuLabel !== labels.file) {
@@ -2854,29 +3139,28 @@ export class DocxView extends FileView {
 				});
 				const sourceWrapper = saveWrapper ?? itemWrappers.find((itemWrapper) => itemWrapper.querySelector(':scope > button'));
 
-				let duplicateWrapper = dropdown.querySelector<HTMLElement>('[data-docxidian-duplicate-menu-item]');
+				let duplicateWrapper = dropdown.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-duplicate-menu-item]');
 				if (!duplicateWrapper) {
 					duplicateWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-					duplicateWrapper.dataset.docxidianDuplicateMenuItem = 'true';
-					duplicateWrapper.addClasses(['docxidian-file-menu-item', 'docxidian-duplicate-menu-item']);
+					duplicateWrapper.dataset.nativePowerPointDocEditorDuplicateMenuItem = 'true';
+					duplicateWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-duplicate-menu-item']);
 
 					const duplicateButton = duplicateWrapper.querySelector('button') ?? duplicateWrapper.createEl('button');
-					duplicateButton.type = 'button';
-					duplicateButton.addClass('docxidian-file-menu-button');
 					retitleMenuButton(duplicateButton, 'Duplicate current DOCX', labels.save);
 					duplicateButton.removeAttribute('disabled');
 					duplicateButton.removeAttribute('aria-disabled');
-					duplicateButton.addEventListener('mousedown', (evt) => {
-						evt.preventDefault();
-					});
-					duplicateButton.addEventListener('click', (evt) => {
-						evt.preventDefault();
-						evt.stopImmediatePropagation();
-						evt.stopPropagation();
-						activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-						void this.duplicateCurrentDocument();
+					configureMenuItemButton(duplicateButton, {
+						className: 'native-powerpoint-doc-editor-file-menu-button',
+						preventMouseDown: true,
+						preventDefaultOnClick: true,
+						stopClickPropagation: true,
+						onClick: (evt) => {
+							evt.stopImmediatePropagation();
+							activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+							void this.duplicateCurrentDocument();
+						},
 					});
 
 					if (saveWrapper) {
@@ -2886,56 +3170,54 @@ export class DocxView extends FileView {
 					}
 				}
 
-				let exportWrapper = dropdown.querySelector<HTMLElement>('[data-docxidian-export-as-menu-item]');
+				let exportWrapper = dropdown.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-export-as-menu-item]');
 				if (!exportWrapper) {
 					exportWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-						exportWrapper.dataset.docxidianExportAsMenuItem = 'true';
+						exportWrapper.dataset.nativePowerPointDocEditorExportAsMenuItem = 'true';
 
 						let exportButton = exportWrapper.querySelector('button');
 					if (!exportButton) {
 						exportButton = activeDocument.createElement('button');
 						exportWrapper.appendChild(exportButton);
 					}
-						exportWrapper.addClasses(['docxidian-file-menu-item', 'docxidian-export-menu-item']);
-						exportButton.type = 'button';
-						exportButton.addClass('docxidian-file-menu-button');
+						exportWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-export-menu-item']);
 						retitleMenuButton(exportButton, 'Export as...', labels.save, { showChevron: true });
 					exportButton.removeAttribute('disabled');
 					exportButton.removeAttribute('aria-disabled');
-					exportButton.addEventListener('mousedown', (evt) => {
-						evt.preventDefault();
-					});
-					exportButton.addEventListener('click', (evt) => {
-						evt.preventDefault();
-						evt.stopImmediatePropagation();
-						evt.stopPropagation();
-						activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-						void this.exportCurrentDocumentAs();
+					configureMenuItemButton(exportButton, {
+						className: 'native-powerpoint-doc-editor-file-menu-button',
+						preventMouseDown: true,
+						preventDefaultOnClick: true,
+						stopClickPropagation: true,
+						onClick: (evt) => {
+							evt.stopImmediatePropagation();
+							activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+							void this.exportCurrentDocumentAs();
+						},
 					});
 
-					const exportSubmenu = exportWrapper.createDiv({ cls: 'docxidian-export-submenu' });
+					const exportSubmenu = exportWrapper.createDiv({ cls: 'native-powerpoint-doc-editor-export-submenu' });
 					for (const format of DOCX_EXPORT_FORMATS) {
 						const optionWrapper = sourceWrapper
 							? sourceWrapper.cloneNode(true) as HTMLElement
 							: activeDocument.createElement('div');
-						optionWrapper.removeAttribute('data-docxidian-export-as-menu-item');
+						optionWrapper.removeAttribute('data-native-powerpoint-doc-editor-export-as-menu-item');
 							const optionButton = optionWrapper.querySelector('button') ?? optionWrapper.createEl('button');
-							optionButton.type = 'button';
-							optionButton.addClass('docxidian-file-menu-button');
 							retitleMenuButton(optionButton, format.label, labels.save);
 						optionButton.removeAttribute('disabled');
 						optionButton.removeAttribute('aria-disabled');
-						optionButton.addEventListener('mousedown', (evt) => {
-							evt.preventDefault();
-						});
-						optionButton.addEventListener('click', (evt) => {
-							evt.preventDefault();
-							evt.stopImmediatePropagation();
-							evt.stopPropagation();
-							activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-							void this.exportCurrentDocumentAs(format.id);
+						configureMenuItemButton(optionButton, {
+							className: 'native-powerpoint-doc-editor-file-menu-button',
+							preventMouseDown: true,
+							preventDefaultOnClick: true,
+							stopClickPropagation: true,
+							onClick: (evt) => {
+								evt.stopImmediatePropagation();
+								activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+								void this.exportCurrentDocumentAs(format.id);
+							},
 						});
 						exportSubmenu.appendChild(optionWrapper);
 					}
@@ -2949,27 +3231,26 @@ export class DocxView extends FileView {
 					}
 				}
 
-				if (!dropdown.querySelector('[data-docxidian-find-hidden-text-menu-item]')) {
+				if (!dropdown.querySelector('[data-native-powerpoint-doc-editor-find-hidden-text-menu-item]')) {
 					const hiddenTextWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-						hiddenTextWrapper.dataset.docxidianFindHiddenTextMenuItem = 'true';
-						hiddenTextWrapper.addClasses(['docxidian-file-menu-item', 'docxidian-find-hidden-text-menu-item']);
+						hiddenTextWrapper.dataset.nativePowerPointDocEditorFindHiddenTextMenuItem = 'true';
+						hiddenTextWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-find-hidden-text-menu-item']);
 						const hiddenTextButton = hiddenTextWrapper.querySelector('button') ?? hiddenTextWrapper.createEl('button');
-						hiddenTextButton.type = 'button';
-						hiddenTextButton.addClass('docxidian-file-menu-button');
 						retitleMenuButton(hiddenTextButton, 'Find hidden text...', labels.save);
 					hiddenTextButton.removeAttribute('disabled');
 					hiddenTextButton.removeAttribute('aria-disabled');
-					hiddenTextButton.addEventListener('mousedown', (evt) => {
-						evt.preventDefault();
-					});
-					hiddenTextButton.addEventListener('click', (evt) => {
-						evt.preventDefault();
-						evt.stopImmediatePropagation();
-						evt.stopPropagation();
-						activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-						void this.findHiddenText();
+					configureMenuItemButton(hiddenTextButton, {
+						className: 'native-powerpoint-doc-editor-file-menu-button',
+						preventMouseDown: true,
+						preventDefaultOnClick: true,
+						stopClickPropagation: true,
+						onClick: (evt) => {
+							evt.stopImmediatePropagation();
+							activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+							void this.findHiddenText();
+						},
 					});
 
 					if (exportWrapper.parentElement === dropdown) {
@@ -2981,32 +3262,15 @@ export class DocxView extends FileView {
 					}
 				}
 			});
-		};
+	}
 
-		addExportAsItem();
-		this.fileMenuObserver = new MutationObserver(addExportAsItem);
-		this.fileMenuObserver.observe(this.hostEl, {
-			childList: true,
-			subtree: true,
-		});
-		this.register(() => {
-			this.fileMenuObserver?.disconnect();
-			this.fileMenuObserver = null;
-		});
+	private addEditorInsertMenuItems() {
+		if (!this.hostEl) {
+			return;
 		}
 
-		private addEditorInsertMenuItems() {
-			if (!this.hostEl) {
-				return;
-			}
-
-			const addInsertImageItem = () => {
-				if (!this.hostEl) {
-					return;
-				}
-
-				const labels = getEditorMenuLabels(this.getEditorLocale());
-				this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
+		const labels = this.resolveEditorMenuLabels();
+		this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
 					const menuButton = menuItem.querySelector(':scope > button');
 					const menuLabel = normalizeMenuText(menuButton?.textContent ?? '');
 					if (menuLabel !== labels.insert) {
@@ -3018,7 +3282,7 @@ export class DocxView extends FileView {
 						&& child !== menuButton
 						&& Boolean(child.querySelector(':scope > div > button, :scope > button'))
 					));
-					if (!dropdown || dropdown.querySelector('[data-docxidian-insert-image-menu-item]')) {
+					if (!dropdown || dropdown.querySelector('[data-native-powerpoint-doc-editor-insert-image-menu-item]')) {
 						return;
 					}
 
@@ -3027,24 +3291,23 @@ export class DocxView extends FileView {
 					const insertImageWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-					insertImageWrapper.dataset.docxidianInsertImageMenuItem = 'true';
-					insertImageWrapper.addClasses(['docxidian-file-menu-item', 'docxidian-insert-image-menu-item']);
+					insertImageWrapper.dataset.nativePowerPointDocEditorInsertImageMenuItem = 'true';
+					insertImageWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-insert-image-menu-item']);
 
 					const insertImageButton = insertImageWrapper.querySelector('button') ?? insertImageWrapper.createEl('button');
-					insertImageButton.type = 'button';
-					insertImageButton.textContent = 'Insert image...';
-					insertImageButton.addClass('docxidian-file-menu-button');
+					insertImageButton.textContent = this.docxT('docx:chrome.insertImage');
 					insertImageButton.removeAttribute('disabled');
 					insertImageButton.removeAttribute('aria-disabled');
-					insertImageButton.addEventListener('mousedown', (evt) => {
-						evt.preventDefault();
-					});
-					insertImageButton.addEventListener('click', (evt) => {
-						evt.preventDefault();
-						evt.stopImmediatePropagation();
-						evt.stopPropagation();
-						activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-						this.openImagePicker();
+					configureMenuItemButton(insertImageButton, {
+						className: 'native-powerpoint-doc-editor-file-menu-button',
+						preventMouseDown: true,
+						preventDefaultOnClick: true,
+						stopClickPropagation: true,
+						onClick: (evt) => {
+							evt.stopImmediatePropagation();
+							activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+							this.openImagePicker();
+						},
 					});
 
 					const imageLikeWrapper = itemWrappers.find((itemWrapper) => {
@@ -3056,33 +3319,16 @@ export class DocxView extends FileView {
 						imageLikeWrapper.replaceWith(insertImageWrapper);
 					} else {
 						dropdown.appendChild(insertImageWrapper);
-					}
-				});
-			};
+				}
+			});
+	}
 
-			addInsertImageItem();
-			this.insertMenuObserver = new MutationObserver(addInsertImageItem);
-			this.insertMenuObserver.observe(this.hostEl, {
-				childList: true,
-				subtree: true,
-			});
-			this.register(() => {
-				this.insertMenuObserver?.disconnect();
-				this.insertMenuObserver = null;
-			});
+	private normalizeNativeEditorMenuActionItems() {
+		if (!this.hostEl) {
+			return;
 		}
 
-		private normalizeNativeEditorMenuActionItems() {
-			if (!this.hostEl) {
-				return;
-			}
-
-			const normalizeMenuItems = () => {
-				if (!this.hostEl) {
-					return;
-				}
-
-				const labels = getEditorMenuLabels(this.getEditorLocale());
+		const labels = this.resolveEditorMenuLabels();
 				const menuSpecs = [
 					{ menuLabel: labels.file, optionLabels: labels.pageSetup },
 					{ menuLabel: labels.format, optionLabels: labels.rightToLeft },
@@ -3120,35 +3366,10 @@ export class DocxView extends FileView {
 						const wrapper = Array.from(dropdown.children).find((child): child is HTMLElement => (
 							isHTMLElement(child) && child.contains(button)
 						));
-						wrapper?.addClasses(['docxidian-file-menu-item', 'docxidian-native-menu-action-item']);
-						button.addClasses(['docxidian-file-menu-button', 'docxidian-native-menu-action-button']);
-					}
-				});
-			};
-
-			normalizeMenuItems();
-			this.nativeMenuStyleObserver = new MutationObserver(normalizeMenuItems);
-			this.nativeMenuStyleObserver.observe(this.hostEl, {
-				childList: true,
-				subtree: true,
+						wrapper?.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-native-menu-action-item']);
+						button.addClasses(['native-powerpoint-doc-editor-file-menu-button', 'native-powerpoint-doc-editor-native-menu-action-button']);
+				}
 			});
-			this.register(() => {
-				this.nativeMenuStyleObserver?.disconnect();
-				this.nativeMenuStyleObserver = null;
-			});
-		}
-
-		private trackEditorHoverState() {
-		if (!this.hostEl) {
-			return;
-		}
-
-			const markEditorHovering = () => activeDocument.body.classList.add('docxidian-editor-hovering');
-			const clearEditorHovering = () => activeDocument.body.classList.remove('docxidian-editor-hovering');
-
-		this.registerDomEvent(this.hostEl, 'pointerenter', markEditorHovering);
-		this.registerDomEvent(this.hostEl, 'pointerleave', clearEditorHovering);
-		this.register(clearEditorHovering);
 	}
 
 	private registerEditorSaveInterceptor() {
@@ -3157,7 +3378,7 @@ export class DocxView extends FileView {
 					!this.hostEl
 					|| this.app.workspace.getActiveViewOfType(DocxView) !== this
 					|| (isElement(evt.target) && !!evt.target.closest('.modal'))
-					|| !shouldHandleEditorSaveClick(evt.target, getEditorMenuLabels(this.getEditorLocale()).save)
+					|| !shouldHandleEditorSaveClick(evt.target, this.resolveEditorMenuLabels().save)
 				) {
 				return;
 			}
@@ -3223,7 +3444,7 @@ export class DocxView extends FileView {
 			}
 
 				const target = isElement(evt.target) ? evt.target : null;
-			if (target?.closest('.modal') && !target.closest('.docxidian-find-dialog')) {
+			if (target?.closest('.modal') && !target.closest('.native-powerpoint-doc-editor-find-dialog')) {
 				return;
 			}
 
@@ -3273,11 +3494,14 @@ export class DocxView extends FileView {
 		return {
 			file: this.file,
 			buffer: this.buffer,
-			documentKey: this.file ? `${this.file.path}:${this.documentSession}` : 'docxidian-empty',
+			documentKey: this.file ? `${this.file.path}:${this.documentSession}` : 'native-powerpoint-doc-editor-empty',
 			error: this.error,
 			isLoading: this.isLoading,
 			authorName: this.getAuthorName(),
+			resolvedEditorTheme: this.getResolvedEditorTheme(),
 			i18n: this.getEditorLocale(),
+			pluginI18n: this.getPluginI18n(),
+			showNotice: (key, values) => this.showNotice(key, values),
 			showRuler: this.getShowRuler(),
 			autosave: this.getAutosave(),
 			defaultZoom: this.getDefaultZoom(),
@@ -3287,6 +3511,7 @@ export class DocxView extends FileView {
 			},
 			onSave: (buffer) => this.saveFile(buffer),
 			onDocumentNameChange: (name, expectedPath) => this.renameFile(name, expectedPath),
+			onLoadPhase: this.handleEditorLoadPhase,
 		};
 	}
 
@@ -3297,30 +3522,45 @@ export class DocxView extends FileView {
 				isLoading: this.reactMountLoading,
 				hasHost: Boolean(this.hostEl),
 			});
+			this.markOpenLoadPhase('react-mount-skipped', {
+				hasMount: Boolean(this.reactMount),
+				isLoading: this.reactMountLoading,
+				hasHost: Boolean(this.hostEl),
+			});
 			return;
 		}
 
 		this.reactMountLoading = true;
 		try {
 			infoLog('editor', 'Loading DOCX editor UI');
+			this.markOpenLoadPhase('react-mount-start');
+			const chunkStartedAt = monotonicNow();
 			const { createDocxReactMount } = await loadDocxEditorChunk();
+			this.markOpenLoadPhase('react-chunk-loaded', {
+				durationMs: Math.round((monotonicNow() - chunkStartedAt) * 10) / 10,
+			});
 			if (!this.hostEl) {
 				debugLog('editor', 'Aborted DOCX editor mount because host was removed');
 				return;
 			}
 
 			this.hostEl.empty();
+			const mountStartedAt = monotonicNow();
 			this.reactMount = createDocxReactMount(this.hostEl);
 			this.reactMount.render(this.getReactProps());
+			this.markOpenLoadPhase('react-mount-rendered', {
+				durationMs: Math.round((monotonicNow() - mountStartedAt) * 10) / 10,
+			});
+			this.registerEditorChromeCustomization();
 			infoLog('editor', 'Mounted DOCX editor UI', { file: this.file?.path });
 		} catch (loadError) {
 			const message = loadError instanceof Error ? loadError.message : 'Unknown load error';
 			this.error = `Could not load DOCX editor: ${message}`;
 			errorLog('editor', this.error, loadError);
-			new Notice(this.error);
+			showI18nNotice(this.getPluginI18n(), this.error);
 			if (this.hostEl) {
 				this.hostEl.empty();
-				this.hostEl.createDiv({ cls: 'docxidian-editor-load-error', text: this.error });
+				this.hostEl.createDiv({ cls: 'native-powerpoint-doc-editor-editor-load-error', text: this.error });
 			}
 		} finally {
 			this.reactMountLoading = false;
@@ -3333,17 +3573,29 @@ export class DocxView extends FileView {
 		}
 
 		if (!this.isLeafActive() && !this.reactMount) {
+			if (!this.app.workspace.layoutReady) {
+				this.markOpenLoadPhase('render-startup-loading-shell');
+				this.hostEl.empty();
+				this.hostEl.createDiv({
+					cls: 'native-powerpoint-doc-editor-editor-loading',
+					text: 'Loading DOCX editor...',
+				});
+				return;
+			}
+			this.markOpenLoadPhase('render-inactive-placeholder');
 			this.renderInactivePlaceholder();
 			return;
 		}
 
 		if (!this.reactMount) {
+			this.markOpenLoadPhase('render-loading-shell');
 			this.hostEl.empty();
-			this.hostEl.createDiv({ cls: 'docxidian-editor-loading', text: 'Loading DOCX editor...' });
+			this.hostEl.createDiv({ cls: 'native-powerpoint-doc-editor-editor-loading', text: 'Loading DOCX editor...' });
 			this.scheduleEditorMount();
 			return;
 		}
 
 		this.reactMount.render(this.getReactProps());
+		this.registerEditorChromeCustomization();
 	}
 }

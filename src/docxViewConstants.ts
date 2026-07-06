@@ -1,1 +1,1 @@
-export const VIEW_TYPE_DOCX = 'docxidian-docx-view';
+export const VIEW_TYPE_DOCX = 'native-powerpoint-doc-editor-docx-view';

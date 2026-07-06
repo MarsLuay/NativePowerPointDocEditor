@@ -1,4 +1,7 @@
-import { FileView, Menu, Notice, Platform, TFile, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
+import { FileView, Menu, Platform, TFile, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
+
+import { pptNotice, pptT } from './i18n/powerpointNotify';
+import type { TranslateFn, TranslateValues } from './i18n/translate';
 
 import {
   PresentationEngine,
@@ -69,6 +72,7 @@ import {
   isWasmGcUnsupportedError
 } from './powerpoint/runtimeCompat';
 import { getChromiumVersion } from './obsidianRuntime';
+import { bindPopoverDismissHandlers, createMenuItem, createPopoverShell, positionPopoverBelow } from './menuControls';
 import { FindReplaceController, type FindReplaceHost } from './powerpoint/findReplaceController';
 import { HistoryController, type HistoryHost } from './powerpoint/historyController';
 import { ExportController, type ExportHost } from './powerpoint/exportController';
@@ -151,6 +155,11 @@ const INLINE_EDIT_HISTORY_LIMIT = 200;
 const EDITOR_FORMATTING_SURFACE_SELECTOR = '.native-powerpoint-toolbar, .native-powerpoint-text-toolbar, .native-powerpoint-toolbar-popover';
 
 export class NativePowerPointView extends FileView {
+  private readonly t: TranslateFn = (key, values) => pptT(key, values);
+  private tb(suffix: string, values?: TranslateValues): string {
+    return this.t(`powerpoint:toolbar.${suffix}`, values);
+  }
+
   private readonly getSettings: () => NativePowerPointSettings;
 
   private engine: PresentationEngine | null = null;
@@ -201,6 +210,7 @@ export class NativePowerPointView extends FileView {
   private svgSecurityDecision: SvgSecurityDecision = null;
 
   private layoutEl: HTMLElement | null = null;
+  private rootEl: HTMLElement | null = null;
   private headerTitleEl: HTMLElement | null = null;
   private zoomLevelEl: HTMLElement | null = null;
   private thumbnailContainer: HTMLElement | null = null;
@@ -281,9 +291,10 @@ export class NativePowerPointView extends FileView {
    * the view's own members can remain `private`; this closure can read them
    * because it is lexically inside the class.
    */
-  private createSlideFilmstripHost(): SlideFilmstripHost {
+  private createSlideFilmstripHost(): SlideFilmstripHost & { t: TranslateFn } {
     const getView = (): NativePowerPointView => this;
     return {
+      t: this.t,
       get engine() { return getView().engine; },
       get thumbnailContainer() { return getView().thumbnailContainer; },
       get isLoading() { return getView().isLoading; },
@@ -319,9 +330,10 @@ export class NativePowerPointView extends FileView {
    * `private`; this closure can read them because it is lexically inside the
    * class.
    */
-  private createSnapHost(): SnapHost {
+  private createSnapHost(): SnapHost & { t: TranslateFn } {
     const getView = (): NativePowerPointView => this;
     return {
+      t: this.t,
       get engine() { return getView().engine; },
       get svgEl() { return getView().svgEl; },
       get canvasPane() { return getView().canvasPane; },
@@ -337,9 +349,10 @@ export class NativePowerPointView extends FileView {
    * remain `private`; this closure can read them because it is lexically inside
    * the class.
    */
-  private createExportHost(): ExportHost {
+  private createExportHost(): ExportHost & { t: TranslateFn } {
     const getView = (): NativePowerPointView => this;
     return {
+      t: this.t,
       get engine() { return getView().engine; },
       get currentSlide() { return getView().currentSlide; },
       get ownerDocument() { return getView().contentEl.ownerDocument; },
@@ -357,9 +370,10 @@ export class NativePowerPointView extends FileView {
    * members can remain `private`; this closure can read them because it is
    * lexically inside the class.
    */
-  private createHistoryHost(): HistoryHost {
+  private createHistoryHost(): HistoryHost & { t: TranslateFn } {
     const getView = (): NativePowerPointView => this;
     return {
+      t: this.t,
       get engine() { return getView().engine; },
       get currentSlide() { return getView().currentSlide; },
       set currentSlide(value: number) { getView().currentSlide = value; },
@@ -381,9 +395,10 @@ export class NativePowerPointView extends FileView {
    * view's own members can remain `private`; this closure can read them because
    * it is lexically inside the class.
    */
-  private createFindReplaceHost(): FindReplaceHost {
+  private createFindReplaceHost(): FindReplaceHost & { t: TranslateFn } {
     const getView = (): NativePowerPointView => this;
     return {
+      t: this.t,
       get engine() { return getView().engine; },
       get isLoading() { return getView().isLoading; },
       get currentSlide() { return getView().currentSlide; },
@@ -416,7 +431,7 @@ export class NativePowerPointView extends FileView {
   }
 
   getDisplayText(): string {
-    return this.loadedFile?.basename || this.file?.basename || 'Native PowerPoint';
+    return this.loadedFile?.basename || this.file?.basename || this.tb('nativePowerPoint');
   }
 
   getIcon(): string {
@@ -439,7 +454,7 @@ export class NativePowerPointView extends FileView {
     if (this.engine && this.loadedFile && this.loadedFile.path !== file.path) {
       const preserved = await this.preserveUnsavedChangesForTeardown('switching files');
       if (!preserved) {
-        new Notice(`Could not switch files because unsaved edits from ${this.loadedFile.name} could not be preserved.`);
+        pptNotice('powerpoint:notice.switchFilesPreserveFailed', { fileName: this.loadedFile.name });
         return;
       }
 
@@ -468,7 +483,7 @@ export class NativePowerPointView extends FileView {
 
     const preserved = await this.preserveUnsavedChangesForTeardown('closing the view');
     if (!preserved) {
-      new Notice('Native PowerPoint could not close safely. Keep this tab open and retry saving or closing after resolving the vault write error.');
+      pptNotice('powerpoint:notice.closeUnsafe');
       return;
     }
 
@@ -484,12 +499,16 @@ export class NativePowerPointView extends FileView {
     const sourcePackage = this.sourcePackage;
     const sourceBuffer = this.sourceBuffer;
     if (!file || !engine || !sourcePackage || !sourceBuffer || !isModernPowerPointExtension(file.extension)) {
-      new Notice('Open a modern PowerPoint file to save it.');
+      pptNotice('powerpoint:notice.openModernToSave');
       return false;
     }
 
     if (!isEditablePowerPointExtension(file.extension)) {
-      new Notice(this.viewOnlyReason || 'This PowerPoint format is view-only in Native PowerPoint.');
+      if (this.viewOnlyReason) {
+        pptNotice('powerpoint:notice.viewOnlyReason', { reason: this.viewOnlyReason });
+      } else {
+        pptNotice('powerpoint:notice.viewOnlyDefault');
+      }
       return false;
     }
 
@@ -550,7 +569,7 @@ export class NativePowerPointView extends FileView {
       this.lastSaveError = message;
       this.setSaveState('failed');
       errorLog('save', 'PowerPoint save failed', { file: file.path, targetVersion, error });
-      new Notice(`Could not save ${file.name}: ${message}`);
+      pptNotice('powerpoint:notice.couldNotSave', { fileName: file.name, message });
       if (this.isDirty && this.getSettings().autosaveEnabled) {
         this.scheduleAutosave(5000);
       }
@@ -605,8 +624,8 @@ export class NativePowerPointView extends FileView {
   private ensureEditable(action: string): boolean {
     if (this.canEdit()) return true;
 
-    const reason = this.viewOnlyReason || 'This PowerPoint file is view-only in Native PowerPoint.';
-    new Notice(`Cannot ${action}: ${reason}`);
+    const reason = this.viewOnlyReason || pptT('powerpoint:notice.viewOnlyFile');
+    pptNotice('powerpoint:notice.cannotAction', { action, reason });
     return false;
   }
 
@@ -616,11 +635,11 @@ export class NativePowerPointView extends FileView {
 
   private getViewOnlyReason(file: TFile, sourcePackage: PowerPointPackageInspection): string {
     if (isMacroEnabledPowerPointExtension(file.extension)) {
-      return 'Macro-enabled PowerPoint files are view-only until macro preservation is verified.';
+      return this.t('powerpoint:notice.macroEnabledViewOnly');
     }
 
     if (sourcePackage.hasVbaProject) {
-      return 'This package contains a macro project, so editing is disabled until macro preservation is verified.';
+      return this.t('powerpoint:notice.hasVbaProjectViewOnly');
     }
 
     return '';
@@ -630,6 +649,8 @@ export class NativePowerPointView extends FileView {
     this.contentEl.empty();
 
     const root = this.contentEl.createDiv({ cls: 'native-powerpoint-root' });
+    this.rootEl = root;
+    this.applyThemeClass();
     this.createHeaderBar(root);
     this.layoutEl = root.createDiv({ cls: 'native-powerpoint-layout' });
 
@@ -637,13 +658,13 @@ export class NativePowerPointView extends FileView {
     this.registerDomEvent(sidebar, 'pointerdown', () => {
       this.lastInteractionRegion = 'thumbnails';
     }, true);
-    const sidebarHeader = sidebar.createDiv({ cls: 'native-powerpoint-sidebar-header', text: 'Slides' });
+    const sidebarHeader = sidebar.createDiv({ cls: 'native-powerpoint-sidebar-header', text: this.tb('slides') });
     const addSlideButton = sidebarHeader.createEl('button', {
       cls: 'native-powerpoint-sidebar-add',
-      attr: { 'aria-label': 'New slide' }
+      attr: { 'aria-label': this.t('powerpoint:accessibility.newSlide') }
     });
     setIcon(addSlideButton, 'plus');
-    addSlideButton.addEventListener('click', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
+    this.registerDomEvent(addSlideButton, 'click', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
     this.thumbnailContainer = sidebar.createDiv({ cls: 'native-powerpoint-thumbnails' });
 
     const main = this.layoutEl.createDiv({ cls: 'native-powerpoint-main-content' });
@@ -670,10 +691,26 @@ export class NativePowerPointView extends FileView {
   }
 
   refreshSettings(): void {
+    this.applyThemeClass();
     this.applyInspectorVisibility();
     if (this.getSettings().showInspector) {
       this.renderInspector();
     }
+  }
+
+  private applyThemeClass(): void {
+    if (!this.rootEl) return;
+
+    this.rootEl.removeClasses([
+      'native-powerpoint-theme-system',
+      'native-powerpoint-theme-light',
+      'native-powerpoint-theme-dark',
+      'native-powerpoint-theme-resolved-light',
+      'native-powerpoint-theme-resolved-dark'
+    ]);
+    const editorTheme = this.getSettings().editorTheme;
+    this.rootEl.addClass(`native-powerpoint-theme-${editorTheme}`);
+    this.rootEl.addClass(`native-powerpoint-theme-resolved-${this.getSettings().resolvedEditorTheme}`);
   }
 
   private createHeaderBar(root: HTMLElement): void {
@@ -681,7 +718,7 @@ export class NativePowerPointView extends FileView {
 
     const saveButton = headerBar.createEl('button', {
       cls: 'clickable-icon native-powerpoint-header-save',
-      attr: { type: 'button', 'aria-label': 'Save' }
+      attr: { type: 'button', 'aria-label': this.t('powerpoint:accessibility.save') }
     });
     setIcon(saveButton, 'save');
     saveButton.addEventListener('click', () => void this.saveCurrentPresentation());
@@ -701,8 +738,8 @@ export class NativePowerPointView extends FileView {
     });
     this.headerTitleEl.setAttribute('role', 'button');
     this.headerTitleEl.setAttribute('tabindex', '0');
-    this.headerTitleEl.setAttribute('aria-label', 'Rename presentation');
-    this.headerTitleEl.title = 'Click to rename';
+    this.headerTitleEl.setAttribute('aria-label', pptT('powerpoint:accessibility.renamePresentation'));
+    this.headerTitleEl.title = pptT('powerpoint:accessibility.clickToRename');
     this.headerTitleEl.addEventListener('click', () => this.beginRenameTitle());
     this.headerTitleEl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -711,7 +748,7 @@ export class NativePowerPointView extends FileView {
       }
     });
 
-    this.statusEl = header.createDiv({ cls: 'native-powerpoint-save-status', text: 'Ready' });
+    this.statusEl = header.createDiv({ cls: 'native-powerpoint-save-status', text: this.t('powerpoint:save.ready') });
     this.statusEl.setAttribute('role', 'status');
     this.statusEl.addEventListener('click', () => {
       if (this.saveState === 'failed') {
@@ -783,7 +820,7 @@ export class NativePowerPointView extends FileView {
     try {
       await this.app.fileManager.renameFile(file, newPath);
     } catch (error) {
-      new Notice(`Could not rename file: ${error instanceof Error ? error.message : String(error)}`);
+      pptNotice('powerpoint:notice.couldNotRename', { message: error instanceof Error ? error.message : String(error) });
     } finally {
       this.updateHeaderTitle();
     }
@@ -791,11 +828,11 @@ export class NativePowerPointView extends FileView {
 
   private createMenuBar(root: HTMLElement): void {
     this.menuBar.build(root, [
-      { kind: 'dropdown', label: 'File', getItems: () => this.getFileMenuItems() },
-      { kind: 'dropdown', label: 'Edit', getItems: () => this.getEditMenuItems() },
-      { kind: 'dropdown', label: 'Insert', getItems: () => this.getInsertMenuItems() },
-      { kind: 'action', label: 'Search', action: () => this.findController.open() },
-      { kind: 'action', label: 'Settings', action: () => this.openPluginSettings() }
+      { kind: 'dropdown', label: this.tb('file'), getItems: () => this.getFileMenuItems() },
+      { kind: 'dropdown', label: this.tb('edit'), getItems: () => this.getEditMenuItems() },
+      { kind: 'dropdown', label: this.tb('insert'), getItems: () => this.getInsertMenuItems() },
+      { kind: 'action', label: this.tb('search'), action: () => this.findController.open() },
+      { kind: 'action', label: this.tb('settings'), action: () => this.openPluginSettings() }
     ]);
   }
 
@@ -813,34 +850,34 @@ export class NativePowerPointView extends FileView {
 
   private getFileMenuItems(): MenuDropdownEntry[] {
     return [
-      { label: 'Save', icon: 'save', onClick: () => void this.saveCurrentPresentation() },
-      { label: 'Duplicate', icon: 'copy', onClick: () => void this.duplicatePresentation() },
+      { label: this.tb('save'), icon: 'save', onClick: () => void this.saveCurrentPresentation() },
+      { label: this.tb('duplicate'), icon: 'copy', onClick: () => void this.duplicatePresentation() },
       'separator',
-      { label: 'Print', icon: 'printer', onClick: () => void this.printPresentation() },
+      { label: this.tb('print'), icon: 'printer', onClick: () => void this.printPresentation() },
       'separator',
       {
-        label: 'Export current slide as PNG',
+        label: this.tb('exportCurrentSlidePng'),
         icon: 'image',
         onClick: () => void this.exportController.exportCurrentSlideAsPng()
       },
       {
-        label: 'Export current slide as PDF',
+        label: this.tb('exportCurrentSlidePdf'),
         icon: 'file-output',
         onClick: () => void this.exportController.exportDeckAsPdf(true)
       },
       {
-        label: 'Export deck as PDF',
+        label: this.tb('exportDeckPdf'),
         icon: 'file-output',
         onClick: () => void this.exportController.exportDeckAsPdf(false)
       },
       {
-        label: 'Export deck as PNGs (zip)',
+        label: this.tb('exportDeckPngsZip'),
         icon: 'file-archive',
         onClick: () => void this.exportController.exportDeckAsPngZip()
       },
       'separator',
       {
-        label: 'Present from current slide',
+        label: this.tb('present'),
         icon: 'play',
         onClick: () => this.startPresentation()
       }
@@ -855,57 +892,57 @@ export class NativePowerPointView extends FileView {
 
     return [
       {
-        label: 'Undo',
+        label: this.tb('undo'),
         icon: 'undo',
         onClick: () => void this.historyController.undo(),
         disabled: !canUseHistory || !this.historyController.canUndo
       },
       {
-        label: 'Redo',
+        label: this.tb('redo'),
         icon: 'redo',
         onClick: () => void this.historyController.redo(),
         disabled: !canUseHistory || !this.historyController.canRedo
       },
       'separator',
       {
-        label: 'Cut',
+        label: this.tb('cut'),
         icon: 'scissors',
         onClick: () => void this.cutSelectedShape(),
         disabled: !canEdit || this.selectedShapeIndex === null
       },
       {
-        label: 'Copy',
+        label: this.tb('copy'),
         icon: 'copy',
         onClick: () => void this.copySelectedShape(),
         disabled: this.selectedShapeIndex === null
       },
       {
-        label: 'Paste',
+        label: this.tb('paste'),
         icon: 'clipboard-paste',
         onClick: () => void this.pasteCopiedShape(),
         disabled: !canEdit || !hasClipboard
       },
       {
-        label: 'Paste without formatting',
+        label: this.tb('pasteWithoutFormatting'),
         icon: 'clipboard-type',
         onClick: () => void this.pasteWithoutFormatting(),
         disabled: !canEdit || (!this.activeEditor && !hasClipboard)
       },
       {
-        label: 'Delete',
+        label: this.tb('delete'),
         icon: 'trash-2',
         onClick: () => void this.deleteSelectedShape(),
         disabled: !canEdit || !hasSelection
       },
       'separator',
       {
-        label: 'Select all',
+        label: this.tb('selectAll'),
         icon: 'box-select',
         onClick: () => this.selectAllShapes()
       },
       'separator',
       {
-        label: 'Find and replace',
+        label: this.tb('findAndReplace'),
         icon: 'replace',
         onClick: () => this.findController.open({ replace: true })
       }
@@ -914,33 +951,33 @@ export class NativePowerPointView extends FileView {
 
   private getInsertMenuItems(): MenuDropdownEntry[] {
     return [
-      { label: 'Image from vault', icon: 'image', onClick: () => this.openVaultImagePicker() },
-      { label: 'Upload image', icon: 'upload', onClick: () => this.imageFileInput?.click() },
+      { label: this.tb('imageFromVault'), icon: 'image', onClick: () => this.openVaultImagePicker() },
+      { label: this.tb('uploadImage'), icon: 'upload', onClick: () => this.imageFileInput?.click() },
       'separator',
-      { label: 'Text box', icon: 'type', onClick: () => void this.addTextBox() },
-      { label: 'Rectangle', icon: 'square', onClick: () => void this.insertShape('rect') },
-      { label: 'Ellipse', icon: 'circle', onClick: () => void this.insertShape('ellipse') },
-      { label: 'Line', icon: 'minus', onClick: () => void this.insertShape('line') },
-      { label: 'Arrow', icon: 'move-right', onClick: () => void this.insertShape('rightArrow') },
+      { label: this.tb('textBox'), icon: 'type', onClick: () => void this.addTextBox() },
+      { label: this.tb('rectangle'), icon: 'square', onClick: () => void this.insertShape('rect') },
+      { label: this.tb('ellipse'), icon: 'circle', onClick: () => void this.insertShape('ellipse') },
+      { label: this.tb('line'), icon: 'minus', onClick: () => void this.insertShape('line') },
+      { label: this.tb('arrow'), icon: 'move-right', onClick: () => void this.insertShape('rightArrow') },
       'separator',
-      { label: 'Table', icon: 'table', onClick: () => this.openTableSizePicker(this.insertTableButton) },
-      { label: 'Chart', icon: 'bar-chart-3', onClick: () => void this.insertChart() },
+      { label: this.tb('table'), icon: 'table', onClick: () => this.openTableSizePicker(this.insertTableButton) },
+      { label: this.tb('chart'), icon: 'bar-chart-3', onClick: () => void this.insertChart() },
       'separator',
-      { label: 'Bulleted list', icon: 'list', onClick: () => void this.applyListStyle('bullet') },
+      { label: this.tb('bulletedList'), icon: 'list', onClick: () => void this.applyListStyle('bullet') },
       {
-        label: 'Numbered list',
+        label: this.tb('numberedList'),
         icon: 'list-ordered',
         onClick: () => void this.applyListStyle('number')
       },
       'separator',
-      { label: 'New slide', icon: 'plus', onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') }
+      { label: this.tb('newSlide'), icon: 'plus', onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') }
     ];
   }
 
   private async duplicatePresentation(): Promise<void> {
     const file = this.loadedFile || this.file;
     if (!file) {
-      new Notice('Open a presentation to duplicate it.');
+      pptNotice('powerpoint:notice.openToDuplicate');
       return;
     }
 
@@ -951,9 +988,9 @@ export class NativePowerPointView extends FileView {
       const copyPath = this.getAvailableCopyPath(file);
       const data = await this.app.vault.readBinary(file);
       const created = await this.app.vault.createBinary(copyPath, data);
-      new Notice(`Duplicated to ${created.name}`);
+      pptNotice('powerpoint:notice.duplicatedTo', { fileName: created.name });
     } catch (error) {
-      new Notice(`Could not duplicate presentation: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotDuplicatePresentation', { message: cleanError(error) });
     }
   }
 
@@ -970,7 +1007,7 @@ export class NativePowerPointView extends FileView {
 
   private async printPresentation(): Promise<void> {
     if (!this.engine || this.engine.slideCount === 0) {
-      new Notice('Open a presentation with at least one slide to print.');
+      pptNotice('powerpoint:notice.openToPrint');
       return;
     }
 
@@ -981,7 +1018,7 @@ export class NativePowerPointView extends FileView {
         throw new Error('No slides could be rendered for printing.');
       }
 
-      new Notice('Preparing slides for printing...');
+      pptNotice('powerpoint:notice.preparingPrint');
       const urls: string[] = [];
       for (const element of elements) {
         const bytes = await exportSlideToPng(element, this.contentEl.ownerDocument);
@@ -989,7 +1026,7 @@ export class NativePowerPointView extends FileView {
       }
       this.printSlideImages(urls);
     } catch (error) {
-      new Notice(`Could not print: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotPrint', { message: cleanError(error) });
     }
   }
 
@@ -1007,7 +1044,7 @@ export class NativePowerPointView extends FileView {
     const win = iframe.contentWindow;
     if (!doc || !win) {
       cleanup();
-      new Notice('Could not open the print view.');
+      pptNotice('powerpoint:notice.couldNotOpenPrintView');
       return;
     }
 
@@ -1050,7 +1087,7 @@ export class NativePowerPointView extends FileView {
       }
     ).setting;
     if (!setting?.open || !setting.openTabById) {
-      new Notice('Unable to open settings from here. Open Obsidian settings manually.');
+      pptNotice('powerpoint:notice.settingsUnavailable');
       return;
     }
     setting.open();
@@ -1058,7 +1095,7 @@ export class NativePowerPointView extends FileView {
   }
 
   private updateZoomLabel(): void {
-    this.zoomLevelEl?.setText(`${Math.round(this.zoomLevel * 100)}%`);
+    this.zoomLevelEl?.setText(this.tb('zoomPercent', { percent: Math.round(this.zoomLevel * 100) }));
   }
 
   private observeCanvasPane(): void {
@@ -1090,71 +1127,74 @@ export class NativePowerPointView extends FileView {
     // then slide operations, then insert/object operations, then find. Slide
     // navigation sits on the right like Slides' top-right controls.
     const historyGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
-    const undoButton = this.createIconButton(historyGroup, 'undo', 'Undo (Ctrl+Z)', () => void this.historyController.undo());
-    const redoButton = this.createIconButton(historyGroup, 'redo', 'Redo (Ctrl+Y)', () => void this.historyController.redo());
+    const undoLabel = this.t('powerpoint:accessibility.undoShortcut');
+    const redoLabel = this.t('powerpoint:accessibility.redoShortcut');
+    const undoButton = this.createIconButton(historyGroup, 'undo', undoLabel, () => void this.historyController.undo());
+    const redoButton = this.createIconButton(historyGroup, 'redo', redoLabel, () => void this.historyController.redo());
     this.historyController.attachButtons(undoButton, redoButton);
 
     const zoomGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
-    this.createIconButton(zoomGroup, 'zoom-out', 'Zoom out', () => this.setZoom(this.zoomLevel - 0.1));
-    this.zoomLevelEl = zoomGroup.createDiv({ cls: 'native-powerpoint-zoom-level', text: '100%' });
-    this.createIconButton(zoomGroup, 'zoom-in', 'Zoom in', () => this.setZoom(this.zoomLevel + 0.1));
+    this.createIconButton(zoomGroup, 'zoom-out', this.tb('zoomOut'), () => this.setZoom(this.zoomLevel - 0.1));
+    this.zoomLevelEl = zoomGroup.createDiv({ cls: 'native-powerpoint-zoom-level', text: this.tb('zoomPercent', { percent: 100 }) });
+    this.createIconButton(zoomGroup, 'zoom-in', this.tb('zoomIn'), () => this.setZoom(this.zoomLevel + 0.1));
     this.updateZoomLabel();
 
     this.createInsertToolbarGroup(toolbar);
 
     const slideGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
     // Primary click adds a blank slide immediately (Google Slides "+" behavior).
-    this.createEditIconButton(slideGroup, 'plus', 'New slide', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
+    this.createEditIconButton(slideGroup, 'plus', this.tb('newSlide'), () => void this.slideFilmstripController.addSlideWithLayout('blank'));
     // A caret opens the layout choices without blocking the quick-add action.
-    const newSlideLayoutButton = this.createEditIconButton(slideGroup, 'chevron-down', 'New slide layout', () => {
+    const newSlideLayoutButton = this.createEditIconButton(slideGroup, 'chevron-down', this.tb('newSlideLayout'), () => {
       this.toggleInsertMenu(newSlideLayoutButton, [
-        { label: 'Blank', onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') },
-        { label: 'Title', onClick: () => void this.slideFilmstripController.addSlideWithLayout('title') },
-        { label: 'Title + Body', onClick: () => void this.slideFilmstripController.addSlideWithLayout('titleBody') }
+        { label: this.tb('blank'), onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') },
+        { label: this.tb('title'), onClick: () => void this.slideFilmstripController.addSlideWithLayout('title') },
+        { label: this.tb('titleBody'), onClick: () => void this.slideFilmstripController.addSlideWithLayout('titleBody') }
       ]);
     });
-    this.createEditIconButton(slideGroup, 'files', 'Duplicate slide', () => void this.slideFilmstripController.duplicateSlide());
-    this.createEditIconButton(slideGroup, 'trash-2', 'Delete slide', () => void this.slideFilmstripController.deleteSlide());
-    this.createEditIconButton(slideGroup, 'arrow-left-to-line', 'Move slide left', () => void this.slideFilmstripController.moveSlide(-1));
-    this.createEditIconButton(slideGroup, 'arrow-right-to-line', 'Move slide right', () => void this.slideFilmstripController.moveSlide(1));
+    this.createEditIconButton(slideGroup, 'files', this.tb('duplicateSlide'), () => void this.slideFilmstripController.duplicateSlide());
+    this.createEditIconButton(slideGroup, 'trash-2', this.tb('deleteSlide'), () => void this.slideFilmstripController.deleteSlide());
+    this.createEditIconButton(slideGroup, 'arrow-left-to-line', this.tb('moveSlideLeft'), () => void this.slideFilmstripController.moveSlide(-1));
+    this.createEditIconButton(slideGroup, 'arrow-right-to-line', this.tb('moveSlideRight'), () => void this.slideFilmstripController.moveSlide(1));
 
     const objectGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
-    this.copyButton = this.createIconButton(objectGroup, 'copy', 'Copy selected object (Ctrl+C)', () => void this.copySelectedShape());
-    this.pasteButton = this.createIconButton(objectGroup, 'clipboard-paste', 'Paste object (Ctrl+V)', () => void this.pasteCopiedShape());
-    this.duplicateButton = this.createIconButton(objectGroup, 'copy-plus', 'Duplicate selected object (Ctrl+D)', () => void this.duplicateSelectedShape());
-    this.createEditIconButton(objectGroup, 'eraser', 'Delete selected object', () => void this.deleteSelectedShape());
+    this.copyButton = this.createIconButton(objectGroup, 'copy', this.tb('copySelectedObject'), () => void this.copySelectedShape());
+    this.pasteButton = this.createIconButton(objectGroup, 'clipboard-paste', this.tb('pasteObject'), () => void this.pasteCopiedShape());
+    this.duplicateButton = this.createIconButton(objectGroup, 'copy-plus', this.tb('duplicateSelectedObject'), () => void this.duplicateSelectedShape());
+    this.createEditIconButton(objectGroup, 'eraser', this.tb('deleteSelectedObject'), () => void this.deleteSelectedShape());
 
     const fontGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
+    const fontFamilyLabel = this.t('powerpoint:accessibility.fontFamily');
     const fontButton = fontGroup.createEl('button', {
       cls: 'native-powerpoint-toolbar-btn native-powerpoint-text-toolbar-font',
-      attr: { 'aria-label': 'Font family' }
+      attr: { 'aria-label': fontFamilyLabel, 'data-tooltip': fontFamilyLabel }
     });
-    this.topFontLabel = fontButton.createSpan({ cls: 'native-powerpoint-text-toolbar-font-label', text: 'Font' });
+    this.topFontLabel = fontButton.createSpan({ cls: 'native-powerpoint-text-toolbar-font-label', text: this.tb('font') });
     setIcon(fontButton.createSpan({ cls: 'native-powerpoint-text-toolbar-caret' }), 'chevron-down');
     this.bindToolbarButton(fontButton, () => this.openFontMenu(fontButton));
     this.topFontButton = fontButton;
-    this.setTopFontControl('Font', false);
+    this.setTopFontControl(this.tb('font'), false);
 
     this.createArrangeToolbarGroups(toolbar);
 
     const searchGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
-    const findButton = this.createIconButton(searchGroup, 'search', 'Find in presentation (Ctrl+F)', () => this.findController.toggle());
+    const findButton = this.createIconButton(searchGroup, 'search', this.tb('findInPresentation'), () => this.findController.toggle());
     // The find/replace UI is a floating dropdown anchored to the search button
     // rather than an inline element inside the horizontally scrolling toolbar.
     this.findController.createPanel(findButton);
 
     const shareGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
-    this.createIconButton(shareGroup, 'play', 'Present from current slide', () => this.startPresentation());
-    const exportButton = this.createIconButton(shareGroup, 'download', 'Export slides', () =>
+    this.createIconButton(shareGroup, 'play', this.tb('present'), () => this.startPresentation());
+    const exportButton = this.createIconButton(shareGroup, 'download', this.tb('exportSlides'), () =>
       this.exportController.openMenu(exportButton)
     );
 
     const navGroup = toolbar.createDiv({
       cls: 'native-powerpoint-toolbar-group native-powerpoint-toolbar-group-end'
     });
-    this.createIconButton(navGroup, 'chevron-left', 'Previous slide', () => this.slideFilmstripController.navigateToSlide(this.currentSlide - 1, 'toolbar-prev'));
-    this.slideCounterEl = navGroup.createDiv({ cls: 'native-powerpoint-page-counter', text: '0 / 0' });
-    this.createIconButton(navGroup, 'chevron-right', 'Next slide', () => this.slideFilmstripController.navigateToSlide(this.currentSlide + 1, 'toolbar-next'));
+    this.createIconButton(navGroup, 'chevron-left', this.tb('previousSlide'), () => this.slideFilmstripController.navigateToSlide(this.currentSlide - 1, 'toolbar-prev'));
+    this.slideCounterEl = navGroup.createDiv({ cls: 'native-powerpoint-page-counter', text: this.t('powerpoint:present.slideCount', { current: 0, total: 0 }) });
+    this.createIconButton(navGroup, 'chevron-right', this.tb('nextSlide'), () => this.slideFilmstripController.navigateToSlide(this.currentSlide + 1, 'toolbar-next'));
 
     this.updateEditingAvailability();
     this.historyController.updateAvailability();
@@ -1201,31 +1241,31 @@ export class NativePowerPointView extends FileView {
   private createInsertToolbarGroup(toolbar: HTMLElement): void {
     const insertGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
 
-    const imageButton = this.createEditIconButton(insertGroup, 'image', 'Insert image', () => {
+    const imageButton = this.createEditIconButton(insertGroup, 'image', this.tb('insertImage'), () => {
       this.toggleInsertMenu(imageButton, [
-        { label: 'From vault', onClick: () => this.openVaultImagePicker() },
-        { label: 'Upload file', onClick: () => this.imageFileInput?.click() }
+        { label: this.tb('fromVault'), onClick: () => this.openVaultImagePicker() },
+        { label: this.tb('uploadFile'), onClick: () => this.imageFileInput?.click() }
       ]);
     });
 
-    const shapeButton = this.createEditIconButton(insertGroup, 'shapes', 'Insert shape', () => {
+    const shapeButton = this.createEditIconButton(insertGroup, 'shapes', this.tb('insertShape'), () => {
       this.toggleInsertMenu(shapeButton, [
-        { label: 'Rectangle', onClick: () => void this.insertShape('rect') },
-        { label: 'Ellipse', onClick: () => void this.insertShape('ellipse') },
-        { label: 'Rounded rectangle', onClick: () => void this.insertShape('roundRect') },
-        { label: 'Line', onClick: () => void this.insertShape('line') },
-        { label: 'Arrow', onClick: () => void this.insertShape('rightArrow') }
+        { label: this.tb('rectangle'), onClick: () => void this.insertShape('rect') },
+        { label: this.tb('ellipse'), onClick: () => void this.insertShape('ellipse') },
+        { label: this.tb('roundedRectangle'), onClick: () => void this.insertShape('roundRect') },
+        { label: this.tb('line'), onClick: () => void this.insertShape('line') },
+        { label: this.tb('arrow'), onClick: () => void this.insertShape('rightArrow') }
       ]);
     });
 
-    this.createEditIconButton(insertGroup, 'type', 'Insert text box', () => void this.addTextBox());
-    const tableButton = this.createEditIconButton(insertGroup, 'table', 'Insert table', () =>
+    this.createEditIconButton(insertGroup, 'type', this.tb('insertTextBox'), () => void this.addTextBox());
+    const tableButton = this.createEditIconButton(insertGroup, 'table', this.tb('insertTable'), () =>
       this.openTableSizePicker(tableButton)
     );
     this.insertTableButton = tableButton;
-    this.createEditIconButton(insertGroup, 'bar-chart-3', 'Insert chart', () => void this.insertChart());
-    this.createEditIconButton(insertGroup, 'list', 'Bulleted list', () => void this.applyListStyle('bullet'));
-    this.createEditIconButton(insertGroup, 'list-ordered', 'Numbered list', () => void this.applyListStyle('number'));
+    this.createEditIconButton(insertGroup, 'bar-chart-3', this.tb('insertChart'), () => void this.insertChart());
+    this.createEditIconButton(insertGroup, 'list', this.tb('bulletedList'), () => void this.applyListStyle('bullet'));
+    this.createEditIconButton(insertGroup, 'list-ordered', this.tb('numberedList'), () => void this.applyListStyle('number'));
   }
 
   private createArrangeToolbarGroups(toolbar: HTMLElement): void {
@@ -1236,21 +1276,21 @@ export class NativePowerPointView extends FileView {
     // the distribute controls remain in this group.
     const alignGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
     this.distributeButtons.push(
-      this.createIconButton(alignGroup, 'align-horizontal-distribute-center', 'Distribute horizontally', () => void this.distributeSelectedShapes('horizontal')),
-      this.createIconButton(alignGroup, 'align-vertical-distribute-center', 'Distribute vertically', () => void this.distributeSelectedShapes('vertical'))
+      this.createIconButton(alignGroup, 'align-horizontal-distribute-center', this.tb('distributeHorizontally'), () => void this.distributeSelectedShapes('horizontal')),
+      this.createIconButton(alignGroup, 'align-vertical-distribute-center', this.tb('distributeVertically'), () => void this.distributeSelectedShapes('vertical'))
     );
 
     const orderGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
     this.zOrderButtons.push(
-      this.createIconButton(orderGroup, 'bring-to-front', 'Bring to front', () => void this.reorderSelection('front')),
-      this.createIconButton(orderGroup, 'arrow-up', 'Bring forward', () => void this.reorderSelection('forward')),
-      this.createIconButton(orderGroup, 'arrow-down', 'Send backward', () => void this.reorderSelection('backward')),
-      this.createIconButton(orderGroup, 'send-to-back', 'Send to back', () => void this.reorderSelection('back'))
+      this.createIconButton(orderGroup, 'bring-to-front', this.tb('bringToFront'), () => void this.reorderSelection('front')),
+      this.createIconButton(orderGroup, 'arrow-up', this.tb('bringForward'), () => void this.reorderSelection('forward')),
+      this.createIconButton(orderGroup, 'arrow-down', this.tb('sendBackward'), () => void this.reorderSelection('backward')),
+      this.createIconButton(orderGroup, 'send-to-back', this.tb('sendToBack'), () => void this.reorderSelection('back'))
     );
 
     const groupGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
-    this.groupButton = this.createIconButton(groupGroup, 'group', 'Group objects', () => void this.groupSelection());
-    this.ungroupButton = this.createIconButton(groupGroup, 'ungroup', 'Ungroup objects', () => void this.ungroupSelection());
+    this.groupButton = this.createIconButton(groupGroup, 'group', this.tb('groupObjects'), () => void this.groupSelection());
+    this.ungroupButton = this.createIconButton(groupGroup, 'ungroup', this.tb('ungroupObjects'), () => void this.ungroupSelection());
   }
 
   private getSelectedIndices(): number[] {
@@ -1286,7 +1326,7 @@ export class NativePowerPointView extends FileView {
 
     const boxes = this.collectSelectedTransforms();
     if (boxes.length < 3) {
-      new Notice('Select at least three objects to distribute.');
+      pptNotice('powerpoint:notice.selectThreeToDistribute');
       return;
     }
 
@@ -1342,7 +1382,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object reorder failed', { indices, mode, error });
-      new Notice(`Could not reorder objects: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotReorderObjects', { message: cleanError(error) });
     }
   }
 
@@ -1351,7 +1391,7 @@ export class NativePowerPointView extends FileView {
 
     const indices = this.getSelectedIndices().filter((index) => index >= 0);
     if (indices.length < 2) {
-      new Notice('Select at least two objects to group.');
+      pptNotice('powerpoint:notice.selectTwoToGroup');
       return;
     }
 
@@ -1372,7 +1412,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object grouping failed', { indices, error });
-      new Notice(`Could not group objects: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotGroupObjects', { message: cleanError(error) });
     }
   }
 
@@ -1380,7 +1420,7 @@ export class NativePowerPointView extends FileView {
     if (!this.engine || !this.ensureEditable('ungroup objects')) return;
 
     if (!this.isSingleGroupSelected()) {
-      new Notice('Select a single group to ungroup.');
+      pptNotice('powerpoint:notice.selectGroupToUngroup');
       return;
     }
 
@@ -1404,7 +1444,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object ungrouping failed', { groupIndex, error });
-      new Notice(`Could not ungroup objects: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotUngroupObjects', { message: cleanError(error) });
     }
   }
 
@@ -1523,26 +1563,24 @@ export class NativePowerPointView extends FileView {
     this.closeInsertMenus();
     anchor.classList.add('native-powerpoint-insert-menu-anchor');
 
-    const menu = activeDocument.body.createDiv({
-      cls: 'native-powerpoint-insert-menu native-powerpoint-light-surface'
+    const menu = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-insert-menu native-powerpoint-light-surface'
     });
     menu.dataset.anchorId = anchor.dataset.menuId;
     for (const item of items) {
-      const button = menu.createEl('button', {
-        cls: 'native-powerpoint-insert-menu-item',
-        text: item.label
-      });
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+      createMenuItem(menu, {
+        className: 'native-powerpoint-insert-menu-item',
+        text: item.label,
+        preventDefaultOnClick: true,
+        stopClickPropagation: true,
+        onClick: () => {
         this.closeInsertMenus();
         item.onClick();
+        }
       });
     }
 
-    const rect = anchor.getBoundingClientRect();
-    menu.style.left = `${rect.left}px`;
-    menu.style.top = `${rect.bottom + 4}px`;
+    positionPopoverBelow(menu, anchor);
     this.activeInsertMenu = menu;
   }
 
@@ -1552,12 +1590,12 @@ export class NativePowerPointView extends FileView {
   }
 
   private openVaultImagePicker(): void {
-    new VaultImageSuggestModal(this.app, (file) => void this.insertImageFromVaultFile(file)).open();
+    new VaultImageSuggestModal(this.app, (file) => void this.insertImageFromVaultFile(file), this.t).open();
   }
 
   private openInsertTableModal(): void {
     if (!this.ensureEditable('insert table')) return;
-    new InsertTableModal(this.app, (rows, cols) => void this.insertTable(rows, cols)).open();
+    new InsertTableModal(this.app, (rows, cols) => void this.insertTable(rows, cols), this.t).open();
   }
 
   // Google Slides-style size picker: a hover grid that matches the look of the
@@ -1577,7 +1615,7 @@ export class NativePowerPointView extends FileView {
       const grid = popover.createDiv({ cls: 'native-powerpoint-table-picker-grid' });
       const label = popover.createDiv({
         cls: 'native-powerpoint-table-picker-label',
-        text: 'Insert table'
+        text: this.tb('tableSizePicker')
       });
 
       const cells: HTMLButtonElement[] = [];
@@ -1587,14 +1625,16 @@ export class NativePowerPointView extends FileView {
           const r = Math.floor(index / cols);
           cell.toggleClass('is-active', c < activeCols && r < activeRows);
         });
-        label.setText(activeCols > 0 && activeRows > 0 ? `${activeCols} × ${activeRows}` : 'Insert table');
+        label.setText(activeCols > 0 && activeRows > 0
+          ? this.tb('tableSize', { columns: activeCols, rows: activeRows })
+          : this.tb('tableSizePicker'));
       };
 
       for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
           const cell = grid.createEl('button', {
             cls: 'native-powerpoint-table-picker-cell',
-            attr: { 'aria-label': `${c + 1} × ${r + 1}` }
+            attr: { 'aria-label': this.t('powerpoint:accessibility.tableCellSize', { columns: c + 1, rows: r + 1 }) }
           });
           cell.addEventListener('pointerenter', () => highlight(c + 1, r + 1));
           this.bindToolbarButton(cell, () => {
@@ -1635,7 +1675,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint vault image insertion failed', { file: file.path, error });
-      new Notice(`Could not insert image: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotInsertImage', { message: cleanError(error) });
     }
   }
 
@@ -1670,7 +1710,7 @@ export class NativePowerPointView extends FileView {
         mimeType: file.type || null,
         error
       });
-      new Notice(`Could not insert image: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotInsertImage', { message: cleanError(error) });
     }
   }
 
@@ -1694,7 +1734,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint shape insertion failed', { geometry, error });
-      new Notice(`Could not insert shape: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotInsertShape', { message: cleanError(error) });
     }
   }
 
@@ -1719,7 +1759,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint table insertion failed', { rows, columns: cols, error });
-      new Notice(`Could not insert table: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotInsertTable', { message: cleanError(error) });
     }
   }
 
@@ -1742,7 +1782,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint chart insertion failed', { slide: this.currentSlide, error });
-      new Notice(`Could not insert chart: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotInsertChart', { message: cleanError(error) });
     }
   }
 
@@ -1756,7 +1796,7 @@ export class NativePowerPointView extends FileView {
     const textTarget = this.getTextEditTarget(this.activeEditorTarget);
     const shapeIndex = textTarget?.shapeIndex ?? this.selectedShapeIndex;
     if (shapeIndex === null) {
-      new Notice('Select a text box or place the caret in text first.');
+      pptNotice('powerpoint:notice.selectTextBoxFirst');
       return;
     }
 
@@ -1822,14 +1862,14 @@ export class NativePowerPointView extends FileView {
         style,
         error
       });
-      new Notice(`Could not update list style: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotUpdateListStyle', { message: cleanError(error) });
     }
   }
 
   private createIconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): HTMLButtonElement {
     const button = container.createEl('button', {
       cls: 'native-powerpoint-toolbar-btn',
-      attr: { 'aria-label': label }
+      attr: { 'aria-label': label, 'data-tooltip': label }
     });
     setIcon(button, icon);
     button.addEventListener('click', onClick);
@@ -1864,7 +1904,7 @@ export class NativePowerPointView extends FileView {
 
   private startPresentation(): void {
     if (!this.engine || this.engine.slideCount === 0) {
-      new Notice('Open a presentation with at least one slide to present.');
+      pptNotice('powerpoint:notice.openToPresent');
       return;
     }
 
@@ -1880,7 +1920,8 @@ export class NativePowerPointView extends FileView {
         if (this.engine && lastIndex >= 0 && lastIndex < this.engine.slideCount) {
           this.slideFilmstripController.navigateToSlide(lastIndex, 'presentation-exit');
         }
-      }
+      },
+      t: this.t
     });
 
     this.presentController = controller;
@@ -2107,7 +2148,7 @@ export class NativePowerPointView extends FileView {
     if (this.getSettings().showInspector) {
       this.renderInspector();
     }
-    this.showLoading(`Loading ${file.name}...`);
+    this.showLoading(this.t('powerpoint:loading.loadingFile', { fileName: file.name }));
 
     if (!isModernPowerPointExtension(file.extension)) {
       this.isLoading = false;
@@ -2146,7 +2187,7 @@ export class NativePowerPointView extends FileView {
         ms: Math.round(performance.now() - loadStartedAt)
       });
       if (this.isViewOnly) {
-        new Notice(`Opened ${file.name} view-only: ${this.viewOnlyReason}`);
+        pptNotice('powerpoint:notice.openedViewOnly', { fileName: file.name, reason: this.viewOnlyReason });
       }
     } catch (error) {
       errorLog('file', 'PowerPoint load failed', {
@@ -2157,7 +2198,7 @@ export class NativePowerPointView extends FileView {
       if (isWasmGcUnsupportedError(error)) {
         this.showRuntimeUnsupportedError(file);
       } else {
-        this.showError(`Could not open ${file.name}: ${cleanError(error)}`);
+        this.showError(this.t('powerpoint:loading.couldNotOpen', { fileName: file.name, message: cleanError(error) }));
       }
     } finally {
       this.isLoading = false;
@@ -2183,7 +2224,7 @@ export class NativePowerPointView extends FileView {
     this.slideSurface.empty();
     this.slideSurface.createDiv({
       cls: 'native-powerpoint-error',
-      text: `${file.extension.toUpperCase()} is a legacy binary PowerPoint format. Native editing supports modern Open XML files first: .pptx, .pptm, .ppsx, .ppsm, .potx, and .potm.`
+      text: this.t('powerpoint:loading.legacyFormat', { extension: file.extension.toUpperCase() })
     });
     this.thumbnailContainer?.empty();
     this.setSaveState('idle');
@@ -2211,38 +2252,40 @@ export class NativePowerPointView extends FileView {
     const notice = this.slideSurface.createDiv({ cls: 'native-powerpoint-runtime-error' });
     notice.createDiv({
       cls: 'native-powerpoint-runtime-error-title',
-      text: 'Update Obsidian to open PowerPoint files'
+      text: this.t('powerpoint:runtime.title')
     });
+    const chromeVersionSuffix = chromeVersion
+      ? this.t('powerpoint:runtime.chromeVersionSuffix', { version: chromeVersion })
+      : '';
+    const desktopChromeSuffix = chromeVersion
+      ? this.t('powerpoint:runtime.desktopChromeSuffix', { version: chromeVersion })
+      : '';
     notice.createEl('p', {
       text: isMobile
-        ? `Rendering ${file.name} needs a newer browser engine than this device provides. Update Obsidian from the App Store or Play Store, then reopen the file.${
-            chromeVersion ? ` (WebView Chromium ${chromeVersion})` : ''
-          }`
-        : `Rendering ${file.name} needs Obsidian's bundled browser engine (Chromium) to support WebAssembly GC, which is only available in Chromium 119 or newer.${
-            chromeVersion ? ` This vault is currently running Chromium ${chromeVersion}.` : ''
-          }`
+        ? this.t('powerpoint:runtime.mobileDescription', { fileName: file.name, chromeVersion: chromeVersionSuffix })
+        : this.t('powerpoint:runtime.desktopDescription', { fileName: file.name, chromeVersion: desktopChromeSuffix })
     });
 
     if (!isMobile) {
       notice.createEl('p', {
-        text: 'The in-app updater does not upgrade this engine. Download the latest installer and reinstall over your current copy — your vault and settings are preserved.'
+        text: this.t('powerpoint:runtime.reinstallHint')
       });
 
       const actions = notice.createDiv({ cls: 'native-powerpoint-runtime-error-actions' });
       actions.createEl('a', {
         cls: 'native-powerpoint-runtime-error-link',
-        text: 'Download the latest Obsidian',
+        text: this.t('powerpoint:runtime.downloadObsidian'),
         href: OBSIDIAN_DOWNLOAD_URL
       });
 
       notice.createEl('p', {
         cls: 'native-powerpoint-runtime-error-hint',
-        text: 'After reinstalling, check Settings → About: the "Installer version" should match the latest release.'
+        text: this.t('powerpoint:runtime.installerVersionHint')
       });
     } else {
       notice.createEl('p', {
         cls: 'native-powerpoint-runtime-error-hint',
-        text: 'If you are already on the latest Obsidian Mobile, this deck may use features the fallback engine cannot render yet. DOCX files are unaffected.'
+        text: this.t('powerpoint:runtime.mobileFallbackHint')
       });
     }
 
@@ -2276,7 +2319,7 @@ export class NativePowerPointView extends FileView {
 
     const svgElement = createSvgElementFromString(safeSvg.svg, this.slideSurface.ownerDocument);
     if (!svgElement) {
-      this.showError('Could not render this PowerPoint slide because its SVG preview could not be read.');
+      this.showError(this.t('powerpoint:loading.couldNotRenderSlide'));
       return false;
     }
 
@@ -2502,9 +2545,9 @@ export class NativePowerPointView extends FileView {
     this.thumbnailContainer?.empty();
 
     const warning = this.slideSurface.createDiv({ cls: 'native-powerpoint-security-warning' });
-    warning.createDiv({ cls: 'native-powerpoint-security-title', text: 'Advanced slide content detected' });
+    warning.createDiv({ cls: 'native-powerpoint-security-title', text: this.t('powerpoint:security.title') });
     warning.createEl('p', {
-      text: 'This slide has SVG content that would be hidden in the preview, which can make graphics disappear. Compatibility mode hides those parts only in Obsidian and does not delete them from the PPTX. YOLO mode opens the original slide SVG, so only use it for decks you trust.'
+      text: this.t('powerpoint:security.description')
     });
 
     const summary = summarizeSvgSecurityIssues(issues);
@@ -2514,40 +2557,40 @@ export class NativePowerPointView extends FileView {
     }
 
     if (summary.length > 6) {
-      list.createEl('li', { text: `${summary.length - 6} more issue types hidden` });
+      list.createEl('li', { text: this.t('powerpoint:security.moreIssuesHidden', { count: summary.length - 6 }) });
     }
 
     const actions = warning.createDiv({ cls: 'native-powerpoint-security-actions' });
-    const openCompatibility = actions.createEl('button', { text: 'Open in compatibility mode' });
+    const openCompatibility = actions.createEl('button', { text: this.t('powerpoint:security.openCompatibilityMode') });
     openCompatibility.addClass('mod-warning');
     openCompatibility.addEventListener('click', () => {
       this.svgSecurityDecision = 'compatibility';
-      new Notice('Opening this PowerPoint in preview-safe compatibility mode for this session.');
+      pptNotice('powerpoint:notice.openingCompatibilityMode');
       void this.renderCurrentSlide().then((rendered) => {
         if (rendered) void this.renderThumbnails();
       });
     });
 
-    const openYolo = actions.createEl('button', { text: 'Open with YOLO mode' });
+    const openYolo = actions.createEl('button', { text: this.t('powerpoint:security.openYoloMode') });
     openYolo.addClass('mod-warning');
     openYolo.addEventListener('click', () => {
       this.svgSecurityDecision = 'yolo';
-      new Notice('Opening this PowerPoint with YOLO mode for this session.');
+      pptNotice('powerpoint:notice.openingYoloMode');
       void this.renderCurrentSlide().then((rendered) => {
         if (rendered) void this.renderThumbnails();
       });
     });
 
-    const rememberYolo = actions.createEl('button', { text: 'Always use YOLO mode' });
+    const rememberYolo = actions.createEl('button', { text: this.t('powerpoint:security.alwaysUseYoloMode') });
     rememberYolo.addClass('mod-warning');
     rememberYolo.addEventListener('click', () => {
       this.svgSecurityDecision = 'yolo';
       void this.getSettings().setOpenWithYoloMode(true)
         .then(() => {
-          new Notice('YOLO mode will be used for future PowerPoint files.');
+          pptNotice('powerpoint:notice.yoloModeRemembered');
         })
         .catch((error) => {
-          new Notice(`Could not remember YOLO mode: ${cleanError(error)}`);
+          pptNotice('powerpoint:notice.couldNotRememberYoloMode', { message: cleanError(error) });
         })
         .finally(() => {
           void this.renderCurrentSlide().then((rendered) => {
@@ -2721,7 +2764,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint text-box insertion failed', { slide: this.currentSlide, error });
-      new Notice(`Could not add text box: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotAddTextBox', { message: cleanError(error) });
     }
   }
 
@@ -2746,7 +2789,7 @@ export class NativePowerPointView extends FileView {
       debugLog('insert', 'Deleted PowerPoint object', { slide: this.currentSlide, shapeIndex });
     } catch (error) {
       errorLog('insert', 'PowerPoint object deletion failed', { slide: this.currentSlide, shapeIndex, error });
-      new Notice(`Could not delete object: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotDeleteObject', { message: cleanError(error) });
     }
   }
 
@@ -2776,13 +2819,13 @@ export class NativePowerPointView extends FileView {
         indices,
         error
       });
-      new Notice(`Could not delete objects: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotDeleteObjects', { message: cleanError(error) });
     }
   }
 
   private async copySelectedShape(): Promise<void> {
     if (!this.engine || this.selectedShapeIndex === null) {
-      new Notice('Select a slide object to copy.');
+      pptNotice('powerpoint:notice.selectObjectToCopy');
       return;
     }
 
@@ -2793,20 +2836,20 @@ export class NativePowerPointView extends FileView {
         slide: this.currentSlide,
         shapeIndex: this.selectedShapeIndex
       });
-      new Notice('Copied slide object.');
+      pptNotice('powerpoint:notice.copiedSlideObject');
     } catch (error) {
       errorLog('clipboard', 'PowerPoint object copy failed', {
         slide: this.currentSlide,
         shapeIndex: this.selectedShapeIndex,
         error
       });
-      new Notice(`Could not copy object: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotCopyObject', { message: cleanError(error) });
     }
   }
 
   private async pasteCopiedShape(): Promise<void> {
     if (!this.engine || !this.objectClipboard) {
-      new Notice('Copy a slide object first.');
+      pptNotice('powerpoint:notice.copyObjectFirst');
       return;
     }
     if (!this.ensureEditable('paste object')) return;
@@ -2827,13 +2870,13 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('clipboard', 'PowerPoint object paste failed', { slide: this.currentSlide, error });
-      new Notice(`Could not paste object: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotPasteObject', { message: cleanError(error) });
     }
   }
 
   private async duplicateSelectedShape(): Promise<void> {
     if (!this.engine || this.selectedShapeIndex === null) {
-      new Notice('Select a slide object to duplicate.');
+      pptNotice('powerpoint:notice.selectObjectToDuplicate');
       return;
     }
     if (!this.ensureEditable('duplicate object')) return;
@@ -2860,13 +2903,13 @@ export class NativePowerPointView extends FileView {
         sourceShapeIndex,
         error
       });
-      new Notice(`Could not duplicate object: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotDuplicateObject', { message: cleanError(error) });
     }
   }
 
   private async cutSelectedShape(): Promise<void> {
     if (!this.engine || this.selectedShapeIndex === null) {
-      new Notice('Select a slide object to cut.');
+      pptNotice('powerpoint:notice.selectObjectToCut');
       return;
     }
     if (!this.ensureEditable('cut object')) return;
@@ -2876,10 +2919,10 @@ export class NativePowerPointView extends FileView {
       this.updateObjectClipboardAvailability();
       await this.deleteSelectedShape();
       debugLog('clipboard', 'Cut PowerPoint object', { slide: this.currentSlide });
-      new Notice('Cut slide object.');
+      pptNotice('powerpoint:notice.cutSlideObject');
     } catch (error) {
       errorLog('clipboard', 'PowerPoint object cut failed', { slide: this.currentSlide, error });
-      new Notice(`Could not cut object: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotCutObject', { message: cleanError(error) });
     }
   }
 
@@ -2896,7 +2939,7 @@ export class NativePowerPointView extends FileView {
         const text = await navigator.clipboard.readText();
         if (text) this.insertPlainTextIntoActiveEditor(text);
       } catch {
-        new Notice('Plain text is not available on the clipboard.');
+        pptNotice('powerpoint:notice.plainTextUnavailable');
       }
       return;
     }
@@ -2982,7 +3025,7 @@ export class NativePowerPointView extends FileView {
 
   private openReplaceImageVaultPicker(shapeIndex: number): void {
     if (!this.ensureEditable('replace image')) return;
-    new VaultImageSuggestModal(this.app, (file) => void this.replaceImageWithVaultFile(shapeIndex, file)).open();
+    new VaultImageSuggestModal(this.app, (file) => void this.replaceImageWithVaultFile(shapeIndex, file), this.t).open();
   }
 
   private async replaceImageWithVaultFile(shapeIndex: number, file: TFile): Promise<void> {
@@ -3014,7 +3057,7 @@ export class NativePowerPointView extends FileView {
     try {
       const image = await this.engine.getShapeImageData(this.currentSlide, shapeIndex);
       if (!image) {
-        new Notice('The selected object is not an image.');
+        pptNotice('powerpoint:notice.selectedObjectNotImage');
         return;
       }
 
@@ -3039,7 +3082,7 @@ export class NativePowerPointView extends FileView {
         sourceShapeIndex: shapeIndex,
         error
       });
-      new Notice(`Could not set slide background: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotSetSlideBackground', { message: cleanError(error) });
     }
   }
 
@@ -3068,7 +3111,7 @@ export class NativePowerPointView extends FileView {
         await this.renderThumbnails();
       }
     } catch (error) {
-      new Notice(`Could not ${action}: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotAction', { action, message: cleanError(error) });
     }
   }
 
@@ -3181,10 +3224,10 @@ export class NativePowerPointView extends FileView {
     if (!this.engine || this.engine.slideCount === 0) return;
 
     const section = container.createDiv({ cls: 'native-powerpoint-slide-background' });
-    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: 'Slide background' });
+    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: this.t('powerpoint:inspector.slideBackground') });
     section.createDiv({
       cls: 'native-powerpoint-inspector-hint',
-      text: 'Set the background fill color for the current slide.'
+      text: this.t('powerpoint:inspector.slideBackgroundHint')
     });
 
     const currentColor = this.engine.getSlideBackgroundColor(this.currentSlide);
@@ -3198,7 +3241,7 @@ export class NativePowerPointView extends FileView {
 
     const applyButton = row.createEl('button', {
       cls: 'native-powerpoint-inspector-button',
-      text: 'Apply'
+      text: this.t('powerpoint:inspector.apply')
     });
     applyButton.disabled = !this.canEdit();
     applyButton.addEventListener('click', () => {
@@ -3230,7 +3273,7 @@ export class NativePowerPointView extends FileView {
         color: hexColor,
         error
       });
-      new Notice(`Could not change slide background: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotChangeSlideBackground', { message: cleanError(error) });
     }
   }
 
@@ -3240,7 +3283,7 @@ export class NativePowerPointView extends FileView {
     }
 
     this.inspectorEl.empty();
-    this.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-title', text: 'Inspector' });
+    this.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-title', text: this.t('powerpoint:inspector.title') });
     this.renderViewOnlyWarning(this.inspectorEl);
     this.renderFontFidelity(this.inspectorEl);
     this.renderSlideBackgroundControl(this.inspectorEl);
@@ -3249,8 +3292,8 @@ export class NativePowerPointView extends FileView {
       this.inspectorEl.createDiv({
         cls: 'native-powerpoint-inspector-empty',
         text: this.selectedShapeIndices.size > 1
-          ? `${this.selectedShapeIndices.size} objects selected. Drag to move them together, or press Delete to remove them.`
-          : 'Select a slide object to adjust its layout. Click text on the slide to edit it directly. Drag on empty space to select multiple objects.'
+          ? this.t('powerpoint:inspector.emptyMultiSelect', { count: this.selectedShapeIndices.size })
+          : this.t('powerpoint:inspector.emptySelectObject')
       });
       this.xInput = null;
       this.yInput = null;
@@ -3261,29 +3304,32 @@ export class NativePowerPointView extends FileView {
     }
 
     const selected = this.getSelectedShapeElement();
-    this.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: `Object ${this.selectedShapeIndex + 1}` });
+    this.inspectorEl.createDiv({
+      cls: 'native-powerpoint-inspector-subtitle',
+      text: this.t('powerpoint:inspector.objectNumber', { number: this.selectedShapeIndex + 1 })
+    });
     this.inspectorEl.createDiv({
       cls: 'native-powerpoint-inspector-hint',
       text: selected?.closest(GENERATED_GRID_SELECTOR)
-        ? 'Click highlighted table or chart text on the slide to edit it directly. Generated numeric chart ticks remain read-only.'
-        : 'Click text on the slide to edit it directly.'
+        ? this.t('powerpoint:inspector.hintEditGenerated')
+        : this.t('powerpoint:inspector.hintEditText')
     });
 
     const grid = this.inspectorEl.createDiv({ cls: 'native-powerpoint-inspector-grid' });
-    this.xInput = this.createNumberField(grid, 'X', this.engine.emuToPx(this.selectedTransform.x));
-    this.yInput = this.createNumberField(grid, 'Y', this.engine.emuToPx(this.selectedTransform.y));
-    this.widthInput = this.createNumberField(grid, 'W', this.engine.emuToPx(this.selectedTransform.cx));
-    this.heightInput = this.createNumberField(grid, 'H', this.engine.emuToPx(this.selectedTransform.cy));
-    this.rotationInput = this.createNumberField(grid, 'Rot', this.engine.ooxmlToDegrees(this.selectedTransform.rot));
+    this.xInput = this.createNumberField(grid, this.t('powerpoint:inspector.fieldX'), this.engine.emuToPx(this.selectedTransform.x));
+    this.yInput = this.createNumberField(grid, this.t('powerpoint:inspector.fieldY'), this.engine.emuToPx(this.selectedTransform.y));
+    this.widthInput = this.createNumberField(grid, this.t('powerpoint:inspector.fieldW'), this.engine.emuToPx(this.selectedTransform.cx));
+    this.heightInput = this.createNumberField(grid, this.t('powerpoint:inspector.fieldH'), this.engine.emuToPx(this.selectedTransform.cy));
+    this.rotationInput = this.createNumberField(grid, this.t('powerpoint:inspector.fieldRot'), this.engine.ooxmlToDegrees(this.selectedTransform.rot));
     this.xInput.disabled = !this.canEdit();
     this.yInput.disabled = !this.canEdit();
     this.widthInput.disabled = !this.canEdit();
     this.heightInput.disabled = !this.canEdit();
     this.rotationInput.disabled = !this.canEdit();
 
-    const applyLayout = this.inspectorEl.createEl('button', { cls: 'native-powerpoint-inspector-button', text: 'Apply layout' });
+    const applyLayout = this.inspectorEl.createEl('button', { cls: 'native-powerpoint-inspector-button', text: this.t('powerpoint:inspector.applyLayout') });
     applyLayout.disabled = !this.canEdit();
-    applyLayout.addEventListener('click', () => void this.applyInspectorTransform());
+    this.registerDomEvent(applyLayout, 'click', () => void this.applyInspectorTransform());
 
     if (selected?.getAttribute('data-ooxml-shape-type') === 'chart') {
       const chartData = this.engine.getChartDataGrid(this.currentSlide, this.selectedShapeIndex);
@@ -3297,19 +3343,19 @@ export class NativePowerPointView extends FileView {
     if (!this.inspectorEl) return;
 
     const section = this.inspectorEl.createDiv({ cls: 'native-powerpoint-chart-data' });
-    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: 'Chart data' });
+    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: this.t('powerpoint:inspector.chartData') });
 
     if (!chartData.editable) {
       section.createDiv({
         cls: 'native-powerpoint-inspector-hint',
-        text: chartData.reason || 'This chart data grid is read-only.'
+        text: chartData.reason || this.t('powerpoint:inspector.chartDataReadOnly')
       });
       return;
     }
 
     section.createDiv({
       cls: 'native-powerpoint-inspector-hint',
-      text: 'Edit source-backed cells below. Apply updates the chart cache and its embedded Excel workbook.'
+      text: this.t('powerpoint:inspector.chartDataHint')
     });
 
     const viewport = section.createDiv({ cls: 'native-powerpoint-chart-data-scroll' });
@@ -3319,7 +3365,7 @@ export class NativePowerPointView extends FileView {
     chartData.series.forEach((series) => {
       header.createEl('th', { text: series.name });
       if (series.pointLabels !== null) {
-        header.createEl('th', { text: `${series.name} label` });
+        header.createEl('th', { text: this.t('powerpoint:inspector.seriesLabel', { seriesName: series.name }) });
       }
     });
 
@@ -3344,7 +3390,7 @@ export class NativePowerPointView extends FileView {
 
     const apply = section.createEl('button', {
       cls: 'native-powerpoint-inspector-button',
-      text: 'Apply chart data'
+      text: this.t('powerpoint:inspector.applyChartData')
     });
     apply.disabled = !this.canEdit();
     apply.addEventListener('click', () => {
@@ -3397,7 +3443,7 @@ export class NativePowerPointView extends FileView {
         seriesCount: update.series.length,
         error
       });
-      new Notice(`Could not update chart data: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotUpdateChartData', { message: cleanError(error) });
     }
   }
 
@@ -3487,7 +3533,7 @@ export class NativePowerPointView extends FileView {
       }
     } catch (error) {
       errorLog('text-edit', 'applyTextValue failed', { slideIndex, shapeIndex, error });
-      new Notice(`Could not update text: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotUpdateText', { message: cleanError(error) });
     }
   }
 
@@ -3850,7 +3896,7 @@ export class NativePowerPointView extends FileView {
 
     menu.addItem((item) => {
       item
-        .setTitle('Paste')
+        .setTitle(this.tb('paste'))
         .setIcon('clipboard-paste')
         .onClick(() => void this.pasteCopiedShape());
       if (!this.objectClipboard) item.setDisabled(true);
@@ -3859,7 +3905,7 @@ export class NativePowerPointView extends FileView {
     menu.addItem((item) => {
       const shapeCount = this.getTopLevelShapeIndices().length;
       item
-        .setTitle('Select all')
+        .setTitle(this.tb('selectAll'))
         .setIcon('box-select')
         .onClick(() => this.selectAllShapes());
       if (shapeCount === 0) item.setDisabled(true);
@@ -3867,7 +3913,7 @@ export class NativePowerPointView extends FileView {
 
     menu.addItem((item) => {
       item
-        .setTitle('New text box')
+        .setTitle(this.t('powerpoint:contextMenu.newTextBox'))
         .setIcon('type')
         .onClick(() => {
           if (this.ensureEditable('add text box')) void this.addTextBox();
@@ -3932,25 +3978,25 @@ export class NativePowerPointView extends FileView {
     const menu = this.createNativeMenu();
 
     menu.addItem((item) => {
-      item.setTitle('Cut').setIcon('scissors').onClick(() => void this.cutSelectedShape());
+      item.setTitle(this.tb('cut')).setIcon('scissors').onClick(() => void this.cutSelectedShape());
       if (!canEdit) item.setDisabled(true);
     });
     menu.addItem((item) =>
-      item.setTitle('Copy').setIcon('copy').onClick(() => void this.copySelectedShape())
+      item.setTitle(this.tb('copy')).setIcon('copy').onClick(() => void this.copySelectedShape())
     );
     menu.addItem((item) => {
-      item.setTitle('Paste').setIcon('clipboard-paste').onClick(() => void this.pasteCopiedShape());
+      item.setTitle(this.tb('paste')).setIcon('clipboard-paste').onClick(() => void this.pasteCopiedShape());
       if (!canEdit || !this.objectClipboard) item.setDisabled(true);
     });
     menu.addItem((item) => {
       item
-        .setTitle('Paste without formatting')
+        .setTitle(this.tb('pasteWithoutFormatting'))
         .setIcon('clipboard-type')
         .onClick(() => void this.pasteWithoutFormatting());
       if (!canEdit || (!this.activeEditor && !this.objectClipboard)) item.setDisabled(true);
     });
     menu.addItem((item) => {
-      item.setTitle('Delete').setIcon('trash-2').onClick(() => void this.deleteSelectedShape());
+      item.setTitle(this.tb('delete')).setIcon('trash-2').onClick(() => void this.deleteSelectedShape());
       if (!canEdit) item.setDisabled(true);
     });
 
@@ -3966,20 +4012,20 @@ export class NativePowerPointView extends FileView {
     if (kind === 'image') {
       menu.addSeparator();
       menu.addItem((item) => {
-        item.setTitle('Crop image…').setIcon('crop').onClick(() => this.openImageCropDialog(shapeIndex));
+        item.setTitle(this.t('powerpoint:contextMenu.cropImage')).setIcon('crop').onClick(() => this.openImageCropDialog(shapeIndex));
         if (!canEdit) item.setDisabled(true);
       });
       this.addReplaceImageSubsection(menu, canEdit, shapeIndex);
       menu.addItem((item) => {
         item
-          .setTitle('Reset image')
+          .setTitle(this.t('powerpoint:contextMenu.resetImage'))
           .setIcon('rotate-ccw')
           .onClick(() => void this.resetSelectedImage(shapeIndex));
         if (!canEdit) item.setDisabled(true);
       });
       menu.addItem((item) => {
         item
-          .setTitle('Set as background')
+          .setTitle(this.t('powerpoint:contextMenu.setAsBackground'))
           .setIcon('image')
           .onClick(() => void this.setSelectedImageAsBackground(shapeIndex));
         if (!canEdit) item.setDisabled(true);
@@ -4024,7 +4070,7 @@ export class NativePowerPointView extends FileView {
     } else {
       populate((label, itemIcon, onClick, disabled) =>
         menu.addItem((item) => {
-          item.setTitle(`${title}: ${label}`).setIcon(itemIcon).onClick(onClick);
+          item.setTitle(this.t('powerpoint:contextMenu.submenuItem', { section: title, label })).setIcon(itemIcon).onClick(onClick);
           if (disabled) item.setDisabled(true);
         })
       );
@@ -4032,36 +4078,36 @@ export class NativePowerPointView extends FileView {
   }
 
   private addOrderSubsection(menu: Menu, canEdit: boolean): void {
-    this.addMenuSubsection(menu, 'Order', 'layers', (add) => {
-      add('Bring to front', 'bring-to-front', () => void this.reorderSelection('front'), !canEdit);
-      add('Bring forward', 'arrow-up', () => void this.reorderSelection('forward'), !canEdit);
-      add('Send backward', 'arrow-down', () => void this.reorderSelection('backward'), !canEdit);
-      add('Send to back', 'send-to-back', () => void this.reorderSelection('back'), !canEdit);
+    this.addMenuSubsection(menu, this.t('powerpoint:contextMenu.order'), 'layers', (add) => {
+      add(this.tb('bringToFront'), 'bring-to-front', () => void this.reorderSelection('front'), !canEdit);
+      add(this.tb('bringForward'), 'arrow-up', () => void this.reorderSelection('forward'), !canEdit);
+      add(this.tb('sendBackward'), 'arrow-down', () => void this.reorderSelection('backward'), !canEdit);
+      add(this.tb('sendToBack'), 'send-to-back', () => void this.reorderSelection('back'), !canEdit);
     });
   }
 
   private addRotateSubsection(menu: Menu, canEdit: boolean, allowFlip: boolean): void {
-    this.addMenuSubsection(menu, 'Rotate', 'rotate-cw', (add) => {
-      add('Rotate right 90°', 'rotate-cw', () => void this.rotateSelectedShape(90), !canEdit);
-      add('Rotate left 90°', 'rotate-ccw', () => void this.rotateSelectedShape(-90), !canEdit);
+    this.addMenuSubsection(menu, this.t('powerpoint:contextMenu.rotate'), 'rotate-cw', (add) => {
+      add(this.t('powerpoint:contextMenu.rotateRight90'), 'rotate-cw', () => void this.rotateSelectedShape(90), !canEdit);
+      add(this.t('powerpoint:contextMenu.rotateLeft90'), 'rotate-ccw', () => void this.rotateSelectedShape(-90), !canEdit);
       if (allowFlip) {
-        add('Flip horizontal', 'flip-horizontal', () => void this.flipSelectedShape('horizontal'), !canEdit);
-        add('Flip vertical', 'flip-vertical', () => void this.flipSelectedShape('vertical'), !canEdit);
+        add(this.t('powerpoint:contextMenu.flipHorizontal'), 'flip-horizontal', () => void this.flipSelectedShape('horizontal'), !canEdit);
+        add(this.t('powerpoint:contextMenu.flipVertical'), 'flip-vertical', () => void this.flipSelectedShape('vertical'), !canEdit);
       }
     });
   }
 
   private addCenterSubsection(menu: Menu, canEdit: boolean): void {
-    this.addMenuSubsection(menu, 'Center on page', 'align-center-horizontal', (add) => {
-      add('Center horizontally', 'align-center-vertical', () => void this.centerSelectedOnPage('horizontal'), !canEdit);
-      add('Center vertically', 'align-center-horizontal', () => void this.centerSelectedOnPage('vertical'), !canEdit);
+    this.addMenuSubsection(menu, this.t('powerpoint:contextMenu.centerOnPage'), 'align-center-horizontal', (add) => {
+      add(this.t('powerpoint:contextMenu.centerHorizontally'), 'align-center-vertical', () => void this.centerSelectedOnPage('horizontal'), !canEdit);
+      add(this.t('powerpoint:contextMenu.centerVertically'), 'align-center-horizontal', () => void this.centerSelectedOnPage('vertical'), !canEdit);
     });
   }
 
   private addReplaceImageSubsection(menu: Menu, canEdit: boolean, shapeIndex: number): void {
-    this.addMenuSubsection(menu, 'Replace image', 'image-plus', (add) => {
-      add('From vault…', 'folder', () => this.openReplaceImageVaultPicker(shapeIndex), !canEdit);
-      add('Upload file…', 'upload', () => {
+    this.addMenuSubsection(menu, this.t('powerpoint:contextMenu.replaceImage'), 'image-plus', (add) => {
+      add(this.t('powerpoint:contextMenu.fromVaultEllipsis'), 'folder', () => this.openReplaceImageVaultPicker(shapeIndex), !canEdit);
+      add(this.t('powerpoint:contextMenu.uploadFileEllipsis'), 'upload', () => {
         if (!this.ensureEditable('replace image')) return;
         this.pendingReplaceShapeIndex = shapeIndex;
         this.replaceImageFileInput?.click();
@@ -4152,7 +4198,7 @@ export class NativePowerPointView extends FileView {
 
     const editor = this.canvasPane.createEl('textarea', {
       cls: 'native-powerpoint-inline-editor is-text-run',
-      attr: { 'aria-label': 'Edit selected text' }
+      attr: { 'aria-label': this.t('powerpoint:accessibility.editSelectedText') }
     });
     const initialText = target.text;
     const initialRunTexts = target.kind === 'shape-paragraph'
@@ -4332,25 +4378,25 @@ export class NativePowerPointView extends FileView {
     if (!this.engine) return;
 
     const section = container.createDiv({ cls: 'native-powerpoint-font-fidelity' });
-    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: 'Fonts' });
+    section.createDiv({ cls: 'native-powerpoint-inspector-subtitle', text: this.t('powerpoint:inspector.fonts') });
 
     if (this.fontSubstitutions.length === 0) {
       section.createDiv({
         cls: 'native-powerpoint-inspector-hint',
-        text: 'Requested fonts on this slide are available.'
+        text: this.t('powerpoint:inspector.fontsAvailable')
       });
       return;
     }
 
     section.createDiv({
       cls: 'native-powerpoint-inspector-hint',
-      text: `${this.fontSubstitutions.length} missing font${this.fontSubstitutions.length === 1 ? '' : 's'} substituted. Text wrapping uses the displayed replacement font.`
+      text: this.t('powerpoint:inspector.fontsSubstituted', { count: this.fontSubstitutions.length })
     });
     const list = section.createDiv({ cls: 'native-powerpoint-font-substitution-list' });
     for (const substitution of this.fontSubstitutions) {
       const item = list.createDiv({ cls: 'native-powerpoint-font-substitution' });
       item.createSpan({ cls: 'native-powerpoint-font-substitution-source', text: substitution.requested });
-      item.createSpan({ cls: 'native-powerpoint-font-substitution-arrow', text: '->' });
+      item.createSpan({ cls: 'native-powerpoint-font-substitution-arrow', text: this.t('powerpoint:inspector.substitutionArrow') });
       item.createSpan({ cls: 'native-powerpoint-font-substitution-target', text: substitution.substitute });
     }
   }
@@ -4559,7 +4605,7 @@ export class NativePowerPointView extends FileView {
     this.textToolbarShapeIndex = null;
     this.closeToolbarPopover();
     this.currentRunStyle = null;
-    this.setTopFontControl('Font', false);
+    this.setTopFontControl(this.tb('font'), false);
   }
 
   // The font-family picker lives in the always-visible top toolbar but only acts
@@ -4612,7 +4658,7 @@ export class NativePowerPointView extends FileView {
     controls.bold.toggleClass('is-active', Boolean(reflectedStyle?.bold));
     controls.italic.toggleClass('is-active', Boolean(reflectedStyle?.italic));
     controls.underline.toggleClass('is-active', Boolean(reflectedStyle?.underline));
-    this.setTopFontControl(reflectedStyle?.fontFamily ?? this.getEffectiveFontFamily(context) ?? 'Font', true);
+    this.setTopFontControl(reflectedStyle?.fontFamily ?? this.getEffectiveFontFamily(context) ?? this.tb('font'), true);
 
     if (activeDocument.activeElement !== controls.fontSizeInput) {
       const sizePt = reflectedStyle?.fontSizePt ?? this.getEffectiveFontSizePt(context);
@@ -4724,21 +4770,21 @@ export class NativePowerPointView extends FileView {
     this.textToolbarEl?.remove();
     const toolbar = this.canvasPane.createDiv({ cls: 'native-powerpoint-text-toolbar' });
     toolbar.setAttribute('role', 'toolbar');
-    toolbar.setAttribute('aria-label', 'Text formatting');
+    toolbar.setAttribute('aria-label', pptT('powerpoint:accessibility.textFormatting'));
     toolbar.addEventListener('pointerdown', (event) => event.stopPropagation());
 
     const styleGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
-    const bold = this.createTextToolbarButton(styleGroup, 'bold', 'Bold', () => this.toggleRunFlag('bold'));
-    const italic = this.createTextToolbarButton(styleGroup, 'italic', 'Italic', () => this.toggleRunFlag('italic'));
-    const underline = this.createTextToolbarButton(styleGroup, 'underline', 'Underline', () => this.toggleRunFlag('underline'));
+    const bold = this.createTextToolbarButton(styleGroup, 'bold', this.tb('bold'), () => this.toggleRunFlag('bold'));
+    const italic = this.createTextToolbarButton(styleGroup, 'italic', this.tb('italic'), () => this.toggleRunFlag('italic'));
+    const underline = this.createTextToolbarButton(styleGroup, 'underline', this.tb('underline'), () => this.toggleRunFlag('underline'));
 
     const sizeGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
-    this.createTextToolbarButton(sizeGroup, 'minus', 'Decrease font size', () => this.stepFontSize(-1));
+    this.createTextToolbarButton(sizeGroup, 'minus', this.tb('decreaseFontSize'), () => this.stepFontSize(-1));
     const fontSizeInput = sizeGroup.createEl('input', {
       cls: 'native-powerpoint-text-toolbar-size',
       type: 'number',
       attr: {
-        'aria-label': 'Font size',
+        'aria-label': this.t('powerpoint:accessibility.fontSize'),
         min: String(TEXT_TOOLBAR_MIN_FONT_SIZE),
         max: String(TEXT_TOOLBAR_MAX_FONT_SIZE)
       }
@@ -4752,10 +4798,10 @@ export class NativePowerPointView extends FileView {
         this.commitFontSizeInput();
       }
     });
-    this.createTextToolbarButton(sizeGroup, 'plus', 'Increase font size', () => this.stepFontSize(1));
+    this.createTextToolbarButton(sizeGroup, 'plus', this.tb('increaseFontSize'), () => this.stepFontSize(1));
 
     const colorGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
-    const textColorButton = this.createTextToolbarSwatchButton(colorGroup, 'baseline', 'Text color');
+    const textColorButton = this.createTextToolbarSwatchButton(colorGroup, 'baseline', this.tb('textColor'));
     const textColorBar = textColorButton.createDiv({ cls: 'native-powerpoint-text-toolbar-swatch-bar' });
     this.bindToolbarButton(textColorButton, () =>
       this.openColorPopover(textColorButton, this.textColorValue, false, (color) => {
@@ -4763,7 +4809,7 @@ export class NativePowerPointView extends FileView {
         this.applyRunStyle({ color });
       }));
 
-    const highlightButton = this.createTextToolbarSwatchButton(colorGroup, 'highlighter', 'Highlight color');
+    const highlightButton = this.createTextToolbarSwatchButton(colorGroup, 'highlighter', this.tb('highlightColor'));
     const highlightBar = highlightButton.createDiv({ cls: 'native-powerpoint-text-toolbar-swatch-bar' });
     this.bindToolbarButton(highlightButton, () =>
       this.openColorPopover(highlightButton, this.textHighlightValue, true, (color) => {
@@ -4773,10 +4819,10 @@ export class NativePowerPointView extends FileView {
 
     const alignGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
     const alignButtons: Record<ParagraphAlignment, HTMLButtonElement> = {
-      l: this.createTextToolbarButton(alignGroup, 'align-left', 'Align left', () => this.applyAlignment('l')),
-      ctr: this.createTextToolbarButton(alignGroup, 'align-center', 'Align center', () => this.applyAlignment('ctr')),
-      r: this.createTextToolbarButton(alignGroup, 'align-right', 'Align right', () => this.applyAlignment('r')),
-      just: this.createTextToolbarButton(alignGroup, 'align-justify', 'Justify', () => this.applyAlignment('just'))
+      l: this.createTextToolbarButton(alignGroup, 'align-left', this.tb('alignLeft'), () => this.applyAlignment('l')),
+      ctr: this.createTextToolbarButton(alignGroup, 'align-center', this.tb('alignCenter'), () => this.applyAlignment('ctr')),
+      r: this.createTextToolbarButton(alignGroup, 'align-right', this.tb('alignRight'), () => this.applyAlignment('r')),
+      just: this.createTextToolbarButton(alignGroup, 'align-justify', this.tb('justify'), () => this.applyAlignment('just'))
     };
 
     this.textToolbarEl = toolbar;
@@ -4800,7 +4846,7 @@ export class NativePowerPointView extends FileView {
   ): HTMLButtonElement {
     const button = container.createEl('button', {
       cls: 'native-powerpoint-toolbar-btn native-powerpoint-text-toolbar-btn',
-      attr: { 'aria-label': label }
+      attr: { 'aria-label': label, 'data-tooltip': label }
     });
     setIcon(button, icon);
     this.bindToolbarButton(button, action);
@@ -4810,7 +4856,7 @@ export class NativePowerPointView extends FileView {
   private createTextToolbarSwatchButton(container: HTMLElement, icon: string, label: string): HTMLButtonElement {
     const button = container.createEl('button', {
       cls: 'native-powerpoint-toolbar-btn native-powerpoint-text-toolbar-btn native-powerpoint-text-toolbar-swatch',
-      attr: { 'aria-label': label }
+      attr: { 'aria-label': label, 'data-tooltip': label }
     });
     setIcon(button.createSpan({ cls: 'native-powerpoint-text-toolbar-swatch-icon' }), icon);
     return button;
@@ -4988,7 +5034,7 @@ export class NativePowerPointView extends FileView {
     const context = this.getTextStyleContext();
     if (!context) {
       debugLog('text-format', 'runTextFormatting aborted', { label, reason: 'no-context' });
-      new Notice('Select a text box or place the caret in text first.');
+      pptNotice('powerpoint:notice.selectTextBoxFirst');
       return;
     }
     const usedToolbarFormattingSnapshot = this.toolbarFormattingSnapshot !== null;
@@ -5074,7 +5120,7 @@ export class NativePowerPointView extends FileView {
       });
     } catch (error) {
       errorLog('text-format', 'runTextFormatting failed', { label, error: cleanError(error) });
-      new Notice(`Could not format text: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotFormatText', { message: cleanError(error) });
     } finally {
       if (usedToolbarFormattingSnapshot) {
         this.toolbarFormattingSnapshot = null;
@@ -5144,8 +5190,8 @@ export class NativePowerPointView extends FileView {
     this.openToolbarPopover(anchor, (popover) => {
       popover.addClass('native-powerpoint-font-menu');
       for (const font of fonts) {
-        const item = popover.createEl('button', {
-          cls: 'native-powerpoint-color-popover-item native-powerpoint-font-menu-item',
+        const item = createMenuItem(popover, {
+          className: 'native-powerpoint-color-popover-item native-powerpoint-font-menu-item',
           text: font
         });
         item.style.setProperty('--np-font-family', font);
@@ -5171,9 +5217,9 @@ export class NativePowerPointView extends FileView {
       popover.addClass('native-powerpoint-color-popover');
 
       if (allowNone) {
-        const noneButton = popover.createEl('button', {
-          cls: 'native-powerpoint-color-popover-none',
-          text: 'No color'
+        const noneButton = createMenuItem(popover, {
+          className: 'native-powerpoint-color-popover-none',
+          text: this.t('powerpoint:color.noColor')
         });
         this.bindToolbarButton(noneButton, () => {
           this.closeToolbarPopover();
@@ -5185,7 +5231,7 @@ export class NativePowerPointView extends FileView {
       for (const swatch of TEXT_TOOLBAR_SWATCHES) {
         const cell = grid.createEl('button', {
           cls: 'native-powerpoint-color-popover-swatch',
-          attr: { 'aria-label': `#${swatch}` }
+          attr: { 'aria-label': this.t('powerpoint:accessibility.swatchColor', { color: swatch }) }
         });
         cell.style.setProperty('--np-swatch-color', `#${swatch}`);
         if (swatch.toUpperCase() === currentColor.toUpperCase()) {
@@ -5198,10 +5244,10 @@ export class NativePowerPointView extends FileView {
       }
 
       const customRow = popover.createDiv({ cls: 'native-powerpoint-color-popover-custom' });
-      customRow.createSpan({ text: 'Custom' });
+      customRow.createSpan({ text: this.t('powerpoint:color.custom') });
       const customInput = customRow.createEl('input', {
         type: 'color',
-        attr: { 'aria-label': 'Custom color', value: `#${currentColor}` }
+        attr: { 'aria-label': this.t('powerpoint:color.custom'), value: `#${currentColor}` }
       });
       customInput.value = `#${currentColor}`;
       customInput.addEventListener('pointerdown', () => this.flushActiveEditorForToolbarInput(), true);
@@ -5217,26 +5263,21 @@ export class NativePowerPointView extends FileView {
   private openToolbarPopover(anchor: HTMLElement, build: (popover: HTMLElement) => void): void {
     this.closeToolbarPopover();
 
-    const popover = activeDocument.body.createDiv({
-      cls: 'native-powerpoint-toolbar-popover native-powerpoint-light-surface'
+    const popover = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-toolbar-popover native-powerpoint-light-surface',
+      stopPointerDown: true
     });
-    popover.addEventListener('pointerdown', (event) => event.stopPropagation());
     build(popover);
 
-    const anchorRect = anchor.getBoundingClientRect();
-    popover.setCssProps({ left: `${anchorRect.left}px`, top: `${anchorRect.bottom + 4}px` });
-
-    const onOutsidePointerDown = (event: PointerEvent): void => {
-      const target = isNode(event.target) ? event.target : null;
-      if (target && (popover.contains(target) || anchor.contains(target))) return;
-      this.closeToolbarPopover();
-    };
-    activeDocument.addEventListener('pointerdown', onOutsidePointerDown, true);
+    positionPopoverBelow(popover, anchor);
 
     this.activeToolbarPopover = popover;
-    this.toolbarPopoverCleanup = () => {
-      activeDocument.removeEventListener('pointerdown', onOutsidePointerDown, true);
-    };
+    this.toolbarPopoverCleanup = bindPopoverDismissHandlers({
+      popover,
+      anchor,
+      onDismiss: () => this.closeToolbarPopover(),
+      closeOnEscape: false
+    });
   }
 
   private closeToolbarPopover(): void {
@@ -6903,9 +6944,7 @@ export class NativePowerPointView extends FileView {
     if (this.hasShownGeneratedTextNotice) return;
 
     this.hasShownGeneratedTextNotice = true;
-    new Notice(
-      'This chart label is generated from numeric scale or data. Edit a highlighted chart title, legend, or category label instead.'
-    );
+    pptNotice('powerpoint:notice.generatedChartLabel');
   }
 
   private updateSelectionOverlay(): void {
@@ -6949,7 +6988,8 @@ export class NativePowerPointView extends FileView {
         const rotateStem = this.selectionOverlay.createDiv({ cls: 'native-powerpoint-rotate-stem' });
         rotateStem.setAttribute('aria-hidden', 'true');
         const rotateHandle = this.selectionOverlay.createDiv({ cls: 'native-powerpoint-rotate-handle' });
-        rotateHandle.setAttribute('aria-label', 'Rotate object');
+        rotateHandle.setAttribute('aria-label', pptT('powerpoint:accessibility.rotateObject'));
+        rotateHandle.setAttribute('data-tooltip', pptT('powerpoint:accessibility.rotateObject'));
         rotateHandle.addEventListener('pointerdown', (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -7260,7 +7300,7 @@ export class NativePowerPointView extends FileView {
         indices: updates.map((update) => update.index),
         error
       });
-      new Notice(`Could not move objects: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotMoveObjects', { message: cleanError(error) });
     }
   }
 
@@ -7443,7 +7483,7 @@ export class NativePowerPointView extends FileView {
         shapeIndex: this.selectedShapeIndex,
         error
       });
-      new Notice(`Could not update object: ${cleanError(error)}`);
+      pptNotice('powerpoint:notice.couldNotUpdateObject', { message: cleanError(error) });
     }
   }
 
@@ -7685,7 +7725,7 @@ export class NativePowerPointView extends FileView {
     const sourcePackage = this.sourcePackage;
     const sourceBuffer = this.sourceBuffer;
     if (!file || !engine || !sourcePackage || !sourceBuffer) {
-      new Notice('Could not create a Native PowerPoint recovery copy because the open presentation is unavailable.');
+      pptNotice('powerpoint:notice.recoveryCopyUnavailable');
       return false;
     }
 
@@ -7724,12 +7764,9 @@ export class NativePowerPointView extends FileView {
       });
 
       if (isValidated) {
-        new Notice(`Unsaved edits were not written to ${file.name}. Recovery copy created while ${reason}: ${recoveryPath}`, 10000);
+        pptNotice('powerpoint:notice.recoveryCopyCreated', { fileName: file.name, reason, recoveryPath }, 10000);
       } else {
-        new Notice(
-          `Save validation failed, so ${file.name} was not overwritten. An unvalidated recovery export was created at ${recoveryPath}. ${validationError}`,
-          15000
-        );
+        pptNotice('powerpoint:notice.saveValidationFailedRecovery', { fileName: file.name, recoveryPath, validationError }, 15000);
       }
 
       return true;
@@ -7740,10 +7777,7 @@ export class NativePowerPointView extends FileView {
         reason,
         error
       });
-      new Notice(
-        `Could not preserve unsaved edits from ${file.name} while ${reason}: ${cleanError(error)}. The original file was not overwritten.`,
-        15000
-      );
+      pptNotice('powerpoint:notice.recoveryCopyFailed', { fileName: file.name, reason, message: cleanError(error) }, 15000);
       return false;
     }
   }
@@ -7794,13 +7828,13 @@ export class NativePowerPointView extends FileView {
 
   private updateEditingAvailability(): void {
     const canEdit = this.canEdit();
-    const disabledReason = this.viewOnlyReason || 'Open an editable PowerPoint file first.';
+    const disabledReason = this.viewOnlyReason || this.t('powerpoint:notice.openEditableFirst');
 
     for (const button of this.editButtons) {
-      const baseTitle = button.dataset.baseTitle || button.getAttribute('aria-label') || 'Edit';
+      const baseTitle = button.dataset.baseTitle || button.getAttribute('aria-label') || this.tb('edit');
       button.disabled = !canEdit;
       button.toggleClass('is-disabled', !canEdit);
-      button.setAttribute('aria-label', canEdit ? baseTitle : `${baseTitle}: ${disabledReason}`);
+      button.setAttribute('aria-label', canEdit ? baseTitle : this.t('powerpoint:accessibility.editDisabled', { label: baseTitle, reason: disabledReason }));
       button.setAttribute('aria-disabled', String(!canEdit));
     }
 
@@ -7829,13 +7863,13 @@ export class NativePowerPointView extends FileView {
     if (!this.statusEl) return;
 
     const labels: Record<SaveState, string> = {
-      idle: 'Ready',
-      dirty: 'Unsaved',
-      saving: 'Saving...',
-      saved: 'Saved',
-      failed: 'Save failed',
-      recovered: 'Recovery saved',
-      'view-only': 'View-only'
+      idle: this.t('powerpoint:save.ready'),
+      dirty: this.t('powerpoint:save.unsaved'),
+      saving: this.t('powerpoint:save.saving'),
+      saved: this.t('powerpoint:save.saved'),
+      failed: this.t('powerpoint:save.failed'),
+      recovered: this.t('powerpoint:save.recovered'),
+      'view-only': this.t('powerpoint:save.viewOnly')
     };
 
     this.statusEl.setText(labels[state]);
@@ -7844,11 +7878,11 @@ export class NativePowerPointView extends FileView {
     if (state === 'failed') {
       this.statusEl.setAttribute('role', 'button');
       this.statusEl.setAttribute('tabindex', '0');
-      this.statusEl.setAttribute('aria-label', 'Save failed. Click to retry.');
+      this.statusEl.setAttribute('aria-label', this.t('powerpoint:save.failedAria'));
       if (this.lastSaveError) {
-        this.statusEl.title = `${this.lastSaveError} — click to retry`;
+        this.statusEl.title = this.t('powerpoint:save.retryTitleWithError', { error: this.lastSaveError });
       } else {
-        this.statusEl.title = 'Click to retry save';
+        this.statusEl.title = this.t('powerpoint:save.retryTitle');
       }
     } else {
       this.statusEl.setAttribute('role', 'status');
@@ -7861,7 +7895,10 @@ export class NativePowerPointView extends FileView {
   private updateSlideCounter(): void {
     this.updateHeaderTitle();
     const count = this.engine?.slideCount || 0;
-    this.slideCounterEl?.setText(count ? `${this.currentSlide + 1} / ${count}` : '0 / 0');
+    this.slideCounterEl?.setText(this.t('powerpoint:present.slideCount', {
+      current: count ? this.currentSlide + 1 : 0,
+      total: count
+    }));
 
     if (this.thumbnailContainer) {
       this.thumbnailContainer.querySelectorAll('.native-powerpoint-thumbnail').forEach((thumbnail, index) => {

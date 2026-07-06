@@ -43,7 +43,7 @@ class DocxReactErrorBoundary extends Component<DocxReactErrorBoundaryProps, Docx
 	render() {
 		if (this.state.error) {
 			return (
-				<div className="docxidian-editor-load-error">
+				<div className="native-powerpoint-doc-editor-editor-load-error">
 					{`Could not render DOCX editor: ${this.state.error.message}`}
 				</div>
 			);

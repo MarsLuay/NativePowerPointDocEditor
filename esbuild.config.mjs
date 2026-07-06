@@ -1,7 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { access, copyFile, readFile, writeFile } from "fs/promises";
+import { access, copyFile, cp, readFile, writeFile } from "fs/promises";
 import path from "node:path";
 import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
@@ -24,6 +24,7 @@ const vaultPluginDir =
 	process.env.OBSIDIAN_PLUGIN_DIR
 	|| path.resolve("../../.obsidian/plugins/native-powerpoint-doc-editor");
 const filesToDeploy = ["main.js", "styles.css", "manifest.json"];
+const dirsToDeploy = ["locales"];
 
 const deployToVaultPlugin = {
 	name: "deploy-to-vault-plugin",
@@ -47,6 +48,16 @@ const deployToVaultPlugin = {
 				})
 			);
 
+			await Promise.all(
+				dirsToDeploy.map(async (dir) => {
+					try {
+						await cp(path.resolve(dir), path.join(vaultPluginDir, dir), { recursive: true });
+					} catch (error) {
+						console.warn(`[deploy] could not copy ${dir}: ${error.message}`);
+					}
+				})
+			);
+
 			// Write a fresh build stamp the in-app dev hot-reload watcher polls.
 			// Content-based detection is more reliable than file mtime across
 			// platforms/adapters. Only meaningful when a `.hotreload` marker exists.
@@ -59,7 +70,7 @@ const deployToVaultPlugin = {
 				// Non-fatal: stamp is dev convenience only.
 			}
 
-			console.log(`[deploy] synced ${filesToDeploy.join(", ")} -> ${vaultPluginDir}`);
+			console.log(`[deploy] synced ${filesToDeploy.join(", ")}, ${dirsToDeploy.join(", ")} -> ${vaultPluginDir}`);
 		});
 	}
 };
@@ -139,6 +150,7 @@ const context = await esbuild.context({
 	},
 	loader: {
 		".css": "text",
+		".json": "json",
 		".wasm": "binary",
 	},
 	logLevel: "info",

@@ -1,0 +1,20 @@
+{
+  "generic": {
+    "message": "‫gnorw tnew gnihtemoS"
+  },
+  "saveFailed": "‫ evas ton dluoC{fileName} :{message}",
+  "saveNoDocument": "‫ evas ton dluoC{fileName}.tnemucod a nruter ton did rotide eht :",
+  "exportFailed": "‫ tropxe ton dluoC{path} :{message}",
+  "exportNoDocument": "‫ tropxe ton dluoC{path}.tnemucod a nruter ton did rotide eht :",
+  "exportPdfFailed": "‫ tropxe ton dluoC{path}.nettirw saw elif oN .deliaf gniredner FDP dettamrof :",
+  "exportPdfRenderFailed": "‫ :FDP dettamrof redner ton dluoC{message}",
+  "exportNoPages": "‫.tropxe ot segap XCOD deredner dnif ton dluoC",
+  "createFailed": "‫ etaerc ton dluoC{path} :{message}",
+  "renameFailed": "‫ emaner ton dluoC{fileName} :{message}",
+  "insertTableFailed": "‫.ereh elbat a tresni ton dluoC",
+  "fontImportFileFailed": "‫ tropmi ton dluoC{fileName}.",
+  "fontImportFailed": "‫ :tnof tropmi ton dluoC{message}",
+  "insertImageFailed": "‫ :egami tresni ton dluoC{message}",
+  "renderFailed": "‫ redner ton dluoC{fileName} :{message}",
+  "loadFailed": "‫{message}"
+}

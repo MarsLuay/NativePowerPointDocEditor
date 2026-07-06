@@ -1,0 +1,12 @@
+{
+	"actions": {
+		"close": "Zamknij",
+		"save": "Zapisz",
+		"cancel": "Anuluj",
+		"insert": "Wstaw",
+		"reset": "Resetuj",
+		"copy": "Kopiuj",
+		"rebuild": "Odbuduj",
+		"defaultOption": "(domyślny)"
+	}
+}

@@ -1,4 +1,5 @@
-import { Notice } from 'obsidian';
+import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
+import { createTranslateNotice } from '../i18n/translate';
 import type { ShapeTransform } from 'pptx-svg';
 
 import { isSVGGElement } from '../domGuards';
@@ -9,6 +10,7 @@ import { cloneTransform } from './svgUtils';
 import type { DistributeAxis, HistoryEntry } from './types';
 
 export interface ArrangeHost {
+  readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
   readonly svgEl: SVGSVGElement | null;
   currentSlide: number;
@@ -35,8 +37,11 @@ export class ArrangeController {
   private zOrderButtons: HTMLButtonElement[] = [];
   private groupButton: HTMLButtonElement | null = null;
   private ungroupButton: HTMLButtonElement | null = null;
+  private readonly notice: TranslateNoticeFn;
 
-  constructor(private readonly host: ArrangeHost) {}
+  constructor(private readonly host: ArrangeHost) {
+    this.notice = createTranslateNotice(this.host.t);
+  }
 
   createToolbarGroups(toolbar: HTMLElement): void {
     this.distributeButtons = [];
@@ -130,7 +135,7 @@ export class ArrangeController {
 
     const boxes = this.collectSelectedTransforms();
     if (boxes.length < 3) {
-      new Notice('Select at least three objects to distribute.');
+      this.notice('powerpoint:notice.selectThreeToDistribute');
       return;
     }
 
@@ -186,7 +191,7 @@ export class ArrangeController {
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object reorder failed', { indices, mode, error });
-      new Notice(`Could not reorder objects: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotReorderObjects', { message: cleanError(error) });
     }
   }
 
@@ -195,7 +200,7 @@ export class ArrangeController {
 
     const indices = this.host.getSelectedIndices().filter((index) => index >= 0);
     if (indices.length < 2) {
-      new Notice('Select at least two objects to group.');
+      this.notice('powerpoint:notice.selectTwoToGroup');
       return;
     }
 
@@ -216,7 +221,7 @@ export class ArrangeController {
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object grouping failed', { indices, error });
-      new Notice(`Could not group objects: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotGroupObjects', { message: cleanError(error) });
     }
   }
 
@@ -224,7 +229,7 @@ export class ArrangeController {
     if (!this.host.engine || !this.host.ensureEditable('ungroup objects')) return;
 
     if (!this.isSingleGroupSelected()) {
-      new Notice('Select a single group to ungroup.');
+      this.notice('powerpoint:notice.selectGroupToUngroup');
       return;
     }
 
@@ -248,7 +253,7 @@ export class ArrangeController {
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object ungrouping failed', { groupIndex, error });
-      new Notice(`Could not ungroup objects: ${cleanError(error)}`);
+      this.notice('powerpoint:notice.couldNotUngroupObjects', { message: cleanError(error) });
     }
   }
 

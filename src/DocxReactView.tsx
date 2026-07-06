@@ -3,21 +3,34 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { DocxEditor, type DocxEditorRef, type EditorMode } from '@eigenpal/docx-editor-react';
 import { clearParagraphMeasureCache } from '@eigenpal/docx-editor-core/layout-bridge';
 import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
-import { insertTable, setFontFamily, setFontSize, setLineSpacing } from '@eigenpal/docx-editor-core/prosemirror/commands';
+import { insertTable, setFontSize, setLineSpacing } from '@eigenpal/docx-editor-core/prosemirror/commands';
 import { loadFontFromBuffer } from '@eigenpal/docx-editor-core/utils';
 import type { FontOption } from '@eigenpal/docx-editor-core/utils/fontOptions';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
 import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import editorStyles from '@eigenpal/docx-editor-react/styles.css';
-import { createEditorTranslator } from './editorTranslations';
+import type { I18nService } from './i18n/I18nService';
+import { parsePrimaryFontFamily } from './powerpoint/textUtils';
 import { isClipboardEvent, isElement, isHTMLButtonElement, isInputEvent, isNode, isPointerEvent } from './domGuards';
 import { debugLog, errorLog, warnLog } from './logger';
-import { Notice, Platform, setIcon } from './obsidianRuntime';
+import { Platform, setIcon } from './obsidianRuntime';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { exportRenderedPagesToPdf } from './renderedPdfExport';
+import { didListLayoutChange, didParagraphLayoutChange } from './docxParagraphLayoutRelayout';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
+import {
+	calculateClampedFloatingLayerPosition,
+	getFormattingDropdownScrollTransition,
+	isFullscreenDialogLayer,
+} from './docxFloatingLayerLayout';
+import type { EditorThemeResolution } from './settings';
+import {
+	attachDocxToolbarTooltipManager,
+	stripFormattingDropdownButtonTitles,
+	suppressEigenpalToolbarTooltips,
+} from './docxToolbarTooltip';
 
 let stylesInjected = false;
 let editorInstanceCounter = 0;
@@ -59,6 +72,8 @@ const TOUCH_ZOOM_MIN_DELTA = 0.006;
 const MAX_INSERTED_IMAGE_WIDTH = 612;
 const IMPORT_FONT_MENU_LABEL = 'Import font...';
 const CUSTOM_TABLE_MENU_LABEL = 'Custom...';
+const FONT_FAMILY_TRIGGER_ATTRIBUTE = 'data-native-powerpoint-doc-editor-font-family-trigger';
+const FONT_FAMILY_TRIGGER_DATA_KEY = 'nativePowerPointDocEditorFontFamilyTrigger';
 const FONT_FILE_ACCEPT = '.ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2,application/font-woff,application/font-woff2';
 const FONT_FILE_EXTENSION_PATTERN = /\.(?:ttf|otf|woff2?)$/i;
 const MIN_CUSTOM_TABLE_SIZE = 1;
@@ -70,9 +85,8 @@ const FONT_SIZE_HOLD_INITIAL_DELAY_MS = 420;
 const FONT_SIZE_HOLD_INITIAL_INTERVAL_MS = 180;
 const FONT_SIZE_HOLD_INTERVAL_DECAY = 0.82;
 const FONT_SIZE_HOLD_MIN_INTERVAL_MS = 36;
-const TOOLBAR_TOOLTIP_DELAY_MS = 450;
 const LINE_SPACING_TWIPS = new Set([240, 276, 360, 480]);
-const SELECTED_LIST_MARKER_CLASS = 'docxidian-list-marker-selected';
+const SELECTED_LIST_MARKER_CLASS = 'native-powerpoint-doc-editor-list-marker-selected';
 const LIST_PARAGRAPH_SELECTOR = '.layout-paragraph[data-pm-start]';
 const LIST_MARKER_SELECTOR = '.layout-list-marker, .docx-list-marker';
 const DEFAULT_EDITOR_FONT_FAMILIES: FontOption[] = [
@@ -179,37 +193,31 @@ interface FindReplaceLabels {
 	resultCount: (current: number, total: number) => string;
 }
 
-function createFindReplaceLabels(i18n: Translations | undefined): FindReplaceLabels {
-	const translate = createEditorTranslator(i18n);
-
+function createFindReplaceLabels(i18n: I18nService): FindReplaceLabels {
 	return {
-		find: translate('dialogs.findReplace.titleFind', undefined, 'Find'),
-		findAndReplace: translate('dialogs.findReplace.titleFindReplace', undefined, 'Find and Replace'),
-		findText: translate('dialogs.findReplace.findPlaceholder', undefined, 'Find text'),
-		replaceWith: translate('dialogs.findReplace.replacePlaceholder', undefined, 'Replace with'),
-		replace: translate('dialogs.findReplace.replaceButton', undefined, 'Replace'),
-		replaceAll: translate('dialogs.findReplace.replaceAllButton', undefined, 'Replace all'),
-		matchCase: translate('dialogs.findReplace.matchCase', undefined, 'Match case'),
-		wholeWords: translate('dialogs.findReplace.wholeWords', undefined, 'Whole words'),
-		showReplace: translate('dialogs.findReplace.toggleReplace', undefined, 'Show replace'),
-		close: translate('common.close', undefined, 'Close'),
-		previous: translate('dialogs.findReplace.findPrevious', undefined, 'Previous match'),
-		next: translate('dialogs.findReplace.findNext', undefined, 'Next match'),
-		noMatches: translate('dialogs.findReplace.noResults', undefined, 'No matches'),
-		resultCount: (current, total) => translate(
-			'dialogs.findReplace.matchCount',
-			{ current, total },
-			`${current} of ${total}`,
-		),
+		find: i18n.t('docx:find.title'),
+		findAndReplace: i18n.t('docx:find.titleReplace'),
+		findText: i18n.t('docx:find.placeholder'),
+		replaceWith: i18n.t('docx:find.replacePlaceholder'),
+		replace: i18n.t('docx:find.replaceButton'),
+		replaceAll: i18n.t('docx:find.replaceAllButton'),
+		matchCase: i18n.t('docx:find.matchCase'),
+		wholeWords: i18n.t('docx:find.wholeWords'),
+		showReplace: i18n.t('docx:find.toggleReplace'),
+		close: i18n.t('common:actions.close'),
+		previous: i18n.t('docx:find.findPrevious'),
+		next: i18n.t('docx:find.findNext'),
+		noMatches: i18n.t('docx:find.noResults'),
+		resultCount: (current, total) => i18n.t('docx:find.resultCount', { current, total }),
 	};
 }
 
-const findHighlightPluginKey = new PluginKey<FindHighlightState>('docxidian-find-highlight');
-const listLayoutRelayoutPluginKey = new PluginKey('docxidian-list-layout-relayout');
-const preserveTypedSpacePluginKey = new PluginKey('docxidian-preserve-typed-space');
+const findHighlightPluginKey = new PluginKey<FindHighlightState>('native-powerpoint-doc-editor-find-highlight');
+const paragraphLayoutRelayoutPluginKey = new PluginKey('native-powerpoint-doc-editor-paragraph-layout-relayout');
+const preserveTypedSpacePluginKey = new PluginKey('native-powerpoint-doc-editor-preserve-typed-space');
 const LIST_PARAGRAPH_DEFAULT_LEFT_INDENT = 720;
 const LIST_PARAGRAPH_DEFAULT_HANGING_INDENT = 360;
-const LIST_LAYOUT_NORMALIZED_META = 'docxidian-list-layout-normalized';
+const LIST_LAYOUT_NORMALIZED_META = 'native-powerpoint-doc-editor-list-layout-normalized';
 
 function isFindHighlightState(value: unknown): value is FindHighlightState {
 	if (!value || typeof value !== 'object') {
@@ -218,59 +226,6 @@ function isFindHighlightState(value: unknown): value is FindHighlightState {
 
 	const state = value as Partial<FindHighlightState>;
 	return Array.isArray(state.matches) && typeof state.currentIndex === 'number';
-}
-
-function stableListLayoutValue(value: unknown) {
-	if (value === null || value === undefined) {
-		return '';
-	}
-
-	if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-		return String(value);
-	}
-
-	try {
-		return JSON.stringify(value);
-	} catch {
-		return String(value);
-	}
-}
-
-function getParagraphListLayoutSignature(node: ProseMirrorNode) {
-	const attrs = node.attrs as Record<string, unknown>;
-	const hasListLayout = attrs.numPr != null
-		|| attrs.listMarker != null
-		|| attrs.listMarkerHidden != null
-		|| attrs.listMarkerFontFamily != null
-		|| attrs.listMarkerFontSize != null;
-
-	if (!hasListLayout) {
-		return '';
-	}
-
-	return [
-		stableListLayoutValue(attrs.numPr),
-		stableListLayoutValue(attrs.listMarker),
-		stableListLayoutValue(attrs.listMarkerHidden),
-		stableListLayoutValue(attrs.listMarkerFontFamily),
-		stableListLayoutValue(attrs.listMarkerFontSize),
-		stableListLayoutValue(attrs.indentLeft),
-		stableListLayoutValue(attrs.indentFirstLine),
-		stableListLayoutValue(attrs.hangingIndent),
-	].join('\u001f');
-}
-
-function getDocumentListLayoutSignatures(doc: ProseMirrorNode) {
-	const signatures: string[] = [];
-	doc.descendants((node) => {
-		if (node.type.name !== 'paragraph') {
-			return true;
-		}
-
-		signatures.push(getParagraphListLayoutSignature(node));
-		return false;
-	});
-	return signatures;
 }
 
 function getDocxPaginationSourceDiagnostics(doc: ProseMirrorNode | null | undefined): DocxPaginationSourceDiagnostics {
@@ -321,20 +276,6 @@ function getDocxPaginationSourceDiagnostics(doc: ProseMirrorNode | null | undefi
 	return diagnostics;
 }
 
-function didListLayoutChange(before: ProseMirrorNode, after: ProseMirrorNode) {
-	const beforeSignatures = getDocumentListLayoutSignatures(before);
-	const afterSignatures = getDocumentListLayoutSignatures(after);
-	const signatureCount = Math.max(beforeSignatures.length, afterSignatures.length);
-
-	for (let index = 0; index < signatureCount; index += 1) {
-		if ((beforeSignatures[index] ?? '') !== (afterSignatures[index] ?? '')) {
-			return true;
-		}
-	}
-
-	return false;
-}
-
 function getListParagraphIndentAttrs(attrs: Record<string, unknown>) {
 	const numPr = attrs.numPr;
 	if (!numPr || typeof numPr !== 'object') {
@@ -365,9 +306,9 @@ function getListParagraphIndentAttrs(attrs: Record<string, unknown>) {
 	};
 }
 
-function createListLayoutRelayoutPlugin(scheduleRelayout: () => void) {
+function createParagraphLayoutRelayoutPlugin(scheduleRelayout: () => void) {
 	return new Plugin({
-		key: listLayoutRelayoutPluginKey,
+		key: paragraphLayoutRelayoutPluginKey,
 		appendTransaction: (transactions, previousState, nextState) => {
 			const shouldNormalize = transactions.some((transaction) => transaction.docChanged)
 				&& transactions.every((transaction) => transaction.getMeta(LIST_LAYOUT_NORMALIZED_META) !== true)
@@ -407,8 +348,8 @@ function createListLayoutRelayoutPlugin(scheduleRelayout: () => void) {
 					return;
 				}
 
-				if (didListLayoutChange(previousState.doc, view.state.doc)) {
-					debugLog('editor', 'DOCX list layout changed; scheduling relayout');
+				if (didParagraphLayoutChange(previousState.doc, view.state.doc)) {
+					debugLog('editor', 'DOCX paragraph layout changed; scheduling relayout');
 					scheduleRelayout();
 				}
 			},
@@ -607,7 +548,7 @@ function applyLineSpacingToEditor(view: EditorView, twipsValue: number) {
 	return applied;
 }
 
-const COMMENTS_SIDEBAR_TOGGLE_ATTR = 'data-docxidian-comments-sidebar-toggle';
+const COMMENTS_SIDEBAR_TOGGLE_ATTR = 'data-native-powerpoint-doc-editor-comments-sidebar-toggle';
 
 function getTopLevelCommentCount(editor: DocxEditorRef | null | undefined) {
 	return (editor?.getComments() ?? []).filter((comment) => comment.parentId == null).length;
@@ -637,113 +578,145 @@ function findCommentsSidebarToggleButton(editorRoot: HTMLElement, toggleLabel: s
 }
 
 function setCommentsSidebarToggleEnabled(button: HTMLButtonElement, enabled: boolean) {
-	if (!enabled && button.getAttribute('aria-pressed') === 'true') {
-		button.click();
-	}
-
 	button.toggleAttribute('disabled', !enabled);
 	button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-	button.classList.toggle('docxidian-comments-sidebar-toggle-disabled', !enabled);
-}
-
-function getToolbarTooltipTarget(target: EventTarget | null, editorRoot: HTMLElement | null) {
-	if (!isElement(target) || !editorRoot) {
-		return null;
-	}
-
-	const candidate = target.closest<HTMLElement>('button, [role="button"]');
-	if (!candidate || !editorRoot.contains(candidate)) {
-		return null;
-	}
-
-	const excludedToolbarRow = candidate.closest(
-		'[data-docxidian-no-toolbar-tooltip], [data-testid="title-bar"], [role="menubar"]'
-	);
-	if (excludedToolbarRow && editorRoot.contains(excludedToolbarRow)) {
-		return null;
-	}
-
-	const toolbar = candidate.closest('[data-testid="editor-toolbar"], [data-testid="formatting-bar"], .docx-table-toolbar');
-	if (!toolbar || !editorRoot.contains(toolbar)) {
-		return null;
-	}
-
-	return candidate;
-}
-
-function getToolbarTooltipText(target: HTMLElement) {
-	return (
-		target.getAttribute('aria-label')
-		|| target.dataset.docxidianNativeTitle
-		|| target.getAttribute('title')
-		|| target.textContent
-		|| ''
-	).replace(/\s+/g, ' ').trim();
-}
-
-function suspendNativeTitle(target: HTMLElement) {
-	const title = target.getAttribute('title');
-	if (!title || target.dataset.docxidianTooltipTitle !== undefined) {
-		return;
-	}
-
-	target.dataset.docxidianTooltipTitle = title;
-	target.removeAttribute('title');
-}
-
-function restoreNativeTitle(target: HTMLElement | null) {
-	if (!target || target.dataset.docxidianTooltipTitle === undefined) {
-		return;
-	}
-
-	target.setAttribute('title', target.dataset.docxidianTooltipTitle);
-	delete target.dataset.docxidianTooltipTitle;
+	button.classList.toggle('native-powerpoint-doc-editor-comments-sidebar-toggle-disabled', !enabled);
 }
 
 function markLightMenuSurface(surface: HTMLElement, className: string) {
-	surface.classList.add('docxidian-light-menu-surface', className);
+	surface.classList.add('native-powerpoint-doc-editor-light-menu-surface', className);
 
 	const shell = surface.closest<HTMLElement>('[data-radix-popper-content-wrapper], [style*="position: fixed"], [style*="position: absolute"]');
 	if (shell) {
-		shell.classList.add('docxidian-light-menu-shell');
+		shell.classList.add('native-powerpoint-doc-editor-light-menu-shell');
 	}
 }
 
 function isFullscreenFixedDialogLayer(layer: HTMLElement): boolean {
 	// Eigenpal HyperlinkDialog puts role="dialog" on the fixed overlay itself; other
 	// dialogs use a fixed wrapper with a dialog child (Find/Replace, Page Setup).
-	if (layer.getAttribute('role') === 'dialog') {
-		return true;
+	return isFullscreenDialogLayer(
+		layer.getAttribute('role'),
+		layer.getAttribute('aria-modal'),
+		Boolean(layer.querySelector(':scope > [role="dialog"]')),
+	);
+}
+
+function clampFormattingDropdownToViewport(layer: HTMLElement): void {
+	const activeWindow = layer.ownerDocument.defaultView;
+	const inlineLeft = Number.parseFloat(layer.style.left);
+	const inlineTop = Number.parseFloat(layer.style.top);
+	if (!activeWindow || !Number.isFinite(inlineLeft) || !Number.isFinite(inlineTop)) {
+		return;
 	}
 
-	return Boolean(layer.querySelector(':scope > [role="dialog"]'));
+	const rect = layer.getBoundingClientRect();
+	const next = calculateClampedFloatingLayerPosition(
+		rect,
+		{ width: activeWindow.innerWidth, height: activeWindow.innerHeight },
+		{ left: inlineLeft, top: inlineTop },
+	);
+	if (Math.abs(next.left - inlineLeft) > 0.5) {
+		layer.style.left = `${next.left}px`;
+	}
+	if (Math.abs(next.top - inlineTop) > 0.5) {
+		layer.style.top = `${next.top}px`;
+	}
+}
+
+function scheduleFormattingDropdownClamp(layer: HTMLElement): void {
+	const activeWindow = layer.ownerDocument.defaultView;
+	if (!activeWindow) {
+		return;
+	}
+
+	const clampIfConnected = () => {
+		if (layer.isConnected) {
+			clampFormattingDropdownToViewport(layer);
+		}
+	};
+	activeWindow.requestAnimationFrame(() => {
+		activeWindow.requestAnimationFrame(clampIfConnected);
+	});
+	activeWindow.setTimeout(clampIfConnected, 100);
+}
+
+function syncFormattingBarDropdownState(formattingBar: HTMLElement, open: boolean): void {
+	const className = 'native-powerpoint-doc-editor-formatting-dropdown-open';
+	const scrollLeftProperty = '--native-powerpoint-doc-editor-formatting-scroll-left';
+	const parsedSavedScrollLeft = Number.parseFloat(
+		formattingBar.dataset.nativePowerPointDocEditorDropdownScrollLeft ?? '',
+	);
+	const savedScrollLeft = Number.isFinite(parsedSavedScrollLeft) ? parsedSavedScrollLeft : null;
+	const transition = getFormattingDropdownScrollTransition(
+		open,
+		formattingBar.scrollLeft,
+		savedScrollLeft,
+	);
+	if (open) {
+		if (formattingBar.classList.contains(className)) {
+			return;
+		}
+
+		formattingBar.dataset.nativePowerPointDocEditorDropdownScrollLeft = `${transition.savedScrollLeft ?? 0}`;
+		formattingBar.style.setProperty(scrollLeftProperty, `${transition.visualOffset}px`);
+		formattingBar.classList.add(className);
+		return;
+	}
+
+	formattingBar.classList.remove(className);
+	formattingBar.style.removeProperty(scrollLeftProperty);
+	delete formattingBar.dataset.nativePowerPointDocEditorDropdownScrollLeft;
+	if (transition.restoreScrollLeft !== null) {
+		formattingBar.scrollLeft = transition.restoreScrollLeft;
+	}
 }
 
 function normalizeEditorFloatingLayers(editorRoot: HTMLElement) {
-	const host = editorRoot.closest('.docxidian-host') ?? editorRoot;
+	const host = editorRoot.closest('.native-powerpoint-doc-editor-host') ?? editorRoot;
 	host.querySelectorAll<HTMLElement>('div[style*="position: fixed"]').forEach((layer) => {
 		const isDialogLayer = isFullscreenFixedDialogLayer(layer);
-		layer.classList.toggle('docxidian-fixed-dialog-layer', isDialogLayer);
+		layer.classList.toggle('native-powerpoint-doc-editor-fixed-dialog-layer', isDialogLayer);
 		// The editor positions these layers with inline top/left/transform, which a
 		// stylesheet rule cannot override. Pin dialog layers to the viewport inline.
 		if (isDialogLayer) {
 			layer.setCssProps({ inset: '0', transform: 'none' });
-			layer.dataset.docxidianFixedLayerPinned = 'true';
-		} else if (layer.dataset.docxidianFixedLayerPinned === 'true') {
+			layer.dataset.nativePowerPointDocEditorFixedLayerPinned = 'true';
+		} else if (layer.dataset.nativePowerPointDocEditorFixedLayerPinned === 'true') {
 			layer.style.removeProperty('inset');
 			layer.style.removeProperty('transform');
-			delete layer.dataset.docxidianFixedLayerPinned;
+			delete layer.dataset.nativePowerPointDocEditorFixedLayerPinned;
+		}
+
+		if (!isDialogLayer && layer.closest('[data-testid="formatting-bar"]')) {
+			scheduleFormattingDropdownClamp(layer);
 		}
 	});
+
+	const formattingBar = editorRoot.querySelector<HTMLElement>('[data-testid="formatting-bar"]');
+	const hasFormattingBarDropdown = Boolean(
+		formattingBar?.querySelector(':scope div[style*="position: fixed"]'),
+	);
+	if (formattingBar) {
+		syncFormattingBarDropdownState(formattingBar, hasFormattingBarDropdown);
+		if (hasFormattingBarDropdown) {
+			stripFormattingDropdownButtonTitles(formattingBar);
+		}
+	}
+
+	suppressEigenpalToolbarTooltips(editorRoot);
 
 	const hasFloatingMenu = Boolean(
 		editorRoot.querySelector('[role="menubar"] [style*="position: fixed"], [role="menubar"] [style*="position: absolute"]'),
 	);
-	editorRoot.classList.toggle('docxidian-has-floating-menu', hasFloatingMenu);
+	editorRoot.classList.toggle('native-powerpoint-doc-editor-has-floating-menu', hasFloatingMenu);
 }
 
 function isFontDropdownListbox(listbox: HTMLElement) {
-	const optionLabels = Array.from(listbox.querySelectorAll<HTMLElement>('[role="option"]'))
+	const optionLabels = Array.from(
+		listbox.querySelectorAll<HTMLElement>('[data-radix-select-item], [role="option"]'),
+	)
+		.filter((option) => !option.dataset.nativePowerPointDocEditorImportFontOption)
 		.map((option) => option.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() ?? '')
 		.filter(Boolean);
 
@@ -752,24 +725,392 @@ function isFontDropdownListbox(listbox: HTMLElement) {
 		&& optionLabels.includes('courier new');
 }
 
-function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) {
-	markLightMenuSurface(listbox, 'docxidian-font-listbox');
+function getFontDropdownMenuContainer(listbox: HTMLElement) {
+	return listbox.closest<HTMLElement>('[data-radix-select-content]') ?? listbox.parentElement;
+}
 
-	if (listbox.querySelector('[data-docxidian-import-font-option]')) {
+function resolveFontOptionByName(fontName: string, fonts: FontOption[]) {
+	const normalized = fontName.trim().toLowerCase();
+	return fonts.find((font) => font.name.trim().toLowerCase() === normalized);
+}
+
+function normalizeFontFamilyName(value: string | null | undefined): string {
+	return (value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function resolveFontFamilyDisplayName(fontFamily: string, fonts: FontOption[]): string {
+	const normalized = normalizeFontFamilyName(fontFamily).toLowerCase();
+	if (!normalized) {
+		return '';
+	}
+
+	const option = fonts.find((font) => {
+		const optionName = normalizeFontFamilyName(font.name).toLowerCase();
+		const optionFamily = normalizeFontFamilyName(font.fontFamily).toLowerCase();
+		const optionPrimary = normalizeFontFamilyName(parsePrimaryFontFamily(font.fontFamily)).toLowerCase();
+		return optionName === normalized
+			|| optionFamily === normalized
+			|| optionPrimary === normalized;
+	});
+
+	const primaryName = normalizeFontFamilyName(parsePrimaryFontFamily(fontFamily));
+	return option?.name ?? (primaryName || fontFamily);
+}
+
+function isFontFamilySelectTrigger(candidate: HTMLElement, fonts: FontOption[]): boolean {
+	if (candidate.dataset[FONT_FAMILY_TRIGGER_DATA_KEY] === 'true') {
+		return true;
+	}
+
+	if (candidate.getAttribute('aria-label') === 'Select font family') {
+		return true;
+	}
+
+	const label = normalizeFontFamilyName(candidate.textContent).toLowerCase();
+	return Boolean(label && fonts.some((font) => font.name.trim().toLowerCase() === label));
+}
+
+function getFontFamilySelectTrigger(editorRoot: HTMLElement, fonts: FontOption[]): HTMLElement | null {
+	const tagged = editorRoot.querySelector<HTMLElement>(`[${FONT_FAMILY_TRIGGER_ATTRIBUTE}]`);
+	if (tagged) {
+		return tagged;
+	}
+
+	const formattingBar = editorRoot.querySelector<HTMLElement>('[data-testid="formatting-bar"]');
+	if (!formattingBar) {
+		return null;
+	}
+
+	const candidates = formattingBar.querySelectorAll<HTMLElement>(
+		'button[role="combobox"], button[aria-haspopup="listbox"], button[aria-label]',
+	);
+	return Array.from(candidates).find((candidate) => isFontFamilySelectTrigger(candidate, fonts)) ?? null;
+}
+
+function getFontFamilyTriggerValueElement(trigger: HTMLElement): HTMLElement | null {
+	return Array.from(trigger.children).find((child): child is HTMLElement => {
+		return child instanceof HTMLElement
+			&& child.tagName.toLowerCase() !== 'svg'
+			&& normalizeFontFamilyName(child.textContent).length > 0;
+	}) ?? null;
+}
+
+function getFontFamilyTriggerValueTextNode(trigger: HTMLElement): Text | null {
+	return Array.from(trigger.childNodes).find((child): child is Text => {
+		return child.nodeType === Node.TEXT_NODE
+			&& normalizeFontFamilyName(child.textContent).length > 0;
+	}) ?? null;
+}
+
+function syncFontFamilySelectDisplay(
+	editorRoot: HTMLElement | null,
+	fontFamily: string,
+	fonts: FontOption[],
+): boolean {
+	if (!editorRoot) {
+		return false;
+	}
+
+	const displayName = resolveFontFamilyDisplayName(fontFamily, fonts);
+	const trigger = getFontFamilySelectTrigger(editorRoot, fonts);
+	if (!displayName || !trigger) {
+		return false;
+	}
+
+	trigger.dataset[FONT_FAMILY_TRIGGER_DATA_KEY] = 'true';
+
+	const valueElement = getFontFamilyTriggerValueElement(trigger);
+	if (valueElement) {
+		valueElement.textContent = displayName;
+	} else {
+		const valueText = getFontFamilyTriggerValueTextNode(trigger);
+		if (valueText) {
+			valueText.textContent = displayName;
+		} else if (normalizeFontFamilyName(trigger.textContent) !== displayName) {
+			trigger.prepend(activeDocument.createTextNode(displayName));
+		}
+	}
+
+	return true;
+}
+
+function scheduleFontFamilySelectDisplaySync(
+	editorRoot: HTMLElement | null,
+	fontFamily: string,
+	fonts: FontOption[],
+	shouldSync: () => boolean = () => true,
+): void {
+	const sync = () => {
+		if (!shouldSync()) {
+			return false;
+		}
+		return syncFontFamilySelectDisplay(editorRoot, fontFamily, fonts);
+	};
+	sync();
+	window.requestAnimationFrame(sync);
+	window.setTimeout(sync, 0);
+	window.setTimeout(sync, 120);
+	window.setTimeout(sync, 320);
+}
+
+interface TextSelectionRange {
+	from: number;
+	to: number;
+}
+
+function clampTextSelectionRange(doc: ProseMirrorNode, range: TextSelectionRange): TextSelectionRange {
+	const docSize = doc.content.size;
+	const from = Math.max(0, Math.min(range.from, docSize));
+	const to = Math.max(from, Math.min(range.to, docSize));
+	return { from, to };
+}
+
+function rememberTextSelectionFromView(view: EditorView): TextSelectionRange | null {
+	const { empty, from, to } = view.state.selection;
+	if (empty) {
+		return null;
+	}
+
+	return clampTextSelectionRange(view.state.doc, { from, to });
+}
+
+function getFontFamilyNameFromEditorSelection(view: EditorView): string | null {
+	const stored = view.state.storedMarks?.find((mark) => mark.type.name === 'fontFamily');
+	if (stored) {
+		return stored.attrs.ascii ?? stored.attrs.hAnsi ?? null;
+	}
+
+	let activeMarks: readonly Mark[] = view.state.selection.$from.marks();
+	if (!view.state.selection.empty) {
+		view.state.doc.nodesBetween(view.state.selection.from, view.state.selection.to, (node) => {
+			if (!node.isText) {
+				return;
+			}
+
+			activeMarks = node.marks;
+			return false;
+		});
+	}
+
+	const mark = activeMarks.find((candidate) => candidate.type.name === 'fontFamily');
+	if (mark) {
+		return mark.attrs.ascii ?? mark.attrs.hAnsi ?? null;
+	}
+
+	try {
+		const dom = view.domAtPos(view.state.selection.from);
+		const element = dom.node instanceof Element ? dom.node : dom.node.parentElement;
+		const cssFont = element?.ownerDocument.defaultView?.getComputedStyle(element).fontFamily;
+		return parsePrimaryFontFamily(cssFont ?? '');
+	} catch {
+		return null;
+	}
+}
+
+function getActiveTextSelectionRange(
+	view: EditorView,
+	preserved: TextSelectionRange | null,
+): TextSelectionRange | null {
+	if (!view.state.selection.empty) {
+		return clampTextSelectionRange(view.state.doc, {
+			from: view.state.selection.from,
+			to: view.state.selection.to,
+		});
+	}
+
+	return preserved;
+}
+
+function snapSelectionToTextRange(
+	doc: ProseMirrorNode,
+	range: TextSelectionRange,
+): TextSelectionRange | null {
+	const { from, to } = clampTextSelectionRange(doc, range);
+	let textFrom: number | null = null;
+	let textTo: number | null = null;
+
+	doc.nodesBetween(from, to, (node, pos) => {
+		if (!node.isText) {
+			return;
+		}
+
+		const nodeEnd = pos + node.nodeSize;
+		const overlapFrom = Math.max(from, pos);
+		const overlapTo = Math.min(to, nodeEnd);
+		if (overlapFrom >= overlapTo) {
+			return;
+		}
+
+		if (textFrom === null) {
+			textFrom = overlapFrom;
+		}
+		textTo = overlapTo;
+	});
+
+	if (textFrom === null || textTo === null) {
+		return null;
+	}
+
+	return { from: textFrom, to: textTo };
+}
+
+function mergeStoredMarksWithFontFamily(
+	storedMarks: readonly Mark[] | null,
+	activeMarks: readonly Mark[],
+	fontFamilyMark: Mark,
+): Mark[] {
+	const baseMarks = storedMarks ?? activeMarks;
+	return [
+		...baseMarks.filter((mark) => mark.type.name !== 'fontFamily'),
+		fontFamilyMark,
+	];
+}
+
+function isFontPickerMenuItem(target: Element): HTMLElement | null {
+	const item = target.closest<HTMLElement>('[data-radix-select-item], [role="option"]');
+	if (!item || item.closest('[data-native-powerpoint-doc-editor-import-font-option]')) {
+		return null;
+	}
+
+	if (item.closest('[data-native-powerpoint-doc-editor-font-menu-decorated]')) {
+		return item;
+	}
+
+	const listbox = item.closest<HTMLElement>('[role="listbox"]');
+	if (listbox && isFontDropdownListbox(listbox)) {
+		return item;
+	}
+
+	return null;
+}
+
+function applyFontFamilyToEditorView(
+	view: EditorView,
+	fontFamily: string,
+	preservedRange: TextSelectionRange | null,
+): { applied: boolean; range: TextSelectionRange | null } {
+	const fontFamilyType = view.state.schema.marks.fontFamily;
+	if (!fontFamilyType) {
+		return { applied: false, range: null };
+	}
+
+	const fontFamilyMark = fontFamilyType.create({ ascii: fontFamily, hAnsi: fontFamily });
+	const activeRange = getActiveTextSelectionRange(view, preservedRange);
+	const snappedRange = activeRange
+		? snapSelectionToTextRange(view.state.doc, activeRange)
+		: null;
+
+	let transaction = view.state.tr;
+
+	if (snappedRange) {
+		const { from, to } = snappedRange;
+		transaction = transaction.setSelection(TextSelection.create(transaction.doc, from, to));
+		if (to > from) {
+			transaction = transaction.addMark(from, to, fontFamilyMark);
+		}
+		transaction = transaction.setStoredMarks(
+			mergeStoredMarksWithFontFamily(
+				transaction.storedMarks,
+				transaction.selection.$from.marks(),
+				fontFamilyMark,
+			),
+		);
+		view.dispatch(transaction.scrollIntoView());
+		return { applied: true, range: snappedRange };
+	}
+
+	if (!view.state.selection.empty) {
+		const fallbackSnapped = snapSelectionToTextRange(view.state.doc, {
+			from: view.state.selection.from,
+			to: view.state.selection.to,
+		});
+		if (fallbackSnapped) {
+			const { from, to } = fallbackSnapped;
+			transaction = transaction.setSelection(TextSelection.create(transaction.doc, from, to));
+			if (to > from) {
+				transaction = transaction.addMark(from, to, fontFamilyMark);
+			}
+			transaction = transaction.setStoredMarks(
+				mergeStoredMarksWithFontFamily(
+					transaction.storedMarks,
+					transaction.selection.$from.marks(),
+					fontFamilyMark,
+				),
+			);
+			view.dispatch(transaction.scrollIntoView());
+			return { applied: true, range: fallbackSnapped };
+		}
+	}
+
+	transaction = transaction.setStoredMarks(
+		mergeStoredMarksWithFontFamily(
+			view.state.storedMarks,
+			view.state.selection.$from.marks(),
+			fontFamilyMark,
+		),
+	);
+	view.dispatch(transaction.scrollIntoView());
+	return { applied: true, range: null };
+}
+
+function tagFontFamilySelectTrigger(container: HTMLElement) {
+	const contentId = container.id;
+	if (!contentId) {
 		return;
 	}
 
+	const trigger = activeDocument.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(contentId)}"]`);
+	if (trigger) {
+		trigger.dataset[FONT_FAMILY_TRIGGER_DATA_KEY] = 'true';
+	}
+}
+
+function scheduleFontFamilySelectTriggerTag(container: HTMLElement) {
+	let attempts = 0;
+	const tryTag = () => {
+		tagFontFamilySelectTrigger(container);
+		if (!container.id && attempts < 5) {
+			attempts += 1;
+			window.requestAnimationFrame(tryTag);
+		}
+	};
+
+	tryTag();
+}
+
+function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) {
+	const container = getFontDropdownMenuContainer(listbox);
+	if (!container) {
+		return;
+	}
+
+	if (container.dataset.nativePowerPointDocEditorFontMenuDecorated === 'true') {
+		return;
+	}
+
+	if (!isFontDropdownListbox(listbox)) {
+		return;
+	}
+
+	container.dataset.nativePowerPointDocEditorFontMenuDecorated = 'true';
+	markLightMenuSurface(listbox, 'native-powerpoint-doc-editor-font-listbox');
+
+	if (container.querySelector('[data-native-powerpoint-doc-editor-import-font-option]')) {
+		return;
+	}
+
+	const footer = activeDocument.createElement('div');
+	footer.className = 'native-powerpoint-doc-editor-font-menu-footer';
+	footer.dataset.nativePowerPointDocEditorFontMenuFooter = 'true';
+
 	const separator = activeDocument.createElement('div');
-	separator.className = 'docxidian-import-font-separator';
-	separator.setAttribute('role', 'separator');
-	separator.dataset.docxidianImportFontOption = 'true';
+	separator.className = 'native-powerpoint-doc-editor-import-font-separator';
+	separator.dataset.nativePowerPointDocEditorImportFontOption = 'true';
 
 	const button = activeDocument.createElement('button');
 	button.type = 'button';
-	button.className = 'docxidian-import-font-option';
-	button.dataset.docxidianImportFontOption = 'true';
-	button.setAttribute('role', 'option');
-	button.setAttribute('aria-selected', 'false');
+	button.className = 'native-powerpoint-doc-editor-import-font-option';
+	button.dataset.nativePowerPointDocEditorImportFontOption = 'true';
 	button.textContent = IMPORT_FONT_MENU_LABEL;
 
 	const openImporter = (evt: Event) => {
@@ -797,7 +1138,9 @@ function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) 
 		}
 	});
 
-	listbox.append(separator, button);
+	footer.append(separator, button);
+	container.append(footer);
+	scheduleFontFamilySelectTriggerTag(container);
 }
 
 function clampCustomTableSize(value: number) {
@@ -820,21 +1163,31 @@ function isTableSizeGrid(grid: HTMLElement) {
 
 function appendCustomTableOption(grid: HTMLElement, onCustomTable: () => void) {
 	const container = grid.parentElement;
-	if (!container || container.querySelector('[data-docxidian-custom-table-option]')) {
+	if (!container || container.dataset.nativePowerPointDocEditorTableSizeMenuDecorated === 'true') {
 		return;
 	}
 
-	markLightMenuSurface(container, 'docxidian-table-size-menu');
+	if (!isTableSizeGrid(grid)) {
+		return;
+	}
+
+	container.dataset.nativePowerPointDocEditorTableSizeMenuDecorated = 'true';
+
+	if (container.querySelector('[data-native-powerpoint-doc-editor-custom-table-option]')) {
+		return;
+	}
+
+	markLightMenuSurface(container, 'native-powerpoint-doc-editor-table-size-menu');
 
 	const separator = activeDocument.createElement('div');
-	separator.className = 'docxidian-custom-table-separator';
+	separator.className = 'native-powerpoint-doc-editor-custom-table-separator';
 	separator.setAttribute('role', 'separator');
-	separator.dataset.docxidianCustomTableOption = 'true';
+	separator.dataset.nativePowerPointDocEditorCustomTableOption = 'true';
 
 	const button = activeDocument.createElement('button');
 	button.type = 'button';
-	button.className = 'docxidian-custom-table-option';
-	button.dataset.docxidianCustomTableOption = 'true';
+	button.className = 'native-powerpoint-doc-editor-custom-table-option';
+	button.dataset.nativePowerPointDocEditorCustomTableOption = 'true';
 	button.textContent = CUSTOM_TABLE_MENU_LABEL;
 
 	const openCustomTable = (evt: Event) => {
@@ -1346,7 +1699,7 @@ const SaveButton = ({ onClick }: { onClick: () => void }) => {
 		<button
 			ref={ref}
 			type="button"
-			className="clickable-icon docxidian-logo-save-button"
+			className="clickable-icon native-powerpoint-doc-editor-logo-save-button"
 			onClick={onClick}
 			aria-label="Save"
 			style={{
@@ -1373,12 +1726,12 @@ const SAVE_STATUS_LABELS: Record<SaveStatus, string> = {
 
 const SaveStatusIndicator = ({ status }: { status: SaveStatus }) => (
 	<span
-		className={`docxidian-save-status docxidian-save-status-${status}`}
+		className={`native-powerpoint-doc-editor-save-status native-powerpoint-doc-editor-save-status-${status}`}
 		role="status"
 		aria-live="polite"
 		title={SAVE_STATUS_LABELS[status]}
 	>
-		<span className="docxidian-save-status-dot" aria-hidden="true" />
+		<span className="native-powerpoint-doc-editor-save-status-dot" aria-hidden="true" />
 		{SAVE_STATUS_LABELS[status]}
 	</span>
 );
@@ -1436,7 +1789,7 @@ const FindReplaceDialog = ({
 
 	return (
 		<div
-			className="docxidian-find-dialog"
+			className="native-powerpoint-doc-editor-find-dialog"
 			style={{
 				position: 'fixed',
 				right: '24px',
@@ -1459,7 +1812,7 @@ const FindReplaceDialog = ({
 				<input
 					value={searchText}
 					onChange={(evt) => onSearchTextChange(evt.currentTarget.value)}
-					placeholder={labels.findText}
+					placeholder={labels.findText} aria-label={labels.findText}
 					autoFocus
 					style={{ flex: 1, height: '30px' }}
 					onKeyDown={(evt) => {
@@ -1481,7 +1834,7 @@ const FindReplaceDialog = ({
 					<input
 						value={replaceText}
 						onChange={(evt) => onReplaceTextChange(evt.currentTarget.value)}
-						placeholder={labels.replaceWith}
+						placeholder={labels.replaceWith} aria-label={labels.replaceWith}
 						style={{ flex: 1, height: '30px' }}
 					/>
 					<button type="button" onClick={onReplace} disabled={matchCount === 0}>{labels.replace}</button>
@@ -1490,8 +1843,8 @@ const FindReplaceDialog = ({
 			)}
 			<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
 				<div style={{ display: 'flex', gap: '10px', fontSize: '12px' }}>
-					<label><input type="checkbox" checked={matchCase} onChange={(evt) => onMatchCaseChange(evt.currentTarget.checked)} /> {labels.matchCase}</label>
-					<label><input type="checkbox" checked={wholeWord} onChange={(evt) => onWholeWordChange(evt.currentTarget.checked)} /> {labels.wholeWords}</label>
+					<label><input type="checkbox" aria-label={labels.matchCase} checked={matchCase} onChange={(evt) => onMatchCaseChange(evt.currentTarget.checked)} /> {labels.matchCase}</label>
+					<label><input type="checkbox" aria-label={labels.wholeWords} checked={wholeWord} onChange={(evt) => onWholeWordChange(evt.currentTarget.checked)} /> {labels.wholeWords}</label>
 				</div>
 				<div style={{ fontSize: '12px', color: 'var(--text-muted, #6b7280)', whiteSpace: 'nowrap' }}>{resultText}</div>
 			</div>
@@ -1529,7 +1882,7 @@ const CustomTableDialog = ({ isOpen, onClose, onInsert }: CustomTableDialogProps
 
 	return (
 		<div
-			className="docxidian-custom-table-backdrop"
+			className="native-powerpoint-doc-editor-custom-table-backdrop"
 			onMouseDown={(evt) => {
 				if (evt.target === evt.currentTarget) {
 					onClose();
@@ -1547,37 +1900,39 @@ const CustomTableDialog = ({ isOpen, onClose, onInsert }: CustomTableDialogProps
 			}}
 		>
 			<div
-				className="docxidian-custom-table-dialog"
+				className="native-powerpoint-doc-editor-custom-table-dialog"
 				role="dialog"
 				aria-modal="true"
 				aria-label="Custom table"
 				onMouseDown={(evt) => evt.stopPropagation()}
 			>
-				<div className="docxidian-custom-table-title">Custom table</div>
-				<label className="docxidian-custom-table-field">
+				<div className="native-powerpoint-doc-editor-custom-table-title">Custom table</div>
+				<label className="native-powerpoint-doc-editor-custom-table-field">
 					<span>Rows</span>
 					<input
 						type="number"
 						min={MIN_CUSTOM_TABLE_SIZE}
 						max={MAX_CUSTOM_TABLE_SIZE}
 						value={rows}
+						aria-label="Rows"
 						autoFocus
 						onChange={(evt) => setRows(clampCustomTableSize(Number(evt.currentTarget.value)))}
 					/>
 				</label>
-				<label className="docxidian-custom-table-field">
+				<label className="native-powerpoint-doc-editor-custom-table-field">
 					<span>Columns</span>
 					<input
 						type="number"
 						min={MIN_CUSTOM_TABLE_SIZE}
 						max={MAX_CUSTOM_TABLE_SIZE}
 						value={columns}
+						aria-label="Columns"
 						onChange={(evt) => setColumns(clampCustomTableSize(Number(evt.currentTarget.value)))}
 					/>
 				</label>
-				<div className="docxidian-custom-table-actions">
+				<div className="native-powerpoint-doc-editor-custom-table-actions">
 					<button type="button" onClick={onClose}>Cancel</button>
-					<button type="button" className="docxidian-custom-table-primary" onClick={submit}>Insert</button>
+					<button type="button" className="native-powerpoint-doc-editor-custom-table-primary" onClick={submit}>Insert</button>
 				</div>
 			</div>
 		</div>
@@ -1591,7 +1946,10 @@ export interface DocxReactViewProps {
 	error: string | null;
 	isLoading: boolean;
 	authorName: string;
+	resolvedEditorTheme: EditorThemeResolution;
 	i18n: Translations | undefined;
+	pluginI18n: I18nService | null;
+	showNotice: (key: string, values?: Record<string, string | number | boolean>) => void;
 	showRuler: boolean;
 	autosave: boolean;
 	defaultZoom: number;
@@ -1599,6 +1957,7 @@ export interface DocxReactViewProps {
 	onDirtyChange: (isDirty: boolean) => void;
 	onSave: (buffer: ArrayBuffer) => Promise<void>;
 	onDocumentNameChange: (name: string, expectedPath?: string | null) => Promise<void>;
+	onLoadPhase?: (phase: string, data?: Record<string, unknown>) => void;
 }
 
 export interface DocxReactViewHandle {
@@ -1617,7 +1976,7 @@ export interface DocxReactViewHandle {
 }
 
 export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>(function DocxReactView(
-	{ file, buffer, documentKey, error, isLoading, authorName, i18n, showRuler, autosave, defaultZoom, reserveReviewSidebar, onDirtyChange, onSave, onDocumentNameChange },
+	{ file, buffer, documentKey, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, onDirtyChange, onSave, onDocumentNameChange, onLoadPhase },
 	ref,
 ) {
 	const editorRef = useRef<DocxEditorRef>(null);
@@ -1625,7 +1984,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
 	const fontInputRef = useRef<HTMLInputElement>(null);
-	const editorClassNameRef = useRef(`docxidian-editor-${++editorInstanceCounter}`);
+	const editorClassNameRef = useRef(`native-powerpoint-doc-editor-editor-${++editorInstanceCounter}`);
 	const rulerSyncFrameRef = useRef<number | null>(null);
 	const rulerSyncTimeoutRef = useRef<number | null>(null);
 	const initialCenterFrameRef = useRef<number | null>(null);
@@ -1665,12 +2024,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const [currentFindIndex, setCurrentFindIndex] = useState(0);
 	const [importedFonts, setImportedFonts] = useState<FontOption[]>([]);
 	const [customTableDialogOpen, setCustomTableDialogOpen] = useState(false);
+	const [commentsSidebarOpen, setCommentsSidebarOpen] = useState(false);
 	const filePath = file?.path ?? null;
-	const findReplaceLabels = useMemo(() => createFindReplaceLabels(i18n), [i18n]);
+	const findReplaceLabels = useMemo(
+		() => (pluginI18n ? createFindReplaceLabels(pluginI18n) : null),
+		[pluginI18n],
+	);
 	const fontFamilies = useMemo<FontOption[]>(() => [
 		...DEFAULT_EDITOR_FONT_FAMILIES,
 		...importedFonts,
 	], [importedFonts]);
+	const fontFamiliesRef = useRef(fontFamilies);
+	fontFamiliesRef.current = fontFamilies;
+	const preservedTextSelectionRef = useRef<TextSelectionRange | null>(null);
+	const fontFamilyDisplaySyncVersionRef = useRef(0);
 	const schedulePaginationDiagnostics = useCallback((trigger: string) => {
 		if (paginationLogTimeoutRef.current !== null) {
 			window.clearTimeout(paginationLogTimeoutRef.current);
@@ -1709,7 +2076,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			});
 		}, 100);
 	}, [filePath]);
-	const scheduleListLayoutRelayout = useCallback(() => {
+	const scheduleParagraphLayoutRelayout = useCallback(() => {
 		clearParagraphMeasureCache();
 		if (listLayoutRelayoutFrameRef.current !== null) {
 			window.cancelAnimationFrame(listLayoutRelayoutFrameRef.current);
@@ -1750,19 +2117,19 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					pluginState.matches.map((match, index) => Decoration.inline(
 						match.from,
 						match.to,
-						{ class: index === pluginState.currentIndex ? 'docxidian-find-current' : 'docxidian-find-match' },
+						{ class: index === pluginState.currentIndex ? 'native-powerpoint-doc-editor-find-current' : 'native-powerpoint-doc-editor-find-match' },
 					)),
 				);
 			},
 		},
 	}), []);
-	const listLayoutRelayoutPlugin = useMemo(
-		() => createListLayoutRelayoutPlugin(scheduleListLayoutRelayout),
-		[scheduleListLayoutRelayout],
+	const paragraphLayoutRelayoutPlugin = useMemo(
+		() => createParagraphLayoutRelayoutPlugin(scheduleParagraphLayoutRelayout),
+		[scheduleParagraphLayoutRelayout],
 	);
 	const externalPlugins = useMemo(
-		() => [preserveTypedSpacePlugin, findHighlightPlugin, listLayoutRelayoutPlugin],
-		[findHighlightPlugin, listLayoutRelayoutPlugin],
+		() => [preserveTypedSpacePlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
+		[findHighlightPlugin, paragraphLayoutRelayoutPlugin],
 	);
 	const pluginSidebarItems = useMemo<NonNullable<ComponentProps<typeof DocxEditor>['pluginSidebarItems']>>(() => {
 		if (!reserveReviewSidebar) {
@@ -1770,7 +2137,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		return [{
-			id: 'docxidian-review-sidebar-reservation',
+			id: 'native-powerpoint-doc-editor-review-sidebar-reservation',
 			anchorPos: 1,
 			estimatedHeight: 1,
 			priority: Number.MAX_SAFE_INTEGER,
@@ -1779,11 +2146,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [reserveReviewSidebar]);
 
 	const commentsSidebarToggleLabel = useMemo(
-		() => createEditorTranslator(i18n)('editor.toggleCommentsSidebar', undefined, 'Toggle comments sidebar'),
-		[i18n],
+		() => pluginI18n?.t('docx:comments.toggleSidebar') ?? '',
+		[pluginI18n],
 	);
 
+	const handleCommentsSidebarOpenChange = useCallback((open: boolean) => {
+		// Eigenpal only renders the new-comment input when the controlled sidebar is
+		// open. Do not block programmatic opens while the document still has zero
+		// saved comments; the title-bar toggle stays disabled separately.
+		setCommentsSidebarOpen(open);
+	}, []);
+
 	const syncCommentsSidebarToggle = useCallback(() => {
+		const commentCount = getTopLevelCommentCount(editorRef.current);
+
 		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
 		if (!editorRoot) {
 			return;
@@ -1794,7 +2170,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			return;
 		}
 
-		setCommentsSidebarToggleEnabled(button, getTopLevelCommentCount(editorRef.current) > 0);
+		setCommentsSidebarToggleEnabled(button, commentCount > 0);
 	}, [commentsSidebarToggleLabel]);
 
 	const scheduleCommentsSidebarToggleSync = useCallback(() => {
@@ -1811,6 +2187,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	useEffect(() => {
 		ensureEditorStyles();
 	}, []);
+
+	useEffect(() => {
+		setCommentsSidebarOpen(false);
+	}, [documentKey]);
 
 	useEffect(() => {
 		lastPaginationLogSignatureRef.current = null;
@@ -2011,7 +2391,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				!editorRoot
 				|| (!isFindShortcut && !isReplaceShortcut)
 				|| !isNode(evt.target)
-				|| (!editorRoot.contains(evt.target) && !activeDocument.querySelector('.docxidian-find-dialog')?.contains(evt.target))
+				|| (!editorRoot.contains(evt.target) && !activeDocument.querySelector('.native-powerpoint-doc-editor-find-dialog')?.contains(evt.target))
 			) {
 				return;
 			}
@@ -2092,31 +2472,31 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			});
 
 		modeMenus.forEach(({ menu, buttons }) => {
-			menu.dataset.docxidianModeMenu = 'true';
-			markLightMenuSurface(menu, 'docxidian-mode-menu');
-			menu.addClass('docxidian-mode-menu-normalized');
+			menu.dataset.nativePowerPointDocEditorModeMenu = 'true';
+			markLightMenuSurface(menu, 'native-powerpoint-doc-editor-mode-menu');
+			menu.addClass('native-powerpoint-doc-editor-mode-menu-normalized');
 
 			buttons.forEach((button) => {
 				const mode = getEditorModeFromButton(button);
 				if (mode) {
-					button.dataset.docxidianModeMenuItem = mode;
+					button.dataset.nativePowerPointDocEditorModeMenuItem = mode;
 				}
 
-				button.addClass('docxidian-mode-menu-item');
+				button.addClass('native-powerpoint-doc-editor-mode-menu-item');
 
 				const icon = button.querySelector<HTMLElement>(':scope > svg:first-child');
 				if (icon) {
-					icon.addClass('docxidian-mode-menu-icon');
+					icon.addClass('native-powerpoint-doc-editor-mode-menu-icon');
 				}
 
 				const labelColumn = button.querySelector<HTMLElement>(':scope > span');
 				if (labelColumn) {
-					labelColumn.addClass('docxidian-mode-menu-label');
+					labelColumn.addClass('native-powerpoint-doc-editor-mode-menu-label');
 				}
 
 				const checkIcon = button.querySelector<HTMLElement>(':scope > svg:last-child:not(:first-child)');
 				if (checkIcon) {
-					checkIcon.addClass('docxidian-mode-menu-check');
+					checkIcon.addClass('native-powerpoint-doc-editor-mode-menu-check');
 				}
 			});
 		});
@@ -2217,7 +2597,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				return;
 			}
 
-			const isEditorModeButton = editorRoot.contains(button) || button.closest('[data-docxidian-mode-menu]');
+			const isEditorModeButton = editorRoot.contains(button) || button.closest('[data-native-powerpoint-doc-editor-mode-menu]');
 			if (!isEditorModeButton) {
 				return;
 			}
@@ -2361,9 +2741,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			return;
 		}
 
-		const hostRoot = editorRoot.closest<HTMLElement>('.docxidian-host') ?? editorRoot;
-		editorRoot.addClass('docxidian-touch-pinch-root');
-		hostRoot.addClass('docxidian-touch-pinch-root');
+		const hostRoot = editorRoot.closest<HTMLElement>('.native-powerpoint-doc-editor-host') ?? editorRoot;
+		editorRoot.addClass('native-powerpoint-doc-editor-touch-pinch-root');
+		hostRoot.addClass('native-powerpoint-doc-editor-touch-pinch-root');
 
 		const isEditorTarget = (target: EventTarget | null) => isNode(target) && hostRoot.contains(target);
 
@@ -2608,8 +2988,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		activeDocument.addEventListener('pointercancel', handlePointerEnd, { passive: true, capture: true });
 
 		return () => {
-			editorRoot.removeClass('docxidian-touch-pinch-root');
-			hostRoot.removeClass('docxidian-touch-pinch-root');
+			editorRoot.removeClass('native-powerpoint-doc-editor-touch-pinch-root');
+			hostRoot.removeClass('native-powerpoint-doc-editor-touch-pinch-root');
 			activeDocument.removeEventListener('touchstart', handleTouchStart, true);
 			activeDocument.removeEventListener('touchmove', handleTouchMove, true);
 			activeDocument.removeEventListener('touchend', handleTouchEnd, true);
@@ -2713,7 +3093,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						setSaveStatus('unsaved');
 					}
 					if (!nextOptions?.silent) {
-						new Notice(`Saved ${file.name}`);
+						showNotice('docx:notice.saved', { fileName: file.name });
 					}
 					debugLog('save', 'DOCX persist completed', {
 						file: file.path,
@@ -2732,7 +3112,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						bytes: nextOutput.byteLength,
 						error: saveError,
 					});
-					new Notice(`Could not save ${file.name}: ${message}`);
+					showNotice('errors:saveFailed', { fileName: file.name, message });
 					return false;
 				} finally {
 					if (activeSaveIdRef.current === saveId) {
@@ -2774,7 +3154,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		clearAutosaveTimeout();
 
 		if (!file) {
-			new Notice('No docx file is open.');
+			showNotice('docx:notice.noFileOpen');
 			return false;
 		}
 
@@ -2795,7 +3175,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		if (!output) {
 			setSaveStatus('failed');
 			warnLog('save', 'DOCX editor serialization returned no document', { file: file.path });
-			new Notice(`Could not save ${file.name}: the editor did not return a document.`);
+			showNotice('errors:saveNoDocument', { fileName: file.name });
 			return false;
 		}
 
@@ -2813,7 +3193,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		if (!file) {
-			new Notice('No docx file is open.');
+			showNotice('docx:notice.noFileOpen');
 			return null;
 		}
 
@@ -2824,7 +3204,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		try {
 			const output = await editorRef.current?.save({ selective: false });
 			if (!output) {
-				new Notice(`Could not export ${file.name}: the editor did not return a document.`);
+				showNotice('errors:exportNoDocument', { path: file.name });
 				return null;
 			}
 
@@ -2843,7 +3223,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				editorClassName: editorClassNameRef.current,
 				hasRenderedDomContext: Boolean(renderedDomContextRef.current?.pagesContainer?.isConnected),
 			});
-			new Notice('The docx editor is not ready yet.');
+			showNotice('docx:notice.editorNotReady');
 			return null;
 		}
 
@@ -2851,7 +3231,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const renderedPagesContainer = renderedDomContextRef.current?.pagesContainer ?? null;
 			const pdfBuffer = await exportRenderedPagesToPdf(editorRoot, renderedPagesContainer);
 			if (!pdfBuffer) {
-				new Notice('Could not find rendered DOCX pages to export.');
+				showNotice('errors:exportNoPages');
 				return null;
 			}
 			debugLog('export', 'Exported rendered DOCX pages to PDF', {
@@ -2861,19 +3241,23 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		} catch (renderError) {
 			errorLog('export', 'Could not export rendered DOCX pages to PDF', renderError);
 			const message = renderError instanceof Error ? renderError.message : 'Unknown PDF render error';
-			new Notice(`Could not render formatted PDF: ${message}`);
+			showNotice('errors:exportPdfRenderFailed', { message });
 			return null;
 		}
 	}, []);
 
 	const handleRenderedDomContextReady = useCallback((context: RenderedDomContext) => {
 		renderedDomContextRef.current = context;
+		onLoadPhase?.('editor-rendered-dom-ready', {
+			pageCount: context.pagesContainer.querySelectorAll('.layout-page').length,
+			zoom: context.zoom,
+		});
 		debugLog('export', 'Rendered DOCX DOM context ready', {
 			pageCount: context.pagesContainer.querySelectorAll('.layout-page').length,
 			zoom: context.zoom,
 		});
 		schedulePaginationDiagnostics('rendered-dom-ready');
-	}, [schedulePaginationDiagnostics]);
+	}, [onLoadPhase, schedulePaginationDiagnostics]);
 
 	useEffect(() => {
 		if (!autosave) {
@@ -2913,7 +3297,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					await onDocumentNameChange(name, scheduledFilePath);
 				} catch (renameError) {
 					const message = renameError instanceof Error ? renameError.message : 'Unknown rename error';
-					new Notice(`Could not rename ${file?.name ?? 'document'}: ${message}`);
+					showNotice('errors:renameFailed', { fileName: file?.name ?? 'document', message });
 					setDocumentName(file?.name ?? '');
 				}
 			})();
@@ -2922,18 +3306,18 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	const insertCustomTable = useCallback((rows: number, columns: number) => {
 		if (editorMode === 'viewing') {
-			new Notice('Switch to editing mode to insert a table.');
+			showNotice('docx:notice.switchToEditForTable');
 			return;
 		}
 
 		if (!file || !buffer) {
-			new Notice('Open a loaded docx file to insert a table.');
+			showNotice('docx:notice.openLoadedToInsertTable');
 			return;
 		}
 
 		const view = editorRef.current?.getEditorRef()?.getView();
 		if (!view) {
-			new Notice('The DOCX editor is not ready yet.');
+			showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
@@ -2944,7 +3328,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 		if (!inserted) {
 			warnLog('editor', 'DOCX table insertion was rejected', { file: filePath, rows, columns });
-			new Notice('Could not insert a table here.');
+			showNotice('errors:insertTableFailed');
 			return;
 		}
 
@@ -2959,21 +3343,35 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	const decorateTableSizeDropdown = useCallback(() => {
 		activeDocument.querySelectorAll<HTMLElement>('[role="grid"]').forEach((grid) => {
-			if (isTableSizeGrid(grid)) {
-				appendCustomTableOption(grid, openCustomTableDialog);
-			}
+			appendCustomTableOption(grid, openCustomTableDialog);
 		});
 	}, [openCustomTableDialog]);
 
 	useEffect(() => {
+		let decorateFrame: number | null = null;
+		const scheduleDecorateTableSizeDropdown = () => {
+			if (decorateFrame !== null) {
+				window.cancelAnimationFrame(decorateFrame);
+			}
+			decorateFrame = window.requestAnimationFrame(() => {
+				decorateFrame = null;
+				decorateTableSizeDropdown();
+			});
+		};
+
 		decorateTableSizeDropdown();
-		const observer = new MutationObserver(decorateTableSizeDropdown);
+		const observer = new MutationObserver(scheduleDecorateTableSizeDropdown);
 		observer.observe(activeDocument.body, {
 			childList: true,
 			subtree: true,
 		});
 
-		return () => observer.disconnect();
+		return () => {
+			if (decorateFrame !== null) {
+				window.cancelAnimationFrame(decorateFrame);
+			}
+			observer.disconnect();
+		};
 	}, [buffer, decorateTableSizeDropdown, filePath, isLoading]);
 
 	const applyFontFamilyToSelection = useCallback((fontFamily: string) => {
@@ -2982,14 +3380,40 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			return false;
 		}
 
-		const applied = setFontFamily(fontFamily)(view.state, view.dispatch);
+		const result = applyFontFamilyToEditorView(
+			view,
+			fontFamily,
+			preservedTextSelectionRef.current,
+		);
+
+		if (result.range) {
+			preservedTextSelectionRef.current = result.range;
+		}
+
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (result.applied) {
+			const syncVersion = ++fontFamilyDisplaySyncVersionRef.current;
+			scheduleFontFamilySelectDisplaySync(
+				editorRoot,
+				fontFamily,
+				fontFamiliesRef.current,
+				() => fontFamilyDisplaySyncVersionRef.current === syncVersion,
+			);
+		}
+
+		const storedFontMark = view.state.storedMarks?.find((mark) => mark.type.name === 'fontFamily');
 		debugLog('editor', 'Applied DOCX font family', {
 			file: filePath,
 			fontFamily,
-			applied,
+			applied: result.applied,
+			snappedSelection: Boolean(result.range),
+			displayName: resolveFontFamilyDisplayName(fontFamily, fontFamiliesRef.current),
+			storedFontFamily: storedFontMark?.attrs?.ascii ?? storedFontMark?.attrs?.hAnsi ?? null,
+			displaySyncQueued: result.applied,
 		});
+
 		view.focus();
-		return applied;
+		return result.applied;
 	}, [editorMode, filePath]);
 
 	const stopFontSizeHold = useCallback(() => {
@@ -3104,7 +3528,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	const openFontPicker = useCallback(() => {
 		if (!fontInputRef.current) {
-			new Notice('The font picker is not ready yet.');
+			showNotice('docx:notice.fontPickerNotReady');
 			return;
 		}
 
@@ -3113,22 +3537,110 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	const decorateFontDropdown = useCallback(() => {
 		activeDocument.querySelectorAll<HTMLElement>('[role="listbox"]').forEach((listbox) => {
-			if (isFontDropdownListbox(listbox)) {
-				appendImportFontOption(listbox, openFontPicker);
-			}
+			appendImportFontOption(listbox, openFontPicker);
 		});
 	}, [openFontPicker]);
 
 	useEffect(() => {
+		let decorateFrame: number | null = null;
+		const scheduleDecorateFontDropdown = () => {
+			if (decorateFrame !== null) {
+				window.cancelAnimationFrame(decorateFrame);
+			}
+			decorateFrame = window.requestAnimationFrame(() => {
+				decorateFrame = null;
+				decorateFontDropdown();
+			});
+		};
+
 		decorateFontDropdown();
-		const observer = new MutationObserver(decorateFontDropdown);
+		const observer = new MutationObserver(scheduleDecorateFontDropdown);
 		observer.observe(activeDocument.body, {
 			childList: true,
 			subtree: true,
 		});
 
-		return () => observer.disconnect();
+		return () => {
+			if (decorateFrame !== null) {
+				window.cancelAnimationFrame(decorateFrame);
+			}
+			observer.disconnect();
+		};
 	}, [buffer, decorateFontDropdown, filePath, isLoading]);
+
+	useEffect(() => {
+		const rememberSelectionForFontPicker = (evt: Event) => {
+			if (!(evt.target instanceof Element)) {
+				return;
+			}
+
+			const trigger = evt.target.closest<HTMLElement>(`[${FONT_FAMILY_TRIGGER_ATTRIBUTE}]`);
+			const isFontItem = Boolean(isFontPickerMenuItem(evt.target));
+
+			if (!trigger && !isFontItem) {
+				return;
+			}
+
+			const view = editorRef.current?.getEditorRef()?.getView();
+			if (!view) {
+				return;
+			}
+
+			const remembered = rememberTextSelectionFromView(view);
+			if (remembered) {
+				preservedTextSelectionRef.current = remembered;
+			}
+		};
+
+		activeDocument.addEventListener('pointerdown', rememberSelectionForFontPicker, true);
+		return () => {
+			activeDocument.removeEventListener('pointerdown', rememberSelectionForFontPicker, true);
+		};
+	}, [buffer, filePath, isLoading]);
+
+	useEffect(() => {
+		const syncFontFamilyAfterPicker = (evt: Event) => {
+			if (!(evt.target instanceof Element)) {
+				return;
+			}
+
+			const item = isFontPickerMenuItem(evt.target);
+			if (!item) {
+				return;
+			}
+
+			if (!activeDocument.querySelector(`.${editorClassNameRef.current}`)) {
+				return;
+			}
+
+			const fontName = item.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+			if (!fontName || fontName === IMPORT_FONT_MENU_LABEL) {
+				return;
+			}
+
+			const fontOption = resolveFontOptionByName(fontName, fontFamiliesRef.current);
+			const primaryName = fontOption
+				? parsePrimaryFontFamily(fontOption.fontFamily) ?? fontOption.name
+				: fontName;
+
+			debugLog('editor', 'Font picker item selected', {
+				file: filePath,
+				fontName,
+				primaryName,
+			});
+
+			window.setTimeout(() => {
+				window.requestAnimationFrame(() => {
+					applyFontFamilyToSelection(primaryName);
+				});
+			}, 0);
+		};
+
+		activeDocument.addEventListener('click', syncFontFamilyAfterPicker, true);
+		return () => {
+			activeDocument.removeEventListener('click', syncFontFamilyAfterPicker, true);
+		};
+	}, [applyFontFamilyToSelection, buffer, editorMode, filePath, isLoading]);
 
 	useEffect(() => {
 		let lastPointerHandledAt = 0;
@@ -3207,7 +3719,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		activeDocument.addEventListener('pointerup', stopFontSizeHold, true);
 		activeDocument.addEventListener('pointercancel', stopFontSizeHold, true);
 		activeDocument.addEventListener('mouseup', stopFontSizeHold, true);
-		window.addEventListener('blur', stopFontSizeHold);
+		const activeView = activeDocument.defaultView ?? window;
+		activeView.addEventListener('blur', stopFontSizeHold, false);
 
 		return () => {
 			activeDocument.removeEventListener('pointerdown', handlePressStart, true);
@@ -3217,7 +3730,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			activeDocument.removeEventListener('pointerup', stopFontSizeHold, true);
 			activeDocument.removeEventListener('pointercancel', stopFontSizeHold, true);
 			activeDocument.removeEventListener('mouseup', stopFontSizeHold, true);
-			window.removeEventListener('blur', stopFontSizeHold);
+			activeView.removeEventListener('blur', stopFontSizeHold, false);
 			stopFontSizeHold();
 		};
 	}, [applyFontSizeStepToSelection, startFontSizeHold, stopFontSizeHold]);
@@ -3277,117 +3790,17 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [buffer, editorMode, filePath, isLoading]);
 
 	useEffect(() => {
-		let activeTarget: HTMLElement | null = null;
-		let tooltipEl: HTMLDivElement | null = null;
-		let tooltipTimer: number | null = null;
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (!editorRoot) {
+			return;
+		}
 
-		const clearTooltipTimer = () => {
-			if (tooltipTimer !== null) {
-				window.clearTimeout(tooltipTimer);
-				tooltipTimer = null;
-			}
-		};
-
-		const removeTooltip = () => {
-			tooltipEl?.remove();
-			tooltipEl = null;
-		};
-
-		const hideTooltip = () => {
-			clearTooltipTimer();
-			removeTooltip();
-			restoreNativeTitle(activeTarget);
-			activeTarget = null;
-		};
-
-		const positionTooltip = (target: HTMLElement, tooltip: HTMLDivElement) => {
-			const rect = target.getBoundingClientRect();
-			tooltip.style.setProperty('--docxidian-toolbar-tooltip-left', `${Math.round(rect.left + rect.width / 2)}px`);
-			tooltip.style.setProperty('--docxidian-toolbar-tooltip-top', `${Math.round(rect.bottom + 8)}px`);
-			tooltip.removeClasses(['is-left-aligned', 'is-right-aligned']);
-
-			const tooltipRect = tooltip.getBoundingClientRect();
-			const viewportPadding = 8;
-			if (tooltipRect.left < viewportPadding) {
-				tooltip.style.setProperty('--docxidian-toolbar-tooltip-left', `${viewportPadding}px`);
-				tooltip.addClass('is-left-aligned');
-			} else if (tooltipRect.right > window.innerWidth - viewportPadding) {
-				tooltip.style.setProperty('--docxidian-toolbar-tooltip-left', `${window.innerWidth - viewportPadding}px`);
-				tooltip.addClass('is-right-aligned');
-			}
-		};
-
-		const showTooltip = (target: HTMLElement) => {
-			const label = getToolbarTooltipText(target);
-			if (!label || target.isConnected === false) {
-				return;
-			}
-
-			removeTooltip();
-			const tooltip = activeDocument.createElement('div');
-			tooltip.className = 'docxidian-toolbar-tooltip';
-			tooltip.textContent = label;
-			activeDocument.body.appendChild(tooltip);
-			tooltipEl = tooltip;
-			positionTooltip(target, tooltip);
-		};
-
-		const scheduleTooltip = (target: HTMLElement) => {
-			if (target === activeTarget) {
-				return;
-			}
-
-			hideTooltip();
-			activeTarget = target;
-			suspendNativeTitle(target);
-			tooltipTimer = window.setTimeout(() => {
-				tooltipTimer = null;
-				if (activeTarget === target) {
-					showTooltip(target);
-				}
-			}, TOOLBAR_TOOLTIP_DELAY_MS);
-		};
-
-		const getEditorRoot = () => activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
-
-		const handlePointerOver = (evt: PointerEvent) => {
-			const target = getToolbarTooltipTarget(evt.target, getEditorRoot());
-			if (target) {
-				scheduleTooltip(target);
-			}
-		};
-
-		const handlePointerOut = (evt: PointerEvent) => {
-			if (!activeTarget || (isNode(evt.relatedTarget) && activeTarget.contains(evt.relatedTarget))) {
-				return;
-			}
-
-			hideTooltip();
-		};
-
-		const handleScrollOrResize = () => {
-			hideTooltip();
-		};
-
-		activeDocument.addEventListener('pointerover', handlePointerOver, true);
-		activeDocument.addEventListener('pointerout', handlePointerOut, true);
-		activeDocument.addEventListener('scroll', handleScrollOrResize, true);
-		window.addEventListener('resize', handleScrollOrResize);
-		window.addEventListener('blur', hideTooltip);
-
-		return () => {
-			activeDocument.removeEventListener('pointerover', handlePointerOver, true);
-			activeDocument.removeEventListener('pointerout', handlePointerOut, true);
-			activeDocument.removeEventListener('scroll', handleScrollOrResize, true);
-			window.removeEventListener('resize', handleScrollOrResize);
-			window.removeEventListener('blur', hideTooltip);
-			hideTooltip();
-		};
-	}, []);
+		return attachDocxToolbarTooltipManager(editorRoot);
+	}, [documentKey]);
 
 	const importFontFile = useCallback(async (fontFile: File) => {
 		if (!isSupportedFontFile(fontFile)) {
-			new Notice('Choose a TTF, OTF, WOFF, or WOFF2 font file.');
+			showNotice('docx:notice.chooseFontFile');
 			return;
 		}
 
@@ -3398,7 +3811,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const fontBuffer = await fontFile.arrayBuffer();
 			const loaded = await loadFontFromBuffer(fontName, fontBuffer);
 			if (!loaded) {
-				new Notice(`Could not import ${fontFile.name}.`);
+				showNotice('errors:fontImportFileFailed', { fileName: fontFile.name });
 				return;
 			}
 
@@ -3415,11 +3828,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				bytes: fontBuffer.byteLength,
 				appliedToSelection: wasApplied,
 			});
-			new Notice(wasApplied ? `Imported and applied ${fontName}.` : `Imported ${fontName}.`);
+			showNotice(wasApplied ? 'docx:notice.fontImportedApplied' : 'docx:notice.fontImported', { fontName });
 		} catch (fontError) {
 			const message = fontError instanceof Error ? fontError.message : 'Unknown font import error';
 			errorLog('editor', `Could not import font ${fontFile.name}`, fontError);
-			new Notice(`Could not import font: ${message}`);
+			showNotice('errors:fontImportFailed', { message });
 		}
 	}, [applyFontFamilyToSelection, filePath, fontFamilies]);
 
@@ -3435,24 +3848,24 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	const insertImageFile = useCallback(async (imageFile: File) => {
 		if (editorMode === 'viewing') {
-			new Notice('Switch to editing mode to insert an image.');
+			showNotice('docx:notice.switchToEditForImage');
 			return;
 		}
 
 		if (!file || !buffer) {
-			new Notice('Open a loaded docx file to insert an image.');
+			showNotice('docx:notice.openLoadedToInsertImage');
 			return;
 		}
 
 		const view = editorRef.current?.getEditorRef()?.getView();
 		if (!view) {
-			new Notice('The DOCX editor is not ready yet.');
+			showNotice('docx:notice.editorStillLoading');
 			return;
 		}
 
 		const imageNodeType = view.state.schema.nodes.image;
 		if (!imageNodeType) {
-			new Notice('This DOCX editor cannot insert images here.');
+			showNotice('docx:notice.cannotInsertImageHere');
 			return;
 		}
 
@@ -3482,23 +3895,23 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		} catch (insertError) {
 			const message = insertError instanceof Error ? insertError.message : 'Unknown image insert error';
 			errorLog('editor', `Could not insert image into ${file.name}`, insertError);
-			new Notice(`Could not insert image: ${message}`);
+			showNotice('errors:insertImageFailed', { message });
 		}
 	}, [buffer, editorMode, file, filePath]);
 
 	const openImagePicker = useCallback(() => {
 		if (editorMode === 'viewing') {
-			new Notice('Switch to editing mode to insert an image.');
+			showNotice('docx:notice.switchToEditForImage');
 			return;
 		}
 
 		if (!file || !buffer) {
-			new Notice('Open a loaded docx file to insert an image.');
+			showNotice('docx:notice.openLoadedToInsertImage');
 			return;
 		}
 
 		if (!imageInputRef.current) {
-			new Notice('The image picker is not ready yet.');
+			showNotice('docx:notice.imagePickerNotReady');
 			return;
 		}
 
@@ -3564,6 +3977,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				ref={fontInputRef}
 				type="file"
 				accept={FONT_FILE_ACCEPT}
+				aria-label="Import font file"
 				style={{ display: 'none' }}
 				onChange={handleFontInputChange}
 			/>
@@ -3571,6 +3985,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				ref={imageInputRef}
 				type="file"
 				accept="image/*"
+				aria-label="Import image file"
 				style={{ display: 'none' }}
 				onChange={handleImageInputChange}
 			/>
@@ -3582,8 +3997,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				onModeChange={setMode}
 				author={authorName}
 				i18n={i18n}
+				commentsSidebarOpen={commentsSidebarOpen}
+				onCommentsSidebarOpenChange={handleCommentsSidebarOpenChange}
 				initialZoom={defaultZoom}
 				className={editorClassNameRef.current}
+				colorMode={resolvedEditorTheme}
 				showRuler={showRuler}
 				disableFindReplaceShortcuts
 				externalPlugins={externalPlugins}
@@ -3593,14 +4011,31 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				pluginSidebarItems={pluginSidebarItems.length > 0 ? pluginSidebarItems : undefined}
 				onRenderedDomContextReady={handleRenderedDomContextReady}
 				onEditorViewReady={() => {
+					onLoadPhase?.('editor-view-ready');
 					scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
 					schedulePaginationDiagnostics('editor-view-ready');
 				}}
-				onSelectionChange={() => {
-					scheduleListMarkerSelectionHighlightSync();
-					scheduleCommentsSidebarToggleSync();
-				}}
+					onSelectionChange={() => {
+						const view = editorRef.current?.getEditorRef()?.getView();
+						const remembered = view ? rememberTextSelectionFromView(view) : null;
+						if (remembered) {
+							preservedTextSelectionRef.current = remembered;
+						}
+						const syncVersion = ++fontFamilyDisplaySyncVersionRef.current;
+						const fontFamily = view ? getFontFamilyNameFromEditorSelection(view) : null;
+						if (fontFamily) {
+							const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+							scheduleFontFamilySelectDisplaySync(
+								editorRoot,
+								fontFamily,
+								fontFamiliesRef.current,
+								() => fontFamilyDisplaySyncVersionRef.current === syncVersion,
+							);
+						}
+						scheduleListMarkerSelectionHighlightSync();
+						scheduleCommentsSidebarToggleSync();
+					}}
 				onDocumentNameChange={(name) => {
 					setDocumentName(name);
 					scheduleRename(name);
@@ -3624,6 +4059,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					schedulePaginationDiagnostics('document-change');
 				}}
 				onFontsLoaded={() => {
+					onLoadPhase?.('editor-fonts-loaded');
 					schedulePaginationDiagnostics('fonts-loaded');
 				}}
 				onSave={(output) => {
@@ -3639,7 +4075,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				}}
 				onError={(docxError) => {
 					errorLog('render', `Could not render ${file.name}`, docxError);
-					new Notice(`Could not render ${file.name}: ${docxError.message}`);
+					warnLog('render', `DOCX editor render error for ${file.name}`, {
+						message: docxError.message,
+						name: docxError.name,
+					});
+					console.error('[Native PowerPoint Doc Editor] DOCX render error', docxError);
+					showNotice('errors:renderFailed', { fileName: file.name, message: docxError.message });
 				}}
 			/>
 			<CustomTableDialog
@@ -3647,6 +4088,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				onClose={() => setCustomTableDialogOpen(false)}
 				onInsert={insertCustomTable}
 			/>
+			{pluginI18n && findReplaceLabels ? (
 			<FindReplaceDialog
 				isOpen={findDialogMode !== null}
 				labels={findReplaceLabels}
@@ -3681,6 +4123,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					publishFindHighlights([], 0);
 				}}
 			/>
+			) : null}
 		</>
 	);
 });
