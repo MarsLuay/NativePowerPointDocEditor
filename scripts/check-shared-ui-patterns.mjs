@@ -59,7 +59,7 @@ for (const helper of helperExports) {
 }
 
 const requiredConsumers = [
-	['DocxView.tsx', ['createPopoverShell', 'createMenuItem', 'createCheckboxRow', 'createSelectRow', 'createActionRow']],
+	['DocxView.tsx', ['createPopoverShell', 'createMenuItem']],
 	['NativePowerPointView.ts', ['createPopoverShell', 'createMenuItem']],
 	['powerpoint/findReplaceController.ts', ['createPopoverShell', 'createMenuItem']],
 	['powerpoint/insertController.ts', ['createPopoverShell', 'createMenuItem']],
@@ -82,6 +82,23 @@ for (const [relativePath, helpers] of requiredConsumers) {
 		);
 	}
 }
+
+const docxView = readSource('DocxView.tsx');
+assert.match(
+	docxView,
+	/openPluginSettings\(\)/,
+	'DocxView.tsx settings menu item should link to the plugin settings tab.',
+);
+assert.match(
+	docxView,
+	/openTabById\('native-powerpoint-doc-editor'\)/,
+	'DocxView.tsx settings menu item should open the Native PowerPoint Doc Editor settings tab.',
+);
+assert.doesNotMatch(
+	docxView,
+	/renderEditorSettingsMenu/,
+	'DocxView.tsx should not render a separate native DOCX settings menu.',
+);
 
 const failures = [];
 const rawMenuItemRoleRe = /setAttribute\(\s*['"]role['"]\s*,\s*['"]menuitem['"]\s*\)/g;

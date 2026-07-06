@@ -1,6 +1,7 @@
 import {
   PptxRenderer,
   buildZip,
+  bytesToBase64,
   degreesToOoxml,
   emuToPx,
   extractZip,
@@ -10,7 +11,7 @@ import {
   ooxmlToDegrees,
   pxToEmu
 } from 'pptx-svg';
-import type { ShapeTransform } from 'pptx-svg';
+import type { ShapeTransform, ZipContents } from 'pptx-svg';
 import wasmBytes from 'pptx-svg/wasm';
 import {
   getChartDataDescriptor,
@@ -112,6 +113,12 @@ import {
   nextShapeId,
   qualifyName,
 } from './powerpoint/slideShapeOoxml';
+
+const SLIDE_LAYOUT_RELATIONSHIP_TYPE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
+const SLIDE_MASTER_RELATIONSHIP_TYPE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 export type InsertableShapeGeometry =
   | 'rect'
@@ -281,6 +288,7 @@ export class PresentationEngine {
   private chartTextValues = new Map<string, string[]>();
   private chartAxisFormats = new Map<string, ChartAxisFormat[]>();
   private chartDataDescriptors = new Map<string, ChartDataDescriptor>();
+  private slideBackgroundImageHrefs = new Map<number, string>();
   // Authoritative per-slide run formatting. The renderer's SlideData model drops
   // authored run properties it doesn't model whenever a Wasm-primitive edit
   // re-serializes a slide -- empirically <a:highlight>, <a:hlinkClick>, <a:uFill>
@@ -314,6 +322,7 @@ export class PresentationEngine {
     const { renderer, fontFidelity, slideCount } = await PresentationEngine.createRenderer(buffer);
     const engine = new PresentationEngine(renderer, fontFidelity, slideCount, buffer);
     await engine.refreshChartTextValues(buffer);
+    await engine.refreshSlideBackgroundImages(buffer);
     return engine;
   }
 
@@ -350,7 +359,10 @@ export class PresentationEngine {
   }
 
   renderSlide(slideIndex: number): RenderedSlide {
-    const svg = this.renderer.renderSlideSvg(slideIndex);
+    const svg = this.reconcileRenderedSlideBackground(
+      this.renderer.renderSlideSvg(slideIndex),
+      slideIndex
+    );
     assertOk(svg, 'Could not render slide.');
     return { svg, slideCount: this.slideCountValue };
   }
@@ -359,6 +371,52 @@ export class PresentationEngine {
     const svg = this.renderer.renderShapeSvg(slideIndex, shapeIndex);
     assertOk(svg, 'Could not render shape.');
     return svg;
+  }
+
+  private reconcileRenderedSlideBackground(svg: string, slideIndex: number): string {
+    const backgroundHref = this.slideBackgroundImageHrefs.get(slideIndex);
+    if (!backgroundHref || !svg.startsWith('<svg')) return svg;
+
+    try {
+      const doc = parseXml(svg, `rendered slide ${slideIndex + 1} SVG`);
+      const root = doc.documentElement;
+      const width = root.getAttribute('width') ?? '';
+      const height = root.getAttribute('height') ?? '';
+      if (!width || !height) return svg;
+
+      const background = getElementChildren(root).find((child) =>
+        child.localName === 'image'
+          && child.getAttribute('x') === '0'
+          && child.getAttribute('y') === '0'
+          && child.getAttribute('width') === width
+          && child.getAttribute('height') === height
+          && child.getAttribute('preserveAspectRatio') === 'none'
+      );
+
+      if (background) {
+        background.setAttribute('href', backgroundHref);
+      } else {
+        const image = doc.createElementNS(SVG_NAMESPACE, 'image');
+        image.setAttribute('x', '0');
+        image.setAttribute('y', '0');
+        image.setAttribute('width', width);
+        image.setAttribute('height', height);
+        image.setAttribute('preserveAspectRatio', 'none');
+        image.setAttribute('href', backgroundHref);
+
+        const firstChild = root.firstChild;
+        const insertBefore = firstChild?.nodeType === 1
+          && (firstChild as Element).localName === 'rect'
+          && (firstChild as Element).getAttribute('fill') === 'none'
+          ? firstChild.nextSibling
+          : firstChild;
+        root.insertBefore(image, insertBefore);
+      }
+
+      return serializeXml(doc);
+    } catch {
+      return svg;
+    }
   }
 
   getShapes(svg: SVGSVGElement): SVGGElement[] {
@@ -1989,6 +2047,7 @@ export class PresentationEngine {
     this.resetSlideRunCache();
     this.pendingSlideXml.clear();
     await this.refreshChartTextValues(buffer);
+    await this.refreshSlideBackgroundImages(buffer);
   }
 
   private async reloadAfterSlideManagement(expectedSlideCount: number): Promise<void> {
@@ -2014,6 +2073,7 @@ export class PresentationEngine {
     // fast-path slide XML is obsolete.
     this.pendingSlideXml.clear();
     await this.refreshChartTextValues(buffer);
+    await this.refreshSlideBackgroundImages(buffer);
   }
 
   private async exportRendererState(): Promise<ArrayBuffer> {
@@ -2021,6 +2081,7 @@ export class PresentationEngine {
     const preservedExport = await preserveSlideExtensionLists(this.currentBuffer, rawExport);
     const reconciledExport = await this.reconcileRunPropsIntoBuffer(preservedExport);
     this.currentBuffer = reconciledExport.slice(0);
+    await this.refreshSlideBackgroundImages(reconciledExport);
     // The full export already reflects every fast-path commit (they live in the
     // renderer model), so any recorded slide XML is now folded in by definition.
     this.pendingSlideXml.clear();
@@ -2051,6 +2112,115 @@ export class PresentationEngine {
     }
     buffer = await preserveSlideExtensionLists(previousBuffer, buffer);
     this.currentBuffer = buffer;
+  }
+
+  private async refreshSlideBackgroundImages(buffer: ArrayBuffer): Promise<void> {
+    const zip = await extractZip(buffer);
+    const backgroundHrefs = new Map<number, string>();
+
+    for (let slideIndex = 0; slideIndex < this.slideCountValue; slideIndex++) {
+      const href = this.resolveSlideBackgroundImageHref(zip, slideIndex);
+      if (href) backgroundHrefs.set(slideIndex, href);
+    }
+
+    this.slideBackgroundImageHrefs = backgroundHrefs;
+  }
+
+  private resolveSlideBackgroundImageHref(zip: ZipContents, slideIndex: number): string | null {
+    const slidePath = getSlidePath(slideIndex);
+    const slideBackground = this.resolvePartBackgroundImageHref(zip, slidePath);
+    if (slideBackground.explicit) return slideBackground.href;
+
+    const layoutPath = this.resolveRelationshipTargetByType(zip, slidePath, SLIDE_LAYOUT_RELATIONSHIP_TYPE);
+    if (!layoutPath) return null;
+
+    const layoutBackground = this.resolvePartBackgroundImageHref(zip, layoutPath);
+    if (layoutBackground.explicit) return layoutBackground.href;
+
+    const masterPath = this.resolveRelationshipTargetByType(zip, layoutPath, SLIDE_MASTER_RELATIONSHIP_TYPE);
+    if (!masterPath) return null;
+
+    const masterBackground = this.resolvePartBackgroundImageHref(zip, masterPath);
+    return masterBackground.href;
+  }
+
+  private resolvePartBackgroundImageHref(zip: ZipContents, partPath: string): { explicit: boolean; href: string | null } {
+    const xml = zip.textFiles.get(partPath);
+    if (!xml) return { explicit: false, href: null };
+
+    const doc = parseXml(xml, partPath);
+    const background = getDescendants(doc, 'bg')[0];
+    if (!background) return { explicit: false, href: null };
+
+    const blip = getDescendants(background, 'blip')[0];
+    if (!blip) return { explicit: true, href: null };
+
+    const relationshipId = getBlipEmbedId(blip);
+    if (!relationshipId) return { explicit: true, href: null };
+
+    const imagePath = this.resolveRelationshipTargetById(zip, partPath, relationshipId, IMAGE_RELATIONSHIP_TYPE);
+    if (!imagePath) return { explicit: true, href: null };
+
+    const imageBytes = zip.binaryFiles.get(imagePath);
+    if (!imageBytes) return { explicit: true, href: null };
+
+    const mimeType = contentTypeForImageExtension(getPartExtension(imagePath));
+    return {
+      explicit: true,
+      href: `data:${mimeType};base64,${bytesToBase64(imageBytes)}`
+    };
+  }
+
+  private resolveRelationshipTargetByType(zip: ZipContents, sourcePath: string, relationshipType: string): string | null {
+    const relationship = this.findRelationship(zip, sourcePath, (candidate) =>
+      candidate.getAttribute('Type') === relationshipType
+    );
+    return this.resolveRelationshipTarget(sourcePath, relationship);
+  }
+
+  private resolveRelationshipTargetById(
+    zip: ZipContents,
+    sourcePath: string,
+    relationshipId: string,
+    relationshipType: string
+  ): string | null {
+    const relationship = this.findRelationship(zip, sourcePath, (candidate) =>
+      candidate.getAttribute('Id') === relationshipId
+        && candidate.getAttribute('Type') === relationshipType
+    );
+    return this.resolveRelationshipTarget(sourcePath, relationship);
+  }
+
+  private findRelationship(
+    zip: ZipContents,
+    sourcePath: string,
+    predicate: (relationship: Element) => boolean
+  ): Element | null {
+    const relationshipsPath = this.getRelationshipsPathForPart(sourcePath);
+    const relationshipsXml = zip.textFiles.get(relationshipsPath);
+    if (!relationshipsXml) return null;
+
+    const relationshipsDoc = parseXml(relationshipsXml, relationshipsPath);
+    return getDescendants(relationshipsDoc, 'Relationship')
+      .find((relationship) =>
+        relationship.getAttribute('TargetMode') !== 'External' && predicate(relationship)
+      ) ?? null;
+  }
+
+  private resolveRelationshipTarget(sourcePath: string, relationship: Element | null): string | null {
+    const target = relationship?.getAttribute('Target');
+    if (!target) return null;
+
+    const normalized = target.replace(/\\/g, '/');
+    if (normalized.startsWith('/')) return normalized.slice(1);
+    return resolvePartPath(sourcePath, normalized);
+  }
+
+  private getRelationshipsPathForPart(partPath: string): string {
+    const slashIndex = partPath.lastIndexOf('/');
+    const directory = slashIndex >= 0 ? partPath.slice(0, slashIndex + 1) : '';
+    const fileName = slashIndex >= 0 ? partPath.slice(slashIndex + 1) : partPath;
+    return `${directory}_rels/${fileName}.rels`;
   }
 
   private async refreshChartTextValues(buffer: ArrayBuffer): Promise<void> {

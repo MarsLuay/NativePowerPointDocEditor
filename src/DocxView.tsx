@@ -2,10 +2,6 @@ import { App, Component, FileView, Modal, Platform, TFile, WorkspaceLeaf, normal
 import type { Translations } from '@eigenpal/docx-editor-i18n';
 import type { I18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
-import {
-	getDocxEditorSettingDescriptors,
-	getDocxEditorSettingsMenuSections,
-} from './i18n/docxSettingsCatalog';
 import { loadDocxEditorChunk } from './docxEditorLoader';
 import { findHiddenDocxText, type HiddenTextFinding } from './docxHiddenTextScanner';
 import { ensureDocxDefaultStyles } from './docxStyleDefaults';
@@ -22,12 +18,7 @@ import {
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
 import { closeModalDomScope, loadModalDomScope, openModalDomScope } from './modalDomScope';
 import {
-	DEFAULT_SETTINGS,
-	getDefaultZoomSettingOptions,
-	getEditorThemeSettingOptions,
-	normalizeDefaultZoom,
 	normalizeEditorThemePreference,
-	type DocxEditorSettingId,
 	type EditorThemeResolution,
 	type EditorThemePreference,
 } from './settings';
@@ -36,13 +27,8 @@ import type { DocxReactViewHandle, DocxReactViewProps } from './DocxReactView';
 import {
 	bindPopoverDismissHandlers,
 	configureMenuItemButton,
-	createActionRow,
-	createCheckboxRow,
 	createMenuItem,
-	createMenuRow,
-	createMenuSection,
 	createPopoverShell,
-	createSelectRow,
 } from './menuControls';
 import {
 	EDITOR_CHROME_MENU_ITEMS,
@@ -104,36 +90,6 @@ interface DocxFileSignature {
 	size: number;
 }
 
-export interface DocxEditorSettingsSnapshot {
-	authorName: string;
-	editorTheme: EditorThemePreference;
-	resolvedEditorTheme: EditorThemeResolution;
-	showRuler: boolean;
-	autosave: boolean;
-	createBackupsBeforeSave: boolean;
-	defaultZoom: number;
-	enableDocxSearchIndex: boolean;
-	autoIndexDocxSearch: boolean;
-	debugLogging: boolean;
-	disableDocxFiles: boolean;
-}
-
-export interface DocxEditorSettingsController {
-	getSettings: () => DocxEditorSettingsSnapshot;
-	setAuthorName: (value: string) => Promise<void>;
-	setEditorTheme: (value: string) => Promise<void>;
-	setShowRuler: (value: boolean) => Promise<void>;
-	setAutosave: (value: boolean) => Promise<void>;
-	setCreateBackupsBeforeSave: (value: boolean) => Promise<void>;
-	setDefaultZoom: (value: number) => Promise<void>;
-	setEnableDocxSearchIndex: (value: boolean) => Promise<void>;
-	setAutoIndexDocxSearch: (value: boolean) => Promise<void>;
-	setDebugLogging: (value: boolean) => Promise<void>;
-	setDisableDocxFiles: (value: boolean) => Promise<void>;
-	rebuildDocxSearchIndex: () => Promise<void>;
-	copyDocxLog: (filePath?: string) => Promise<void>;
-}
-
 interface DocxExportFormat {
 	id: DocxExportFormatId;
 	label: string;
@@ -165,13 +121,6 @@ type EditorOptionSearchItem =
 	| EditorOptionSearchActionItem
 	| EditorOptionSearchControlQueryItem
 	| EditorOptionSearchControlItem;
-
-const DOCX_SETTINGS_ROW_CLASSES = {
-	rowClassName: 'native-powerpoint-doc-editor-editor-settings-row',
-	copyClassName: 'native-powerpoint-doc-editor-editor-settings-copy',
-	labelClassName: 'native-powerpoint-doc-editor-editor-settings-label',
-	descriptionClassName: 'native-powerpoint-doc-editor-editor-settings-desc',
-};
 
 const DOCX_EXPORT_FORMATS: readonly DocxExportFormat[] = [
 	{ id: 'pdf', label: 'PDF document (.pdf)', extension: 'pdf' },
@@ -972,8 +921,6 @@ export class DocxView extends FileView {
 	private optionSearchCleanup: (() => void) | null = null;
 	private editorEditPopoverEl: HTMLElement | null = null;
 	private editorEditCleanup: (() => void) | null = null;
-	private editorSettingsPopoverEl: HTMLElement | null = null;
-	private editorSettingsCleanup: (() => void) | null = null;
 	private openLoadTrace: LoadTrace | null = null;
 	private stopOpenHeartbeat: (() => void) | null = null;
 	private editorChromeObserversRegistered = false;
@@ -989,7 +936,6 @@ export class DocxView extends FileView {
 		private getAutosave: () => boolean,
 		private getCreateBackupsBeforeSave: () => boolean,
 		private getDefaultZoom: () => number,
-		private settingsController: DocxEditorSettingsController,
 	) {
 		super(leaf);
 	}
@@ -1238,7 +1184,6 @@ export class DocxView extends FileView {
 		this.editorChromeSyncing = false;
 		this.closeEditorOptionSearchMenu();
 		this.closeEditorEditMenu();
-		this.closeEditorSettingsMenu();
 		this.hostEl = null;
 		this.buffer = null;
 		this.error = null;
@@ -2590,7 +2535,6 @@ export class DocxView extends FileView {
 		}
 
 		this.closeEditorOptionSearchMenu();
-		this.closeEditorSettingsMenu();
 		this.closeEditorEditMenu();
 
 		const popoverEl = createPopoverShell(anchorEl, {
@@ -2876,7 +2820,6 @@ export class DocxView extends FileView {
 				button.removeAttribute('data-state');
 				button.removeAttribute('id');
 				button.setAttribute('aria-label', this.docxT('docx:chrome.settings'));
-				button.setAttribute('aria-expanded', 'false');
 				button.setAttribute('role', 'menuitem');
 				button.addEventListener('mousedown', (evt) => {
 					evt.preventDefault();
@@ -2885,8 +2828,9 @@ export class DocxView extends FileView {
 					evt.preventDefault();
 					evt.stopImmediatePropagation();
 					evt.stopPropagation();
-					this.openEditorSettingsMenu(wrapper);
-					button?.setAttribute('aria-expanded', this.editorSettingsPopoverEl ? 'true' : 'false');
+					this.closeEditorOptionSearchMenu();
+					this.closeEditorEditMenu();
+					this.openPluginSettings();
 				});
 
 			const searchWrapper = menubar.querySelector('[data-native-powerpoint-doc-editor-search-menu-item]');
@@ -2897,179 +2841,19 @@ export class DocxView extends FileView {
 			}
 	}
 
-		private closeEditorSettingsMenu() {
-			this.editorSettingsCleanup?.();
-			this.editorSettingsCleanup = null;
-			this.editorSettingsPopoverEl?.remove();
-			this.editorSettingsPopoverEl = null;
-			this.hostEl?.querySelector('[data-native-powerpoint-doc-editor-settings-menu-item] > button')?.setAttribute('aria-expanded', 'false');
-		}
-
-		private openEditorSettingsMenu(anchorEl: HTMLElement) {
-			if (this.editorSettingsPopoverEl && anchorEl.contains(this.editorSettingsPopoverEl)) {
-				this.closeEditorSettingsMenu();
-				return;
+	private openPluginSettings(): void {
+		const setting = (
+			this.app as unknown as {
+				setting?: { open?: () => void; openTabById?: (id: string) => void };
 			}
-
-			this.closeEditorOptionSearchMenu();
-			this.closeEditorEditMenu();
-			this.closeEditorSettingsMenu();
-
-			const popoverEl = createPopoverShell(anchorEl, {
-				className: 'native-powerpoint-doc-editor-editor-settings-menu',
-				role: 'menu',
-			});
-			this.editorSettingsPopoverEl = popoverEl;
-			this.renderEditorSettingsMenu(popoverEl);
-
-			this.editorSettingsCleanup = bindPopoverDismissHandlers({
-				popover: popoverEl,
-				anchor: anchorEl,
-				onDismiss: () => this.closeEditorSettingsMenu(),
-				pointerEvent: 'mousedown',
-			});
+		).setting;
+		if (!setting?.open || !setting.openTabById) {
+			this.showNotice('powerpoint:notice.settingsUnavailable');
+			return;
 		}
-
-		private renderEditorSettingsMenu(menuEl: HTMLElement) {
-			menuEl.empty();
-			const settings = this.settingsController.getSettings();
-			const i18n = this.getPluginI18n()!;
-			const descriptors = getDocxEditorSettingDescriptors(i18n);
-			const addSection = (text: string) => createMenuSection(menuEl, {
-				className: 'native-powerpoint-doc-editor-editor-settings-section',
-				text,
-			});
-			const addToggle = (
-				id: DocxEditorSettingId,
-				value: boolean,
-				onChange: (nextValue: boolean) => Promise<void>,
-			) => {
-				const setting = descriptors[id];
-				createCheckboxRow(menuEl, {
-					...DOCX_SETTINGS_ROW_CLASSES,
-					rowExtraClassName: 'mod-toggle',
-					controlClassName: 'native-powerpoint-doc-editor-editor-settings-checkbox-control',
-					inputClassName: 'native-powerpoint-doc-editor-editor-settings-checkbox',
-					markClassName: 'native-powerpoint-doc-editor-editor-settings-checkbox-mark',
-					label: setting.name,
-					description: setting.description,
-					checked: value,
-					onChange,
-				});
-			};
-			const addButtonRow = (
-				id: DocxEditorSettingId,
-				onClick: () => Promise<void>,
-			) => {
-				const setting = descriptors[id];
-				createActionRow(menuEl, {
-					...DOCX_SETTINGS_ROW_CLASSES,
-					actionClassName: 'native-powerpoint-doc-editor-editor-settings-action',
-					label: setting.name,
-					description: setting.description,
-					actionLabel: setting.actionLabel ?? 'Run',
-					onClick,
-				});
-			};
-
-			menuEl.addEventListener('mousedown', (evt) => evt.stopPropagation());
-			menuEl.addEventListener('click', (evt) => evt.stopPropagation());
-
-			const renderSetting = (id: DocxEditorSettingId) => {
-				const setting = descriptors[id];
-				switch (id) {
-					case 'authorName': {
-						const defaultAuthorName = String(setting.defaultValue ?? setting.placeholder ?? '');
-						const { row: authorRow } = createMenuRow(menuEl, {
-							...DOCX_SETTINGS_ROW_CLASSES,
-							rowExtraClassName: 'mod-input',
-							label: setting.name,
-							description: setting.description,
-						});
-						const authorControl = authorRow.createDiv({ cls: 'native-powerpoint-doc-editor-editor-settings-inline-controls' });
-						const authorInput = authorControl.createEl('input', {
-							cls: 'native-powerpoint-doc-editor-editor-settings-input',
-							type: 'text',
-						});
-						authorInput.value = settings.authorName;
-						authorInput.addEventListener('change', () => {
-							void this.settingsController.setAuthorName(authorInput.value);
-						});
-						const resetAuthor = authorControl.createEl('button', {
-							cls: 'native-powerpoint-doc-editor-editor-settings-action',
-							text: setting.resetLabel ?? 'Reset',
-							type: 'button',
-						});
-						resetAuthor.addEventListener('click', (evt) => {
-							evt.preventDefault();
-							authorInput.value = defaultAuthorName;
-							void this.settingsController.setAuthorName(defaultAuthorName);
-						});
-						break;
-					}
-					case 'editorTheme':
-						createSelectRow(menuEl, {
-							...DOCX_SETTINGS_ROW_CLASSES,
-							selectClassName: 'native-powerpoint-doc-editor-editor-settings-select',
-							label: setting.name,
-							description: setting.description,
-							options: getEditorThemeSettingOptions(i18n, DEFAULT_SETTINGS.editorTheme),
-							selectedValue: normalizeEditorThemePreference(settings.editorTheme),
-							onChange: (value) => this.settingsController.setEditorTheme(value),
-						});
-						break;
-					case 'showRuler':
-						addToggle(id, settings.showRuler, this.settingsController.setShowRuler);
-						break;
-					case 'defaultZoom':
-						createSelectRow(menuEl, {
-							...DOCX_SETTINGS_ROW_CLASSES,
-							selectClassName: 'native-powerpoint-doc-editor-editor-settings-select',
-							label: setting.name,
-							description: setting.description,
-							options: getDefaultZoomSettingOptions(),
-							selectedValue: String(normalizeDefaultZoom(settings.defaultZoom)),
-							onChange: (value) => {
-								const zoom = Number(value);
-								void this.settingsController.setDefaultZoom(zoom);
-								this.getReactHandle()?.setZoom(normalizeDefaultZoom(zoom));
-							},
-						});
-						break;
-					case 'autosave':
-						addToggle(id, settings.autosave, this.settingsController.setAutosave);
-						break;
-					case 'createBackupsBeforeSave':
-						addToggle(id, settings.createBackupsBeforeSave, this.settingsController.setCreateBackupsBeforeSave);
-						break;
-					case 'enableDocxSearchIndex':
-						addToggle(id, settings.enableDocxSearchIndex, this.settingsController.setEnableDocxSearchIndex);
-						break;
-					case 'autoIndexDocxSearch':
-						addToggle(id, settings.autoIndexDocxSearch, this.settingsController.setAutoIndexDocxSearch);
-						break;
-					case 'rebuildDocxSearchIndex':
-						addButtonRow(id, this.settingsController.rebuildDocxSearchIndex);
-						break;
-					case 'disableDocxFiles':
-						addToggle(id, settings.disableDocxFiles, this.settingsController.setDisableDocxFiles);
-						break;
-					case 'debugLogging':
-						addToggle(id, settings.debugLogging, this.settingsController.setDebugLogging);
-						break;
-					case 'copyDocxLog':
-						addButtonRow(id, () => this.settingsController.copyDocxLog(this.file?.path));
-						break;
-				}
-			};
-
-			for (const section of getDocxEditorSettingsMenuSections(i18n)) {
-				addSection(section.label);
-				for (const id of section.settings) {
-					renderSetting(id);
-				}
-			}
-		}
+		setting.open();
+		setting.openTabById('native-powerpoint-doc-editor');
+	}
 
 		private addEditorFileExportAsMenuItem() {
 		if (!this.hostEl) {

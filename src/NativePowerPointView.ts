@@ -726,6 +726,7 @@ export class NativePowerPointView extends FileView {
     const headerMain = headerBar.createDiv({ cls: 'native-powerpoint-headerbar-main' });
     this.createHeader(headerMain);
     this.createMenuBar(headerMain);
+    this.createSaveStatus(headerBar);
   }
 
   private createHeader(root: HTMLElement): void {
@@ -747,8 +748,10 @@ export class NativePowerPointView extends FileView {
         this.beginRenameTitle();
       }
     });
+  }
 
-    this.statusEl = header.createDiv({ cls: 'native-powerpoint-save-status', text: this.t('powerpoint:save.ready') });
+  private createSaveStatus(root: HTMLElement): void {
+    this.statusEl = root.createDiv({ cls: 'native-powerpoint-save-status', text: this.t('powerpoint:save.ready') });
     this.statusEl.setAttribute('role', 'status');
     this.statusEl.addEventListener('click', () => {
       if (this.saveState === 'failed') {
@@ -7587,7 +7590,7 @@ export class NativePowerPointView extends FileView {
     const delta = this.normalizeWheelDelta(event);
     if (delta === 0) return;
 
-    const nextZoom = this.zoomLevel * Math.pow(2, -delta / 600);
+    const nextZoom = this.zoomLevel * Math.pow(2, delta / 600);
     this.setZoom(nextZoom, { clientX: event.clientX, clientY: event.clientY });
   }
 

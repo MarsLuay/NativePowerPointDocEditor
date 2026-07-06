@@ -11,7 +11,6 @@ import { scheduleIdleWork } from './idleSchedule';
 import { errorLog, infoLog } from './logger';
 import { getDocxEditorLocale, loadDocxEditorLocale, preloadDocxEditorLocale } from './locales';
 import type NativePowerPointDocEditorPlugin from './main';
-import type { DocxEditorSettingsController } from './DocxView';
 
 export { createDocxReactMount, DocxFileEmbed, renderDocxEmbeds, hasReviewMarkup } from './docxEditorChunk';
 export { DocxView, VIEW_TYPE_DOCX };
@@ -20,7 +19,6 @@ const DOCX_EXTENSIONS = ['docx'];
 
 export async function registerDocxSupport(
 	plugin: NativePowerPointDocEditorPlugin,
-	createDocxSettingsController: () => DocxEditorSettingsController,
 ): Promise<DocxSearchIndex> {
 	configureDocxEditorChunkPaths([]);
 	const docxSearchIndex = new DocxSearchIndex(plugin.app, plugin.manifest.dir);
@@ -42,7 +40,6 @@ export async function registerDocxSupport(
 			() => plugin.settings.autosave,
 			() => plugin.settings.createBackupsBeforeSave,
 			() => plugin.settings.defaultZoom,
-			createDocxSettingsController(),
 		),
 	);
 	plugin.registerExtensions(DOCX_EXTENSIONS, VIEW_TYPE_DOCX);

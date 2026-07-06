@@ -11,6 +11,10 @@ import { createRenderer, readDeck, toArrayBuffer } from "./helpers/renderer.mjs"
 const editableFixtures = ["features.pptx", "features.ppsx", "features.potx"];
 const macroFixtures = ["macro-view-only.pptm", "macro-view-only.ppsm", "macro-view-only.potm"];
 const fixtureTitleParagraph = '<a:p><a:r><a:rPr lang="en-US" sz="2800" b="1"/><a:t>Native PowerPoint fixture</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>';
+const onePixelLayoutBackground = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=",
+  "base64"
+);
 
 function paragraphXml(text, properties = 'lang="en-US" sz="2800" b="0"') {
   return `<a:p><a:r><a:rPr ${properties}/><a:t>${text}</a:t></a:r><a:endParaRPr lang="en-US"/></a:p>`;
@@ -24,6 +28,40 @@ async function createTitleParagraphFixture(paragraphs) {
   const slideXml = sourceZip.textFiles.get(slidePath);
   assert.ok(slideXml);
   return buildZip(source, new Map([[slidePath, slideXml.replace(fixtureTitleParagraph, paragraphs.join(""))]]));
+}
+
+async function createLayoutBackgroundRelationshipCollisionFixture() {
+  const input = await readDeck("features.pptx");
+  const source = toArrayBuffer(input);
+  const sourceZip = await extractZip(source);
+  const layoutPath = "ppt/slideLayouts/slideLayout1.xml";
+  const layoutRelsPath = "ppt/slideLayouts/_rels/slideLayout1.xml.rels";
+  const layoutXml = sourceZip.textFiles.get(layoutPath);
+  const layoutRelsXml = sourceZip.textFiles.get(layoutRelsPath);
+  assert.ok(layoutXml);
+  assert.ok(layoutRelsXml);
+
+  const backgroundXml = [
+    '<p:bg><p:bgPr><a:blipFill>',
+    '<a:blip r:embed="rIdImage"/>',
+    '<a:stretch><a:fillRect/></a:stretch>',
+    '</a:blipFill><a:effectLst/></p:bgPr></p:bg>'
+  ].join("");
+  const patchedLayoutXml = layoutXml.replace('<p:cSld name="Blank"><p:spTree>', `<p:cSld name="Blank">${backgroundXml}<p:spTree>`);
+  const patchedLayoutRelsXml = layoutRelsXml.replace(
+    '</Relationships>',
+    '<Relationship Id="rIdImage" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/layout-bg.png"/></Relationships>'
+  );
+
+  return buildZip(
+    source,
+    new Map([
+      [layoutPath, patchedLayoutXml],
+      [layoutRelsPath, patchedLayoutRelsXml],
+    ]),
+    undefined,
+    new Map([["ppt/media/layout-bg.png", onePixelLayoutBackground]])
+  );
 }
 
 test("pptx, ppsx, and potx fixtures load, render, export, and validate", async (t) => {
@@ -97,6 +135,21 @@ test("feature fixture preserves rich OOXML parts during an untouched round trip"
   assert.match(exportedSlide, /preserve="unknown-ooxml"/);
   assert.ok(exportedRelationships.includes('Target="https://example.com/native-powerpoint"'));
   assert.match(exportedRelationships, /TargetMode="External"/);
+});
+
+test("rendered layout backgrounds resolve image rels from the layout part", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const engine = await PresentationEngine.load(await createLayoutBackgroundRelationshipCollisionFixture());
+  const svg = engine.renderSlide(0).svg;
+  const backgroundMatch = svg.match(
+    /<image\b(?=[^>]*\bx="0")(?=[^>]*\by="0")(?=[^>]*\bpreserveAspectRatio="none")[^>]*\bhref="([^"]+)"/
+  );
+
+  assert.ok(backgroundMatch, "expected a full-slide background image in the rendered SVG");
+  assert.equal(
+    backgroundMatch[1],
+    `data:image/png;base64,${onePixelLayoutBackground.toString("base64")}`
+  );
 });
 
 test("content validation blocks lossy renderer rewrites of opaque slide markup", async () => {

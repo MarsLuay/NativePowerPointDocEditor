@@ -1,9 +1,7 @@
 import { Notice, Platform, Plugin, setIcon } from 'obsidian';
 import {
-	DEFAULT_SETTINGS,
 	NativePowerPointDocEditorSettingTab,
 	getNativePowerPointSettings,
-	normalizeDefaultZoom,
 	normalizeEditorThemePreference,
 	readNativePowerPointDocEditorSettings,
 	resolveEditorThemePreference,
@@ -11,7 +9,6 @@ import {
 	type NativePowerPointDocEditorSettings,
 	type EditorThemeResolution,
 } from './settings';
-import type { DocxEditorSettingsController, DocxEditorSettingsSnapshot } from './DocxView';
 import { DocxSearchIndex } from './docxSearchIndex';
 import {
 	configureNativePowerPointDocEditorLogger,
@@ -401,91 +398,6 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		);
 	}
 
-	private getDocxSettingsSnapshot(): DocxEditorSettingsSnapshot {
-		return {
-			authorName: this.settings.authorName,
-			editorTheme: this.settings.editorTheme,
-			resolvedEditorTheme: this.getResolvedEditorTheme(),
-			showRuler: this.settings.showRuler,
-			autosave: this.settings.autosave,
-			createBackupsBeforeSave: this.settings.createBackupsBeforeSave,
-			defaultZoom: this.settings.defaultZoom,
-			enableDocxSearchIndex: this.settings.enableDocxSearchIndex,
-			autoIndexDocxSearch: this.settings.autoIndexDocxSearch,
-			debugLogging: this.settings.debugLogging,
-			disableDocxFiles: this.settings.disableDocxFiles,
-		};
-	}
-
-	private createDocxSettingsController(): DocxEditorSettingsController {
-		const saveDocxSettings = async (refreshViews = false) => {
-			await this.saveSettings();
-			if (refreshViews) {
-				this.refreshDocxViews();
-			}
-		};
-
-		return {
-			getSettings: () => this.getDocxSettingsSnapshot(),
-			setAuthorName: async (value) => {
-				this.settings.authorName = value.trim() || DEFAULT_SETTINGS.authorName;
-				await saveDocxSettings();
-			},
-			setEditorTheme: async (value) => {
-				this.settings.editorTheme = normalizeEditorThemePreference(value);
-				await saveDocxSettings(true);
-				this.refreshPowerPointViews();
-			},
-			setShowRuler: async (value) => {
-				this.settings.showRuler = value;
-				await saveDocxSettings(true);
-			},
-			setAutosave: async (value) => {
-				this.settings.autosave = value;
-				await saveDocxSettings(true);
-			},
-			setCreateBackupsBeforeSave: async (value) => {
-				this.settings.createBackupsBeforeSave = value;
-				await saveDocxSettings();
-			},
-			setDefaultZoom: async (value) => {
-				this.settings.defaultZoom = normalizeDefaultZoom(value);
-				await saveDocxSettings();
-			},
-			setEnableDocxSearchIndex: async (value) => {
-				this.settings.enableDocxSearchIndex = value;
-				await saveDocxSettings(false);
-				if (value) {
-					await this.rebuildDocxSearchIndex(false);
-				}
-			},
-			setAutoIndexDocxSearch: async (value) => {
-				this.settings.autoIndexDocxSearch = value;
-				await saveDocxSettings(false);
-				if (value && this.settings.enableDocxSearchIndex) {
-					await this.rebuildDocxSearchIndex(false);
-				}
-			},
-			setDebugLogging: async (value) => {
-				this.settings.debugLogging = value;
-				configureNativePowerPointDocEditorLogger(value);
-				infoLog('settings', `Debug logging ${value ? 'enabled' : 'disabled'}`);
-				await saveDocxSettings(false);
-			},
-			setDisableDocxFiles: async (value) => {
-				this.settings.disableDocxFiles = value;
-				await saveDocxSettings(false);
-				showI18nNotice(this.getI18n(), 'settings:fileHandoff.reloadDocxNotice');
-			},
-			rebuildDocxSearchIndex: async () => {
-				await this.rebuildDocxSearchIndex(true);
-			},
-			copyDocxLog: async (filePath) => {
-				await this.copyDebugLog('docx', filePath);
-			},
-		};
-	}
-
 	private getDebugLogEntries(scope: DebugLogScope) {
 		const logs = getNativePowerPointDocEditorLogSnapshot();
 		if (scope === 'all') {
@@ -588,7 +500,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	private async loadDocxSupport() {
 		const docx = await loadDocxSupportModule();
-		await docx.registerDocxSupport(this, () => this.createDocxSettingsController());
+		await docx.registerDocxSupport(this);
 	}
 
 	private async loadPowerPointSupport() {
