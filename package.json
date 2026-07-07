@@ -69,7 +69,7 @@
 		"obsidian": "latest",
 		"pptx-svg": "^0.5.10",
 		"prosemirror-state": "^1.4.4",
-		"prosemirror-view": "^1.41.9",
+		"prosemirror-view": "^1.42.0",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7"
 	},
