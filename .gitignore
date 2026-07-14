@@ -25,6 +25,7 @@ ai/capabilities.json
 
 # Visual smoke output
 scripts/visual-output/
+test-results/
 
 # Local manual test documents
 test_files/
