@@ -3,6 +3,7 @@ import type { Translations } from '@eigenpal/docx-editor-i18n';
 import { loadDocxEditorChunk } from './docxEditorLoader';
 import { isHTMLElement } from './domGuards';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
+import { CoalescedTimeout } from './coalescedTimeout';
 
 const DOCX_EMBED_SELECTOR = '.internal-embed[src], .internal-embed[data-src]';
 
@@ -120,8 +121,8 @@ class LazyDocxFileEmbed extends Component {
 }
 
 class DocxEmbedScanChild extends MarkdownRenderChild {
-	private scanTimeout: number | null = null;
 	private observer: MutationObserver | null = null;
+	private readonly scanTimer: CoalescedTimeout;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -130,13 +131,17 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 		private getEditorLocale: () => Translations | undefined,
 	) {
 		super(containerEl);
+		this.scanTimer = new CoalescedTimeout(
+			containerEl.ownerDocument.defaultView ?? window,
+			() => this.scan(),
+		);
 	}
 
 	onload() {
 		this.scan();
-		this.queueScan(0);
-		this.queueScan(100);
-		this.observer = new MutationObserver(() => this.queueScan(25));
+		this.scanTimer.schedule(0);
+		this.scanTimer.schedule(100);
+		this.observer = new MutationObserver(() => this.scanTimer.schedule(25));
 		this.observer.observe(this.containerEl, {
 			attributes: true,
 			attributeFilter: ['data-src', 'src'],
@@ -146,24 +151,10 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 	}
 
 	onunload() {
-		if (this.scanTimeout !== null) {
-			window.clearTimeout(this.scanTimeout);
-			this.scanTimeout = null;
-		}
+		this.scanTimer.cancel();
 		this.observer?.disconnect();
 		this.observer = null;
 		super.onunload();
-	}
-
-	private queueScan(delay: number) {
-		if (this.scanTimeout !== null) {
-			return;
-		}
-
-		this.scanTimeout = window.setTimeout(() => {
-			this.scanTimeout = null;
-			this.scan();
-		}, delay);
 	}
 
 	private scan() {

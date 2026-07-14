@@ -11,12 +11,12 @@ export interface LoadedLocale {
 }
 
 const eigenpalLocaleLoaders: Record<string, () => Promise<Translations>> = {
-	en: async () => (await import('@eigenpal/docx-editor-i18n/en')).default,
-	pl: async () => (await import('@eigenpal/docx-editor-i18n/pl')).default,
-	'pt-BR': async () => (await import('@eigenpal/docx-editor-i18n/pt-BR')).default,
-	tr: async () => (await import('@eigenpal/docx-editor-i18n/tr')).default,
-	he: async () => (await import('@eigenpal/docx-editor-i18n/he')).default,
-	'zh-CN': async () => (await import('@eigenpal/docx-editor-i18n/zh-CN')).default,
+	en: async () => (await import('../vendor/eigenpal/docx-editor-i18n/dist/en.mjs')).default,
+	pl: async () => (await import('../vendor/eigenpal/docx-editor-i18n/dist/pl.mjs')).default,
+	'pt-BR': async () => (await import('../vendor/eigenpal/docx-editor-i18n/dist/pt-BR.mjs')).default,
+	tr: async () => (await import('../vendor/eigenpal/docx-editor-i18n/dist/tr.mjs')).default,
+	he: async () => (await import('../vendor/eigenpal/docx-editor-i18n/dist/he.mjs')).default,
+	'zh-CN': async () => (await import('../vendor/eigenpal/docx-editor-i18n/dist/zh-CN.mjs')).default,
 };
 
 export async function loadEigenpalMessages(locale: string): Promise<Translations | undefined> {

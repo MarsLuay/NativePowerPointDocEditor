@@ -37,8 +37,9 @@ function createHarness(NativePowerPointView, { autosaveEnabled = true } = {}) {
   view.loadedFile = file;
   view.sourcePackage = sourcePackage;
   view.sourceBuffer = new Uint8Array([0]).buffer;
-  view.validateExportBeforeSave = async () => sourcePackage;
-  return { created, file, modified, sourcePackage, view };
+  const saveController = view.saveController;
+  saveController.validateExportOverride = async () => sourcePackage;
+  return { created, file, modified, saveController, sourcePackage, view };
 }
 
 test("macro-enabled extensions remain view-only", async () => {
@@ -61,7 +62,7 @@ test("macro-enabled extensions remain view-only", async () => {
 
 test("rapid edits debounce to one autosave", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
-  const { view } = createHarness(NativePowerPointView);
+  const { saveController, view } = createHarness(NativePowerPointView);
   const timers = new Map();
   const previousWindow = globalThis.window;
   let nextTimer = 0;
@@ -79,7 +80,7 @@ test("rapid edits debounce to one autosave", async () => {
   };
 
   try {
-    view.saveCurrentPresentation = async () => {
+    saveController.save = async () => {
       saves += 1;
       return true;
     };
@@ -87,10 +88,9 @@ test("rapid edits debounce to one autosave", async () => {
     view.markDirty();
     view.markDirty();
 
-    assert.equal(timers.size, 1);
-    const [{ callback, delay }] = timers.values();
-    assert.equal(delay, 1500);
-    callback();
+    const autosaveTimers = [...timers.values()].filter((entry) => entry.delay === 1500 || entry.delay === 4000);
+    assert.equal(autosaveTimers.length, 1, 'rapid markDirty calls should debounce to one autosave timer');
+    autosaveTimers[0].callback();
     await Promise.resolve();
     assert.equal(saves, 1);
   } finally {
@@ -125,18 +125,11 @@ test("alignment applies to every paragraph touched by a text selection", async (
     { paragraphIndex: 0, start: 2, end: 7 },
     { paragraphIndex: 1, start: 0, end: 4 },
   ];
-  let rangeAlignmentCall = null;
-  let wholeParagraphCall = null;
+  let alignmentCommand = null;
 
-  view.engine = {
-    setParagraphAlignment(...args) {
-      wholeParagraphCall = args;
-      return Promise.resolve();
-    },
-    setParagraphAlignmentForRanges(...args) {
-      rangeAlignmentCall = args;
-      return Promise.resolve();
-    },
+  view.engine = {};
+  view.session.applyCommand = async (command) => {
+    alignmentCommand = command;
   };
   view.currentSlide = 3;
   view.runTextFormatting = async (_label, apply) => {
@@ -146,13 +139,18 @@ test("alignment applies to every paragraph touched by a text selection", async (
   view.applyAlignment("ctr");
   await Promise.resolve();
 
-  assert.equal(wholeParagraphCall, null);
-  assert.deepEqual(rangeAlignmentCall, [3, 5, ranges, "ctr"]);
+  assert.deepEqual(alignmentCommand, {
+    type: "set-paragraph-alignment-ranges",
+    slideIndex: 3,
+    shapeIndex: 5,
+    ranges,
+    align: "ctr",
+  });
 });
 
 test("queued saves serialize rapid writes and retain the final edit", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
-  const { modified, sourcePackage, view } = createHarness(NativePowerPointView, { autosaveEnabled: false });
+  const { modified, saveController, sourcePackage, view } = createHarness(NativePowerPointView, { autosaveEnabled: false });
   let exportCalls = 0;
   let releaseFirstExport;
   const firstExportGate = new Promise((resolve) => {
@@ -164,16 +162,16 @@ test("queued saves serialize rapid writes and retain the final edit", async () =
     if (exportCalls === 1) await firstExportGate;
     return new Uint8Array([exportCalls]).buffer;
   };
-  view.validateExportBeforeSave = async () => sourcePackage;
-  view.isDirty = true;
-  view.editVersion = 1;
+  saveController.validateExportOverride = async () => sourcePackage;
+  saveController.isDirty = true;
+  saveController.editVersion = 1;
 
   const first = view.saveCurrentPresentation();
   await Promise.resolve();
   assert.equal(exportCalls, 1);
 
-  view.isDirty = true;
-  view.editVersion = 2;
+  saveController.isDirty = true;
+  saveController.editVersion = 2;
   const second = view.saveCurrentPresentation();
   await Promise.resolve();
   assert.equal(exportCalls, 1, "second export started before the first save completed");
@@ -182,15 +180,15 @@ test("queued saves serialize rapid writes and retain the final edit", async () =
   assert.deepEqual(await Promise.all([first, second]), [true, true]);
   assert.equal(exportCalls, 2);
   assert.deepEqual(modified.map(({ output }) => new Uint8Array(output)[0]), [1, 2]);
-  assert.equal(view.isDirty, false);
+  assert.equal(saveController.isDirty, false);
 });
 
 test("closing while a save is in progress waits, then writes a recovery copy", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
-  const { created, view } = createHarness(NativePowerPointView, { autosaveEnabled: false });
+  const { created, saveController, view } = createHarness(NativePowerPointView, { autosaveEnabled: false });
   let finishPendingSave;
-  view.isDirty = true;
-  view.savePromise = new Promise((resolve) => {
+  saveController.isDirty = true;
+  saveController.savePromise = new Promise((resolve) => {
     finishPendingSave = resolve;
   });
 
@@ -206,18 +204,49 @@ test("closing while a save is in progress waits, then writes a recovery copy", a
 
 test("autosave failure during close falls back to a recovery copy", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
-  const { created, view } = createHarness(NativePowerPointView);
-  view.isDirty = true;
-  view.saveCurrentPresentation = async () => false;
+  const { created, saveController, view } = createHarness(NativePowerPointView);
+  saveController.isDirty = true;
+  saveController.save = async () => false;
 
   assert.equal(await view.preserveUnsavedChangesForTeardown("closing the view"), true);
   assert.equal(created.length, 1);
-  assert.equal(view.isDirty, false);
+  assert.equal(saveController.isDirty, false);
+});
+
+test("plugin reload saves dirty edits to the source even when autosave is disabled", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const { file, modified, saveController, view } = createHarness(
+    NativePowerPointView,
+    { autosaveEnabled: false },
+  );
+  saveController.isDirty = true;
+
+  assert.equal(await view.saveBeforePluginReload(), true);
+  assert.equal(modified.length, 1);
+  assert.equal(modified[0].file, file);
+  assert.deepEqual(new Uint8Array(modified[0].output), new Uint8Array([1]));
+  assert.equal(saveController.isDirty, false);
+});
+
+test("plugin reload barrier fails closed when the dirty source cannot be saved", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const { modified, saveController, view } = createHarness(
+    NativePowerPointView,
+    { autosaveEnabled: false },
+  );
+  saveController.isDirty = true;
+  view.engine.export = async () => {
+    throw new Error("simulated reload save failure");
+  };
+
+  assert.equal(await view.saveBeforePluginReload(), false);
+  assert.equal(modified.length, 0);
+  assert.equal(saveController.isDirty, true);
 });
 
 test("failed autosave schedules a delayed retry", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
-  const { view } = createHarness(NativePowerPointView);
+  const { saveController, view } = createHarness(NativePowerPointView);
   const timers = new Map();
   const previousWindow = globalThis.window;
   let nextTimer = 0;
@@ -234,41 +263,41 @@ test("failed autosave schedules a delayed retry", async () => {
   };
 
   try {
-    view.isDirty = true;
+    saveController.isDirty = true;
     view.engine.export = async () => {
       throw new Error('simulated validation failure');
     };
 
     const saved = await view.saveCurrentPresentation();
     assert.equal(saved, false);
-    assert.equal(view.saveState, 'failed');
-    assert.equal(view.lastSaveError, 'simulated validation failure');
+    assert.equal(saveController.saveState, 'failed');
+    assert.equal(saveController.lastSaveError, 'simulated validation failure');
     assert.equal(timers.size, 1);
 
     const [{ delay }] = timers.values();
     assert.equal(delay, 5000);
   } finally {
     timers.clear();
-    await view.savePromise.catch(() => undefined);
+    await saveController.savePromise.catch(() => undefined);
     globalThis.window = previousWindow;
   }
 });
 
 test("failed recovery preserves dirty in-memory edits and prevents close reset", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
-  const { view } = createHarness(NativePowerPointView, { autosaveEnabled: false });
+  const { saveController, view } = createHarness(NativePowerPointView, { autosaveEnabled: false });
   const engine = view.engine;
-  view.isDirty = true;
+  saveController.isDirty = true;
   view.engine.export = async () => {
     throw new Error("simulated vault failure");
   };
 
   assert.equal(await view.preserveUnsavedChangesForTeardown("closing the view"), false);
-  assert.equal(view.isDirty, true);
+  assert.equal(saveController.isDirty, true);
 
   view.preserveUnsavedChangesForTeardown = async () => false;
   await view.onClose();
   assert.equal(view.engine, engine);
   assert.notEqual(view.loadedFile, null);
-  assert.equal(view.isDirty, true);
+  assert.equal(saveController.isDirty, true);
 });

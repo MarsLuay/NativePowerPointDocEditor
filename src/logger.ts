@@ -176,6 +176,10 @@ export function debugLog(area: string, message: string, data?: unknown) {
 	logNativePowerPointDocEditor('debug', area, message, data);
 }
 
+export function logPptxAction(area: string, op: string, data?: Record<string, unknown>) {
+	debugLog(area, 'PowerPoint action started', { ...data, op });
+}
+
 export function infoLog(area: string, message: string, data?: unknown) {
 	logNativePowerPointDocEditor('info', area, message, data);
 }

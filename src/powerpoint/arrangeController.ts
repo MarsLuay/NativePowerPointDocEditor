@@ -6,11 +6,13 @@ import { isSVGGElement } from '../domGuards';
 import { debugLog, errorLog } from '../logger';
 import type { PresentationEngine, ShapeReorderMode } from '../PresentationEngine';
 import { cleanError } from './runtimeCompat';
+import type { PresentationSession } from './session/PresentationSession';
 import { cloneTransform } from './svgUtils';
 import type { DistributeAxis, HistoryEntry } from './types';
 
 export interface ArrangeHost {
   readonly t: TranslateFn;
+  readonly session: PresentationSession;
   readonly engine: PresentationEngine | null;
   readonly svgEl: SVGSVGElement | null;
   currentSlide: number;
@@ -110,6 +112,7 @@ export class ArrangeController {
       return { index, transform: next };
     });
     debugLog('arrange', 'Nudging PowerPoint objects', {
+      op: 'nudge',
       slide: this.host.currentSlide,
       count: updates.length,
       key,
@@ -162,6 +165,7 @@ export class ArrangeController {
 
     await this.host.commitGroupTransforms(updates, 'Distribute objects');
     debugLog('arrange', 'Distributed PowerPoint objects', {
+      op: 'distribute',
       slide: this.host.currentSlide,
       count: updates.length,
       axis
@@ -176,15 +180,20 @@ export class ArrangeController {
 
     try {
       const history = await this.host.captureHistoryEntry('Reorder objects');
-      const newIndices = await this.host.engine.reorderShapes(this.host.currentSlide, indices, mode);
+      const newIndices = await this.host.session.applyCommand({
+        type: 'reorder-shapes',
+        slideIndex: this.host.currentSlide,
+        shapeIndexes: indices,
+        mode
+      }) as number[];
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) {
         this.host.applyMultiSelection(newIndices.filter((index) => index >= 0));
         await this.host.renderThumbnails();
       }
       debugLog('arrange', 'Reordered PowerPoint objects', {
+        op: 'reorder',
         slide: this.host.currentSlide,
         count: indices.length,
         mode
@@ -206,15 +215,19 @@ export class ArrangeController {
 
     try {
       const history = await this.host.captureHistoryEntry('Group objects');
-      const groupIndex = await this.host.engine.groupShapes(this.host.currentSlide, indices);
+      const groupIndex = await this.host.session.applyCommand({
+        type: 'group-shapes',
+        slideIndex: this.host.currentSlide,
+        shapeIndexes: indices
+      }) as number;
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) {
         this.host.selectShape(groupIndex);
         await this.host.renderThumbnails();
       }
       debugLog('arrange', 'Grouped PowerPoint objects', {
+        op: 'group',
         slide: this.host.currentSlide,
         count: indices.length,
         groupIndex
@@ -238,15 +251,19 @@ export class ArrangeController {
 
     try {
       const history = await this.host.captureHistoryEntry('Ungroup objects');
-      const newIndices = await this.host.engine.ungroupShapes(this.host.currentSlide, groupIndex);
+      const newIndices = await this.host.session.applyCommand({
+        type: 'ungroup-shapes',
+        slideIndex: this.host.currentSlide,
+        shapeIndex: groupIndex
+      }) as number[];
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) {
         this.host.applyMultiSelection(newIndices.filter((index) => index >= 0));
         await this.host.renderThumbnails();
       }
       debugLog('arrange', 'Ungrouped PowerPoint objects', {
+        op: 'ungroup',
         slide: this.host.currentSlide,
         groupIndex,
         resultCount: newIndices.length

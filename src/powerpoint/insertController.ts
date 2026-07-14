@@ -14,10 +14,13 @@ import {
 } from '../PowerPointInsertModals';
 import type { ParagraphListStyle } from '../SlideInsertions';
 import { cleanError } from './runtimeCompat';
+import type { PresentationSession } from './session/PresentationSession';
+import type { PptxCommand } from './commands/types';
 import type { HistoryEntry, TextEditTarget } from './types';
 
 export interface InsertHost {
   readonly t: TranslateFn;
+  readonly session: PresentationSession;
   readonly engine: PresentationEngine | null;
   readonly app: App;
   readonly layoutEl: HTMLElement | null;
@@ -32,8 +35,9 @@ export interface InsertHost {
   renderEditedShape(shapeIndex: number): Promise<boolean>;
   renderThumbnails(): Promise<void>;
   selectShape(shapeIndex: number): void;
+  selectShapeForTextEditing(shapeIndex: number): void;
+  startTextEditor(): void;
   createEditIconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): HTMLButtonElement;
-  addTextBox(): Promise<void>;
   getTextEditTarget(target: SVGTextElement | SVGTSpanElement | null): TextEditTarget | null;
   registerDocumentPointerDown(handler: (event: PointerEvent) => void, capture?: boolean): void;
   openToolbarPopover(anchor: HTMLElement, build: (popover: HTMLElement) => void): void;
@@ -53,6 +57,52 @@ export class InsertController {
 
   private tb(suffix: string): string {
     return this.host.t(`powerpoint:toolbar.${suffix}`);
+  }
+
+  private getInsertEngine(
+    action: string,
+    failureMessage: string,
+    context: Record<string, unknown> = {}
+  ): PresentationEngine | null {
+    const engine = this.host.engine;
+    if (!engine) {
+      errorLog('insert', failureMessage, {
+        slide: this.host.currentSlide,
+        ...context,
+        reason: 'Presentation engine unavailable'
+      });
+      return null;
+    }
+    if (!this.host.ensureEditable(action)) {
+      errorLog('insert', failureMessage, {
+        slide: this.host.currentSlide,
+        ...context,
+        reason: 'Presentation is not editable'
+      });
+      return null;
+    }
+    return engine;
+  }
+
+  private async commitInsertedShape(
+    historyLabel: string,
+    command: PptxCommand,
+    editImmediately = false
+  ): Promise<number> {
+    const history = await this.host.captureHistoryEntry(historyLabel);
+    const shapeIndex = await this.host.session.applyCommand(command) as number;
+    this.host.recordHistoryEntry(history);
+    const rendered = await this.host.renderCurrentSlide(editImmediately);
+    if (rendered) {
+      if (editImmediately) {
+        this.host.selectShapeForTextEditing(shapeIndex);
+        this.host.startTextEditor();
+      } else {
+        this.host.selectShape(shapeIndex);
+        await this.host.renderThumbnails();
+      }
+    }
+    return shapeIndex;
   }
 
   registerMenus(): void {
@@ -98,7 +148,7 @@ export class InsertController {
       ]);
     });
 
-    this.host.createEditIconButton(insertGroup, 'type', this.tb('insertTextBox'), () => void this.host.addTextBox());
+    this.host.createEditIconButton(insertGroup, 'type', this.tb('insertTextBox'), () => void this.insertTextBox());
     const tableButton = this.host.createEditIconButton(insertGroup, 'table', this.tb('insertTable'), () =>
       this.openTableSizePicker(tableButton)
     );
@@ -229,24 +279,39 @@ export class InsertController {
     });
   }
 
+  async insertTextBox(editImmediately = false): Promise<void> {
+    if (!this.getInsertEngine('insert text box', 'PowerPoint text-box insertion failed')) return;
+
+    try {
+      const shapeIndex = await this.commitInsertedShape('Add text box', {
+        type: 'insert-text-box',
+        slideIndex: this.host.currentSlide
+      }, editImmediately);
+		debugLog('insert', 'Inserted PowerPoint text box', {
+			slide: this.host.currentSlide,
+			shapeIndex
+		});
+    } catch (error) {
+      errorLog('insert', 'PowerPoint text-box insertion failed', {
+        slide: this.host.currentSlide,
+        error
+      });
+    }
+  }
+
   async insertImageFromVaultFile(file: TFile): Promise<void> {
-    if (!this.host.engine || !this.host.ensureEditable('insert image')) return;
+    if (!this.getInsertEngine('insert image', 'PowerPoint vault image insertion failed', {
+      file: file.path
+    })) return;
 
     try {
       const bytes = await this.host.app.vault.readBinary(file);
-      const history = await this.host.captureHistoryEntry('Insert image');
-      const shapeIndex = this.host.engine.addImage(
-        this.host.currentSlide,
-        new Uint8Array(bytes),
-        getImageMimeType(file.extension)
-      );
-      this.host.recordHistoryEntry(history);
-      this.host.markDirty();
-      const rendered = await this.host.renderCurrentSlide();
-      if (rendered) {
-        this.host.selectShape(shapeIndex);
-        await this.host.renderThumbnails();
-      }
+      const shapeIndex = await this.commitInsertedShape('Insert image', {
+        type: 'insert-image',
+        slideIndex: this.host.currentSlide,
+        imageData: new Uint8Array(bytes),
+        mimeType: getImageMimeType(file.extension)
+      });
       debugLog('insert', 'Inserted PowerPoint image from vault', {
         slide: this.host.currentSlide,
         shapeIndex,
@@ -260,23 +325,19 @@ export class InsertController {
   }
 
   async insertImageFromLocalFile(file: File): Promise<void> {
-    if (!this.host.engine || !this.host.ensureEditable('insert image')) return;
+    if (!this.getInsertEngine('insert image', 'PowerPoint local image insertion failed', {
+      fileName: file.name,
+      mimeType: file.type || null
+    })) return;
 
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const history = await this.host.captureHistoryEntry('Insert image');
-      const shapeIndex = this.host.engine.addImage(
-        this.host.currentSlide,
-        bytes,
-        file.type || getImageMimeType(file.name.split('.').pop() ?? 'png')
-      );
-      this.host.recordHistoryEntry(history);
-      this.host.markDirty();
-      const rendered = await this.host.renderCurrentSlide();
-      if (rendered) {
-        this.host.selectShape(shapeIndex);
-        await this.host.renderThumbnails();
-      }
+      const shapeIndex = await this.commitInsertedShape('Insert image', {
+        type: 'insert-image',
+        slideIndex: this.host.currentSlide,
+        imageData: bytes,
+        mimeType: file.type || getImageMimeType(file.name.split('.').pop() ?? 'png')
+      });
       debugLog('insert', 'Inserted PowerPoint image from local file', {
         slide: this.host.currentSlide,
         shapeIndex,
@@ -295,18 +356,14 @@ export class InsertController {
   }
 
   async insertShape(geometry: InsertableShapeGeometry): Promise<void> {
-    if (!this.host.engine || !this.host.ensureEditable('insert shape')) return;
+    if (!this.getInsertEngine('insert shape', 'PowerPoint shape insertion failed', { geometry })) return;
 
     try {
-      const history = await this.host.captureHistoryEntry('Insert shape');
-      const shapeIndex = this.host.engine.addShapeGeometry(this.host.currentSlide, geometry);
-      this.host.recordHistoryEntry(history);
-      this.host.markDirty();
-      const rendered = await this.host.renderCurrentSlide();
-      if (rendered) {
-        this.host.selectShape(shapeIndex);
-        await this.host.renderThumbnails();
-      }
+      const shapeIndex = await this.commitInsertedShape('Insert shape', {
+        type: 'insert-shape',
+        slideIndex: this.host.currentSlide,
+        geometry
+      });
       debugLog('insert', 'Inserted PowerPoint shape', {
         slide: this.host.currentSlide,
         shapeIndex,
@@ -319,18 +376,18 @@ export class InsertController {
   }
 
   async insertTable(rows: number, cols: number): Promise<void> {
-    if (!this.host.engine || !this.host.ensureEditable('insert table')) return;
+    if (!this.getInsertEngine('insert table', 'PowerPoint table insertion failed', {
+      rows,
+      columns: cols
+    })) return;
 
     try {
-      const history = await this.host.captureHistoryEntry('Insert table');
-      const shapeIndex = await this.host.engine.addTable(this.host.currentSlide, rows, cols);
-      this.host.recordHistoryEntry(history);
-      this.host.markDirty();
-      const rendered = await this.host.renderCurrentSlide();
-      if (rendered) {
-        this.host.selectShape(shapeIndex);
-        await this.host.renderThumbnails();
-      }
+      const shapeIndex = await this.commitInsertedShape('Insert table', {
+        type: 'insert-table',
+        slideIndex: this.host.currentSlide,
+        rows,
+        cols
+      });
       debugLog('insert', 'Inserted PowerPoint table', {
         slide: this.host.currentSlide,
         shapeIndex,
@@ -344,18 +401,13 @@ export class InsertController {
   }
 
   async insertChart(): Promise<void> {
-    if (!this.host.engine || !this.host.ensureEditable('insert chart')) return;
+    if (!this.getInsertEngine('insert chart', 'PowerPoint chart insertion failed')) return;
 
     try {
-      const history = await this.host.captureHistoryEntry('Insert chart');
-      const shapeIndex = await this.host.engine.addChart(this.host.currentSlide);
-      this.host.recordHistoryEntry(history);
-      this.host.markDirty();
-      const rendered = await this.host.renderCurrentSlide();
-      if (rendered) {
-        this.host.selectShape(shapeIndex);
-        await this.host.renderThumbnails();
-      }
+      const shapeIndex = await this.commitInsertedShape('Insert chart', {
+        type: 'insert-chart',
+        slideIndex: this.host.currentSlide
+      });
       debugLog('insert', 'Inserted PowerPoint chart', {
         slide: this.host.currentSlide,
         shapeIndex
@@ -367,11 +419,16 @@ export class InsertController {
   }
 
   async applyListStyle(style: ParagraphListStyle): Promise<void> {
-    if (!this.host.engine || !this.host.ensureEditable('format text')) return;
+    if (!this.getInsertEngine('format text', 'PowerPoint list-style update failed', { style })) return;
 
     const textTarget = this.host.getTextEditTarget(this.host.activeEditorTarget);
     const shapeIndex = textTarget?.shapeIndex ?? this.host.selectedShapeIndex;
     if (shapeIndex === null) {
+      errorLog('insert', 'PowerPoint list-style update failed', {
+        slide: this.host.currentSlide,
+        style,
+        reason: 'No text box selected'
+      });
       this.notice('powerpoint:notice.selectTextBoxFirst');
       return;
     }
@@ -381,9 +438,14 @@ export class InsertController {
       const history = await this.host.captureHistoryEntry(
         style === 'bullet' ? 'Bulleted list' : style === 'number' ? 'Numbered list' : 'Remove list'
       );
-      await this.host.engine.applyListStyle(this.host.currentSlide, shapeIndex, paragraphIndex, style);
+      await this.host.session.applyCommand({
+        type: 'apply-list-style',
+        slideIndex: this.host.currentSlide,
+        shapeIndex,
+        paragraphIndex,
+        style
+      });
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderEditedShape(shapeIndex);
       if (rendered) await this.host.renderThumbnails();
       debugLog('insert', 'Applied PowerPoint list style', {

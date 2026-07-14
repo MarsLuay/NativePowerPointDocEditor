@@ -145,9 +145,11 @@ export class DocxSearchIndex {
 			entries,
 		};
 
-		this.writePromise = this.writePromise
-			.catch(() => undefined)
-			.then(() => this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(indexFile, null, 2)));
+		const previousWrite = this.writePromise.catch(() => undefined);
+		this.writePromise = (async () => {
+			await previousWrite;
+			await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(indexFile, null, 2));
+		})();
 
 		await this.writePromise;
 	}
@@ -185,9 +187,16 @@ export class DocxSearchIndex {
 			}
 
 			if (index < docxFiles.length) {
-				await new Promise<void>((resolve) => {
+				await new Promise<void>((resolve, reject) => {
 					scheduleIdleWork(() => {
-						void processBatch().then(resolve);
+						void (async () => {
+							try {
+								await processBatch();
+								resolve();
+							} catch (error) {
+								reject(error);
+							}
+						})();
 					}, { timeout: 5000 });
 				});
 				return;

@@ -25,6 +25,7 @@ const originalConsole = {
 };
 const originalNavigatorDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
 const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
+const originalDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'document');
 const originalActiveDocumentDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'activeDocument');
 const capturedLogs = [];
 let copiedClipboardText = '';
@@ -44,31 +45,94 @@ const DEFAULT_PLUGIN_DATA = {
 };
 let pluginData = { ...DEFAULT_PLUGIN_DATA };
 
+function createElementStub(tagName = 'div') {
+	const attributes = new Map();
+	return {
+		append() {},
+		appendChild(child) {
+			return child;
+		},
+		childNodes: [],
+		children: [],
+		classList: {
+			add() {},
+			contains() {
+				return false;
+			},
+			remove() {},
+			toggle() {},
+		},
+		closest() {
+			return null;
+		},
+		createDiv() {
+			return createElementStub('div');
+		},
+		createEl(tag) {
+			return createElementStub(tag);
+		},
+		createSpan() {
+			return createElementStub('span');
+		},
+		dataset: {},
+		getAttribute(name) {
+			return attributes.get(name) ?? null;
+		},
+		hide() {},
+		insertBefore(child) {
+			return child;
+		},
+		matches() {
+			return false;
+		},
+		parentElement: null,
+		querySelector() {
+			return null;
+		},
+		querySelectorAll() {
+			return [];
+		},
+		remove() {},
+		removeAttribute(name) {
+			attributes.delete(name);
+		},
+		removeClasses() {},
+		setAttribute(name, value) {
+			attributes.set(name, String(value));
+		},
+		setCssProps() {},
+		setText() {},
+		show() {},
+		style: {
+			removeProperty() {},
+			setProperty() {},
+		},
+		tagName: tagName.toUpperCase(),
+		textContent: '',
+	};
+}
+
 function createActiveDocumentStub() {
+	const body = createElementStub('body');
 	return {
 		activeElement: null,
 		addEventListener() {},
 		adoptedStyleSheets: [],
-		body: {
-			appendChild() {},
-			classList: {
-				add() {},
-				contains() {
-					return false;
-				},
-				remove() {},
-				toggle() {},
-			},
-			removeAttribute() {},
-			removeClasses() {},
-			setAttribute() {},
+		body,
+		createElement(tag) {
+			return createElementStub(tag);
 		},
-		createElement() {
-			return {};
+		createElementNS(_namespace, tag) {
+			return createElementStub(tag);
+		},
+		createTextNode(text) {
+			return { nodeType: 3, textContent: text };
 		},
 		dispatchEvent() {
 			return true;
 		},
+		documentElement: createElementStub('html'),
+		head: createElementStub('head'),
 		querySelector() {
 			return null;
 		},
@@ -271,6 +335,9 @@ function createAppStub() {
 			getLeavesOfType() {
 				return [];
 			},
+			on() {
+				return {};
+			},
 		},
 	};
 	return app;
@@ -302,6 +369,11 @@ function restoreEnvironment() {
 		Object.defineProperty(globalThis, 'window', originalWindowDescriptor);
 	} else {
 		delete globalThis.window;
+	}
+	if (originalDocumentDescriptor) {
+		Object.defineProperty(globalThis, 'document', originalDocumentDescriptor);
+	} else {
+		delete globalThis.document;
 	}
 	if (originalActiveDocumentDescriptor) {
 		Object.defineProperty(globalThis, 'activeDocument', originalActiveDocumentDescriptor);
@@ -350,15 +422,45 @@ function findDocxFiles(dir, limit, results = []) {
 	return results;
 }
 
+function createVendorEigenpalAliases() {
+	const aliases = {};
+	const packages = {
+		'@eigenpal/docx-editor-agents': 'docx-editor-agents',
+		'@eigenpal/docx-editor-core': 'docx-editor-core',
+		'@eigenpal/docx-editor-i18n': 'docx-editor-i18n',
+		'@eigenpal/docx-editor-react': 'docx-editor-react',
+	};
+
+	for (const [packageName, vendorDirName] of Object.entries(packages)) {
+		const packageDir = path.join(projectRoot, 'src/vendor/eigenpal', vendorDirName);
+		const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
+		for (const [exportPath, target] of Object.entries(packageJson.exports ?? {})) {
+			const importTarget = typeof target === 'string'
+				? target
+				: target?.import ?? target?.require ?? target?.default;
+			if (typeof importTarget !== 'string') continue;
+
+			const aliasKey = exportPath === '.'
+				? packageName
+				: `${packageName}/${exportPath.replace(/^\.\//, '')}`;
+			aliases[aliasKey] = path.join(packageDir, importTarget);
+		}
+	}
+
+	return aliases;
+}
+
 function loadBundledDocxSupport() {
 	const esbuild = require('esbuild');
 	const outfile = path.join(os.tmpdir(), `native-powerpoint-doc-editor-smoke-docx-support-${process.pid}.cjs`);
 	esbuild.buildSync({
 		absWorkingDir: projectRoot,
+		alias: createVendorEigenpalAliases(),
 		entryPoints: ['src/docxSupport.ts'],
 		bundle: true,
 		external: ['obsidian'],
 		format: 'cjs',
+		loader: { '.css': 'text', '.wasm': 'binary' },
 		logLevel: 'silent',
 		outfile,
 		platform: 'node',
@@ -396,6 +498,10 @@ async function runSmoke() {
 		configurable: true,
 		value: createActiveDocumentStub(),
 	});
+	Object.defineProperty(globalThis, 'document', {
+		configurable: true,
+		value: globalThis.activeDocument,
+	});
 
 	assertPluginFiles();
 	installObsidianStub();
@@ -420,7 +526,7 @@ async function runSmoke() {
 		plugin.registeredExtensions.some((entry) => entry.viewType === 'native-powerpoint-view' && entry.extensions.includes('pptx')),
 		'Plugin should register PowerPoint file extensions.'
 	);
-	const copyLogCommand = plugin.commands.find((command) => command.id === 'copy-debug-log');
+	const copyLogCommand = plugin.commands.find((command) => command.id === 'copy-native-powerpoint-doc-editor-debug-log');
 	assert.ok(copyLogCommand, 'Plugin should register the copy debug log command.');
 	assert.ok(plugin.commands.some((command) => command.id === 'search-docx-files'), 'Plugin should register the vault-wide DOCX search command.');
 	assert.ok(plugin.commands.some((command) => command.id === 'rebuild-docx-search-index'), 'Plugin should register the DOCX search rebuild command.');
@@ -475,7 +581,7 @@ async function runSmoke() {
 	assert.equal(disabledPlugin.registeredExtensions.length, 0, 'Disabled file handoff should not register DOCX or PowerPoint extensions.');
 	assert.ok(!disabledPlugin.commands.some((command) => command.id === 'save-current-docx'), 'Disabled DOCX handoff should skip DOCX commands.');
 	assert.ok(!disabledPlugin.commands.some((command) => command.id === 'save-current-powerpoint-file'), 'Disabled PPTX handoff should skip PowerPoint commands.');
-	assert.ok(disabledPlugin.commands.some((command) => command.id === 'copy-debug-log'), 'Disabled file handoff should keep diagnostics available.');
+	assert.ok(disabledPlugin.commands.some((command) => command.id === 'copy-native-powerpoint-doc-editor-debug-log'), 'Disabled file handoff should keep diagnostics available.');
 	pluginData = { ...DEFAULT_PLUGIN_DATA };
 
 	await copyLogCommand.callback();

@@ -1,9 +1,10 @@
-import { setIcon } from 'obsidian';
-
 import type { TranslateFn } from '../i18n/translate';
 
 import { isSVGTSpanElement } from '../domGuards';
-import { bindPopoverDismissHandlers, createMenuItem, createPopoverShell, positionPopoverBelow } from '../menuControls';
+import {
+	PPTX_EDITOR_CHROME_CONTEXT_TOOLBAR_CLASS,
+} from '../editorChromeRegions';
+import { bindPopoverDismissHandlers, createMenuItem, createPopoverShell, createToolbarIconButton, positionPopoverBelow } from '../menuControls';
 import type {
   ParagraphAlignment,
   ParagraphTextRange,
@@ -322,7 +323,7 @@ export class TextToolbarController {
     if (!this.host.canvasPane) return null;
 
     this.textToolbarEl?.remove();
-    const toolbar = this.host.canvasPane.createDiv({ cls: 'native-powerpoint-text-toolbar' });
+    const toolbar = this.host.canvasPane.createDiv({ cls: PPTX_EDITOR_CHROME_CONTEXT_TOOLBAR_CLASS });
     toolbar.setAttribute('role', 'toolbar');
     toolbar.setAttribute('aria-label', this.host.t('powerpoint:accessibility.textFormatting'));
     toolbar.addEventListener('pointerdown', (event) => event.stopPropagation());
@@ -373,10 +374,10 @@ export class TextToolbarController {
 
     const alignGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
     const alignButtons: Record<ParagraphAlignment, HTMLButtonElement> = {
-      l: this.createTextToolbarButton(alignGroup, 'align-left', 'Align left', () => this.host.applyAlignment('l')),
-      ctr: this.createTextToolbarButton(alignGroup, 'align-center', 'Align center', () => this.host.applyAlignment('ctr')),
-      r: this.createTextToolbarButton(alignGroup, 'align-right', 'Align right', () => this.host.applyAlignment('r')),
-      just: this.createTextToolbarButton(alignGroup, 'align-justify', 'Justify', () => this.host.applyAlignment('just'))
+      l: this.createTextToolbarButton(alignGroup, 'align-left', 'Align left', () => this.applyAlignment('l')),
+      ctr: this.createTextToolbarButton(alignGroup, 'align-center', 'Align center', () => this.applyAlignment('ctr')),
+      r: this.createTextToolbarButton(alignGroup, 'align-right', 'Align right', () => this.applyAlignment('r')),
+      just: this.createTextToolbarButton(alignGroup, 'align-justify', 'Justify', () => this.applyAlignment('just'))
     };
 
     this.textToolbarEl = toolbar;
@@ -398,22 +399,22 @@ export class TextToolbarController {
     label: string,
     action: () => void
   ): HTMLButtonElement {
-    const button = container.createEl('button', {
-      cls: 'native-powerpoint-toolbar-btn native-powerpoint-text-toolbar-btn',
-      attr: { 'aria-label': label }
+    const button = createToolbarIconButton(container, {
+      className: ['native-powerpoint-toolbar-btn', 'native-powerpoint-text-toolbar-btn'],
+      icon,
+      label
     });
-    setIcon(button, icon);
     this.bindToolbarButton(button, action);
     return button;
   }
 
   private createTextToolbarSwatchButton(container: HTMLElement, icon: string, label: string): HTMLButtonElement {
-    const button = container.createEl('button', {
-      cls: 'native-powerpoint-toolbar-btn native-powerpoint-text-toolbar-btn native-powerpoint-text-toolbar-swatch',
-      attr: { 'aria-label': label }
+    return createToolbarIconButton(container, {
+      className: ['native-powerpoint-toolbar-btn', 'native-powerpoint-text-toolbar-btn', 'native-powerpoint-text-toolbar-swatch'],
+      icon,
+      label,
+      iconClassName: 'native-powerpoint-text-toolbar-swatch-icon'
     });
-    setIcon(button.createSpan({ cls: 'native-powerpoint-text-toolbar-swatch-icon' }), icon);
-    return button;
   }
 
   private toggleRunFlag(flag: 'bold' | 'italic' | 'underline'): void {
@@ -459,6 +460,11 @@ export class TextToolbarController {
     const current = this.host.currentRunStyle?.[flag] ?? false;
     debugLog('text-format', 'toggleRunFlag', { flag, path: 'caret-or-shape', next: !current });
     this.host.applyRunStyle({ [flag]: !current });
+  }
+
+  private applyAlignment(align: ParagraphAlignment): void {
+    debugLog('text-format', 'setAlignment', { align });
+    this.host.applyAlignment(align);
   }
 
   private stepFontSize(delta: number): void {

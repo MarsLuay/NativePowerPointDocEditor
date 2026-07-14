@@ -3,13 +3,16 @@ import { createTranslateNotice } from '../i18n/translate';
 import type { ShapeTransform } from 'pptx-svg';
 import { isSVGGElement } from '../domGuards';
 import type { PresentationEngine } from '../PresentationEngine';
+import { debugLog } from '../logger';
 import { cleanError } from './runtimeCompat';
 import type { SnapController } from './snapController';
+import type { PresentationSession } from './session/PresentationSession';
 import type { DragState, GroupDragState, HandleName, HistoryEntry, MarqueeState, PointerPoint } from './types';
-import { cloneTransform, getShapeIndex, transformsMatch } from './svgUtils';
+import { cloneTransform, getShapeIndex, isSelectableShapeIndex, transformsMatch } from './svgUtils';
 
 export interface SelectionDragHost {
   readonly t: TranslateFn;
+  readonly session: PresentationSession;
   readonly engine: PresentationEngine | null;
   readonly svgEl: SVGSVGElement | null;
   readonly canvasPane: HTMLElement | null;
@@ -50,6 +53,14 @@ export class SelectionDragController {
   }
 
   clearDragState(): void {
+    if (this.dragState || this.groupDrag) {
+      debugLog('selection', 'PowerPoint selection drag cancelled', {
+        op: 'drag-cancel',
+        slide: this.host.currentSlide,
+        shapeIndexes: [...this.host.selectedShapeIndices],
+        mode: this.dragState?.mode ?? 'group-move'
+      });
+    }
     this.dragState = null;
     this.groupDrag = null;
     this.cancelMarquee();
@@ -91,6 +102,12 @@ export class SelectionDragController {
         centerClientY,
         startAngle: Math.atan2(event.clientY - centerClientY, event.clientX - centerClientX)
       };
+      debugLog('selection', 'PowerPoint selection drag started', {
+        op: 'drag-start',
+        slide: this.host.currentSlide,
+        shapeIndexes: [...this.host.selectedShapeIndices],
+        mode: 'rotate'
+      });
     }
   updateSelectionOverlay(): void {
       this.updateMultiSelectionBoxes();
@@ -199,7 +216,7 @@ export class SelectionDragController {
         if (shape.parentElement?.closest('g[data-ooxml-shape-idx]')) return;
 
         const index = getShapeIndex(shape);
-        if (index === null) return;
+        if (!isSelectableShapeIndex(index)) return;
 
         const rect = shape.getBoundingClientRect();
         if (rect.width === 0 && rect.height === 0) return;
@@ -282,8 +299,19 @@ export class SelectionDragController {
         if (marquee.additive) {
           this.host.suppressNextClick = true;
           this.host.applyMultiSelection(marquee.base);
+          debugLog('selection', 'PowerPoint multi-selection applied', {
+            op: 'multi-select',
+            slide: this.host.currentSlide,
+            shapeIndexes: marquee.base,
+            source: 'marquee-click'
+          });
         } else {
           this.host.clearSelection();
+          debugLog('selection', 'PowerPoint selection cleared', {
+            op: 'deselect',
+            slide: this.host.currentSlide,
+            shapeIndexes: []
+          });
         }
         return;
       }
@@ -296,7 +324,14 @@ export class SelectionDragController {
       const hits = this.collectShapesInClientRect(left, top, right, bottom);
       const finalSet = new Set<number>(marquee.additive ? marquee.base : []);
       hits.forEach((index) => finalSet.add(index));
-      this.host.applyMultiSelection([...finalSet]);
+      const shapeIndexes = [...finalSet];
+      this.host.applyMultiSelection(shapeIndexes);
+      debugLog('selection', 'PowerPoint selection applied', {
+        op: shapeIndexes.length === 0 ? 'deselect' : shapeIndexes.length === 1 ? 'select' : 'multi-select',
+        slide: this.host.currentSlide,
+        shapeIndexes,
+        source: 'marquee'
+      });
     }
 
   cancelMarquee(): void {
@@ -329,6 +364,12 @@ export class SelectionDragController {
         latest: new Map(start),
         moved: false
       };
+      debugLog('selection', 'PowerPoint selection drag started', {
+        op: 'drag-start',
+        slide: this.host.currentSlide,
+        shapeIndexes: [...start.keys()],
+        mode: 'group-move'
+      });
     }
 
   updateGroupDrag(event: PointerEvent): void {
@@ -381,7 +422,7 @@ export class SelectionDragController {
       const snapClientY = ctm && ctm.d !== 0 ? (snap.dy * ctm.d) / scale : 0;
       const cssTransform = `translate(${deltaClientX + snapClientX}px, ${deltaClientY + snapClientY}px)`;
       for (const box of this.multiSelectionBoxes) {
-        box.style.transform = cssTransform;
+		box.setCssProps({ transform: cssTransform });
       }
     }
 
@@ -399,6 +440,12 @@ export class SelectionDragController {
 
       this.host.suppressNextClick = true;
       const updates = [...groupDrag.latest.entries()].map(([index, transform]) => ({ index, transform }));
+      debugLog('selection', 'PowerPoint selection drag ended', {
+        op: 'drag-end',
+        slide: this.host.currentSlide,
+        shapeIndexes: updates.map((update) => update.index),
+        mode: 'group-move'
+      });
       void this.commitGroupTransforms(updates);
     }
 
@@ -422,16 +469,26 @@ export class SelectionDragController {
 
         const history = await this.host.captureHistoryEntry(label);
         for (const update of changed) {
-          await this.host.engine.updateShapeTransform(this.host.currentSlide, update.index, update.transform);
+          await this.host.session.applyCommand({
+            type: 'update-shape-transform',
+            slideIndex: this.host.currentSlide,
+            shapeIndex: update.index,
+            transform: update.transform
+          });
         }
         this.host.recordHistoryEntry(history);
-        this.host.markDirty();
         const indices = updates.map((update) => update.index);
         const rendered = await this.host.renderCurrentSlide();
         if (rendered) {
           this.host.applyMultiSelection(indices);
           await this.host.renderThumbnails();
         }
+        debugLog('selection', 'PowerPoint selection drag committed', {
+          op: 'drag-commit',
+          slide: this.host.currentSlide,
+          shapeIndexes: changed.map((update) => update.index),
+          mode: 'group-move'
+        });
       } catch (error) {
         this.notice('powerpoint:notice.couldNotMoveObjects', { message: cleanError(error) });
       }
@@ -463,6 +520,13 @@ export class SelectionDragController {
         startTransform: cloneTransform(this.host.selectedTransform),
         latestTransform: cloneTransform(this.host.selectedTransform)
       };
+      debugLog('selection', 'PowerPoint selection drag started', {
+        op: 'drag-start',
+        slide: this.host.currentSlide,
+        shapeIndexes: this.host.selectedShapeIndex === null ? [] : [this.host.selectedShapeIndex],
+        mode,
+        handle
+      });
     }
 
   handleDragMove = (event: PointerEvent): void => {
@@ -559,7 +623,7 @@ export class SelectionDragController {
       this.host.selectedTransform = cloneTransform(next);
       this.host.updateInspectorValues();
       if (this.selectionOverlay) {
-        this.selectionOverlay.style.transform = `rotate(${degrees}deg)`;
+		this.selectionOverlay.setCssProps({ transform: `rotate(${degrees}deg)` });
       }
     }
 
@@ -575,12 +639,19 @@ export class SelectionDragController {
       if (!this.dragState || event.pointerId !== this.dragState.pointerId) return;
 
       this.host.snapController.clearSnapGuides();
+      const mode = this.dragState.mode;
       const transform = cloneTransform(this.dragState.latestTransform);
       this.dragState = null;
-      void this.commitTransform(transform);
+      debugLog('selection', 'PowerPoint selection drag ended', {
+        op: 'drag-end',
+        slide: this.host.currentSlide,
+        shapeIndexes: this.host.selectedShapeIndex === null ? [] : [this.host.selectedShapeIndex],
+        mode
+      });
+      void this.commitTransform(transform, mode);
     };
 
-  async commitTransform(transform: ShapeTransform): Promise<void> {
+  async commitTransform(transform: ShapeTransform, mode: DragState['mode'] = 'move'): Promise<void> {
       if (!this.host.engine || this.host.selectedShapeIndex === null) return;
       if (!this.host.ensureEditable('edit object')) return;
 
@@ -591,12 +662,22 @@ export class SelectionDragController {
         if (selected && transformsMatch(this.host.engine.getShapeTransform(selected), transform)) return;
 
         const history = await this.host.captureHistoryEntry('Edit layout');
-        await this.host.engine.updateShapeTransform(this.host.currentSlide, shapeIndex, transform);
+        await this.host.session.applyCommand({
+          type: 'update-shape-transform',
+          slideIndex: this.host.currentSlide,
+          shapeIndex,
+          transform
+        });
         this.host.selectedTransform = cloneTransform(transform);
         this.host.recordHistoryEntry(history);
-        this.host.markDirty();
         const rendered = await this.host.renderEditedShape(shapeIndex);
         if (rendered) await this.host.renderThumbnails();
+        debugLog('selection', 'PowerPoint selection transform committed', {
+          op: `${mode}-commit`,
+          slide: this.host.currentSlide,
+          shapeIndexes: [shapeIndex],
+          mode
+        });
       } catch (error) {
         this.notice('powerpoint:notice.couldNotUpdateObject', { message: cleanError(error) });
       }

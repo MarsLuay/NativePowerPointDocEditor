@@ -13,7 +13,7 @@ PLUGIN_MANIFEST="${PLUGIN_ROOT}/manifest.json"
 PLUGIN_ID="native-powerpoint-doc-editor"
 PLUGIN_NAME="Native PowerPoint Doc Editor"
 LOG_FILE="${HOME}/Library/Logs/native-powerpoint-doc-editor-install.log"
-OBSOLETE_PLUGIN_IDS=(native-powerpoint docxidian)
+OBSOLETE_PLUGIN_IDS=(native-powerpoint)
 AUTO_SEARCH_DEPTH="${NATIVE_POWERPOINT_AUTO_SEARCH_DEPTH:-6}"
 SELECTED_DIR_SEARCH_DEPTH="${NATIVE_POWERPOINT_SELECTED_DIR_SEARCH_DEPTH:-10}"
 

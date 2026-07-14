@@ -6,7 +6,8 @@
     "search": "‫hcraeS",
     "fileHandoff": "‫ffodnah eliF",
     "diagnostics": "‫scitsongaiD",
-    "powerpoint": "‫tnioPrewoP"
+    "powerpoint": "‫tnioPrewoP",
+    "ai": "‫gnicafretni IA"
   },
   "docx": {
     "authorName": {
@@ -29,7 +30,7 @@
       "resetLabel": "‫teseR"
     },
     "autosave": {
-      "name": "‫evasotuA",
+      "name": "‫evasotua XCOD",
       "description": "‫.segnahc retfa yltrohs tnemucod eht evas yllacitamotuA"
     },
     "createBackupsBeforeSave": {
@@ -65,7 +66,7 @@
   },
   "powerpoint": {
     "autosave": {
-      "name": "‫stide evasotuA",
+      "name": "‫evasotua XTPP",
       "description": "‫.lanigiro eht gnitirwrevo tuohtiw ypoc yrevocer a ot stide devasnu setirw selif gnihctiws ro gnisolc ,delbasid nehW .elttes stide retfa sm 0051 selif tnioPrewoP elbatide evaS"
     },
     "showInspector": {
@@ -79,6 +80,11 @@
     "yoloMode": {
       "name": "‫edom OLOY htiw stnioPrewoP nepO",
       "description": "‫.punaelc weiverp tuohtiw nwohs si GVS edils lanigiro eht os selif XTPP erutuf rof edom OLOY rebmemeR"
+    },
+    "copyPptxLog": {
+      "name": "‫gol XTPP ypoC",
+      "description": "‫.draobpilc eht ot sgol rotidE coD tnioPrewoP evitaN cificeps-XTPP ypoC",
+      "actionLabel": "‫ypoC"
     }
   },
   "fileHandoff": {
@@ -99,6 +105,23 @@
   "templates": {
     "title": "‫setalpmet noitatneserp eerF",
     "description": "‫.ezimotsuc ro daolnwod nac uoy skced retrats dnif ot secalp wef A"
+  },
+  "ai": {
+    "enableInterfacing": {
+      "name": "‫gnicafretnI-IA elbanE",
+      "description": "‫.dehsilbup si ecafrus tnega on ,ffo nehW .stide XCOD dna XTPP evas dna ,ylppa ,etadilav ,ebircsed nac sloot IA lanretxe os sdnammoc NOSJ draobpilc dna ,tsefinam ytilibapac ksid-no ,IPA nigulp eht esopxE"
+    },
+    "disabledNotice": "‫.tsrif sgnittes nigulp ni gnicafretnI-IA elbanE",
+    "manifestCopied": "‫.draobpilc eht ot tsefinam ytilibapac IA deipoC",
+    "describeCopied": "‫.draobpilc eht ot tluser )(ebircsed deipoC",
+    "applyCopied": "‫.draobpilc eht ot tluser )(ylppa deipoC",
+    "validateCopied": "‫.draobpilc eht ot tluser )(spOetadilav deipoC",
+    "saveCopied": "‫.draobpilc eht ot tluser )(evas deipoC",
+    "undoCopied": "‫.draobpilc eht ot tluser )(odnu deipoC",
+    "redoCopied": "‫.draobpilc eht ot tluser )(oder deipoC",
+    "clipboardPathRequired": "‫ :elif XCOD/XTPP nepo na sucof ro htap a edulcni tsum NOSJ draobpilC{ \"path\": \"vault/file.pptx\" }.",
+    "clipboardApplyInvalid": "‫ :spo edulcni tsum NOSJ draobpilC{ \"path\"?: \"...\", \"ops\": [...] }.",
+    "clipboardInvalid": "‫.draobpilc eht morf NOSJ dilav daer ton dluoC"
   },
   "debug": {
     "copyFullLog": {

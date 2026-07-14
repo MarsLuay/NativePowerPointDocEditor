@@ -8,12 +8,23 @@
 # npm
 node_modules
 
+# Local static-analysis caches
+.code-analysis/
+
 # Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
+ai/capabilities.json
 
 # Exclude sourcemaps
 *.map
+
+# TypeScript is authoritative; do not track emitted source mirrors.
+/src/**/*.js
+
+# Vendored Eigenpal packages require their published runtime and declaration artifacts.
+!/src/vendor/eigenpal/*/dist/
+!/src/vendor/eigenpal/*/dist/**
 
 # Visual smoke output
 scripts/visual-output/
@@ -34,3 +45,6 @@ tests/_probe-*.mjs
 
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
+
+# Local-only AI-interfacing design doc (not for release)
+docs/AGENT-API.md

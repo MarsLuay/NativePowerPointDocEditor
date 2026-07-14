@@ -1,99 +1,81 @@
-# Native PowerPoint Doc Editor
+# Welcome to Native PowerPoint Doc Editor!
 
-Native PowerPoint Doc Editor is an Obsidian plugin for opening, searching, and editing `.docx` and `.pptx` files directly inside your vault.
-
-The plugin keeps Office files in place instead of converting them to Markdown. It is designed for school, work, and research vaults where Word documents and PowerPoint decks need small edits, search, review, or quick inspection without leaving Obsidian.
+Native PowerPoint Doc Editor opens, searches, and edits `.docx` and `.pptx` files directly inside your Obsidian vault without converting them to Markdown.
 
 | DOCX editor | PowerPoint editor |
 | --- | --- |
 | ![Native PowerPoint Doc Editor DOCX screen](screenshot.png) | ![Native PowerPoint Doc Editor PPTX screen](screenshot-pptx.png) |
 
-## Features
+## What Native PowerPoint Doc Editor Does
 
-- Open DOCX files in a native editor view
-- Open PPTX files in a PowerPoint-style slide editor view
-- Edit and save DOCX files back to the original vault file
-- Edit PowerPoint text, tables, charts, shapes, slide objects, and chart data for supported `.pptx` decks
-- Search inside DOCX files from Obsidian
-- Search within opened PowerPoint decks
-- Duplicate, export, and save-as supported documents
-- Detect possible save conflicts when a file changes on disk while it is open
-- Scan DOCX files for hidden or suspicious text
-- Keep DOCX and PPTX handling optional so another plugin can take over those extensions
+### Editing and viewing
 
-## Installation
+- Opens DOCX files in a native document editor.
+- Opens `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, and `.potm` files in a PowerPoint-style slide editor.
+- Edits and saves DOCX text, formatting, tables, images, and review markup.
+- Edits supported PowerPoint text, tables, charts, shapes, slide objects, and chart data.
+- Duplicates, exports, and saves supported documents under a new name.
+- Detects save conflicts when an Office file changes on disk while it is open.
 
-### Community plugin directory
+### Search and diagnostics
 
-1. Open Obsidian Settings.
-2. Go to Community plugins.
-3. Search for `Native PowerPoint Doc Editor`.
-4. Install and enable the plugin.
+- Searches inside the current DOCX or PowerPoint file.
+- Optionally builds a local vault-wide DOCX search index.
+- Scans DOCX files for hidden or suspicious prompt-injection text.
+- Keeps DOCX and PowerPoint file handling optional so another plugin can own either extension.
 
-### Manual install or beta testing
+To start editing, open a supported Office file from the Obsidian file explorer. Use the editor toolbar or command palette for save, export, duplicate, search, and diagnostics. Plugin settings can disable DOCX or PowerPoint handling independently.
 
-1. Download the latest release assets from GitHub:
-   - `main.js`
-   - `manifest.json`
-   - `styles.css`
-2. Create this folder in your vault:
+## Setup
 
-   ```text
-   .obsidian/plugins/native-powerpoint-doc-editor
-   ```
+### Quick Start
 
-3. Copy the release files into that folder.
-4. Reload Obsidian and enable `Native PowerPoint Doc Editor` from Community plugins.
+1. Open **Settings → Community plugins** in Obsidian.
+2. Search for **Native PowerPoint Doc Editor**.
+3. Install and enable the plugin.
+4. Open a `.docx` or supported PowerPoint file from the file explorer.
 
-The `run-to-import` folder also contains local Windows and macOS installers for manual vault installation.
+### Manual Setup
 
-## Usage
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
+2. Create `.obsidian/plugins/native-powerpoint-doc-editor` inside your vault.
+3. Copy the three release files into that folder.
+4. Reload Obsidian.
+5. Enable **Native PowerPoint Doc Editor** under **Settings → Community plugins**.
 
-- Open a `.docx` file in the file explorer to use the DOCX editor.
-- Open a `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, or `.potm` file to use the PowerPoint view.
-- Use the toolbar and command palette actions for save, export, duplicate, search, and document diagnostics.
-- Use plugin settings to turn DOCX or PowerPoint handling on or off.
-
-## Privacy and network
-
-Native PowerPoint Doc Editor is designed to work **offline inside your vault**.
-
-- **No telemetry or analytics.** The plugin does not phone home, collect usage data, or require an account.
-- **No self-updating code.** Updates come only through Obsidian's normal community-plugin install flow or manual release files you place in your vault.
-- **No ads.** The plugin does not load advertising scripts or remote UI content.
-
-### When network access can happen
-
-Most use is fully local. Network access is limited to cases below:
-
-- **Links you choose to open.** Settings may show outbound links (for example presentation template sites, GitHub issue reporting, or the Obsidian download page shown when an older browser engine cannot render PPTX). Opening those links is handled by your browser or operating system.
-- **Links inside your documents.** If a DOCX or PPTX file contains a hyperlink and you activate it, Obsidian or your OS handles that navigation.
-- **DOCX PDF export with remote images.** If a document references images hosted on the web, export may ask the browser to load those image URLs so they can be rendered into the PDF.
-
-The plugin does not upload vault contents to a server as part of normal editing, search, save, or export.
-
-See also [docs/privacy-policy.md](docs/privacy-policy.md) and [docs/terms-of-service.md](docs/terms-of-service.md).
-
-### Local data the plugin stores
-
-- **DOCX search index** — optional, **off by default**. When enabled in settings, builds a local text cache at `.obsidian/plugins/native-powerpoint-doc-editor/docx-search-index.json` for vault-wide DOCX search.
-- **Recovery copies** — if a PowerPoint save fails or autosave is disabled, unsaved edits may be written to a new file in your vault.
-- **Plugin settings** — stored in Obsidian's normal plugin data file for this plugin.
-- **Debug log file** — only when a developer `.hotreload` marker is present in the plugin folder; otherwise logging stays in memory and the developer console.
-
-### Files outside the vault
-
-- **Import font** and **insert image** actions use the system file picker. The file you choose may live outside the vault; only the content needed for the document is used.
-- **Copy debug log** copies diagnostics you request to the clipboard. It does not send them anywhere automatically.
-
-## Changelog
-
-See [CHANGELOG.md](CHANGELOG.md) for release history, including the WasmGC fallback added in 1.0.14.
-
-## Development
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines, local setup notes, and release expectations.
+For local development, install dependencies with `npm install`, build with `npm run build`, and copy the release artifacts to the same plugin folder. The `run-to-import` folder also contains local Windows and macOS installers.
 
 ## License
 
-Released under the MIT license.
+Licensed under the BSD Zero Clause License (`0BSD`).
+
+## Network
+
+The plugin is designed to work offline inside your vault. It has no telemetry, analytics, advertising, accounts, or self-updating code. Normal editing, search, save, and export do not upload vault contents.
+
+Network access can occur only when you open an external link, activate a hyperlink stored in a document, or export a DOCX whose images reference remote URLs. Obsidian, your operating system, or the browser handles those requests.
+
+Local data may include an optional DOCX search index, recovery copies, normal Obsidian plugin settings, and a developer debug log when a `.hotreload` marker exists. **Import font** and **Insert image** use a system file picker; **Copy debug log** writes only to the clipboard.
+
+See [docs/privacy-policy.md](docs/privacy-policy.md) and [docs/terms-of-service.md](docs/terms-of-service.md).
+
+## Commands
+
+- `rebuild-docx-search-index` — rebuild the optional local DOCX search index.
+- `find-in-current-docx` — find text in the open DOCX file.
+- `find-replace-in-current-docx` — find and replace text in the open DOCX file.
+- `search-docx-files` — search indexed DOCX files across the vault.
+- `save-current-docx` — save the open DOCX file.
+- `save-current-docx-as` — save the open DOCX file under another name.
+- `duplicate-current-docx` — duplicate the open DOCX file.
+- `copy-native-powerpoint-doc-editor-debug-log` — copy the in-memory diagnostic log.
+- `open-powerpoint-file` — choose and open a supported PowerPoint file.
+- `save-current-powerpoint-file` — save the open PowerPoint file.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution, setup, testing, and release guidance.

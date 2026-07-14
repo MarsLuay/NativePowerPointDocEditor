@@ -397,7 +397,7 @@ test("highlight fidelity: adding a text box keeps the existing shape's <a:highli
 
   // Adding a shape re-serializes the slide via a Wasm primitive, which drops
   // every <a:highlight> from the renderer model.
-  const newIndex = engine.addTextBox(slide);
+  const newIndex = await engine.addTextBox(slide);
   assert.ok(newIndex > 0, "the text box was appended after the existing shape");
 
   assert.deepEqual(
@@ -422,7 +422,7 @@ test("highlight fidelity: deleting a lower shape remaps the surviving highlight 
   // Highlight the bullet shape (index 0), then add a second text box and
   // highlight it too with a distinct color.
   await engine.setRunStyleForRanges(slide, 0, [{ paragraphIndex: 0, start: 0, end: 20 }], { highlight: "FFFF00" });
-  engine.addTextBox(slide);
+  await engine.addTextBox(slide);
   const boxIndex = shapeIndexByParagraphText(engine, slide, "New text");
   assert.ok(boxIndex > 0, "the new text box was found in document order");
   await engine.setRunStyleForRanges(slide, boxIndex, [{ paragraphIndex: 0, start: 0, end: 3 }], { highlight: "00FF00" });
@@ -440,7 +440,8 @@ test("highlight fidelity: deleting a lower shape remaps the surviving highlight 
   assert.ok(!after.some((h) => h.color === "FFFF00"), "the deleted shape's highlight is gone");
   const moved = after.find((h) => h.color === "00FF00");
   assert.ok(moved, "the surviving highlight is preserved");
-  assert.equal(moved.shapeIndex, boxIndex - 1, "the surviving highlight's shape index is decremented");
+  const textBoxIndex = shapeIndexByParagraphText(engine, slide, "New text");
+  assert.equal(moved.shapeIndex, textBoxIndex, "the surviving highlight stays on the text box");
 
   const { PresentationEngine } = await loadPresentationEngineModule();
   const reopened = await PresentationEngine.load(await engine.export());

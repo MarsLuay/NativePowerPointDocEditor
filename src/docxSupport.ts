@@ -1,5 +1,6 @@
-import type { TAbstractFile } from 'obsidian';
-import { TFile } from 'obsidian';
+import type { App, Menu, TAbstractFile } from 'obsidian';
+import { TFile, TFolder, normalizePath } from 'obsidian';
+import type { DocxViewAgentBridge } from './ai/aiRuntime';
 import { showI18nNotice } from './i18n/notify';
 import { processDocxEmbeds, registerDocxFileEmbed } from './DocxEmbedLoader';
 import { DocxSearchModal } from './DocxSearchModal';
@@ -11,6 +12,7 @@ import { scheduleIdleWork } from './idleSchedule';
 import { errorLog, infoLog } from './logger';
 import { getDocxEditorLocale, loadDocxEditorLocale, preloadDocxEditorLocale } from './locales';
 import type NativePowerPointDocEditorPlugin from './main';
+import { createAndOpenNewOfficeFile } from './vault/createNewOfficeFile';
 
 export { createDocxReactMount, DocxFileEmbed, renderDocxEmbeds, hasReviewMarkup } from './docxEditorChunk';
 export { DocxView, VIEW_TYPE_DOCX };
@@ -31,15 +33,15 @@ export async function registerDocxSupport(
 		VIEW_TYPE_DOCX,
 		(leaf) => new DocxView(
 			leaf,
-			() => plugin.settings.authorName,
-			() => plugin.settings.editorTheme,
+			() => plugin.pluginSettings.authorName,
+			() => plugin.pluginSettings.editorTheme,
 			() => plugin.getResolvedEditorTheme(),
 			() => getDocxEditorLocale(plugin.getResolvedDocxEditorLanguage()),
 			() => plugin.getI18n(),
-			() => plugin.settings.showRuler,
-			() => plugin.settings.autosave,
-			() => plugin.settings.createBackupsBeforeSave,
-			() => plugin.settings.defaultZoom,
+			() => plugin.pluginSettings.showRuler,
+			() => plugin.pluginSettings.autosave,
+			() => plugin.pluginSettings.createBackupsBeforeSave,
+			() => plugin.pluginSettings.defaultZoom,
 		),
 	);
 	plugin.registerExtensions(DOCX_EXTENSIONS, VIEW_TYPE_DOCX);
@@ -48,11 +50,40 @@ export async function registerDocxSupport(
 	registerDeferredDocxEmbedProcessor(plugin);
 
 	registerDocxCommands(plugin, docxSearchIndex);
+	registerDocxFolderMenu(plugin);
 	registerDocxSearchEvents(plugin, docxSearchIndex);
 	queueInitialDocxSearchIndex(plugin, docxSearchIndex);
 
 	infoLog('plugin', 'DOCX support registered');
 	return docxSearchIndex;
+}
+
+function registerDocxFolderMenu(plugin: NativePowerPointDocEditorPlugin) {
+	plugin.registerEvent(plugin.app.workspace.on('file-menu', (menu, file) => {
+		if (!(file instanceof TFolder)) {
+			return;
+		}
+
+		addCreateDocxMenuItem(plugin, menu, file);
+	}));
+}
+
+function addCreateDocxMenuItem(plugin: NativePowerPointDocEditorPlugin, menu: Menu, folder: TFolder) {
+	const i18n = plugin.getI18n();
+	menu.addItem((item) => {
+		item
+			.setTitle(i18n?.t('docx:menu.newDocx') ?? 'New DOCX')
+			.setIcon('file-text')
+			.onClick(async () => {
+				try {
+					await createAndOpenNewOfficeFile(plugin.app, folder, 'docx');
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					showI18nNotice(i18n, 'docx:notice.createFailed', { message });
+					errorLog('file', 'Failed to create blank DOCX', { folder: folder.path, message });
+				}
+			});
+	});
 }
 
 function registerDeferredDocxEmbedProcessor(plugin: NativePowerPointDocEditorPlugin) {
@@ -147,7 +178,7 @@ function registerDocxCommands(plugin: NativePowerPointDocEditorPlugin, docxSearc
 		id: 'search-docx-files',
 		name: 'Search DOCX files in vault',
 		callback: async () => {
-			if (!plugin.settings.enableDocxSearchIndex) {
+			if (!plugin.pluginSettings.enableDocxSearchIndex) {
 				showI18nNotice(plugin.getI18n(), 'docx:notice.enableSearchIndexFirst');
 				return;
 			}
@@ -176,7 +207,7 @@ function registerDocxSearchEvents(plugin: NativePowerPointDocEditorPlugin, docxS
 }
 
 function queueInitialDocxSearchIndex(plugin: NativePowerPointDocEditorPlugin, docxSearchIndex: DocxSearchIndex) {
-	if (!plugin.settings.enableDocxSearchIndex || !plugin.settings.autoIndexDocxSearch) {
+	if (!plugin.pluginSettings.enableDocxSearchIndex || !plugin.pluginSettings.autoIndexDocxSearch) {
 		return;
 	}
 
@@ -192,7 +223,7 @@ async function handleDocxSearchFileChanged(
 	docxSearchIndex: DocxSearchIndex,
 	file: TAbstractFile,
 ) {
-	if (!plugin.settings.enableDocxSearchIndex || !plugin.settings.autoIndexDocxSearch) {
+	if (!plugin.pluginSettings.enableDocxSearchIndex || !plugin.pluginSettings.autoIndexDocxSearch) {
 		return;
 	}
 
@@ -209,7 +240,7 @@ function handleDocxSearchFileDeleted(
 	docxSearchIndex: DocxSearchIndex,
 	fileOrPath: TAbstractFile | string,
 ) {
-	if (!plugin.settings.enableDocxSearchIndex) {
+	if (!plugin.pluginSettings.enableDocxSearchIndex) {
 		return;
 	}
 
@@ -227,14 +258,14 @@ export async function rebuildDocxSearchIndex(
 	force = false,
 	showNotice = true,
 ) {
-	if (plugin.settings.disableDocxFiles) {
+	if (plugin.pluginSettings.disableDocxFiles) {
 		if (showNotice) {
 			showI18nNotice(plugin.getI18n(), 'docx:notice.supportDisabled');
 		}
 		return;
 	}
 
-	if (!plugin.settings.enableDocxSearchIndex) {
+	if (!plugin.pluginSettings.enableDocxSearchIndex) {
 		return;
 	}
 
@@ -257,14 +288,29 @@ export async function rebuildDocxSearchIndex(
 	}
 }
 
+export function findDocxViewForPath(app: App, path: string): DocxViewAgentBridge | null {
+	const normalized = normalizePath(path);
+	for (const leaf of app.workspace.getLeavesOfType(VIEW_TYPE_DOCX)) {
+		const view = leaf.view;
+		if (view instanceof DocxView && view.getLoadedDocumentPath() === normalized) {
+			return view;
+		}
+	}
+	return null;
+}
+
 export function refreshDocxViews(plugin: NativePowerPointDocEditorPlugin) {
 	for (const leaf of plugin.app.workspace.getLeavesOfType(VIEW_TYPE_DOCX)) {
 		const view = leaf.view;
 		if (view instanceof DocxView) {
 			view.refreshSettings();
-			void loadDocxEditorLocale(plugin.getResolvedDocxEditorLanguage()).then(() => {
-				view.refreshSettings();
-			});
+			void loadDocxEditorLocale(plugin.getResolvedDocxEditorLanguage())
+				.then(() => {
+					view.refreshSettings();
+				})
+				.catch((error) => {
+					errorLog('i18n', 'Could not refresh DOCX editor locale', error);
+				});
 		}
 	}
 }

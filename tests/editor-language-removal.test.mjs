@@ -6,15 +6,20 @@ import Module, { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
+import { createVendoredDocxAliases } from '../scripts/lib/vendored-docx-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
+const vendoredDocxAliases = await createVendoredDocxAliases(
+	path.join(projectRoot, 'src/vendor/eigenpal'),
+);
 
 async function loadModule(entry, external = []) {
 	const outdir = await mkdtemp(path.join(tmpdir(), 'npde-editor-language-test-'));
 	const outfile = path.join(outdir, 'module.cjs');
 	await build({
 		absWorkingDir: projectRoot,
+		alias: vendoredDocxAliases,
 		entryPoints: [entry],
 		bundle: true,
 		external,
@@ -53,6 +58,7 @@ async function loadSettingsModule() {
 	const outfile = path.join(outdir, 'settings.cjs');
 	await build({
 		absWorkingDir: projectRoot,
+		alias: vendoredDocxAliases,
 		entryPoints: ['src/settings.ts'],
 		bundle: true,
 		external: ['obsidian'],
@@ -71,9 +77,9 @@ test('DEFAULT_SETTINGS does not define editorLanguage', async () => {
 	assert.equal('editorLanguage' in DEFAULT_SETTINGS, false);
 });
 
-test('readNativePowerPointDocEditorSettings drops legacy editorLanguage', async () => {
-	const { readNativePowerPointDocEditorSettings } = await loadSettingsModule();
-	const result = readNativePowerPointDocEditorSettings({
+test('mergeNativePowerPointDocEditorSettings drops legacy editorLanguage', async () => {
+	const { mergeNativePowerPointDocEditorSettings } = await loadSettingsModule();
+	const result = mergeNativePowerPointDocEditorSettings({
 		authorName: 'Legacy User',
 		editorLanguage: 'pl',
 		autosave: true,

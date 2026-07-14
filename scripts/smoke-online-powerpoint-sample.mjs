@@ -190,7 +190,7 @@ try {
   const editEngine = await PresentationEngine.load(originalBuffer);
   const originalSlideCount = editEngine.slideCount;
   const slideIndex = 0;
-  const insertedShapeIndex = editEngine.addTextBox(slideIndex);
+  const insertedShapeIndex = await editEngine.addTextBox(slideIndex);
   await editEngine.updateShapeText(slideIndex, insertedShapeIndex, 'Codex online sample text box');
   await editEngine.updateTextRun(slideIndex, insertedShapeIndex, 0, 0, 'Codex inline run edit');
 

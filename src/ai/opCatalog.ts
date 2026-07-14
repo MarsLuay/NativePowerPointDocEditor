@@ -1,0 +1,351 @@
+import type { JsonSchema, OpDefinition } from './types';
+
+const SLIDE_INDEX: JsonSchema = {
+	type: 'integer',
+	minimum: 0,
+	description: '0-based slide index.',
+};
+
+const SHAPE_INDEX: JsonSchema = {
+	type: 'integer',
+	description: 'Renderer shape index from describe(). Negative indices are not editable.',
+};
+
+const TRANSFORM: JsonSchema = {
+	type: 'object',
+	required: ['x', 'y', 'cx', 'cy', 'rot'],
+	properties: {
+		x: { type: 'number', description: 'Left offset in EMU.' },
+		y: { type: 'number', description: 'Top offset in EMU.' },
+		cx: { type: 'number', description: 'Width in EMU.' },
+		cy: { type: 'number', description: 'Height in EMU.' },
+		rot: { type: 'number', description: 'Rotation in OOXML 60,000ths of a degree.' },
+	},
+	additionalProperties: false,
+};
+
+function slideShapeParams(extra: Record<string, JsonSchema> = {}): JsonSchema {
+	return {
+		type: 'object',
+		required: ['slideIndex', 'shapeIndex', ...Object.keys(extra)],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			shapeIndex: SHAPE_INDEX,
+			...extra,
+		},
+		additionalProperties: false,
+	};
+}
+
+function pptxOp(
+	id: string,
+	featureArea: string,
+	description: string,
+	parameters: JsonSchema,
+): OpDefinition {
+	return {
+		id: `pptx.${id}`,
+		namespace: 'pptx',
+		featureArea,
+		description,
+		status: 'implemented',
+		parameters,
+	};
+}
+
+function docxOp(
+	id: string,
+	featureArea: string,
+	description: string,
+	parameters: JsonSchema,
+): OpDefinition {
+	return {
+		id: `docx.${id}`,
+		namespace: 'docx',
+		featureArea,
+		description,
+		status: 'implemented',
+		parameters,
+	};
+}
+
+/** Canonical operation catalog for agent discovery and schema validation. */
+export const OP_CATALOG: readonly OpDefinition[] = [
+	// PPTX — text-editing
+	pptxOp('updateShapeText', 'text-editing', 'Replace all text in a shape.', slideShapeParams({
+		text: { type: 'string', description: 'Plain text for the shape body.' },
+	})),
+	pptxOp('updateParagraphText', 'text-editing', 'Replace one paragraph of text.', slideShapeParams({
+		paragraphIndex: { type: 'integer', minimum: 0 },
+		text: { type: 'string' },
+	})),
+	pptxOp('updateTextRun', 'text-editing', 'Replace one text run.', slideShapeParams({
+		paragraphIndex: { type: 'integer', minimum: 0 },
+		runIndex: { type: 'integer', minimum: 0 },
+		text: { type: 'string' },
+	})),
+	pptxOp('replaceText', 'text-editing', 'Find and replace text within a slide or deck scope.', {
+		type: 'object',
+		required: ['query', 'replacement'],
+		properties: {
+			slideIndex: { ...SLIDE_INDEX, description: 'Optional slide scope. Omit to search all slides.' },
+			query: { type: 'string' },
+			replacement: { type: 'string' },
+			matchCase: { type: 'boolean' },
+		},
+		additionalProperties: false,
+	}),
+
+	// PPTX — text-formatting
+	pptxOp('setRunStyle', 'text-formatting', 'Apply bold/italic/underline/font to a run or range.', slideShapeParams({
+		paragraphIndex: { type: 'integer', minimum: 0 },
+		runIndex: { type: 'integer', minimum: 0 },
+		style: { type: 'object', additionalProperties: true, description: 'Run style patch object.' },
+	})),
+	pptxOp('setParagraphAlignment', 'text-formatting', 'Set paragraph alignment.', slideShapeParams({
+		paragraphIndex: { type: 'integer', minimum: 0 },
+		align: { type: 'string', enum: ['l', 'ctr', 'r', 'just'] },
+	})),
+	pptxOp('applyListStyle', 'text-formatting', 'Apply bullet, numbered, or no list style.', slideShapeParams({
+		paragraphIndex: { type: 'integer', minimum: 0 },
+		style: { type: 'string', enum: ['bullet', 'number', 'none'] },
+	})),
+
+	// PPTX — arrange / inspector
+	pptxOp('updateTransform', 'arrange', 'Move, resize, or rotate a shape.', slideShapeParams({
+		transform: TRANSFORM,
+	})),
+	pptxOp('reorderShapes', 'arrange', 'Change z-order of shapes on a slide.', {
+		type: 'object',
+		required: ['slideIndex', 'shapeIndex', 'mode'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			shapeIndex: SHAPE_INDEX,
+			mode: { type: 'string', enum: ['front', 'back', 'forward', 'backward'] },
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('groupShapes', 'arrange', 'Group shapes on a slide.', {
+		type: 'object',
+		required: ['slideIndex', 'shapeIndices'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			shapeIndices: { type: 'array', items: { type: 'integer' }, description: 'At least two shape indices.' },
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('ungroupShapes', 'arrange', 'Ungroup a grouped shape.', slideShapeParams()),
+	pptxOp('flipShape', 'arrange', 'Flip a shape horizontally or vertically.', slideShapeParams({
+		axis: { type: 'string', enum: ['horizontal', 'vertical'] },
+	})),
+
+	// PPTX — insert
+	pptxOp('addImage', 'insert', 'Insert an image on a slide.', {
+		type: 'object',
+		required: ['slideIndex', 'vaultImagePath', 'transform'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			vaultImagePath: { type: 'string', description: 'Vault path to a raster image file.' },
+			transform: TRANSFORM,
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('addShape', 'insert', 'Insert a geometry shape.', {
+		type: 'object',
+		required: ['slideIndex', 'geometry', 'transform'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			geometry: { type: 'string', description: 'Shape geometry preset name.' },
+			transform: TRANSFORM,
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('addTextBox', 'insert', 'Insert an empty text box.', {
+		type: 'object',
+		required: ['slideIndex', 'transform'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			transform: TRANSFORM,
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('addTable', 'insert', 'Insert a table.', {
+		type: 'object',
+		required: ['slideIndex', 'rows', 'cols', 'transform'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			rows: { type: 'integer', minimum: 1 },
+			cols: { type: 'integer', minimum: 1 },
+			transform: TRANSFORM,
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('addChart', 'insert', 'Insert a chart placeholder.', {
+		type: 'object',
+		required: ['slideIndex', 'transform'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			transform: TRANSFORM,
+		},
+		additionalProperties: false,
+	}),
+
+	// PPTX — slide operations
+	pptxOp('addSlide', 'slide-operations', 'Add a blank slide after an index.', {
+		type: 'object',
+		required: ['afterIndex'],
+		properties: {
+			afterIndex: { type: 'integer', minimum: -1, description: '-1 inserts at start.' },
+			layout: { type: 'string', enum: ['blank', 'title', 'titleBody'] },
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('deleteSlide', 'slide-operations', 'Delete a slide.', {
+		type: 'object',
+		required: ['slideIndex'],
+		properties: { slideIndex: SLIDE_INDEX },
+		additionalProperties: false,
+	}),
+	pptxOp('moveSlide', 'slide-operations', 'Move a slide left or right.', {
+		type: 'object',
+		required: ['slideIndex', 'direction'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			direction: { type: 'integer', enum: [-1, 1] },
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('duplicateSlide', 'slide-operations', 'Duplicate a slide.', {
+		type: 'object',
+		required: ['slideIndex'],
+		properties: { slideIndex: SLIDE_INDEX },
+		additionalProperties: false,
+	}),
+	pptxOp('reorderSlides', 'slide-operations', 'Reorder slides by index list.', {
+		type: 'object',
+		required: ['order'],
+		properties: {
+			order: { type: 'array', items: { type: 'integer', minimum: 0 } },
+		},
+		additionalProperties: false,
+	}),
+	pptxOp('setSlideBackground', 'slide-operations', 'Set slide background color or image.', {
+		type: 'object',
+		required: ['slideIndex'],
+		properties: {
+			slideIndex: SLIDE_INDEX,
+			colorHex: { type: 'string', description: 'RRGGBB without #.' },
+			vaultImagePath: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+
+	// PPTX — image
+	pptxOp('setImageCrop', 'image', 'Crop an image shape.', slideShapeParams({
+		crop: { type: 'object', additionalProperties: true, description: 'Image crop fractions.' },
+	})),
+	pptxOp('resetImage', 'image', 'Reset image crop and effects.', slideShapeParams()),
+	pptxOp('replaceImage', 'image', 'Replace image media from a vault file.', slideShapeParams({
+		vaultImagePath: { type: 'string' },
+	})),
+
+	// PPTX — charts
+	pptxOp('updateChartData', 'charts', 'Update chart series data.', slideShapeParams({
+		data: { type: 'object', additionalProperties: true, description: 'Chart data grid patch.' },
+	})),
+
+	// DOCX — text / font
+	docxOp('setRunText', 'font', 'Set run text by stable block/run id (body, header, footer, footnotes, endnotes).', {
+		type: 'object',
+		required: ['blockId', 'runId', 'text'],
+		properties: {
+			blockId: { type: 'string', description: 'e.g. body/p[12], header/1/p[0], footnotes/fn[1]/p[0]' },
+			runId: { type: 'string', description: 'e.g. body/p[12]/r[0]' },
+			text: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('setRunStyle', 'font', 'Apply run style by stable id.', {
+		type: 'object',
+		required: ['runId', 'style'],
+		properties: {
+			runId: { type: 'string' },
+			style: { type: 'object', additionalProperties: true },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('setParagraphStyle', 'font', 'Apply paragraph style by block id.', {
+		type: 'object',
+		required: ['blockId', 'style'],
+		properties: {
+			blockId: { type: 'string' },
+			style: { type: 'object', additionalProperties: true },
+		},
+		additionalProperties: false,
+	}),
+
+	// DOCX — table
+	docxOp('insertTable', 'table', 'Insert a table at a block anchor.', {
+		type: 'object',
+		required: ['afterBlockId', 'rows', 'cols'],
+		properties: {
+			afterBlockId: { type: 'string' },
+			rows: { type: 'integer', minimum: 1 },
+			cols: { type: 'integer', minimum: 1 },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('setCellText', 'table', 'Set table cell text.', {
+		type: 'object',
+		required: ['cellId', 'text'],
+		properties: {
+			cellId: { type: 'string', description: 'e.g. body/tbl[3]/tr[1]/tc[2]' },
+			text: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('setCellStyle', 'table', 'Set table cell style.', {
+		type: 'object',
+		required: ['cellId', 'style'],
+		properties: {
+			cellId: { type: 'string' },
+			style: { type: 'object', additionalProperties: true },
+		},
+		additionalProperties: false,
+	}),
+
+	// DOCX — image
+	docxOp('insertImage', 'image', 'Insert an image after a block.', {
+		type: 'object',
+		required: ['afterBlockId', 'vaultImagePath'],
+		properties: {
+			afterBlockId: { type: 'string' },
+			vaultImagePath: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('replaceImage', 'image', 'Replace an inline image. blockId must be a describe() image block (body/p[N] with an embedded drawing).', {
+		type: 'object',
+		required: ['blockId', 'vaultImagePath'],
+		properties: {
+			blockId: { type: 'string', description: 'Image block id from describe(), e.g. body/p[1]' },
+			vaultImagePath: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+
+	// DOCX — find-replace
+	docxOp('replaceText', 'find-replace', 'Find and replace text across body, headers, footers, footnotes, and endnotes.', {
+		type: 'object',
+		required: ['query', 'replacement'],
+		properties: {
+			query: { type: 'string' },
+			replacement: { type: 'string' },
+			matchCase: { type: 'boolean' },
+			wholeWord: { type: 'boolean' },
+		},
+		additionalProperties: false,
+	}),
+];
+
+export const OP_IDS = OP_CATALOG.map((op) => op.id);

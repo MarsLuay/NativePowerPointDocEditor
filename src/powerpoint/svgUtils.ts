@@ -27,6 +27,21 @@ export function getShapeIndex(shape: Element | null): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * Whether a renderer shape index can be persisted back to slide OOXML. The
+ * pptx-svg renderer emits negative `data-ooxml-shape-idx` values for shapes it
+ * renders but does not store directly on the slide (e.g. inherited layout/master
+ * content); those cannot be transformed via the renderer or the OOXML fallback.
+ */
+export function isEditableShapeIndex(index: number | null): index is number {
+  return index !== null && Number.isInteger(index) && index >= 0;
+}
+
+/** Layout/master decorations use negative indices and should not receive clicks. */
+export function isSelectableShapeIndex(index: number | null): index is number {
+  return isEditableShapeIndex(index);
+}
+
 export function parseSvgLength(value: string | null): number | null {
   if (!value || value.includes('%')) return null;
 
@@ -108,9 +123,17 @@ export function markEditableTextRuns(svg: SVGSVGElement): void {
   });
 }
 
+export function normalizePictureStretchImages(svg: SVGSVGElement): void {
+  svg.querySelectorAll('g[data-ooxml-shape-type="picture"][data-ooxml-blip-stretch="1"] image')
+    .forEach((image) => {
+      image.setAttribute('preserveAspectRatio', 'none');
+    });
+}
+
 export function normalizeSvgForDisplay(svg: SVGSVGElement): void {
   ensureSvgViewBox(svg);
   applyShapeFlipTransforms(svg);
+  normalizePictureStretchImages(svg);
   bringGridTextToFront(svg);
   markEditableTextRuns(svg);
 }

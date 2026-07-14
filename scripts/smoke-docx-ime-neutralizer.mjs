@@ -52,19 +52,19 @@ function createHarnessHtml(scenario) {
   <style>
     html, body { margin: 0; width: 100%; height: 100%; background: #e2e8f0; }
     .native-powerpoint-doc-editor-host { width: 100%; height: 100%; background: #f8fafc; }
-    .ep-root.paged-editor { width: 100%; height: 100%; }
+    [data-native-powerpoint-doc-editor-root] { width: 100%; height: 100%; }
     .editor-transform { width: 816px; margin: 0 auto; background: white; box-shadow: 0 0 0 1px #d1d5db; }
-    .layout-page-content { padding: 96px 72px; min-height: 400px; }
+    [data-native-powerpoint-doc-editor-page-content] { padding: 96px 72px; min-height: 400px; }
     .docx-run-editable { display: inline; min-height: 1em; outline: none; }
   </style>
   <script src="./neutralizer.js"></script>
 </head>
 <body>
   <div class="native-powerpoint-doc-editor-host">
-    <div class="ep-root paged-editor native-powerpoint-doc-editor-editor-harness">
+    <div class="native-powerpoint-doc-editor-editor-harness" data-native-powerpoint-doc-editor-root="true">
       <div class="editor-transform">
-        <div class="paged-editor__pages">
-          <div class="layout-page-content">
+        <div data-native-powerpoint-doc-editor-pages="true">
+          <div data-native-powerpoint-doc-editor-page-content="true">
             <p><span class="docx-run-editable" contenteditable="true">Japanese IME caret probe line.</span></p>
           </div>
         </div>
@@ -102,7 +102,7 @@ function createHarnessHtml(scenario) {
     };
 
     const visibleCaret = document.createElement('div');
-    visibleCaret.setAttribute('data-testid', 'caret');
+    visibleCaret.setAttribute('data-native-powerpoint-doc-editor-caret', 'true');
     visibleCaret.style.position = 'fixed';
     visibleCaret.style.left = '300px';
     visibleCaret.style.top = '400px';
@@ -111,7 +111,7 @@ function createHarnessHtml(scenario) {
     editorRoot.appendChild(visibleCaret);
 
     const hiddenRoot = document.createElement('div');
-    hiddenRoot.className = 'paged-editor__hidden-pm';
+    hiddenRoot.setAttribute('data-native-powerpoint-doc-editor-hidden-prosemirror', 'true');
     hiddenRoot.style.position = 'absolute';
     hiddenRoot.style.left = '-9999px';
     hiddenRoot.style.top = '0';

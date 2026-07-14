@@ -1,0 +1,1 @@
+import {a}from'../chunk-MSKW7E36.mjs';import {jsonSchema}from'ai';function n(){return Object.fromEntries(a.map(o=>[o.name,{description:o.description,inputSchema:jsonSchema(o.inputSchema)}]))}export{n as getAiSdkTools};

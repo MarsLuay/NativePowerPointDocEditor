@@ -144,3 +144,11 @@ test("cloneTransform makes an independent deep copy of the five fields", () => {
   assert.equal(source.x, 1, "mutating the copy must not affect the source");
   assert.equal(source.rot, 5);
 });
+
+test("isSelectableShapeIndex rejects layout/master decorations and null", () => {
+  assert.equal(svgUtils.isSelectableShapeIndex(0), true);
+  assert.equal(svgUtils.isSelectableShapeIndex(3), true);
+  assert.equal(svgUtils.isSelectableShapeIndex(-1), false);
+  assert.equal(svgUtils.isSelectableShapeIndex(-10), false);
+  assert.equal(svgUtils.isSelectableShapeIndex(null), false);
+});

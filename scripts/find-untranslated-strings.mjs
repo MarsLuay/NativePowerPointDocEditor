@@ -25,7 +25,7 @@ const SCAN_PATTERNS = [
 /** Precise allowlist: file (posix) + exact literal value */
 const PRECISE_ALLOWLIST = new Map([
 	['src/DocxView.tsx', new Set(['›'])],
-	['src/NativePowerPointView.ts', new Set(['@page { size: landscape; margin: 12mm; }'])],
+	['src/powerpoint/ui/NativePowerPointView.ts', new Set(['@page { size: landscape; margin: 12mm; }'])],
 ]);
 
 function collectSourceFiles(root) {

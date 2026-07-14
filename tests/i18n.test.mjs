@@ -5,14 +5,19 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
+import { createVendoredDocxAliases } from '../scripts/lib/vendored-docx-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const vendoredDocxAliases = await createVendoredDocxAliases(
+	path.join(projectRoot, 'src/vendor/eigenpal'),
+);
 
 async function loadModule(entry) {
 	const outdir = await mkdtemp(path.join(tmpdir(), 'npde-i18n-test-'));
 	const outfile = path.join(outdir, 'module.cjs');
 	await build({
 		absWorkingDir: projectRoot,
+		alias: vendoredDocxAliases,
 		entryPoints: [entry],
 		bundle: true,
 		format: 'cjs',
@@ -66,7 +71,14 @@ test('mergeNamespaceMessages flattens nested JSON', async () => {
 	assert.equal(merged['docx:find.title'], 'Find');
 });
 
-test('listInstalledLocales normalizes Obsidian adapter folder paths', async () => {
+test('bundled locales load without release locale files', async () => {
+	const { loadBundledPluginMessagesWithFallback } = await loadModule('src/i18n/localeLoader.ts');
+	const messages = loadBundledPluginMessagesWithFallback('pl-PL');
+	assert.ok(Object.keys(messages).length > 0);
+	assert.equal(messages['common:actions.close'], 'Zamknij');
+});
+
+test('listInstalledLocales includes bundled locales and normalizes adapter paths', async () => {
 	const { listInstalledLocales } = await loadModule('src/i18n/localeLoader.ts');
 	const adapter = {
 		exists: async () => true,
@@ -78,7 +90,11 @@ test('listInstalledLocales normalizes Obsidian adapter folder paths', async () =
 		],
 	};
 
-	assert.deepEqual(await listInstalledLocales(adapter, '.obsidian/plugins/native-powerpoint-doc-editor'), ['en', 'pl']);
+	const locales = await listInstalledLocales(adapter, '.obsidian/plugins/native-powerpoint-doc-editor');
+	assert.ok(locales.includes('en'));
+	assert.ok(locales.includes('pl'));
+	assert.ok(locales.includes('en-XA'));
+	assert.ok(locales.includes('ar-XB'));
 });
 
 test('formatMessage replaces placeholders and plurals', async () => {

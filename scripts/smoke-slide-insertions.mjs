@@ -47,10 +47,10 @@ try {
   const engine = await PresentationEngine.load(blank);
   const { slideIndex } = await engine.addSlide(engine.slideCount - 1);
 
-  const rectIndex = engine.addShapeGeometry(slideIndex, 'rect');
+  const rectIndex = await engine.addShapeGeometry(slideIndex, 'rect');
   assert.equal(typeof rectIndex, 'number');
 
-  const lineIndex = engine.addShapeGeometry(slideIndex, 'line');
+  const lineIndex = await engine.addShapeGeometry(slideIndex, 'line');
   assert.notEqual(lineIndex, rectIndex);
 
   const png = Uint8Array.from([
@@ -61,7 +61,7 @@ try {
     0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
     0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
   ]);
-  const imageIndex = engine.addImage(slideIndex, png, 'image/png', 64, 48);
+  const imageIndex = await engine.addImage(slideIndex, png, 'image/png', 64, 48);
   assert.equal(typeof imageIndex, 'number');
 
   const tableIndex = await engine.addTable(slideIndex, 3, 2);
@@ -70,7 +70,7 @@ try {
   const chartIndex = await engine.addChart(slideIndex);
   assert.equal(typeof chartIndex, 'number');
 
-  const textBoxIndex = engine.addTextBox(slideIndex);
+  const textBoxIndex = await engine.addTextBox(slideIndex);
   await engine.applyListStyle(slideIndex, textBoxIndex, 0, 'bullet');
 
   const exported = await engine.export();

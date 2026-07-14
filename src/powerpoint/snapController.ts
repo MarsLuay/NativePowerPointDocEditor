@@ -1,5 +1,6 @@
 import type { PresentationEngine } from '../PresentationEngine';
 import { isSVGGElement } from '../domGuards';
+import { debugLog } from '../logger';
 import { SNAP_THRESHOLD_PX } from './constants';
 import { getShapeIndex, getSvgIntrinsicSize } from './svgUtils';
 import type { PointerPoint } from './types';
@@ -39,8 +40,32 @@ export interface SnapResult {
  */
 export class SnapController {
   private snapGuides: HTMLElement[] = [];
+  private snapTargetCache: { xs: number[]; ys: number[] } | null = null;
+  private verticalGuideEl: HTMLElement | null = null;
+  private horizontalGuideEl: HTMLElement | null = null;
+  private lastGuideX: number | null | undefined = undefined;
+  private lastGuideY: number | null | undefined = undefined;
 
   constructor(private readonly host: SnapHost) {}
+
+  /** Cache snap targets once per drag so pointermove does not rescan the slide. */
+  beginDrag(excluded: Set<number>): void {
+    this.snapTargetCache = this.getSnapTargets(excluded);
+    this.lastGuideX = undefined;
+    this.lastGuideY = undefined;
+  }
+
+  endDrag(): void {
+    if (this.lastGuideX !== null && this.lastGuideX !== undefined
+      || this.lastGuideY !== null && this.lastGuideY !== undefined) {
+      debugLog('snap', 'PowerPoint snap applied on commit', {
+        guideXEmu: this.lastGuideX,
+        guideYEmu: this.lastGuideY
+      });
+    }
+    this.clearSnapGuides();
+    this.snapTargetCache = null;
+  }
 
   private getSnapTargets(excluded: Set<number>): { xs: number[]; ys: number[] } {
     const xs: number[] = [];
@@ -82,7 +107,7 @@ export class SnapController {
 
     const thresholdX = (SNAP_THRESHOLD_PX * scale) / ctm.a;
     const thresholdY = (SNAP_THRESHOLD_PX * scale) / ctm.d;
-    const targets = this.getSnapTargets(excluded);
+    const targets = this.snapTargetCache ?? this.getSnapTargets(excluded);
     const xLines = [box.x, box.x + box.cx / 2, box.x + box.cx];
     const yLines = [box.y, box.y + box.cy / 2, box.y + box.cy];
     let bestX = thresholdX + 1;
@@ -112,46 +137,86 @@ export class SnapController {
   }
 
   updateSnapGuides(guideXEmu: number | null, guideYEmu: number | null): void {
-    this.clearSnapGuides();
-    if (!this.host.canvasPane || !this.host.slideSurface) return;
+    if (this.lastGuideX === guideXEmu && this.lastGuideY === guideYEmu) return;
+    const hadGuide = this.lastGuideX !== null && this.lastGuideX !== undefined
+      || this.lastGuideY !== null && this.lastGuideY !== undefined;
+    const hasGuide = guideXEmu !== null || guideYEmu !== null;
+    this.lastGuideX = guideXEmu;
+    this.lastGuideY = guideYEmu;
+
+    if (!hadGuide && hasGuide) {
+      debugLog('snap', 'PowerPoint snap guides engaged', { guideXEmu, guideYEmu });
+    } else if (hadGuide && !hasGuide) {
+      debugLog('snap', 'PowerPoint snap guides cleared');
+    }
+
+    if (!this.host.canvasPane || !this.host.slideSurface) {
+      this.clearSnapGuides();
+      return;
+    }
 
     const surface = this.host.getElementBox(this.host.slideSurface);
     if (!surface) return;
 
-    if (guideXEmu !== null) {
+    if (guideXEmu === null) {
+      if (this.verticalGuideEl) {
+        this.verticalGuideEl.remove();
+        this.snapGuides = this.snapGuides.filter((guide) => guide !== this.verticalGuideEl);
+        this.verticalGuideEl = null;
+      }
+    } else {
       const point = this.host.emuPointToPane(guideXEmu, 0);
       if (point) {
-        const guide = this.host.canvasPane.createDiv({
-          cls: 'native-powerpoint-snap-guide native-powerpoint-snap-guide-vertical'
-        });
-        guide.setCssProps({
+        if (!this.verticalGuideEl) {
+          this.verticalGuideEl = this.host.canvasPane.createDiv({
+            cls: 'native-powerpoint-snap-guide native-powerpoint-snap-guide-vertical'
+          });
+          this.snapGuides.push(this.verticalGuideEl);
+        }
+        this.verticalGuideEl.setCssProps({
           left: `${point.x}px`,
           top: `${surface.top}px`,
           height: `${surface.height}px`
         });
-        this.snapGuides.push(guide);
       }
     }
-    if (guideYEmu !== null) {
+
+    if (guideYEmu === null) {
+      if (this.horizontalGuideEl) {
+        this.horizontalGuideEl.remove();
+        this.snapGuides = this.snapGuides.filter((guide) => guide !== this.horizontalGuideEl);
+        this.horizontalGuideEl = null;
+      }
+    } else {
       const point = this.host.emuPointToPane(0, guideYEmu);
       if (point) {
-        const guide = this.host.canvasPane.createDiv({
-          cls: 'native-powerpoint-snap-guide native-powerpoint-snap-guide-horizontal'
-        });
-        guide.setCssProps({
+        if (!this.horizontalGuideEl) {
+          this.horizontalGuideEl = this.host.canvasPane.createDiv({
+            cls: 'native-powerpoint-snap-guide native-powerpoint-snap-guide-horizontal'
+          });
+          this.snapGuides.push(this.horizontalGuideEl);
+        }
+        this.horizontalGuideEl.setCssProps({
           left: `${surface.left}px`,
           top: `${point.y}px`,
           width: `${surface.width}px`
         });
-        this.snapGuides.push(guide);
       }
     }
   }
 
   clearSnapGuides(): void {
+    if (this.lastGuideX !== null && this.lastGuideX !== undefined
+      || this.lastGuideY !== null && this.lastGuideY !== undefined) {
+      debugLog('snap', 'PowerPoint snap guides cleared');
+    }
     for (const guide of this.snapGuides) {
       guide.remove();
     }
     this.snapGuides = [];
+    this.verticalGuideEl = null;
+    this.horizontalGuideEl = null;
+    this.lastGuideX = undefined;
+    this.lastGuideY = undefined;
   }
 }

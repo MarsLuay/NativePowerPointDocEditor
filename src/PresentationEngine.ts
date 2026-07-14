@@ -1,5 +1,4 @@
 import {
-  PptxRenderer,
   buildZip,
   bytesToBase64,
   degreesToOoxml,
@@ -12,7 +11,6 @@ import {
   pxToEmu
 } from 'pptx-svg';
 import type { ShapeTransform, ZipContents } from 'pptx-svg';
-import wasmBytes from 'pptx-svg/wasm';
 import {
   getChartDataDescriptor,
   updateChartTextLabel as patchChartTextLabel,
@@ -21,7 +19,12 @@ import {
   type ChartDataGrid,
   type ChartDataUpdate
 } from './ChartData';
-import { FontFidelity, type FontSubstitution } from './FontFidelity';
+import { type FontSubstitution } from './FontFidelity';
+import { debugLog, errorLog } from './logger';
+import {
+  type PptxRendererBackend,
+} from './powerpoint/backend/rendererBackend';
+import { PptxPackageDocument } from './powerpoint/document/PptxPackageDocument';
 import {
   createSlideObjectClipboard,
   pasteSlideObject,
@@ -30,9 +33,12 @@ import {
 import {
   applyParagraphListStyle,
   insertChartIntoPresentation,
+  insertShapeIntoPresentation,
   insertTableIntoPresentation,
+  insertTextBoxIntoPresentation,
   mergeMissingPackageParts,
   mergeSlideGraphicFramesFromBuffer,
+  permuteSlidesInBuffer,
   type ParagraphListStyle
 } from './SlideInsertions';
 import {
@@ -99,6 +105,7 @@ import {
 } from './powerpoint/slideRunCache';
 
 export type { RunHighlightInfo };
+export type { PptxRendererBackend } from './powerpoint/backend/rendererBackend';
 import {
   normalizeSlideManifest,
   preserveSlideExtensionLists,
@@ -119,6 +126,141 @@ const SLIDE_LAYOUT_RELATIONSHIP_TYPE =
 const SLIDE_MASTER_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const OOXML_PCT_MAX = 100000;
+
+interface SlideBackgroundImage {
+  href: string;
+  crop: ImageCrop | null;
+}
+
+function readSrcRectCrop(srcRect: Element | null): ImageCrop | null {
+  if (!srcRect) return null;
+
+  const read = (attribute: string): number => {
+    const value = Number(srcRect.getAttribute(attribute));
+    return Number.isFinite(value) ? value / 1000 : 0;
+  };
+
+  const crop: ImageCrop = {
+    left: read('l'),
+    top: read('t'),
+    right: read('r'),
+    bottom: read('b')
+  };
+  return crop.left > 0 || crop.top > 0 || crop.right > 0 || crop.bottom > 0 ? crop : null;
+}
+
+function hasImageCrop(crop: ImageCrop | null): crop is ImageCrop {
+  return crop !== null;
+}
+
+function computeCroppedImageGeometry(
+  frameX: number,
+  frameY: number,
+  frameWidth: number,
+  frameHeight: number,
+  crop: ImageCrop
+): { x: number; y: number; width: number; height: number } {
+  const srcL = cropPercentToPermille(crop.left);
+  const srcT = cropPercentToPermille(crop.top);
+  const srcR = cropPercentToPermille(crop.right);
+  const srcB = cropPercentToPermille(crop.bottom);
+  const visibleWidth = OOXML_PCT_MAX - srcL - srcR;
+  const visibleHeight = OOXML_PCT_MAX - srcT - srcB;
+  const width = visibleWidth > 0 ? (frameWidth * OOXML_PCT_MAX) / visibleWidth : frameWidth;
+  const height = visibleHeight > 0 ? (frameHeight * OOXML_PCT_MAX) / visibleHeight : frameHeight;
+  return {
+    x: frameX - (width * srcL) / OOXML_PCT_MAX,
+    y: frameY - (height * srcT) / OOXML_PCT_MAX,
+    width,
+    height
+  };
+}
+
+function findFullBleedSlideBackgroundImage(root: Element, width: string, height: string): Element | null {
+  return getElementChildren(root).find((child) =>
+    child.localName === 'image'
+      && child.getAttribute('x') === '0'
+      && child.getAttribute('y') === '0'
+      && child.getAttribute('width') === width
+      && child.getAttribute('height') === height
+      && child.getAttribute('preserveAspectRatio') === 'none'
+      && !child.getAttribute('clip-path')
+  ) ?? null;
+}
+
+function findCroppedSlideBackgroundImage(root: Element, slideIndex: number): Element | null {
+  const clipId = `bgclip-s${slideIndex + 1}`;
+  return getElementChildren(root).find((child) =>
+    child.localName === 'image'
+      && child.getAttribute('clip-path') === `url(#${clipId})`
+  ) ?? null;
+}
+
+function getSlideBackgroundInsertBefore(root: Element): ChildNode | null {
+  const firstChild = root.firstChild;
+  return firstChild?.nodeType === 1
+    && (firstChild as Element).localName === 'rect'
+    && (firstChild as Element).getAttribute('fill') === 'none'
+    ? firstChild.nextSibling
+    : firstChild;
+}
+
+function insertRenderedSlideBackgroundImage(
+  doc: XMLDocument,
+  root: Element,
+  slideIndex: number,
+  width: string,
+  height: string,
+  background: SlideBackgroundImage
+): void {
+  const frameWidth = Number(width);
+  const frameHeight = Number(height);
+  if (!Number.isFinite(frameWidth) || !Number.isFinite(frameHeight) || frameWidth <= 0 || frameHeight <= 0) {
+    return;
+  }
+
+  const insertBefore = getSlideBackgroundInsertBefore(root);
+
+  if (hasImageCrop(background.crop)) {
+    const clipId = `bgclip-s${slideIndex + 1}`;
+    const geometry = computeCroppedImageGeometry(0, 0, frameWidth, frameHeight, background.crop);
+
+    const defs = doc.createElementNS(SVG_NAMESPACE, 'defs');
+    const clipPath = doc.createElementNS(SVG_NAMESPACE, 'clipPath');
+    clipPath.setAttribute('id', clipId);
+    const clipRect = doc.createElementNS(SVG_NAMESPACE, 'rect');
+    clipRect.setAttribute('x', '0');
+    clipRect.setAttribute('y', '0');
+    clipRect.setAttribute('width', width);
+    clipRect.setAttribute('height', height);
+    clipPath.appendChild(clipRect);
+    defs.appendChild(clipPath);
+    root.insertBefore(defs, insertBefore);
+
+    const image = doc.createElementNS(SVG_NAMESPACE, 'image');
+    image.setAttribute('x', String(geometry.x));
+    image.setAttribute('y', String(geometry.y));
+    image.setAttribute('width', String(geometry.width));
+    image.setAttribute('height', String(geometry.height));
+    image.setAttribute('preserveAspectRatio', 'none');
+    image.setAttribute('href', background.href);
+    image.setAttribute('clip-path', `url(#${clipId})`);
+    image.setAttribute('pointer-events', 'none');
+    root.insertBefore(image, insertBefore);
+    return;
+  }
+
+  const image = doc.createElementNS(SVG_NAMESPACE, 'image');
+  image.setAttribute('x', '0');
+  image.setAttribute('y', '0');
+  image.setAttribute('width', width);
+  image.setAttribute('height', height);
+  image.setAttribute('preserveAspectRatio', 'none');
+  image.setAttribute('href', background.href);
+  image.setAttribute('pointer-events', 'none');
+  root.insertBefore(image, insertBefore);
+}
 
 export type InsertableShapeGeometry =
   | 'rect'
@@ -132,11 +274,6 @@ export type InsertableShapeGeometry =
 
 export type SlideLayoutKind = 'blank' | 'title' | 'titleBody';
 
-/** Renderer augmented with the build-time `initJsBackend` patch (see esbuild.config.mjs). */
-interface JsBackendCapableRenderer {
-  initJsBackend(engine: unknown): void;
-}
-
 /**
  * Renderer build-patched with the single-slide entry point (see
  * scripts/lib/patch-pptx-renderer.mjs). Replaces one slide's XML in the live
@@ -146,21 +283,10 @@ interface SlideXmlLoadable {
   loadSlideXml(slideIdx: number, xml: string): void;
 }
 
-/**
- * True when a failure from the Wasm renderer indicates the runtime lacks
- * WebAssembly GC (Obsidian installer < 1.5.8 / Chromium < 119). Mirrors the
- * detection in NativePowerPointView so both layers agree.
- */
-function isWasmGcUnsupportedError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error || '');
-  return /WebAssembly GC support|Wasm init failed/i.test(message);
-}
-
 import {
   configureForceJsBackendOverrideReader,
   resetForceJsBackendOverride,
-  setForceJsBackendOverride,
-  shouldForceJsBackend
+  setForceJsBackendOverride
 } from './powerpoint/forceJsBackend';
 
 export { formatChartAxisValue };
@@ -170,32 +296,6 @@ export {
   resetForceJsBackendOverride,
   setForceJsBackendOverride
 };
-
-async function initJsBackend(renderer: PptxRenderer): Promise<void> {
-  const { createPptxJsEngine } = await import('./vendor/pptx-js-engine.mjs');
-  (renderer as unknown as JsBackendCapableRenderer).initJsBackend(createPptxJsEngine());
-}
-
-/**
- * Initialize the renderer's backend. Prefers the fast Wasm (wasm-gc) engine and,
- * if the runtime cannot run it, lazily loads the pure-JS engine fallback so PPTX
- * files still open on older Obsidian installers. The fallback module is only
- * fetched/evaluated when actually needed. The fallback can also be forced for
- * testing (see {@link setForceJsBackendOverride}).
- */
-async function initRendererBackend(renderer: PptxRenderer): Promise<void> {
-  if (shouldForceJsBackend()) {
-    await initJsBackend(renderer);
-    return;
-  }
-
-  try {
-    await renderer.init(wasmBytes);
-  } catch (error) {
-    if (!isWasmGcUnsupportedError(error)) throw error;
-    await initJsBackend(renderer);
-  }
-}
 
 function assertOk(result: string, fallback: string): void {
   if (result.startsWith('ERROR:')) {
@@ -268,6 +368,20 @@ export interface RunStyleInfo {
   alignment: ParagraphAlignment | null;
 }
 
+/** Shape-level fill and outline read from slide OOXML for agent describe snapshots. */
+export interface ShapeVisualStyle {
+  fill: string | null;
+  stroke: string | null;
+  strokeWidthPt: number | null;
+}
+
+/** Resolved slide background for agent describe snapshots. */
+export interface SlideBackgroundDescribe {
+  colorHex: string | null;
+  imageHref: string | null;
+  crop: ImageCrop | null;
+}
+
 export type ShapeReorderMode = 'front' | 'back' | 'forward' | 'backward';
 
 export interface RenderedSlide {
@@ -281,14 +395,12 @@ export interface SlideMoveResult {
 }
 
 export class PresentationEngine {
-  private renderer: PptxRenderer;
-  private fontFidelity: FontFidelity;
-  private currentBuffer: ArrayBuffer;
-  private slideCountValue = 0;
+  private document!: PptxPackageDocument;
   private chartTextValues = new Map<string, string[]>();
   private chartAxisFormats = new Map<string, ChartAxisFormat[]>();
   private chartDataDescriptors = new Map<string, ChartDataDescriptor>();
-  private slideBackgroundImageHrefs = new Map<number, string>();
+  private slideBackgroundImages = new Map<number, SlideBackgroundImage>();
+  // Invariant: the lossless package buffer is authoritative; renderer state is derived.
   // Authoritative per-slide run formatting. The renderer's SlideData model drops
   // authored run properties it doesn't model whenever a Wasm-primitive edit
   // re-serializes a slide -- empirically <a:highlight>, <a:hlinkClick>, <a:uFill>
@@ -300,47 +412,42 @@ export class PresentationEngine {
   // refreshed on every OOXML-path commit, remapped when a shape is deleted, and
   // reset when the renderer is reinitialized.
   private slideRunCache = new Map<number, SlideRunCacheEntry>();
-  // Fast-path (`loadSlideXml`) commits update the live renderer model but not
-  // `currentBuffer`, so `currentBuffer` goes stale for those slides' modeled
-  // content. `currentBuffer` can't simply be overwritten from the renderer:
-  // it is the authoritative source of content the renderer's serialization
-  // drops (extension lists, un-modeled graphic frames) -- the very thing
-  // `preserveSlideExtensionLists`/`mergeSlideGraphicFramesFromBuffer` graft back.
-  // Instead we record each committed slide's lossless XML here and fold it into
-  // `currentBuffer` lazily (see `syncCurrentBuffer`), restoring the dropped
-  // content from the prior buffer so `currentBuffer` stays authoritative.
-  private pendingSlideXml = new Map<number, string>();
-
-  private constructor(renderer: PptxRenderer, fontFidelity: FontFidelity, slideCount: number, buffer: ArrayBuffer) {
-    this.renderer = renderer;
-    this.fontFidelity = fontFidelity;
-    this.currentBuffer = buffer.slice(0);
-    this.slideCountValue = slideCount;
+  private constructor() {
   }
 
   static async load(buffer: ArrayBuffer): Promise<PresentationEngine> {
-    const { renderer, fontFidelity, slideCount } = await PresentationEngine.createRenderer(buffer);
-    const engine = new PresentationEngine(renderer, fontFidelity, slideCount, buffer);
-    await engine.refreshChartTextValues(buffer);
-    await engine.refreshSlideBackgroundImages(buffer);
+    const engine = new PresentationEngine();
+    engine.document = await PptxPackageDocument.load(buffer, {
+      reconcileExport: (authoritativePackage, renderedExport) =>
+        engine.reconcileRendererExport(authoritativePackage, renderedExport),
+      refreshDerivedState: (packageBuffer) => engine.refreshDerivedState(packageBuffer),
+    });
+    await engine.refreshDerivedState(buffer);
     return engine;
   }
 
-  private static async createRenderer(buffer: ArrayBuffer): Promise<{
-    renderer: PptxRenderer;
-    fontFidelity: FontFidelity;
-    slideCount: number;
-  }> {
-    const fontFidelity = new FontFidelity();
-    const renderer = new PptxRenderer({
-      logLevel: 'error',
-      fontFallbacks: fontFidelity.getRendererFallbacks(),
-      measureText: (text, fontFace, fontSizePx) => fontFidelity.measureText(text, fontFace, fontSizePx)
-    });
+  private get renderer() {
+    return this.document.renderer;
+  }
 
-    await initRendererBackend(renderer);
-    const { slideCount } = await renderer.loadPptx(buffer);
-    return { renderer, fontFidelity, slideCount };
+  private get fontFidelity() {
+    return this.document.fontFidelity;
+  }
+
+  private get currentBuffer(): ArrayBuffer {
+    return this.document.packageBuffer;
+  }
+
+  private set currentBuffer(buffer: ArrayBuffer) {
+    this.document.packageBuffer = buffer;
+  }
+
+  private get slideCountValue(): number {
+    return this.document.slideCount;
+  }
+
+  getRendererBackend(): PptxRendererBackend {
+    return this.document.rendererBackend;
   }
 
   static async validateRoundTrip(buffer: ArrayBuffer, expectedSlideCount: number): Promise<void> {
@@ -373,9 +480,22 @@ export class PresentationEngine {
     return svg;
   }
 
+  getSlideXml(slideIndex: number): string {
+    const slidePath = getSlidePath(slideIndex);
+    const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), slidePath);
+    this.restoreLostRunPropsIntoSlideDoc(slideIndex, slideDoc);
+    return serializeXml(slideDoc);
+  }
+
+  async restoreSlideXml(slideIndex: number, xml: string): Promise<void> {
+    const slideDoc = parseXml(xml, getSlidePath(slideIndex));
+    await this.commitSlideDoc(slideIndex, slideDoc);
+    this.refreshSlideRunCache(slideIndex);
+  }
+
   private reconcileRenderedSlideBackground(svg: string, slideIndex: number): string {
-    const backgroundHref = this.slideBackgroundImageHrefs.get(slideIndex);
-    if (!backgroundHref || !svg.startsWith('<svg')) return svg;
+    const background = this.slideBackgroundImages.get(slideIndex);
+    if (!background?.href || !svg.startsWith('<svg')) return svg;
 
     try {
       const doc = parseXml(svg, `rendered slide ${slideIndex + 1} SVG`);
@@ -384,33 +504,20 @@ export class PresentationEngine {
       const height = root.getAttribute('height') ?? '';
       if (!width || !height) return svg;
 
-      const background = getElementChildren(root).find((child) =>
-        child.localName === 'image'
-          && child.getAttribute('x') === '0'
-          && child.getAttribute('y') === '0'
-          && child.getAttribute('width') === width
-          && child.getAttribute('height') === height
-          && child.getAttribute('preserveAspectRatio') === 'none'
-      );
+      const croppedBackground = findCroppedSlideBackgroundImage(root, slideIndex);
+      const fullBleedBackground = findFullBleedSlideBackgroundImage(root, width, height);
 
-      if (background) {
-        background.setAttribute('href', backgroundHref);
+      if (croppedBackground) {
+        croppedBackground.setAttribute('href', background.href);
+        croppedBackground.setAttribute('pointer-events', 'none');
+        if (fullBleedBackground && fullBleedBackground !== croppedBackground) {
+          root.removeChild(fullBleedBackground);
+        }
+      } else if (fullBleedBackground) {
+        fullBleedBackground.setAttribute('href', background.href);
+        fullBleedBackground.setAttribute('pointer-events', 'none');
       } else {
-        const image = doc.createElementNS(SVG_NAMESPACE, 'image');
-        image.setAttribute('x', '0');
-        image.setAttribute('y', '0');
-        image.setAttribute('width', width);
-        image.setAttribute('height', height);
-        image.setAttribute('preserveAspectRatio', 'none');
-        image.setAttribute('href', backgroundHref);
-
-        const firstChild = root.firstChild;
-        const insertBefore = firstChild?.nodeType === 1
-          && (firstChild as Element).localName === 'rect'
-          && (firstChild as Element).getAttribute('fill') === 'none'
-          ? firstChild.nextSibling
-          : firstChild;
-        root.insertBefore(image, insertBefore);
+        insertRenderedSlideBackgroundImage(doc, root, slideIndex, width, height, background);
       }
 
       return serializeXml(doc);
@@ -512,6 +619,21 @@ export class PresentationEngine {
     return degreesToOoxml(value);
   }
 
+  /**
+   * Apply a transform to a shape that was just inserted through the OOXML-side
+   * insertion funnel (`insertShapeGeometry`, `insertTextBox`, etc.). Uses the
+   * OOXML export path instead of the renderer shortcut so unrelated slide markup
+   * (for example `a14:hiddenFill` on pictures) is not corrupted when renderer
+   * shape indices diverge from the serialized slide tree.
+   */
+  async applyInsertedShapeTransform(
+    slideIndex: number,
+    shapeIndex: number,
+    transform: ShapeTransform
+  ): Promise<void> {
+    await this.updateShapeTransformInOoxml(slideIndex, shapeIndex, transform);
+  }
+
   async updateShapeTransform(
     slideIndex: number,
     shapeIndex: number,
@@ -596,19 +718,10 @@ export class PresentationEngine {
     paragraphIndex: number,
     text: string
   ): Promise<void> {
-    const rawExport = await this.exportRendererState();
-    const slidePath = getSlidePath(slideIndex);
-    const zip = await extractZip(rawExport);
-    const slideXml = zip.textFiles.get(slidePath);
-    if (!slideXml) {
-      throw new Error(`Missing slide XML part: ${slidePath}`);
-    }
-
-    const slideDoc = parseXml(slideXml, slidePath);
-    const shape = getShapeElement(slideDoc, shapeIndex);
-    setDrawingParagraphText(shape, paragraphIndex, text);
-    const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
-    await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+      setDrawingParagraphText(shape, paragraphIndex, text);
+      return true;
+    });
   }
 
   async updateTextRun(
@@ -768,6 +881,36 @@ export class PresentationEngine {
     const cached = this.slideRunCache.get(slideIndex);
     if (!cached) return;
     this.slideRunCache.set(slideIndex, remapSlideRunCacheEntry(cached, deletedShapeIndex));
+    this.realignSlideRunCacheShapeIndices(slideIndex);
+  }
+
+  /**
+   * After a renderer-side delete, cached shape indices can drift from the live
+   * model when the slide tree has gaps (graphic frames, groups). Re-resolve each
+   * cached highlight against the paragraph text that still exists in the model.
+   */
+  private realignSlideRunCacheShapeIndices(slideIndex: number): void {
+    const cached = this.slideRunCache.get(slideIndex);
+    if (!cached || cached.highlights.length === 0) return;
+
+    const highlights = cached.highlights.map((highlight) => {
+      if (highlight.end <= highlight.start) return highlight;
+      let bestIndex = highlight.shapeIndex;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      for (let candidate = 0; candidate < 64; candidate++) {
+        const text = this.getParagraphRunText(slideIndex, candidate, highlight.paragraphIndex);
+        if (!text || highlight.end > text.length) continue;
+        if (text.slice(highlight.start, highlight.end).length !== highlight.end - highlight.start) continue;
+        const distance = Math.abs(candidate - highlight.shapeIndex);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestIndex = candidate;
+        }
+      }
+      return { ...highlight, shapeIndex: bestIndex };
+    });
+
+    this.slideRunCache.set(slideIndex, { ...cached, highlights });
   }
 
   /**
@@ -841,6 +984,29 @@ export class PresentationEngine {
     return getDrawingRuns(paragraph).map((run) => getDrawingRunText(run)).join('');
   }
 
+  getTextRunText(
+    slideIndex: number,
+    shapeIndex: number,
+    paragraphIndex: number,
+    runIndex: number,
+  ): string | null {
+    let shape: Element;
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      shape = getShapeElement(slideDoc, shapeIndex);
+    } catch {
+      return null;
+    }
+
+    const paragraph = getDrawingParagraphs(shape)[paragraphIndex];
+    if (!paragraph) return null;
+
+    const run = getDrawingRuns(paragraph)[runIndex];
+    if (!run) return null;
+
+    return getDrawingRunText(run);
+  }
+
   getRunStyle(
     slideIndex: number,
     shapeIndex: number,
@@ -906,6 +1072,125 @@ export class PresentationEngine {
   private readColorValue(colorElement: Element | undefined): string | null {
     const value = colorElement?.getAttribute('val');
     return value ? normalizeHexColor(value) : null;
+  }
+
+  private readFillColorFromNode(fillNode: Element | undefined): string | null {
+    if (!fillNode) return null;
+    const srgb = getElementChildren(fillNode).find((element) => element.localName === 'srgbClr');
+    return this.readColorValue(srgb);
+  }
+
+  private readShapeVisualStyle(properties: Element): ShapeVisualStyle {
+    const solidFill = getElementChildren(properties).find((element) => element.localName === 'solidFill');
+    const line = getElementChildren(properties).find((element) => element.localName === 'ln');
+    const lineFill = line
+      ? getElementChildren(line).find((element) => element.localName === 'solidFill')
+      : undefined;
+    const strokeWidth = line?.getAttribute('w');
+    const parsedStrokeWidth = strokeWidth ? Number(strokeWidth) : Number.NaN;
+
+    return {
+      fill: this.readFillColorFromNode(solidFill),
+      stroke: this.readFillColorFromNode(lineFill),
+      strokeWidthPt: Number.isFinite(parsedStrokeWidth) ? parsedStrokeWidth / 12700 : null,
+    };
+  }
+
+  getShapeVisualStyle(slideIndex: number, shapeIndex: number): ShapeVisualStyle | null {
+    if (!Number.isInteger(shapeIndex) || shapeIndex < 0) {
+      return null;
+    }
+
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const shape = getShapeElement(slideDoc, shapeIndex);
+      const properties = getDescendants(shape, 'spPr')[0]
+        ?? getDescendants(shape, 'grpSpPr')[0]
+        ?? getDescendants(shape, 'picSpPr')[0];
+      if (!properties) {
+        return { fill: null, stroke: null, strokeWidthPt: null };
+      }
+      return this.readShapeVisualStyle(properties);
+    } catch {
+      return null;
+    }
+  }
+
+  /** Whether the selected slide object owns ordinary shape properties with a fill. */
+  canSetShapeFillColor(slideIndex: number, shapeIndex: number): boolean {
+    if (!Number.isInteger(shapeIndex) || shapeIndex < 0) return false;
+
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
+      return shape.localName === 'sp'
+        && getElementChildren(shape).some((element) => element.localName === 'spPr');
+    } catch {
+      return false;
+    }
+  }
+
+  /** Detect a freeform text box without conflating it with an auto shape that merely has a label. */
+  isTextBoxShape(slideIndex: number, shapeIndex: number): boolean {
+    if (!Number.isInteger(shapeIndex) || shapeIndex < 0) return false;
+
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
+      if (shape.localName !== 'sp') return false;
+
+      const nonVisualProperties = getDescendants(shape, 'cNvSpPr')[0];
+      const textBoxFlag = nonVisualProperties?.getAttribute('txBox');
+      if (textBoxFlag === '1' || textBoxFlag === 'true') return true;
+
+      // Text boxes inserted by older plugin builds predate the txBox marker,
+      // but consistently use the standard non-visual TextBox name.
+      const name = getDescendants(shape, 'cNvPr')[0]?.getAttribute('name') ?? '';
+      return /^TextBox(?:\s|$)/i.test(name);
+    } catch {
+      return false;
+    }
+  }
+
+  /** Set an explicit solid fill on an ordinary auto shape or text box. */
+  async setShapeFillColor(slideIndex: number, shapeIndex: number, hex: string): Promise<void> {
+    const normalizedHex = hex.replace(/^#/, '').trim().toUpperCase();
+    if (!/^[0-9A-F]{6}$/.test(normalizedHex)) {
+      throw new Error('Shape fill color must be a 6-digit RRGGBB hex value.');
+    }
+
+    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
+      if (shape.localName !== 'sp') {
+        throw new Error('The selected object does not support a fill color.');
+      }
+
+      const properties = getElementChildren(shape).find((element) => element.localName === 'spPr');
+      if (!properties) {
+        throw new Error('The selected object does not support a fill color.');
+      }
+
+      const fillNames = new Set(['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill']);
+      const fills = getElementChildren(properties).filter((element) => fillNames.has(element.localName));
+      if (
+        fills.length === 1
+        && fills[0]?.localName === 'solidFill'
+        && this.readFillColorFromNode(fills[0]) === normalizedHex
+      ) {
+        return false;
+      }
+      for (const fill of fills) properties.removeChild(fill);
+
+      const solidFill = slideDoc.createElementNS(DRAWINGML_NAMESPACE, 'a:solidFill');
+      const color = slideDoc.createElementNS(DRAWINGML_NAMESPACE, 'a:srgbClr');
+      color.setAttribute('val', normalizedHex);
+      solidFill.appendChild(color);
+
+      const insertionPoint = getElementChildren(properties).find((element) =>
+        ['ln', 'effectLst', 'effectDag', 'scene3d', 'sp3d', 'extLst'].includes(element.localName)
+      );
+      properties.insertBefore(solidFill, insertionPoint ?? null);
+      return true;
+    });
   }
 
   /**
@@ -1141,19 +1426,51 @@ export class PresentationEngine {
    */
   private async commitSlideDoc(slideIndex: number, slideDoc: XMLDocument): Promise<void> {
     const serialized = serializeXml(slideDoc);
-    const loader = this.renderer as Partial<SlideXmlLoadable>;
-    if (typeof loader.loadSlideXml === 'function') {
-      loader.loadSlideXml(slideIndex, serialized);
-      // The renderer now holds this slide; `currentBuffer` is behind for it.
-      // Record the lossless XML so a later `currentBuffer` reader can fold it in
-      // (preserving renderer-dropped content) instead of reading stale slide XML.
-      this.pendingSlideXml.set(slideIndex, serialized);
-      return;
-    }
+    const slidePath = getSlidePath(slideIndex);
+    const startedAt = Date.now();
+    debugLog('mutate', 'Slide document commit started', {
+      op: 'commit-slide-doc',
+      slide: slideIndex,
+      path: slidePath,
+      authoritativePackage: true,
+    });
+    try {
+      const loader = this.renderer as Partial<SlideXmlLoadable>;
+      if (typeof loader.loadSlideXml === 'function') {
+        loader.loadSlideXml(slideIndex, serialized);
+        // The renderer now holds this slide; `currentBuffer` is behind for it.
+        // Record the lossless XML so a later `currentBuffer` reader can fold it in
+        // (preserving renderer-dropped content) instead of reading stale slide XML.
+        this.document.recordPendingSlideXml(slideIndex, serialized);
+        debugLog('mutate', 'Slide document commit completed', {
+          op: 'commit-slide-doc',
+          slide: slideIndex,
+          path: slidePath,
+          pathType: 'pending-lossless-package',
+          ms: Date.now() - startedAt,
+        });
+        return;
+      }
 
-    const rawExport = await this.exportRendererState();
-    const patchedExport = await buildZip(rawExport, new Map([[getSlidePath(slideIndex), serialized]]));
-    await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+      const rawExport = await this.exportRendererState();
+      const patchedExport = await buildZip(rawExport, new Map([[slidePath, serialized]]));
+      await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+      debugLog('mutate', 'Slide document commit completed', {
+        op: 'commit-slide-doc',
+        slide: slideIndex,
+        path: slidePath,
+        pathType: 'package-reload',
+        ms: Date.now() - startedAt,
+      });
+    } catch (error) {
+      errorLog('mutate', 'Slide document commit failed', {
+        op: 'commit-slide-doc',
+        slide: slideIndex,
+        path: slidePath,
+        error,
+      });
+      throw error;
+    }
   }
 
   canUpdateGeneratedText(slideIndex: number, shapeIndex: number, edit: GeneratedTextEdit): boolean {
@@ -1230,38 +1547,67 @@ export class PresentationEngine {
     mimeType: string,
     widthPx = 320,
     heightPx = 240
-  ): number {
+  ): Promise<number> {
+    return this.insertImage(slideIndex, imageData, mimeType, widthPx, heightPx);
+  }
+
+  async insertImage(
+    slideIndex: number,
+    imageData: Uint8Array,
+    mimeType: string,
+    widthPx = 320,
+    heightPx = 240
+  ): Promise<number> {
+    await this.syncCurrentBuffer();
     this.ensureSlideRunCacheSeeded(slideIndex);
-    const x = pxToEmu(140);
-    const y = pxToEmu(120);
-    const cx = pxToEmu(widthPx);
-    const cy = pxToEmu(heightPx);
+    const { x, y, cx, cy } = await this.getDefaultInsertExtents('image', widthPx, heightPx);
     const result = this.renderer.addImage(slideIndex, imageData, mimeType, x, y, cx, cy);
-    return this.parseInsertedShapeIndex(result, 'Could not insert image.');
-  }
-
-  addShapeGeometry(slideIndex: number, geometry: InsertableShapeGeometry): number {
-    this.ensureSlideRunCacheSeeded(slideIndex);
-    const x = pxToEmu(160);
-    const y = pxToEmu(140);
-    const cx = pxToEmu(geometry === 'line' ? 220 : 240);
-    const cy = pxToEmu(geometry === 'line' ? 0 : 160);
-    const result = this.renderer.addShape(slideIndex, geometry, x, y, cx, cy, 66, 133, 244);
-    return this.parseInsertedShapeIndex(result, 'Could not insert shape.');
-  }
-
-  addTextBox(slideIndex: number): number {
-    this.ensureSlideRunCacheSeeded(slideIndex);
-    const x = pxToEmu(180);
-    const y = pxToEmu(120);
-    const cx = pxToEmu(300);
-    const cy = pxToEmu(80);
-    const result = this.renderer.addShape(slideIndex, 'rect', x, y, cx, cy, -1, -1, -1);
-    const shapeIndex = this.parseInsertedShapeIndex(result, 'Could not add text box.');
-
-    const textResult = this.renderer.addShapeText(slideIndex, shapeIndex, 'New text', 1800, -1, -1, -1);
-    assertOk(textResult, 'Could not add text to the new text box.');
+    const shapeIndex = this.parseInsertedShapeIndex(result, 'Could not insert image.');
+    await this.exportRendererState();
     return shapeIndex;
+  }
+
+  addShapeGeometry(slideIndex: number, geometry: InsertableShapeGeometry): Promise<number> {
+    return this.insertShapeGeometry(slideIndex, geometry);
+  }
+
+  async insertShapeGeometry(slideIndex: number, geometry: InsertableShapeGeometry): Promise<number> {
+    await this.syncCurrentBuffer();
+    this.ensureSlideRunCacheSeeded(slideIndex);
+    const { x, y, cx, cy } = await this.getDefaultInsertExtents(geometry);
+    const inserted = await insertShapeIntoPresentation(
+      this.currentBuffer,
+      slideIndex,
+      geometry,
+      x,
+      y,
+      cx,
+      cy,
+      { red: 66, green: 133, blue: 244 },
+    );
+    await this.reloadFromBuffer(inserted.buffer, this.slideCountValue);
+    return inserted.shapeIndex;
+  }
+
+  addTextBox(slideIndex: number): Promise<number> {
+    return this.insertTextBox(slideIndex);
+  }
+
+  async insertTextBox(slideIndex: number): Promise<number> {
+    await this.syncCurrentBuffer();
+    this.ensureSlideRunCacheSeeded(slideIndex);
+    const { x, y, cx, cy } = await this.getDefaultInsertExtents('textBox');
+    const inserted = await insertTextBoxIntoPresentation(
+      this.currentBuffer,
+      slideIndex,
+      'New text',
+      x,
+      y,
+      cx,
+      cy,
+    );
+    await this.reloadFromBuffer(inserted.buffer, this.slideCountValue);
+    return inserted.shapeIndex;
   }
 
   async addTable(slideIndex: number, rows: number, cols: number): Promise<number> {
@@ -1303,8 +1649,8 @@ export class PresentationEngine {
     const result = this.renderer.deleteShape(slideIndex, shapeIndex);
     assertOk(result, 'Could not delete shape.');
     // The renderer renumbers the surviving shapes, so realign the cached
-    // highlights (drop this shape, shift higher indices down) to keep the
-    // overlays and export reconciliation pointing at the right runs.
+    // highlights (drop this shape, shift higher indices down, then re-resolve
+    // against the live model) to keep overlays and export reconciliation aligned.
     this.remapSlideRunCacheAfterDeletedShape(slideIndex, shapeIndex);
   }
 
@@ -1337,24 +1683,47 @@ export class PresentationEngine {
     slideIndex: number,
     mutate: (slideDoc: XMLDocument, shapeTree: Element) => T
   ): Promise<T> {
-    const rawExport = await this.exportRendererState();
     const slidePath = getSlidePath(slideIndex);
-    const zip = await extractZip(rawExport);
-    const slideXml = zip.textFiles.get(slidePath);
-    if (!slideXml) {
-      throw new Error(`Missing slide XML part: ${slidePath}`);
-    }
+    const startedAt = Date.now();
+    debugLog('mutate', 'Slide tree mutation started', {
+      op: 'mutate-slide-tree',
+      slide: slideIndex,
+      path: slidePath,
+      authoritativePackage: true,
+    });
+    try {
+      const rawExport = await this.exportRendererState();
+      const zip = await extractZip(rawExport);
+      const slideXml = zip.textFiles.get(slidePath);
+      if (!slideXml) {
+        throw new Error(`Missing slide XML part: ${slidePath}`);
+      }
 
-    const slideDoc = parseXml(slideXml, slidePath);
-    const shapeTree = getDescendants(slideDoc, 'spTree')[0];
-    if (!shapeTree) {
-      throw new Error('Could not find the slide shape tree.');
-    }
+      const slideDoc = parseXml(slideXml, slidePath);
+      const shapeTree = getDescendants(slideDoc, 'spTree')[0];
+      if (!shapeTree) {
+        throw new Error('Could not find the slide shape tree.');
+      }
 
-    const result = mutate(slideDoc, shapeTree);
-    const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
-    await this.reloadFromBuffer(patchedExport, this.slideCountValue);
-    return result;
+      const result = mutate(slideDoc, shapeTree);
+      const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
+      await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+      debugLog('mutate', 'Slide tree mutation committed', {
+        op: 'mutate-slide-tree',
+        slide: slideIndex,
+        path: slidePath,
+        ms: Date.now() - startedAt,
+      });
+      return result;
+    } catch (error) {
+      errorLog('mutate', 'Slide tree mutation failed', {
+        op: 'mutate-slide-tree',
+        slide: slideIndex,
+        path: slidePath,
+        error,
+      });
+      throw error;
+    }
   }
 
   /**
@@ -1548,6 +1917,7 @@ export class PresentationEngine {
     }
     order.splice(targetIndex, 0, moved);
     const { slideCount } = await this.renderer.reorderSlides(order);
+    this.currentBuffer = await permuteSlidesInBuffer(this.currentBuffer, order);
     await this.reloadAfterSlideManagement(slideCount);
     return { slideIndex: targetIndex, slideCount };
   }
@@ -1560,6 +1930,7 @@ export class PresentationEngine {
 
   async reorderSlides(newOrder: number[]): Promise<SlideMoveResult> {
     const { slideCount } = await this.renderer.reorderSlides(newOrder);
+    this.currentBuffer = await permuteSlidesInBuffer(this.currentBuffer, newOrder);
     await this.reloadAfterSlideManagement(slideCount);
     return { slideIndex: 0, slideCount };
   }
@@ -1629,6 +2000,39 @@ export class PresentationEngine {
     }
   }
 
+  private static readonly EMU_PER_INCH = 914400;
+
+  private async getDefaultInsertExtents(
+    kind: InsertableShapeGeometry | 'textBox' | 'image',
+    widthPx = 320,
+    heightPx = 240
+  ): Promise<{ x: number; y: number; cx: number; cy: number }> {
+    const slideSize = await this.getSlideSizeEmu();
+    let cx: number;
+    let cy: number;
+
+    if (kind === 'image') {
+      cx = pxToEmu(widthPx);
+      cy = pxToEmu(heightPx);
+    } else if (kind === 'textBox') {
+      cx = Math.round(3 * PresentationEngine.EMU_PER_INCH);
+      cy = Math.round(0.75 * PresentationEngine.EMU_PER_INCH);
+    } else if (kind === 'line') {
+      cx = Math.round(2 * PresentationEngine.EMU_PER_INCH);
+      cy = 0;
+    } else if (kind === 'rightArrow' || kind === 'leftArrow' || kind === 'upArrow' || kind === 'downArrow') {
+      cx = Math.round(2 * PresentationEngine.EMU_PER_INCH);
+      cy = Math.round(1 * PresentationEngine.EMU_PER_INCH);
+    } else {
+      cx = Math.round(2 * PresentationEngine.EMU_PER_INCH);
+      cy = Math.round(1.5 * PresentationEngine.EMU_PER_INCH);
+    }
+
+    const x = Math.round((slideSize.cx - cx) / 2);
+    const y = Math.round((slideSize.cy - cy) / 2);
+    return { x, y, cx, cy };
+  }
+
   async getSlideSizeEmu(): Promise<{ cx: number; cy: number }> {
     const fallback = { cx: 9144000, cy: 6858000 };
     try {
@@ -1689,6 +2093,15 @@ export class PresentationEngine {
 
     const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
     await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+  }
+
+  getSlideBackgroundDescribe(slideIndex: number): SlideBackgroundDescribe {
+    const image = this.slideBackgroundImages.get(slideIndex);
+    return {
+      colorHex: this.getSlideBackgroundColor(slideIndex),
+      imageHref: image?.href ?? null,
+      crop: image?.crop ?? null,
+    };
   }
 
   getSlideBackgroundColor(slideIndex: number): string | null {
@@ -2038,16 +2451,18 @@ export class PresentationEngine {
     return this.exportRendererState();
   }
 
+  /**
+   * Finalize a command transaction. The package document reconciles the
+   * renderer's derived state with the lossless package and drains pending
+   * slide-XML commits before the session is allowed to become dirty.
+   */
+  async commitMutation(): Promise<void> {
+    await this.exportRendererState();
+  }
+
   async restoreSnapshot(buffer: ArrayBuffer): Promise<void> {
-    const { renderer, fontFidelity, slideCount } = await PresentationEngine.createRenderer(buffer);
-    this.renderer = renderer;
-    this.fontFidelity = fontFidelity;
-    this.currentBuffer = buffer.slice(0);
-    this.slideCountValue = slideCount;
+    await this.document.restore(buffer);
     this.resetSlideRunCache();
-    this.pendingSlideXml.clear();
-    await this.refreshChartTextValues(buffer);
-    await this.refreshSlideBackgroundImages(buffer);
   }
 
   private async reloadAfterSlideManagement(expectedSlideCount: number): Promise<void> {
@@ -2057,35 +2472,30 @@ export class PresentationEngine {
   }
 
   private async reloadFromBuffer(buffer: ArrayBuffer, expectedSlideCount: number): Promise<void> {
-    const { renderer, fontFidelity, slideCount } = await PresentationEngine.createRenderer(buffer);
-    if (slideCount !== expectedSlideCount) {
-      throw new Error(`Slide management export mismatch: expected ${expectedSlideCount}, got ${slideCount}.`);
-    }
-
-    this.renderer = renderer;
-    this.fontFidelity = fontFidelity;
-    this.currentBuffer = buffer.slice(0);
-    this.slideCountValue = slideCount;
     // The reinitialized model serves lossless highlights again; drop the stale
     // cache (shape indices may have shifted) and let it re-seed on demand.
     this.resetSlideRunCache();
-    // `currentBuffer` is now this freshly-reloaded buffer, so any recorded
-    // fast-path slide XML is obsolete.
-    this.pendingSlideXml.clear();
-    await this.refreshChartTextValues(buffer);
-    await this.refreshSlideBackgroundImages(buffer);
+    await this.document.reload(buffer, expectedSlideCount);
   }
 
   private async exportRendererState(): Promise<ArrayBuffer> {
-    const rawExport = await this.renderer.exportPptx();
-    const preservedExport = await preserveSlideExtensionLists(this.currentBuffer, rawExport);
-    const reconciledExport = await this.reconcileRunPropsIntoBuffer(preservedExport);
-    this.currentBuffer = reconciledExport.slice(0);
-    await this.refreshSlideBackgroundImages(reconciledExport);
-    // The full export already reflects every fast-path commit (they live in the
-    // renderer model), so any recorded slide XML is now folded in by definition.
-    this.pendingSlideXml.clear();
-    return reconciledExport;
+    return this.document.export();
+  }
+
+  /**
+   * The package document owns export/reload state and calls this reconciliation
+   * seam before accepting renderer output as authoritative OOXML.
+   */
+  private async reconcileRendererExport(
+    authoritativePackage: ArrayBuffer,
+    renderedExport: ArrayBuffer
+  ): Promise<ArrayBuffer> {
+    let mergedExport = renderedExport;
+    for (let slideIndex = 0; slideIndex < this.slideCountValue; slideIndex++) {
+      mergedExport = await mergeSlideGraphicFramesFromBuffer(authoritativePackage, mergedExport, slideIndex);
+    }
+    const preservedExport = await preserveSlideExtensionLists(authoritativePackage, mergedExport);
+    return this.reconcileRunPropsIntoBuffer(preservedExport);
   }
 
   /**
@@ -2097,77 +2507,78 @@ export class PresentationEngine {
    * nothing is pending, so callers can guard any `currentBuffer` read with it.
    */
   private async syncCurrentBuffer(): Promise<void> {
-    if (this.pendingSlideXml.size === 0) return;
+    await this.document.syncPackageFromPendingSlides();
+  }
 
-    const pending = this.pendingSlideXml;
-    this.pendingSlideXml = new Map();
-
-    const previousBuffer = this.currentBuffer;
-    let buffer = await buildZip(
-      previousBuffer,
-      new Map(Array.from(pending, ([slideIndex, xml]) => [getSlidePath(slideIndex), xml]))
-    );
-    for (const slideIndex of pending.keys()) {
-      buffer = await mergeSlideGraphicFramesFromBuffer(previousBuffer, buffer, slideIndex);
-    }
-    buffer = await preserveSlideExtensionLists(previousBuffer, buffer);
-    this.currentBuffer = buffer;
+  private async refreshDerivedState(buffer: ArrayBuffer): Promise<void> {
+    await this.refreshChartTextValues(buffer);
+    await this.refreshSlideBackgroundImages(buffer);
   }
 
   private async refreshSlideBackgroundImages(buffer: ArrayBuffer): Promise<void> {
     const zip = await extractZip(buffer);
-    const backgroundHrefs = new Map<number, string>();
+    const backgrounds = new Map<number, SlideBackgroundImage>();
 
     for (let slideIndex = 0; slideIndex < this.slideCountValue; slideIndex++) {
-      const href = this.resolveSlideBackgroundImageHref(zip, slideIndex);
-      if (href) backgroundHrefs.set(slideIndex, href);
+      const background = this.resolveSlideBackgroundImage(zip, slideIndex);
+      if (background) backgrounds.set(slideIndex, background);
     }
 
-    this.slideBackgroundImageHrefs = backgroundHrefs;
+    this.slideBackgroundImages = backgrounds;
   }
 
-  private resolveSlideBackgroundImageHref(zip: ZipContents, slideIndex: number): string | null {
+  private resolveSlideBackgroundImage(zip: ZipContents, slideIndex: number): SlideBackgroundImage | null {
     const slidePath = getSlidePath(slideIndex);
-    const slideBackground = this.resolvePartBackgroundImageHref(zip, slidePath);
-    if (slideBackground.explicit) return slideBackground.href;
+    const slideBackground = this.resolvePartBackgroundImage(zip, slidePath);
+    if (slideBackground.image) return slideBackground.image;
 
     const layoutPath = this.resolveRelationshipTargetByType(zip, slidePath, SLIDE_LAYOUT_RELATIONSHIP_TYPE);
     if (!layoutPath) return null;
 
-    const layoutBackground = this.resolvePartBackgroundImageHref(zip, layoutPath);
-    if (layoutBackground.explicit) return layoutBackground.href;
+    const layoutBackground = this.resolvePartBackgroundImage(zip, layoutPath);
+    if (layoutBackground.image) return layoutBackground.image;
 
     const masterPath = this.resolveRelationshipTargetByType(zip, layoutPath, SLIDE_MASTER_RELATIONSHIP_TYPE);
     if (!masterPath) return null;
 
-    const masterBackground = this.resolvePartBackgroundImageHref(zip, masterPath);
-    return masterBackground.href;
+    const masterBackground = this.resolvePartBackgroundImage(zip, masterPath);
+    return masterBackground.image;
   }
 
-  private resolvePartBackgroundImageHref(zip: ZipContents, partPath: string): { explicit: boolean; href: string | null } {
+  private resolvePartBackgroundImage(
+    zip: ZipContents,
+    partPath: string
+  ): { explicit: boolean; image: SlideBackgroundImage | null } {
     const xml = zip.textFiles.get(partPath);
-    if (!xml) return { explicit: false, href: null };
+    if (!xml) return { explicit: false, image: null };
 
     const doc = parseXml(xml, partPath);
     const background = getDescendants(doc, 'bg')[0];
-    if (!background) return { explicit: false, href: null };
+    if (!background) return { explicit: false, image: null };
 
+    const blipFill = getDescendants(background, 'blipFill')[0];
     const blip = getDescendants(background, 'blip')[0];
-    if (!blip) return { explicit: true, href: null };
+    if (!blip) return { explicit: true, image: null };
 
     const relationshipId = getBlipEmbedId(blip);
-    if (!relationshipId) return { explicit: true, href: null };
+    if (!relationshipId) return { explicit: true, image: null };
 
     const imagePath = this.resolveRelationshipTargetById(zip, partPath, relationshipId, IMAGE_RELATIONSHIP_TYPE);
-    if (!imagePath) return { explicit: true, href: null };
+    if (!imagePath) return { explicit: true, image: null };
 
     const imageBytes = zip.binaryFiles.get(imagePath);
-    if (!imageBytes) return { explicit: true, href: null };
+    if (!imageBytes) return { explicit: true, image: null };
 
     const mimeType = contentTypeForImageExtension(getPartExtension(imagePath));
+    const srcRect = blipFill
+      ? getElementChildren(blipFill).find((element) => element.localName === 'srcRect') ?? null
+      : null;
     return {
       explicit: true,
-      href: `data:${mimeType};base64,${bytesToBase64(imageBytes)}`
+      image: {
+        href: `data:${mimeType};base64,${bytesToBase64(imageBytes)}`,
+        crop: readSrcRectCrop(srcRect)
+      }
     };
   }
 

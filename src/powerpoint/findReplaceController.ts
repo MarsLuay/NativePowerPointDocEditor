@@ -4,13 +4,14 @@ import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
 import { createTranslateNotice } from '../i18n/translate';
 
 import type { PresentationEngine } from '../PresentationEngine';
-import type { ShapeTransform } from 'pptx-svg';
 import { isNode, isSVGTextElement } from '../domGuards';
 import { debugLog, errorLog } from '../logger';
-import { createMenuItem, createPopoverShell } from '../menuControls';
+import { formatFindResultStatus, wrapMatchIndex } from '../find/findReplaceShell';
+import { createMenuItem, createPopoverShell, createToolbarIconButton } from '../menuControls';
 import { cleanError } from './runtimeCompat';
 import { normalizeSearchText } from './textUtils';
 import { getShapeIndex } from './svgUtils';
+import type { PresentationSession } from './session/PresentationSession';
 import type { HistoryEntry, PowerPointFindMatch, SvgInlineSelectionBox } from './types';
 
 /**
@@ -24,17 +25,16 @@ import type { HistoryEntry, PowerPointFindMatch, SvgInlineSelectionBox } from '.
  */
 export interface FindReplaceHost {
   readonly t: TranslateFn;
+  readonly session: PresentationSession;
   readonly engine: PresentationEngine | null;
   readonly isLoading: boolean;
-  currentSlide: number;
-  selectedShapeIndex: number | null;
-  selectedTransform: ShapeTransform | null;
+  readonly currentSlide: number;
   readonly activeEditor: HTMLTextAreaElement | null;
   readonly svgEl: SVGSVGElement | null;
   ensureEditable(action: string): boolean;
+  clearSelection(): void;
   captureHistoryEntry(label: string): Promise<HistoryEntry>;
   recordHistoryEntry(entry: HistoryEntry): void;
-  markDirty(): void;
   renderCurrentSlide(keepSelection?: boolean): Promise<boolean>;
   renderThumbnails(): Promise<void>;
   getShapeTextParagraphs(shape: Element): (SVGTextElement | SVGTSpanElement)[];
@@ -78,6 +78,7 @@ export class FindReplaceController {
    * search button. Must be called once the toolbar button exists.
    */
   createPanel(anchorButton: HTMLButtonElement): void {
+    debugLog('search', 'PowerPoint find panel setup started', { op: 'create-panel' });
     this.findButtonEl = anchorButton;
 
     // Mounted on <body> (not inside the editor layout) so the fixed-position
@@ -93,11 +94,11 @@ export class FindReplaceController {
 
     const findRow = panel.createDiv({ cls: 'native-powerpoint-find-row' });
 
-    const toggleButton = createMenuItem(findRow, {
-      className: 'native-powerpoint-find-btn native-powerpoint-find-replace-toggle',
-      ariaLabel: this.host.t('powerpoint:find.toggleReplace')
+    const toggleButton = createToolbarIconButton(findRow, {
+      className: ['native-powerpoint-find-btn', 'native-powerpoint-find-replace-toggle'],
+      icon: 'chevron-right',
+      label: this.host.t('powerpoint:find.toggleReplace')
     });
-    setIcon(toggleButton, 'chevron-right');
     this.findReplaceToggleEl = toggleButton;
 
     const input = findRow.createEl('input', {
@@ -112,23 +113,23 @@ export class FindReplaceController {
 
     this.findStatusEl = findRow.createDiv({ cls: 'native-powerpoint-find-status', text: this.host.t('powerpoint:find.noSearch') });
 
-    const previousButton = createMenuItem(findRow, {
+    const previousButton = createToolbarIconButton(findRow, {
       className: 'native-powerpoint-find-btn',
-      ariaLabel: this.host.t('powerpoint:find.previousMatch')
+      icon: 'chevron-up',
+      label: this.host.t('powerpoint:find.previousMatch')
     });
-    setIcon(previousButton, 'chevron-up');
 
-    const nextButton = createMenuItem(findRow, {
+    const nextButton = createToolbarIconButton(findRow, {
       className: 'native-powerpoint-find-btn',
-      ariaLabel: this.host.t('powerpoint:find.nextMatch')
+      icon: 'chevron-down',
+      label: this.host.t('powerpoint:find.nextMatch')
     });
-    setIcon(nextButton, 'chevron-down');
 
-    const closeButton = createMenuItem(findRow, {
+    const closeButton = createToolbarIconButton(findRow, {
       className: 'native-powerpoint-find-btn',
-      ariaLabel: this.host.t('powerpoint:find.closeFind')
+      icon: 'x',
+      label: this.host.t('powerpoint:find.closeFind')
     });
-    setIcon(closeButton, 'x');
 
     const replaceRow = panel.createDiv({ cls: 'native-powerpoint-find-replace-row' });
 
@@ -205,7 +206,8 @@ export class FindReplaceController {
     }
 
     this.findPanelEl?.addClass('is-open');
-    debugLog('search', 'Opened PowerPoint find panel', {
+    debugLog('search', 'PowerPoint find panel open started', {
+      op: 'open',
       replaceMode: options.replace === true,
       slide: this.host.currentSlide
     });
@@ -228,6 +230,11 @@ export class FindReplaceController {
   }
 
   toggle(options: { replace?: boolean } = {}): void {
+    debugLog('search', 'PowerPoint find panel toggle started', {
+      op: 'toggle',
+      replaceMode: options.replace === true,
+      wasOpen: this.findPanelEl?.hasClass('is-open') === true
+    });
     if (this.findPanelEl?.hasClass('is-open')) {
       this.closeFindPanel();
       return;
@@ -237,6 +244,7 @@ export class FindReplaceController {
 
   /** Tears down the panel and its global listeners. Call from the view's onClose. */
   dispose(): void {
+    debugLog('search', 'PowerPoint find panel dispose started', { op: 'dispose' });
     this.detachFindPanelDismissHandlers();
     this.findPanelEl?.remove();
     this.findPanelEl = null;
@@ -244,6 +252,7 @@ export class FindReplaceController {
 
   /** Clears match state and panel inputs when a presentation is (un)loaded. */
   reset(): void {
+    debugLog('search', 'PowerPoint find reset started', { op: 'reset' });
     this.findMatches = [];
     this.currentFindMatchIndex = 0;
     if (this.findInputEl) this.findInputEl.value = '';
@@ -255,6 +264,10 @@ export class FindReplaceController {
 
   /** Re-applies in-slide match highlighting after the current slide re-renders. */
   refreshHighlight(): void {
+    debugLog('search', 'PowerPoint find highlight refresh started', {
+      op: 'refresh-highlight',
+      matchCount: this.findMatches.length
+    });
     this.applyFindHighlight();
   }
 
@@ -270,8 +283,10 @@ export class FindReplaceController {
     let left = rect.right - panelWidth;
     left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
     const top = Math.min(rect.bottom + gap, window.innerHeight - panel.offsetHeight - margin);
-    panel.style.left = `${Math.round(left)}px`;
-    panel.style.top = `${Math.round(Math.max(margin, top))}px`;
+		panel.setCssProps({
+			left: `${Math.round(left)}px`,
+			top: `${Math.round(Math.max(margin, top))}px`,
+		});
   }
 
   private attachFindPanelDismissHandlers(): void {
@@ -327,21 +342,31 @@ export class FindReplaceController {
 
     const replacement = this.findReplaceInputEl?.value ?? '';
     try {
-      const history = await this.host.captureHistoryEntry('Replace text');
-      const count = await this.host.engine.replaceText(query, replacement, {
-        slideIndex: match.slideIndex,
+      debugLog('search', 'PowerPoint replace-current started', {
+        op: 'replace-current',
+        queryLength: query.length,
+        replacementLength: replacement.length,
+        slide: match.slideIndex,
         shapeIndex: match.shapeIndex
       });
+      const history = await this.host.captureHistoryEntry('Replace text');
+      const count = await this.host.session.applyCommand({
+        type: 'replace-text',
+        query,
+        replacement,
+        slideIndex: match.slideIndex,
+        shapeIndex: match.shapeIndex
+      }) as number;
       if (count === 0) {
         this.notice('powerpoint:notice.noMatchesToReplace');
         return;
       }
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.host.renderThumbnails();
       await this.refreshFindMatches({ reveal: true });
       debugLog('search', 'Replaced current PowerPoint find match', {
+        op: 'replace-current',
         queryLength: query.length,
         replacementLength: replacement.length,
         replacedCount: count,
@@ -351,6 +376,7 @@ export class FindReplaceController {
       this.notice('powerpoint:notice.replacedMatches', { count });
     } catch (error) {
       errorLog('search', 'PowerPoint replace-current failed', {
+        op: 'replace-current',
         queryLength: query.length,
         replacementLength: replacement.length,
         error
@@ -371,18 +397,27 @@ export class FindReplaceController {
 
     const replacement = this.findReplaceInputEl?.value ?? '';
     try {
+      debugLog('search', 'PowerPoint replace-all started', {
+        op: 'replace-all',
+        queryLength: query.length,
+        replacementLength: replacement.length
+      });
       const history = await this.host.captureHistoryEntry('Replace all text');
-      const count = await this.host.engine.replaceText(query, replacement);
+      const count = await this.host.session.applyCommand({
+        type: 'replace-text',
+        query,
+        replacement
+      }) as number;
       if (count === 0) {
         this.notice('powerpoint:notice.noMatchesToReplace');
         return;
       }
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) await this.host.renderThumbnails();
       await this.refreshFindMatches({ reveal: true });
       debugLog('search', 'Replaced all PowerPoint find matches', {
+        op: 'replace-all',
         queryLength: query.length,
         replacementLength: replacement.length,
         replacedCount: count
@@ -390,6 +425,7 @@ export class FindReplaceController {
       this.notice('powerpoint:notice.replacedMatches', { count });
     } catch (error) {
       errorLog('search', 'PowerPoint replace-all failed', {
+        op: 'replace-all',
         queryLength: query.length,
         replacementLength: replacement.length,
         error
@@ -428,6 +464,7 @@ export class FindReplaceController {
       this.currentFindMatchIndex = 0;
       this.updateFindStatus();
       debugLog('search', 'PowerPoint find results cleared', {
+        op: 'refresh-matches',
         queryLength: query.length,
         hasEngine: Boolean(this.host.engine)
       });
@@ -439,6 +476,7 @@ export class FindReplaceController {
       this.currentFindMatchIndex = 0;
       this.updateFindStatus();
       debugLog('search', 'PowerPoint find completed', {
+        op: 'refresh-matches',
         queryLength: query.length,
         matchCount: 0,
         slideCount: this.host.engine.slideCount
@@ -456,6 +494,7 @@ export class FindReplaceController {
       this.updateFindStatus();
     }
     debugLog('search', 'PowerPoint find completed', {
+      op: 'refresh-matches',
       queryLength: query.length,
       matchCount: this.findMatches.length,
       slideCount: this.host.engine.slideCount,
@@ -511,7 +550,7 @@ export class FindReplaceController {
       if (this.findMatches.length === 0) return;
     }
 
-    this.currentFindMatchIndex = (this.currentFindMatchIndex + direction + this.findMatches.length) % this.findMatches.length;
+    this.currentFindMatchIndex = wrapMatchIndex(this.currentFindMatchIndex, direction, this.findMatches.length);
     await this.revealCurrentFindMatch();
   }
 
@@ -523,9 +562,8 @@ export class FindReplaceController {
     }
 
     if (match.slideIndex !== this.host.currentSlide) {
-      this.host.currentSlide = match.slideIndex;
-      this.host.selectedShapeIndex = null;
-      this.host.selectedTransform = null;
+      this.host.session.setCurrentSlide(match.slideIndex);
+      this.host.clearSelection();
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) {
         await this.host.renderThumbnails();
@@ -616,31 +654,24 @@ export class FindReplaceController {
     if (!this.findStatusEl) return;
 
     const query = this.findInputEl?.value.trim() ?? '';
-    if (!query) {
-      this.findStatusEl.setText(this.host.t('powerpoint:find.noSearch'));
-      this.findStatusEl.removeAttribute('title');
-      return;
-    }
-
-    if (this.findMatches.length === 0) {
-      this.findStatusEl.setText(this.host.t('powerpoint:find.noMatches'));
-      this.findStatusEl.removeAttribute('title');
-      return;
-    }
-
-    const match = this.findMatches[this.currentFindMatchIndex];
+    const match = query && this.findMatches.length > 0 ? this.findMatches[this.currentFindMatchIndex] : undefined;
     const slideLabel = match
       ? this.host.t('powerpoint:find.slideLabel', { slideNumber: match.slideIndex + 1 })
       : '';
+
     this.findStatusEl.setText(
-      this.host.t('powerpoint:find.resultCount', {
-        current: this.currentFindMatchIndex + 1,
-        total: this.findMatches.length,
-        slide: slideLabel
+      formatFindResultStatus(query, this.currentFindMatchIndex, this.findMatches.length, {
+        noSearch: this.host.t('powerpoint:find.noSearch'),
+        noMatches: this.host.t('powerpoint:find.noMatches'),
+        resultCount: (current, total) =>
+          this.host.t('powerpoint:find.resultCount', { current, total, slide: slideLabel })
       })
     );
+
     if (match) {
       this.findStatusEl.setAttribute('title', match.text);
+    } else {
+      this.findStatusEl.removeAttribute('title');
     }
   }
 }

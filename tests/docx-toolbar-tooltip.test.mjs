@@ -475,22 +475,28 @@ test("positioning clamps left and right viewport edges", async () => {
 test("DOCX resolver matches toolbar controls but not links, menus, or popovers", async () => {
 	const { getDocumentLinkTitleTarget, getToolbarTooltipTarget } = await loadDocxToolbarTooltipModule();
 	const ownerDocument = new FakeDocument();
-	const editorRoot = append(ownerDocument.body, "div", { classes: ["native-powerpoint-doc-editor-editor-1"] });
-	const toolbar = append(editorRoot, "div", { attrs: { "data-testid": "editor-toolbar" } });
+	const editorRoot = append(ownerDocument.body, "div", {
+		classes: ["native-powerpoint-doc-editor-editor-1"],
+		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
+	});
+	const toolbar = append(editorRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-toolbar": "true" } });
 	const button = append(toolbar, "button", { attrs: { "aria-label": "Bold" } });
 	const icon = append(button, "span");
 	const epRoot = append(editorRoot, "div", { classes: ["ep-root"] });
-	const formattingBar = append(epRoot, "div", { attrs: { "data-testid": "formatting-bar" } });
+	const formattingBar = append(epRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-formatting-bar": "true" } });
 	const formattingButton = append(formattingBar, "button", { attrs: { "aria-label": "Align Left" } });
-	const otherRoot = append(ownerDocument.body, "div", { classes: ["native-powerpoint-doc-editor-editor-2"] });
-	const otherToolbar = append(otherRoot, "div", { attrs: { "data-testid": "editor-toolbar" } });
+	const otherRoot = append(ownerDocument.body, "div", {
+		classes: ["native-powerpoint-doc-editor-editor-2"],
+		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
+	});
+	const otherToolbar = append(otherRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-toolbar": "true" } });
 	const otherButton = append(otherToolbar, "button", { attrs: { "aria-label": "Other save" } });
 
 	assert.equal(getToolbarTooltipTarget(icon, editorRoot), button);
 	assert.equal(getToolbarTooltipTarget(formattingButton, editorRoot), null);
 	assert.equal(getToolbarTooltipTarget(otherButton, editorRoot), null);
 
-  const page = append(editorRoot, "div", { classes: ["layout-page"] });
+  const page = append(editorRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-page": "true" } });
   const link = append(page, "a", { attrs: { title: "https://example.com" } });
   assert.equal(getToolbarTooltipTarget(link, editorRoot), null);
   assert.equal(getDocumentLinkTitleTarget(link, editorRoot), link);
@@ -499,7 +505,7 @@ test("DOCX resolver matches toolbar controls but not links, menus, or popovers",
   const menuButton = append(menu, "button", { attrs: { "aria-label": "Menu item" } });
   assert.equal(getToolbarTooltipTarget(menuButton, editorRoot), null);
 
-  const popover = append(toolbar, "div", { classes: ["ep-hyperlink-popup"] });
+  const popover = append(toolbar, "div", { attrs: { "data-native-powerpoint-doc-editor-hyperlink-popup": "true" } });
 	const popoverButton = append(popover, "button", { attrs: { "aria-label": "Edit link" } });
 	assert.equal(getToolbarTooltipTarget(popoverButton, editorRoot), null);
 });
@@ -507,11 +513,14 @@ test("DOCX resolver matches toolbar controls but not links, menus, or popovers",
 test("DOCX tooltip metadata sync leaves formatting labels alone", async () => {
 	const { neutralizeToolbarButtonTooltipSources } = await loadDocxToolbarTooltipModule();
 	const ownerDocument = new FakeDocument();
-	const editorRoot = append(ownerDocument.body, "div", { classes: ["native-powerpoint-doc-editor-editor-1"] });
+	const editorRoot = append(ownerDocument.body, "div", {
+		classes: ["native-powerpoint-doc-editor-editor-1"],
+		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
+	});
 	const epRoot = append(editorRoot, "div", { classes: ["ep-root"] });
 	const formattingBar = append(epRoot, "div", {
 		attrs: {
-			"data-testid": "formatting-bar",
+			"data-native-powerpoint-doc-editor-formatting-bar": "true",
 			role: "toolbar",
 			"aria-label": "Formatting toolbar",
 			title: "Formatting toolbar",
@@ -520,7 +529,7 @@ test("DOCX tooltip metadata sync leaves formatting labels alone", async () => {
 	});
 	const group = append(formattingBar, "div", { attrs: { role: "group", "aria-label": "Alignment" } });
 	const button = append(group, "button", { attrs: { "aria-label": "Align Left" } });
-	const editorToolbar = append(epRoot, "div", { attrs: { "data-testid": "editor-toolbar" } });
+	const editorToolbar = append(epRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-toolbar": "true" } });
 	const editorButton = append(editorToolbar, "button", { attrs: { "aria-label": "Save" } });
 
 	neutralizeToolbarButtonTooltipSources(editorRoot);
@@ -538,10 +547,14 @@ test("DOCX tooltip metadata sync leaves formatting labels alone", async () => {
 test("DOCX suppression hides inline Eigenpal toolbar tooltips without touching body portals", async () => {
 	const { suppressEigenpalToolbarTooltips } = await loadDocxToolbarTooltipModule();
 	const ownerDocument = new FakeDocument();
-	const editorRoot = append(ownerDocument.body, "div", { classes: ["native-powerpoint-doc-editor-editor-1"] });
+	const editorRoot = append(ownerDocument.body, "div", {
+		classes: ["native-powerpoint-doc-editor-editor-1"],
+		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
+	});
 	const epRoot = append(editorRoot, "div", { classes: ["ep-root"] });
 	const inlineTooltip = append(epRoot, "div", {
 		classes: ["fixed", "z-50", "px-2", "py-1", "rounded-md", "shadow-lg"],
+		attrs: { "data-native-powerpoint-doc-editor-eigenpal-tooltip": "true" },
 		textContent: "Align Left",
 	});
 	const portalRoot = append(ownerDocument.body, "div", { classes: ["ep-root"] });
@@ -549,7 +562,7 @@ test("DOCX suppression hides inline Eigenpal toolbar tooltips without touching b
 		classes: ["fixed", "z-50", "px-2", "py-1", "rounded-md", "shadow-lg"],
 		textContent: "Alignment",
 	});
-	const linkPopup = append(portalRoot, "div", { classes: ["ep-hyperlink-popup"] });
+	const linkPopup = append(portalRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-hyperlink-popup": "true" } });
 	const linkPreview = append(linkPopup, "div", {
 		classes: ["fixed", "z-50", "px-2", "py-1", "rounded-md", "shadow-lg"],
 		textContent: "https://example.com",
@@ -568,15 +581,21 @@ test("DOCX suppression hides inline Eigenpal toolbar tooltips without touching b
 test("DOCX toolbar tooltip manager is scoped and singleton per editor root", async () => {
 	const { attachDocxToolbarTooltipManager } = await loadDocxToolbarTooltipModule();
 	const ownerDocument = new FakeDocument();
-	const editorRoot = append(ownerDocument.body, "div", { classes: ["native-powerpoint-doc-editor-editor-1"] });
-	const toolbar = append(editorRoot, "div", { attrs: { "data-testid": "editor-toolbar" } });
+	const editorRoot = append(ownerDocument.body, "div", {
+		classes: ["native-powerpoint-doc-editor-editor-1"],
+		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
+	});
+	const toolbar = append(editorRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-toolbar": "true" } });
 	const button = append(toolbar, "button", {
 		attrs: { "aria-label": "Save", title: "Save" },
 		dataset: { tooltip: "Save" },
 	});
 	const icon = append(button, "span");
-	const otherRoot = append(ownerDocument.body, "div", { classes: ["native-powerpoint-doc-editor-editor-2"] });
-	const otherToolbar = append(otherRoot, "div", { attrs: { "data-testid": "editor-toolbar" } });
+	const otherRoot = append(ownerDocument.body, "div", {
+		classes: ["native-powerpoint-doc-editor-editor-2"],
+		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
+	});
+	const otherToolbar = append(otherRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-toolbar": "true" } });
 	const otherButton = append(otherToolbar, "button", {
 		attrs: { "aria-label": "Other save", title: "Other save" },
 		dataset: { tooltip: "Other save" },

@@ -1,0 +1,1 @@
+export{a as DocxReviewer}from'./chunk-HXXNGLFA.mjs';export{n as createReviewerBridge}from'./chunk-INQUC7PY.mjs';export{a as docxAgentTools,b as executeToolCall,c as getToolDisplayName,d as getToolSchemas}from'./chunk-MSKW7E36.mjs';

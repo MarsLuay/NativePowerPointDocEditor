@@ -3,6 +3,13 @@ import type { Translations } from '@eigenpal/docx-editor-i18n';
 import type { I18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { loadDocxEditorChunk } from './docxEditorLoader';
+import {
+	getAvailableNumberedPath as resolveNumberedArtifactPath,
+	resolveArtifactConflict,
+	type ArtifactConflictChoice,
+} from './export/artifactPaths';
+import { buildSiblingPath, getVaultFolderPrefix } from './vault/paths';
+import { renameFileToSiblingName } from './vault/renameFlow';
 import { findHiddenDocxText, type HiddenTextFinding } from './docxHiddenTextScanner';
 import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { extractDocxMarkdown, extractDocxText } from './docxTextExtractor';
@@ -10,12 +17,12 @@ import { isElement, isHTMLElement, isNode } from './domGuards';
 import { scheduleIdleWork } from './idleSchedule';
 import { createLoadTrace, monotonicNow, type LoadTrace } from './loadTrace';
 import {
-	createObservedMutationObserver,
 	logLifecycleStep,
 	startOpenHeartbeat,
 	traceSyncStep,
 } from './debugInstrumentation';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
+import { aiUndoStore } from './ai/aiUndoStore';
 import { closeModalDomScope, loadModalDomScope, openModalDomScope } from './modalDomScope';
 import {
 	normalizeEditorThemePreference,
@@ -31,22 +38,29 @@ import {
 	createPopoverShell,
 } from './menuControls';
 import {
+	DOCX_EDITOR_MENUBAR_SELECTOR,
+	DOCX_EDITOR_MENU_BUTTON_SELECTOR,
+	DOCX_EDITOR_MENU_DROPDOWN_SELECTOR,
+	DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR,
+	DOCX_EDITOR_MENU_ROOT_SELECTOR,
+	DOCX_EDITOR_ROOT_SELECTOR,
 	EDITOR_CHROME_MENU_ITEMS,
+	markEditorChromeMenuButton,
 	markEditorChromeMenuItem,
 	markEditorChromeNoToolbarTooltip,
+	stampDocxEditorChromeRegions,
 } from './docxEditorChromeMarkers';
+import { getDocxEditorChromeRegionSelector } from './editorChromeRegions';
 
 import { neutralizeToolbarButtonTooltipSources } from './docxToolbarTooltip';
 import { VIEW_TYPE_DOCX } from './docxViewConstants';
+import {
+	createDocxEditorAdapter,
+	type Disposable,
+	type DocxEditorAdapterController,
+} from './docx/adapter/DocxEditorAdapter';
 
 export { VIEW_TYPE_DOCX };
-
-const EDITOR_CHROME_OBSERVER_OPTIONS: MutationObserverInit = {
-	childList: true,
-	subtree: true,
-	attributes: true,
-	attributeFilter: ['title', 'aria-label'],
-};
 
 type UnsavedDocxChoice = 'save' | 'discard' | 'cancel';
 type DocxPathChoice = string | null;
@@ -756,12 +770,12 @@ function isTopLevelEditorMenuButton(element: HTMLElement): boolean {
 	return Boolean(
 		parent
 		&& parent.parentElement?.getAttribute('role') === 'menubar'
-		&& parent.querySelector(':scope > button') === element
+		&& parent.querySelector(DOCX_EDITOR_MENU_BUTTON_SELECTOR) === element
 	);
 }
 
 function getActiveEditorMenubar(hostEl: HTMLElement): HTMLElement | null {
-	const menubars = hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"]');
+	const menubars = hostEl.querySelectorAll<HTMLElement>(DOCX_EDITOR_MENUBAR_SELECTOR);
 	if (menubars.length === 0) {
 		return null;
 	}
@@ -824,7 +838,7 @@ function shouldSkipEditorOptionControl(element: HTMLElement): boolean {
 		|| element.closest('[data-native-powerpoint-doc-editor-search-menu-item]')
 		|| element.closest('[data-native-powerpoint-doc-editor-settings-menu-item]')
 		|| element.closest('[data-native-powerpoint-doc-editor-no-toolbar-tooltip]')
-		|| element.closest('[data-testid="title-bar"] input')
+		|| element.closest(`${getDocxEditorChromeRegionSelector('header')} input`)
 		|| isTopLevelEditorMenuButton(element)
 	);
 }
@@ -914,7 +928,8 @@ export class DocxView extends FileView {
 	private backupCreatedForOpenFile = false;
 	private reserveReviewSidebar = false;
 	private hostResizeObserver: ResizeObserver | null = null;
-	private editorChromeObserver: MutationObserver | null = null;
+	private editorAdapter: DocxEditorAdapterController | null = null;
+	private editorChromeObserver: Disposable | null = null;
 	private editorChromeSyncQueued = false;
 	private editorChromeSyncing = false;
 	private optionSearchPopoverEl: HTMLElement | null = null;
@@ -1013,6 +1028,7 @@ export class DocxView extends FileView {
 		traceSyncStep('view-onOpen:empty-content', () => {
 			this.contentEl.empty();
 			this.hostEl = this.contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-host' });
+			this.editorAdapter = createDocxEditorAdapter(this.hostEl);
 		}, { file: this.file?.path });
 		traceSyncStep('view-onOpen:apply-theme', () => this.applyThemeClass());
 		traceSyncStep('view-onOpen:prepare-host', () => this.prepareViewHost());
@@ -1020,6 +1036,7 @@ export class DocxView extends FileView {
 		traceSyncStep('view-onOpen:save-interceptor', () => this.registerEditorSaveInterceptor());
 		traceSyncStep('view-onOpen:copy-interceptor', () => this.registerEditorListAwareCopyInterceptor());
 		traceSyncStep('view-onOpen:save-shortcut', () => this.registerSaveShortcut());
+		traceSyncStep('view-onOpen:agent-undo-shortcut', () => this.registerAgentUndoShortcut());
 		traceSyncStep('view-onOpen:find-shortcut', () => this.registerFindShortcut());
 		traceSyncStep('view-onOpen:scroll-guard', () => this.registerEditorDropdownScrollGuard());
 		traceSyncStep('view-onOpen:active-leaf', () => this.registerActiveLeafMounting());
@@ -1028,7 +1045,7 @@ export class DocxView extends FileView {
 	}
 
 	private registerEditorChromeCustomization() {
-		if (this.editorChromeObserversRegistered || !this.hostEl || !this.reactMount) {
+		if (this.editorChromeObserversRegistered || !this.editorAdapter || !this.reactMount) {
 			return;
 		}
 
@@ -1036,12 +1053,11 @@ export class DocxView extends FileView {
 		this.markOpenLoadPhase('editor-chrome-observers-start');
 		logLifecycleStep('editor-chrome-observers:start', { file: this.file?.path });
 		this.syncEditorChromeCustomizations(true);
-		this.editorChromeObserver = createObservedMutationObserver('docx-editor-chrome', () => {
+		this.editorChromeObserver = this.editorAdapter.observeChrome(() => {
 			this.scheduleEditorChromeSync();
 		});
-		this.editorChromeObserver.observe(this.hostEl, EDITOR_CHROME_OBSERVER_OPTIONS);
 		this.register(() => {
-			this.editorChromeObserver?.disconnect();
+			this.editorChromeObserver?.dispose();
 			this.editorChromeObserver = null;
 		});
 		this.markOpenLoadPhase('editor-chrome-observers-ready');
@@ -1053,6 +1069,12 @@ export class DocxView extends FileView {
 			? <T,>(step: string, fn: () => T) => traceSyncStep(step, fn)
 			: <T,>(_step: string, fn: () => T) => fn();
 
+		run('editor-chrome:stamp-regions', () => {
+			const root = this.hostEl?.querySelector<HTMLElement>(DOCX_EDITOR_ROOT_SELECTOR);
+			if (root) {
+				stampDocxEditorChromeRegions(root);
+			}
+		});
 		run('editor-chrome:dedupe-menu-items', () => this.dedupeEditorChromeMenuItems());
 		run('editor-chrome:remove-titles', () => this.removeNativeButtonTitles());
 		run('editor-chrome:sync-toolbar-tooltip-metadata', () => this.syncToolbarTooltipMetadata());
@@ -1071,10 +1093,10 @@ export class DocxView extends FileView {
 		}
 
 		this.editorChromeSyncQueued = true;
-			window.requestAnimationFrame(() => {
-				this.editorChromeSyncQueued = false;
-				this.runEditorChromeSync();
-			});
+		requestAnimationFrame(() => {
+			this.editorChromeSyncQueued = false;
+			this.runEditorChromeSync();
+		});
 	}
 
 	private runEditorChromeSync() {
@@ -1083,14 +1105,10 @@ export class DocxView extends FileView {
 		}
 
 		this.editorChromeSyncing = true;
-		this.editorChromeObserver?.disconnect();
 		try {
 			this.syncEditorChromeCustomizations(false);
 		} finally {
 			this.editorChromeSyncing = false;
-			if (this.hostEl && this.editorChromeObserversRegistered && this.editorChromeObserver) {
-				this.editorChromeObserver.observe(this.hostEl, EDITOR_CHROME_OBSERVER_OPTIONS);
-			}
 		}
 	}
 
@@ -1113,9 +1131,11 @@ export class DocxView extends FileView {
 	}
 
 	private isLeafActive(): boolean {
-		const activeDocxView = this.app.workspace.getActiveViewOfType(DocxView);
-		if (activeDocxView) {
-			return activeDocxView === this;
+		if (this.app.workspace.getActiveViewOfType(DocxView) === this) {
+			return true;
+		}
+		if (this.app.workspace.activeLeaf?.view === this) {
+			return true;
 		}
 		if (!this.file) {
 			return false;
@@ -1178,8 +1198,9 @@ export class DocxView extends FileView {
 		this.reactMountLoading = false;
 		this.hostResizeObserver?.disconnect();
 		this.hostResizeObserver = null;
-		this.editorChromeObserver?.disconnect();
+		this.editorChromeObserver?.dispose();
 		this.editorChromeObserver = null;
+		this.editorAdapter = null;
 		this.editorChromeSyncQueued = false;
 		this.editorChromeSyncing = false;
 		this.closeEditorOptionSearchMenu();
@@ -1321,6 +1342,98 @@ export class DocxView extends FileView {
 		}
 
 		return saved;
+	}
+
+	getLoadedDocumentPath(): string | null {
+		return this.file?.path ?? null;
+	}
+
+	canAgentEdit(): boolean {
+		return Boolean(this.file) && !this.isLoading && !this.error;
+	}
+
+	async exportBufferForAgent(): Promise<ArrayBuffer | null> {
+		if (!this.canAgentEdit()) {
+			return null;
+		}
+
+		const exported = await this.getReactHandle()?.exportBuffer({ preserveAutosave: true }) ?? null;
+		if (exported) {
+			return exported;
+		}
+
+		return this.buffer ? this.buffer.slice(0) : null;
+	}
+
+	async reloadFromAgentBuffer(buffer: ArrayBuffer): Promise<void> {
+		if (!this.file) {
+			return;
+		}
+
+		debugLog('agent', 'Reloading open DOCX view from agent buffer', {
+			file: this.file.path,
+			bytes: buffer.byteLength,
+		});
+
+		const styledDocument = await ensureDocxDefaultStyles(buffer);
+		this.buffer = styledDocument.buffer;
+		this.isDirty = false;
+		this.error = null;
+		this.documentSession += 1;
+		this.lastKnownFileSignature = await this.readFileSignature(this.file);
+		this.render();
+	}
+
+	canUndoAgentEdit(): boolean {
+		return Boolean(this.file && aiUndoStore.canUndo(this.file.path));
+	}
+
+	canRedoAgentEdit(): boolean {
+		return Boolean(this.file && aiUndoStore.canRedo(this.file.path));
+	}
+
+	async undoAgentEdit(): Promise<boolean> {
+		if (!this.file) {
+			return false;
+		}
+
+		const entry = aiUndoStore.popUndo(this.file.path);
+		if (!entry || entry.before.kind !== 'docx') {
+			return false;
+		}
+
+		const current = await this.exportBufferForAgent();
+		if (current) {
+			aiUndoStore.pushRedo(this.file.path, {
+				label: entry.label,
+				before: { kind: 'docx', buffer: current.slice(0) },
+			});
+		}
+
+		await this.reloadFromAgentBuffer(entry.before.buffer);
+		return true;
+	}
+
+	async redoAgentEdit(): Promise<boolean> {
+		if (!this.file) {
+			return false;
+		}
+
+		const entry = aiUndoStore.popRedo(this.file.path);
+		if (!entry || entry.before.kind !== 'docx') {
+			return false;
+		}
+
+		const current = await this.exportBufferForAgent();
+		if (current) {
+			aiUndoStore.record(this.file.path, {
+				label: entry.label,
+				before: { kind: 'docx', buffer: current.slice(0) },
+			});
+		}
+
+		await this.reloadFromAgentBuffer(entry.before.buffer);
+		return true;
 	}
 
 	async saveCurrentDocumentAs() {
@@ -1528,15 +1641,19 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		void editor.pasteFromClipboard({ preserveFormatting }).then((pasted) => {
-			if (!pasted) {
-				this.showNotice('docx:notice.nothingPasted');
-			}
-		});
+		void editor.pasteFromClipboard({ preserveFormatting })
+			.then((pasted) => {
+				if (!pasted) {
+					this.showNotice('docx:notice.nothingPasted');
+				}
+			})
+			.catch((error) => {
+				errorLog('clipboard', 'DOCX paste failed', error);
+			});
 	}
 
 	private getLiveEditorOptionSearchItems(): EditorOptionSearchControlItem[] {
-		const root = this.hostEl?.querySelector<HTMLElement>('.ep-root');
+		const root = this.hostEl?.querySelector<HTMLElement>(DOCX_EDITOR_ROOT_SELECTOR);
 		if (!root) {
 			return [];
 		}
@@ -1601,7 +1718,7 @@ export class DocxView extends FileView {
 	}
 
 	private findEditorControlByLabels(labels: readonly string[]) {
-		const root = this.hostEl?.querySelector<HTMLElement>('.ep-root');
+		const root = this.hostEl?.querySelector<HTMLElement>(DOCX_EDITOR_ROOT_SELECTOR);
 		if (!root) {
 			return null;
 		}
@@ -1645,14 +1762,14 @@ export class DocxView extends FileView {
 	}
 
 	private findEditorMenuButton(menuLabel: string) {
-		const root = this.hostEl?.querySelector<HTMLElement>('.ep-root');
+		const root = this.hostEl?.querySelector<HTMLElement>(DOCX_EDITOR_ROOT_SELECTOR);
 		if (!root) {
 			return null;
 		}
 
 		const normalizedMenuLabel = normalizeMenuText(menuLabel);
-		for (const menuItem of Array.from(root.querySelectorAll<HTMLElement>('[role="menubar"] > div'))) {
-			const button = menuItem.querySelector<HTMLButtonElement>(':scope > button');
+		for (const menuItem of Array.from(root.querySelectorAll<HTMLElement>(DOCX_EDITOR_MENU_ROOT_SELECTOR))) {
+			const button = menuItem.querySelector<HTMLButtonElement>(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 			const label = normalizeMenuText(button?.textContent ?? '');
 			if (button && label === normalizedMenuLabel) {
 				return button;
@@ -2054,34 +2171,21 @@ export class DocxView extends FileView {
 			new ExistingFileModal(this.app, path, resolve).open();
 		});
 
-		if (choice === 'replace') {
-			return { path, existingFile, replace: true };
+		const canonicalChoice: ArtifactConflictChoice = choice === 'replace' ? 'replace' : 'keep-both';
+		const resolved = resolveArtifactConflict(path, existingFile, canonicalChoice, (candidate) =>
+			Boolean(this.app.vault.getAbstractFileByPath(candidate)),
+		);
+		if (resolved && !resolved.replace) {
+			infoLog('copy', `Keeping existing file and writing numbered copy`, {
+				originalPath: path,
+				copyPath: resolved.path,
+			});
 		}
-
-		const copyPath = this.getAvailableNumberedPath(path);
-		infoLog('copy', `Keeping existing file and writing numbered copy`, {
-			originalPath: path,
-			copyPath,
-		});
-		return { path: copyPath, existingFile: null, replace: false };
+		return resolved;
 	}
 
 	private getAvailableNumberedPath(path: string) {
-		const lastSlashIndex = path.lastIndexOf('/');
-		const folderPrefix = lastSlashIndex >= 0 ? `${path.slice(0, lastSlashIndex)}/` : '';
-		const fileName = lastSlashIndex >= 0 ? path.slice(lastSlashIndex + 1) : path;
-		const extensionIndex = fileName.lastIndexOf('.');
-		const baseName = extensionIndex > 0 ? fileName.slice(0, extensionIndex) : fileName;
-		const extension = extensionIndex > 0 ? fileName.slice(extensionIndex) : '';
-
-		for (let index = 2; index < 1000; index += 1) {
-			const candidatePath = normalizePath(`${folderPrefix}${baseName} ${index}${extension}`);
-			if (!this.app.vault.getAbstractFileByPath(candidatePath)) {
-				return candidatePath;
-			}
-		}
-
-		return normalizePath(`${folderPrefix}${baseName} ${Date.now()}${extension}`);
+		return resolveNumberedArtifactPath(path, (candidate) => Boolean(this.app.vault.getAbstractFileByPath(candidate)));
 	}
 
 	private async renameFile(name: string, expectedPath?: string | null) {
@@ -2106,10 +2210,9 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		const folderPath = file.parent?.path;
-		const newPath = folderPath && folderPath !== '/' ? `${folderPath}/${normalizedName}` : normalizedName;
-		infoLog('file', `Renaming ${file.path} to ${newPath}`);
-		await this.app.fileManager.renameFile(file, newPath);
+		const previousPath = file.path;
+		const result = await renameFileToSiblingName(this.app, file, normalizedName);
+		infoLog('file', `Renamed ${previousPath} to ${result.path}`);
 		this.lastKnownFileSignature = await this.readFileSignature(file);
 		this.showNotice('docx:notice.renamedTo', { name: normalizedName });
 	}
@@ -2181,8 +2284,7 @@ export class DocxView extends FileView {
 	}
 
 	private getAvailableBackupPath(file: TFile) {
-		const folderPath = file.parent?.path;
-		const backupFolder = normalizePath(`${folderPath && folderPath !== '/' ? `${folderPath}/` : ''}.native-powerpoint-doc-editor-backups`);
+		const backupFolder = normalizePath(`${getVaultFolderPrefix(file.parent?.path)}.native-powerpoint-doc-editor-backups`);
 		const baseName = file.basename || file.name.replace(/\.docx$/i, '');
 		const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, '').replace('T', ' ').replace(/:/g, '-');
 
@@ -2247,8 +2349,7 @@ export class DocxView extends FileView {
 	}
 
 	private getAvailableCopyPath(file: TFile) {
-		const folderPath = file.parent?.path;
-		const folderPrefix = folderPath && folderPath !== '/' ? `${folderPath}/` : '';
+		const folderPrefix = getVaultFolderPrefix(file.parent?.path);
 		const baseName = file.basename || file.name.replace(/\.docx$/i, '');
 
 		for (let index = 1; index < 1000; index += 1) {
@@ -2263,8 +2364,7 @@ export class DocxView extends FileView {
 	}
 
 	private getAvailableExportPath(file: TFile, formatId: DocxExportFormatId) {
-		const folderPath = file.parent?.path;
-		const folderPrefix = folderPath && folderPath !== '/' ? `${folderPath}/` : '';
+		const folderPrefix = getVaultFolderPrefix(file.parent?.path);
 		const baseName = file.basename || file.name.replace(/\.docx$/i, '');
 		const extension = getExportFormat(formatId).extension;
 		const preferredPath = normalizePath(`${folderPrefix}${baseName}.${extension}`);
@@ -2293,9 +2393,7 @@ export class DocxView extends FileView {
 			return null;
 		}
 
-		const folderPath = file.parent?.path;
-		const folderPrefix = folderPath && folderPath !== '/' ? `${folderPath}/` : '';
-		return normalizePath(`${folderPrefix}${normalizedName}`);
+		return buildSiblingPath(file, normalizedName);
 	}
 
 	private async ensureParentFolders(path: string) {
@@ -2402,7 +2500,7 @@ export class DocxView extends FileView {
 			return;
 		}
 
-		this.hostEl?.querySelectorAll('.ep-root button[title]').forEach((button) => {
+		this.hostEl?.querySelectorAll(`${DOCX_EDITOR_ROOT_SELECTOR} button[title]`).forEach((button) => {
 			if (isHTMLElement(button)) {
 				const title = button.getAttribute('title');
 				if (title) {
@@ -2420,8 +2518,8 @@ export class DocxView extends FileView {
 
 		const helpLabel = this.resolveEditorMenuLabels().help;
 
-		this.hostEl?.querySelectorAll('.ep-root [role="menubar"] > div').forEach((menuItem) => {
-			const button = menuItem.querySelector(':scope > button');
+		this.hostEl?.querySelectorAll(DOCX_EDITOR_MENU_ROOT_SELECTOR).forEach((menuItem) => {
+			const button = menuItem.querySelector(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 			const label = normalizeMenuText(button?.textContent ?? '');
 			if (label === helpLabel) {
 				menuItem.remove();
@@ -2461,7 +2559,7 @@ export class DocxView extends FileView {
 
 			const menuItems = Array.from(menubar.children).filter((child): child is HTMLElement => isHTMLElement(child));
 			const findTopLevelMenu = (label: string) => menuItems.find((item) => {
-				const button = item.querySelector(':scope > button');
+				const button = item.querySelector(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 				return normalizeMenuText(button?.textContent ?? '') === label;
 			});
 			const fileWrapper = findTopLevelMenu(labels.file);
@@ -2470,7 +2568,7 @@ export class DocxView extends FileView {
 			const sourceWrapper = existingEditWrapper
 				?? menuItems.find((child) => (
 					!child.matches('[data-native-powerpoint-doc-editor-edit-menu-item], [data-native-powerpoint-doc-editor-search-menu-item], [data-native-powerpoint-doc-editor-settings-menu-item]')
-					&& Boolean(child.querySelector(':scope > button'))
+					&& Boolean(child.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR))
 				));
 			const wrapper = existingEditWrapper
 				?? (sourceWrapper ? sourceWrapper.cloneNode(true) as HTMLElement : activeDocument.createElement('div'));
@@ -2479,7 +2577,7 @@ export class DocxView extends FileView {
 			wrapper.setCssProps({ position: 'relative' });
 			wrapper.removeAttribute('id');
 
-			let button = wrapper.querySelector<HTMLButtonElement>(':scope > button');
+			let button = wrapper.querySelector<HTMLButtonElement>(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 			Array.from(wrapper.children).forEach((child) => {
 				if (child !== button) {
 					child.remove();
@@ -2492,6 +2590,7 @@ export class DocxView extends FileView {
 
 			button.type = 'button';
 			button.textContent = this.docxT('docx:chrome.edit');
+			markEditorChromeMenuButton(button);
 			markEditorChromeNoToolbarTooltip(button);
 			button.addClasses(['native-powerpoint-doc-editor-search-menu-button', 'native-powerpoint-doc-editor-edit-menu-button']);
 			button.removeAttribute('aria-haspopup');
@@ -2596,7 +2695,7 @@ export class DocxView extends FileView {
 				const sourceWrapper = Array.from(menubar.children).find((child): child is HTMLElement => (
 					isHTMLElement(child)
 					&& !child.matches('[data-native-powerpoint-doc-editor-edit-menu-item], [data-native-powerpoint-doc-editor-search-menu-item], [data-native-powerpoint-doc-editor-settings-menu-item]')
-					&& Boolean(child.querySelector(':scope > button'))
+					&& Boolean(child.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR))
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
@@ -2606,7 +2705,7 @@ export class DocxView extends FileView {
 				wrapper.setCssProps({ position: 'relative' });
 				wrapper.removeAttribute('id');
 
-				let button = wrapper.querySelector<HTMLButtonElement>(':scope > button');
+				let button = wrapper.querySelector<HTMLButtonElement>(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 				Array.from(wrapper.children).forEach((child) => {
 					if (child !== button) {
 						child.remove();
@@ -2618,7 +2717,8 @@ export class DocxView extends FileView {
 				}
 				button.type = 'button';
 				button.textContent = this.docxT('docx:chrome.search');
-				markEditorChromeNoToolbarTooltip(button);
+				markEditorChromeMenuButton(button);
+			markEditorChromeNoToolbarTooltip(button);
 				button.addClass('native-powerpoint-doc-editor-search-menu-button');
 				button.removeAttribute('aria-expanded');
 				button.removeAttribute('aria-haspopup');
@@ -2791,7 +2891,7 @@ export class DocxView extends FileView {
 				const sourceWrapper = Array.from(menubar.children).find((child): child is HTMLElement => (
 					isHTMLElement(child)
 					&& !child.matches('[data-native-powerpoint-doc-editor-edit-menu-item], [data-native-powerpoint-doc-editor-search-menu-item], [data-native-powerpoint-doc-editor-settings-menu-item]')
-					&& Boolean(child.querySelector(':scope > button'))
+					&& Boolean(child.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR))
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
@@ -2801,7 +2901,7 @@ export class DocxView extends FileView {
 				wrapper.setCssProps({ position: 'relative' });
 				wrapper.removeAttribute('id');
 
-				let button = wrapper.querySelector<HTMLButtonElement>(':scope > button');
+				let button = wrapper.querySelector<HTMLButtonElement>(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 				Array.from(wrapper.children).forEach((child) => {
 					if (child !== button) {
 						child.remove();
@@ -2814,7 +2914,8 @@ export class DocxView extends FileView {
 
 				button.type = 'button';
 				button.textContent = this.docxT('docx:chrome.settings');
-				markEditorChromeNoToolbarTooltip(button);
+				markEditorChromeMenuButton(button);
+			markEditorChromeNoToolbarTooltip(button);
 				button.addClasses(['native-powerpoint-doc-editor-search-menu-button', 'native-powerpoint-doc-editor-settings-menu-button']);
 				button.removeAttribute('aria-haspopup');
 				button.removeAttribute('data-state');
@@ -2897,8 +2998,8 @@ export class DocxView extends FileView {
 			};
 
 		const labels = this.resolveEditorMenuLabels();
-		this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
-				const menuButton = menuItem.querySelector(':scope > button');
+		this.hostEl.querySelectorAll<HTMLElement>(DOCX_EDITOR_MENU_ROOT_SELECTOR).forEach((menuItem) => {
+				const menuButton = menuItem.querySelector(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 				const menuLabel = normalizeMenuText(menuButton?.textContent ?? '');
 				if (menuLabel !== labels.file) {
 					return;
@@ -2907,7 +3008,7 @@ export class DocxView extends FileView {
 				const dropdown = Array.from(menuItem.children).find((child): child is HTMLElement => (
 					isHTMLElement(child)
 					&& child !== menuButton
-					&& Boolean(child.querySelector(':scope > div > button, :scope > button'))
+					&& child.matches(DOCX_EDITOR_MENU_DROPDOWN_SELECTOR)
 				));
 				if (!dropdown) {
 					return;
@@ -2915,11 +3016,11 @@ export class DocxView extends FileView {
 
 				const itemWrappers = Array.from(dropdown.children).filter((child): child is HTMLElement => isHTMLElement(child));
 				const saveWrapper = itemWrappers.find((itemWrapper) => {
-					const button = itemWrapper.querySelector(':scope > button');
+					const button = itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR);
 					const text = normalizeMenuText(button?.textContent ?? '');
 					return labels.save.some((label) => textStartsWithMenuLabel(text, label));
 				});
-				const sourceWrapper = saveWrapper ?? itemWrappers.find((itemWrapper) => itemWrapper.querySelector(':scope > button'));
+				const sourceWrapper = saveWrapper ?? itemWrappers.find((itemWrapper) => itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR));
 
 				let duplicateWrapper = dropdown.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-duplicate-menu-item]');
 				if (!duplicateWrapper) {
@@ -3052,8 +3153,8 @@ export class DocxView extends FileView {
 		}
 
 		const labels = this.resolveEditorMenuLabels();
-		this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
-					const menuButton = menuItem.querySelector(':scope > button');
+		this.hostEl.querySelectorAll<HTMLElement>(DOCX_EDITOR_MENU_ROOT_SELECTOR).forEach((menuItem) => {
+					const menuButton = menuItem.querySelector(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 					const menuLabel = normalizeMenuText(menuButton?.textContent ?? '');
 					if (menuLabel !== labels.insert) {
 						return;
@@ -3062,14 +3163,14 @@ export class DocxView extends FileView {
 					const dropdown = Array.from(menuItem.children).find((child): child is HTMLElement => (
 						isHTMLElement(child)
 						&& child !== menuButton
-						&& Boolean(child.querySelector(':scope > div > button, :scope > button'))
+						&& child.matches(DOCX_EDITOR_MENU_DROPDOWN_SELECTOR)
 					));
 					if (!dropdown || dropdown.querySelector('[data-native-powerpoint-doc-editor-insert-image-menu-item]')) {
 						return;
 					}
 
 					const itemWrappers = Array.from(dropdown.children).filter((child): child is HTMLElement => isHTMLElement(child));
-					const sourceWrapper = itemWrappers.find((itemWrapper) => itemWrapper.querySelector(':scope > button'));
+					const sourceWrapper = itemWrappers.find((itemWrapper) => itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR));
 					const insertImageWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
@@ -3093,7 +3194,7 @@ export class DocxView extends FileView {
 					});
 
 					const imageLikeWrapper = itemWrappers.find((itemWrapper) => {
-						const button = itemWrapper.querySelector(':scope > button');
+						const button = itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR);
 						const text = normalizeMenuText(button?.textContent ?? '');
 						return text.includes('image') || text.includes('picture');
 					});
@@ -3118,8 +3219,8 @@ export class DocxView extends FileView {
 					{ menuLabel: labels.insert, optionLabels: labels.tableOfContents },
 				];
 
-				this.hostEl.querySelectorAll<HTMLElement>('.ep-root [role="menubar"] > div').forEach((menuItem) => {
-					const menuButton = menuItem.querySelector(':scope > button');
+				this.hostEl.querySelectorAll<HTMLElement>(DOCX_EDITOR_MENU_ROOT_SELECTOR).forEach((menuItem) => {
+					const menuButton = menuItem.querySelector(DOCX_EDITOR_MENU_BUTTON_SELECTOR);
 					const menuLabel = normalizeMenuText(menuButton?.textContent ?? '');
 					const specs = menuSpecs.filter(spec => spec.menuLabel === menuLabel);
 					if (specs.length === 0) {
@@ -3129,13 +3230,13 @@ export class DocxView extends FileView {
 					const dropdown = Array.from(menuItem.children).find((child): child is HTMLElement => (
 						isHTMLElement(child)
 						&& child !== menuButton
-						&& Boolean(child.querySelector(':scope > div > button, :scope > button'))
+						&& child.matches(DOCX_EDITOR_MENU_DROPDOWN_SELECTOR)
 					));
 					if (!dropdown) {
 						return;
 					}
 
-					for (const button of Array.from(dropdown.querySelectorAll<HTMLButtonElement>('button'))) {
+					for (const button of Array.from(dropdown.querySelectorAll<HTMLButtonElement>(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR))) {
 						const buttonLabel = normalizeMenuText(cleanEditorOptionLabel(button.textContent ?? ''));
 						const matchesTarget = specs.some(spec => spec.optionLabels.some(label => (
 							textStartsWithMenuLabel(buttonLabel, label)
@@ -3219,6 +3320,38 @@ export class DocxView extends FileView {
 		}, true);
 	}
 
+	private registerAgentUndoShortcut() {
+		const handleAgentUndo = (evt: KeyboardEvent) => {
+			if (!this.hostEl || !this.file || (!evt.metaKey && !evt.ctrlKey) || evt.key.toLowerCase() !== 'z') {
+				return;
+			}
+			if (!isNode(activeDocument.activeElement) || !this.hostEl.contains(activeDocument.activeElement)) {
+				return;
+			}
+
+			if (evt.shiftKey) {
+				if (!this.canRedoAgentEdit()) {
+					return;
+				}
+				evt.preventDefault();
+				evt.stopImmediatePropagation();
+				void this.redoAgentEdit();
+				return;
+			}
+
+			if (!this.canUndoAgentEdit()) {
+				return;
+			}
+
+			evt.preventDefault();
+			evt.stopImmediatePropagation();
+			void this.undoAgentEdit();
+		};
+
+		this.registerDomEvent(window, 'keydown', handleAgentUndo, true);
+		this.registerDomEvent(activeDocument, 'keydown', handleAgentUndo, true);
+	}
+
 	private registerFindShortcut() {
 		const handleFindShortcut = (evt: KeyboardEvent) => {
 			if (!this.hostEl || !isPrimaryFindShortcut(evt) || !this.isActiveDocxView()) {
@@ -3273,10 +3406,15 @@ export class DocxView extends FileView {
 	}
 
 	private getReactProps(): DocxReactViewProps {
+		if (!this.editorAdapter) {
+			throw new Error('DOCX editor adapter is not initialized');
+		}
+
 		return {
 			file: this.file,
 			buffer: this.buffer,
 			documentKey: this.file ? `${this.file.path}:${this.documentSession}` : 'native-powerpoint-doc-editor-empty',
+			editorAdapter: this.editorAdapter,
 			error: this.error,
 			isLoading: this.isLoading,
 			authorName: this.getAuthorName(),

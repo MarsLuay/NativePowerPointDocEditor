@@ -2,11 +2,15 @@ import { buildZip, extractZip } from 'pptx-svg';
 import {
   SLIDE_CONTENT_TYPE,
   SLIDE_RELATIONSHIP_TYPE,
+  getBlipEmbedId,
   getDescendants,
   getDirectChild,
+  getElementChildren,
   parseXml,
   serializeXml,
 } from './ooxmlXml';
+
+const KNOWN_OOXML_PREFIXES = new Set(['a', 'c', 'm', 'mc', 'p', 'r']);
 
 export async function normalizeSlideManifest(buffer: ArrayBuffer, slideCount: number): Promise<ArrayBuffer> {
   const zip = await extractZip(buffer);
@@ -111,6 +115,20 @@ function preserveSlideExtensionList(previousXml: string, exportedXml: string, sl
   if (!previousCommonSlide || !exportedCommonSlide) return null;
 
   let changed = false;
+  const previousSlideRoot = previousDocument.documentElement;
+  const exportedSlideRoot = exportedDocument.documentElement;
+
+  const previousSlideExtensionList = getDirectChild(previousSlideRoot, 'extLst');
+  if (previousSlideExtensionList) {
+    const exportedSlideExtensionList = getDirectChild(exportedSlideRoot, 'extLst');
+    const importedSlideExtensionList = exportedDocument.importNode(previousSlideExtensionList, true);
+    if (exportedSlideExtensionList) {
+      exportedSlideRoot.replaceChild(importedSlideExtensionList, exportedSlideExtensionList);
+    } else {
+      exportedSlideRoot.appendChild(importedSlideExtensionList);
+    }
+    changed = true;
+  }
 
   const previousExtensionList = getDirectChild(previousCommonSlide, 'extLst');
   if (previousExtensionList) {
@@ -126,6 +144,10 @@ function preserveSlideExtensionList(previousXml: string, exportedXml: string, sl
   }
 
   if (restoreShapeNonVisualIdentity(previousDocument, exportedDocument)) {
+    changed = true;
+  }
+
+  if (restoreUnknownNamespaceMarkup(previousDocument, exportedDocument)) {
     changed = true;
   }
 
@@ -201,8 +223,8 @@ function restoreShapeNonVisualIdentity(previousDocument: XMLDocument, exportedDo
   return changed;
 }
 
-function collectShapeIdentities(document: XMLDocument): ShapeIdentity[] {
-  return getDescendants(document, 'cNvPr').map((cNvPr) => {
+function collectShapeIdentities(xmlDocument: XMLDocument): ShapeIdentity[] {
+  return getDescendants(xmlDocument, 'cNvPr').map((cNvPr) => {
     const shape = cNvPr.parentNode?.parentNode as Element | undefined;
     return {
       cNvPr,
@@ -232,6 +254,261 @@ function getShapeFingerprint(shape: Element | undefined): string {
 
 function isAnonymizedShapeId(id: string): boolean {
   return id === '' || id === '0';
+}
+
+function restoreUnknownNamespaceMarkup(previousDocument: XMLDocument, exportedDocument: XMLDocument): boolean {
+  let changed = restoreBlipExtensionMarkup(previousDocument, exportedDocument);
+
+  const pairs = pairShapeRoots(previousDocument, exportedDocument);
+  for (const [previousShape, exportedShape] of pairs) {
+    if (graftMissingUnknownNamespaceElements(previousShape, exportedShape, exportedDocument)) {
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function restoreBlipExtensionMarkup(previousDocument: XMLDocument, exportedDocument: XMLDocument): boolean {
+  const previousBlips = getDescendants(previousDocument, 'blip');
+  const exportedBlips = getDescendants(exportedDocument, 'blip');
+  let changed = false;
+
+  for (const previousBlip of previousBlips) {
+    const embed = getBlipEmbedId(previousBlip);
+    if (!embed) continue;
+
+    const exportedBlip = exportedBlips.find((candidate) => getBlipEmbedId(candidate) === embed);
+    if (!exportedBlip) continue;
+
+    const previousExtensionList = getDirectChild(previousBlip, 'extLst');
+    if (!previousExtensionList) continue;
+
+    const exportedExtensionList = getDirectChild(exportedBlip, 'extLst');
+    if (!exportedExtensionList) {
+      const insertBefore = getElementChildren(exportedBlip)[0] ?? null;
+      exportedBlip.insertBefore(exportedDocument.importNode(previousExtensionList, true), insertBefore);
+      changed = true;
+      continue;
+    }
+
+    for (const child of getElementChildren(previousExtensionList)) {
+      const uri = child.getAttribute('uri');
+      const exportedChild = getElementChildren(exportedExtensionList).find(
+        (candidate) => candidate.localName === child.localName && candidate.getAttribute('uri') === uri
+      );
+      if (!exportedChild) {
+        exportedExtensionList.appendChild(exportedDocument.importNode(child, true));
+        changed = true;
+        continue;
+      }
+      if (graftMissingUnknownNamespaceElements(child, exportedChild, exportedDocument)) {
+        changed = true;
+      }
+    }
+  }
+
+  return changed;
+}
+
+function pairShapeRoots(previousDocument: XMLDocument, exportedDocument: XMLDocument): Array<[Element, Element]> {
+  const previousShapes = collectShapeIdentities(previousDocument);
+  const exportedShapes = collectShapeIdentities(exportedDocument);
+  if (previousShapes.length === 0 || exportedShapes.length === 0) return [];
+
+  const pairs: Array<[Element, Element]> = [];
+  if (previousShapes.length === exportedShapes.length) {
+    exportedShapes.forEach((exported, index) => {
+      const previous = previousShapes[index];
+      if (!previous) return;
+      const previousRoot = getShapeRoot(previous);
+      const exportedRoot = getShapeRoot(exported);
+      if (previous && previousRoot && exportedRoot && previous.shapeKind === exported.shapeKind) {
+        pairs.push([previousRoot, exportedRoot]);
+      }
+    });
+    return pairs;
+  }
+
+  const remaining = [...previousShapes];
+  for (const exported of exportedShapes) {
+    const exportedRoot = getShapeRoot(exported);
+    if (!exportedRoot) continue;
+    const matchIndex = remaining.findIndex(
+      (candidate) =>
+        candidate.shapeKind === exported.shapeKind && candidate.fingerprint === exported.fingerprint
+    );
+    const previous = matchIndex >= 0 ? remaining[matchIndex] : undefined;
+    const previousRoot = previous ? getShapeRoot(previous) : undefined;
+    if (previous && previousRoot) {
+      pairs.push([previousRoot, exportedRoot]);
+      remaining.splice(matchIndex, 1);
+    }
+  }
+  return pairs;
+}
+
+function getShapeRoot(identity: ShapeIdentity): Element | null {
+  const shape = identity.cNvPr.parentNode?.parentNode;
+  return shape && shape.nodeType === 1 ? (shape as Element) : null;
+}
+
+function graftMissingUnknownNamespaceElements(
+  previousRoot: Element,
+  exportedRoot: Element,
+  exportedDocument: XMLDocument
+): boolean {
+  const previousCounts = countUnknownElementNames(previousRoot);
+  const exportedCounts = countUnknownElementNames(exportedRoot);
+  let changed = false;
+
+  for (const [elementName, previousCount] of previousCounts) {
+    const exportedCount = exportedCounts.get(elementName) ?? 0;
+    const deficit = previousCount - exportedCount;
+    if (deficit <= 0) continue;
+
+    const candidates = findUnknownElementsByName(previousRoot, elementName);
+    let grafted = 0;
+    for (const candidate of candidates) {
+      if (grafted >= deficit) break;
+      const parentInPrevious = candidate.parentElement;
+      if (!parentInPrevious) continue;
+      const parentInExported = findCorrespondingElement(previousRoot, exportedRoot, parentInPrevious);
+      if (!parentInExported || elementExistsUnderParent(parentInExported, candidate)) continue;
+      parentInExported.appendChild(exportedDocument.importNode(candidate, true));
+      grafted++;
+      changed = true;
+    }
+  }
+
+  return changed;
+}
+
+function countUnknownElementNames(root: Element): Map<string, number> {
+  const counts = new Map<string, number>();
+  walkElements(root, (element) => {
+    const qualifiedName = getQualifiedName(element);
+    if (!qualifiedName || !isUnknownNamespaceQName(qualifiedName)) return;
+    counts.set(qualifiedName, (counts.get(qualifiedName) ?? 0) + 1);
+  });
+  return counts;
+}
+
+function findUnknownElementsByName(root: Element, elementName: string): Element[] {
+  const matches: Element[] = [];
+  walkElements(root, (element) => {
+    if (getQualifiedName(element) === elementName) {
+      matches.push(element);
+    }
+  });
+  return matches;
+}
+
+function walkElements(root: Element, visit: (element: Element) => void): void {
+  visit(root);
+  for (const child of getElementChildren(root)) {
+    walkElements(child, visit);
+  }
+}
+
+function getQualifiedName(element: Element): string | null {
+  const prefix = element.prefix;
+  const localName = element.localName;
+  if (prefix && localName) {
+    return `${prefix}:${localName}`;
+  }
+  const tag = element.tagName ?? '';
+  const match = /^([A-Za-z_][\w.-]*):(.+)$/.exec(tag);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
+function isUnknownNamespaceQName(qualifiedName: string): boolean {
+  const prefix = qualifiedName.split(':')[0];
+  if (!prefix) return false;
+  return !KNOWN_OOXML_PREFIXES.has(prefix);
+}
+
+function elementExistsUnderParent(parent: Element, template: Element): boolean {
+  const templateName = getQualifiedName(template);
+  if (!templateName) return false;
+
+  const uri = template.getAttribute('uri');
+  const embed = template.localName === 'blip' ? getBlipEmbedId(template) : null;
+  const val = template.getAttribute('val');
+
+  for (const candidate of findUnknownElementsByName(parent, templateName)) {
+    if (uri && candidate.getAttribute('uri') !== uri) continue;
+    if (embed && getBlipEmbedId(candidate) !== embed) continue;
+    if (val !== null && candidate.getAttribute('val') !== val) continue;
+    if ((candidate.textContent ?? '').trim() === (template.textContent ?? '').trim()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+interface StructuralPathSegment {
+  localName: string;
+  indexAmongSameLocalName: number;
+  embed?: string | null;
+  uri?: string;
+}
+
+function findCorrespondingElement(
+  previousRoot: Element,
+  exportedRoot: Element,
+  targetInPrevious: Element
+): Element | null {
+  if (targetInPrevious === previousRoot) return exportedRoot;
+  return resolveStructuralPath(exportedRoot, buildStructuralPath(previousRoot, targetInPrevious));
+}
+
+function buildStructuralPath(root: Element, target: Element): StructuralPathSegment[] {
+  const segments: StructuralPathSegment[] = [];
+  let current: Element | null = target;
+  while (current && current !== root) {
+    const parent: Element | null = current.parentElement;
+    if (!parent) break;
+    segments.unshift({
+      localName: current.localName,
+      indexAmongSameLocalName: indexAmongSameLocalNameSiblings(parent, current),
+      embed: current.localName === 'blip' ? getBlipEmbedId(current) : undefined,
+      uri: current.localName === 'ext' ? current.getAttribute('uri') ?? undefined : undefined
+    });
+    current = parent;
+  }
+  return segments;
+}
+
+function indexAmongSameLocalNameSiblings(parent: Element, child: Element): number {
+  let index = 0;
+  for (const sibling of getElementChildren(parent)) {
+    if (sibling.localName !== child.localName) continue;
+    if (sibling === child) return index;
+    index++;
+  }
+  return 0;
+}
+
+function resolveStructuralPath(root: Element, path: StructuralPathSegment[]): Element | null {
+  let current: Element = root;
+  for (const segment of path) {
+    if (segment.embed && segment.localName === 'blip') {
+      const blip = getDescendants(current, 'blip').find((candidate) => getBlipEmbedId(candidate) === segment.embed);
+      if (!blip) return null;
+      current = blip;
+      continue;
+    }
+
+    const matches = getElementChildren(current).filter((candidate) => candidate.localName === segment.localName);
+    let match = matches[segment.indexAmongSameLocalName];
+    if (segment.uri) {
+      const byUri = matches.find((candidate) => candidate.getAttribute('uri') === segment.uri);
+      match = byUri ?? match;
+    }
+    if (!match) return null;
+    current = match;
+  }
+  return current;
 }
 
 function ensureUniqueShapeIds(shapes: ShapeIdentity[]): boolean {

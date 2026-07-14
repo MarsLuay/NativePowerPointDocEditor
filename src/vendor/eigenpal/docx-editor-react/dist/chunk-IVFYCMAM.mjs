@@ -1,0 +1,1 @@
+export{RenderedDomContextImpl as a,createRenderedDomContext as b}from'@eigenpal/docx-editor-core/plugin-api/RenderedDomContext';

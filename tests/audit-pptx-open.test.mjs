@@ -45,6 +45,7 @@ test("extension predicates classify every PowerPoint extension correctly", async
     isModernPowerPointExtension,
     isEditablePowerPointExtension,
     isMacroEnabledPowerPointExtension,
+    isLegacyPowerPointExtension,
   } = await loadExtensionsModule();
 
   for (const ext of EDITABLE) {
@@ -63,6 +64,7 @@ test("extension predicates classify every PowerPoint extension correctly", async
 
   for (const ext of LEGACY) {
     assert.equal(isPowerPointExtension(ext), true, `${ext} is a PowerPoint extension`);
+    assert.equal(isLegacyPowerPointExtension(ext), true, `${ext} is legacy`);
     assert.equal(isModernPowerPointExtension(ext), false, `${ext} is not modern (legacy)`);
     assert.equal(isEditablePowerPointExtension(ext), false, `${ext} is not editable`);
     assert.equal(isMacroEnabledPowerPointExtension(ext), false, `${ext} is not macro-enabled`);

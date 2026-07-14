@@ -1,6 +1,10 @@
 import { Component } from 'obsidian';
 
 import { isNode } from '../domGuards';
+import {
+	PPTX_EDITOR_CHROME_MENUBAR_CLASS,
+} from '../editorChromeRegions';
+import { debugLog } from '../logger';
 import { createMenuItem, createMenuSection, createPopoverShell, positionPopoverBelow } from '../menuControls';
 import type { MenuDropdownEntry } from './types';
 
@@ -24,7 +28,7 @@ export class MenuBarController extends Component {
   private closeTimer: number | null = null;
 
   build(root: HTMLElement, tabs: MenuBarTab[]): void {
-    const bar = root.createDiv({ cls: 'native-powerpoint-menubar' });
+    const bar = root.createDiv({ cls: PPTX_EDITOR_CHROME_MENUBAR_CLASS });
     for (const tab of tabs) {
       if (tab.kind === 'dropdown') {
         this.createDropdownTab(bar, tab.label, tab.getItems);
@@ -78,6 +82,7 @@ export class MenuBarController extends Component {
     button.type = 'button';
     button.addEventListener('click', () => {
       this.closeDropdown();
+      debugLog('menu', 'Dispatching PowerPoint menu command', { commandId: label });
       action();
     });
     // Moving onto a no-dropdown tab dismisses any open menu, like Google's bar.
@@ -109,6 +114,7 @@ export class MenuBarController extends Component {
         disabled: entry.disabled,
         onClick: entry.disabled ? undefined : () => {
           this.closeDropdown();
+          debugLog('menu', 'Dispatching PowerPoint menu command', { commandId: entry.label });
           entry.onClick();
         }
       });

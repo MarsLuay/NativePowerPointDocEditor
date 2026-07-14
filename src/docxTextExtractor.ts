@@ -1,4 +1,9 @@
 import JSZip from 'jszip';
+import {
+	extractDocxRunText,
+	extractDocxTextFromXml,
+	normalizeDocxExtractedText,
+} from './docxXmlText';
 
 const TEXT_PART_PATTERNS = [
 	/^word\/document\.xml$/,
@@ -8,54 +13,6 @@ const TEXT_PART_PATTERNS = [
 	/^word\/endnotes\.xml$/,
 	/^word\/comments\.xml$/,
 ];
-
-const TEXT_TOKEN_PATTERN = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:br\b[^>]*\/>|<w:cr\b[^>]*\/>|<\/w:p>/g;
-
-function decodeXmlEntities(value: string): string {
-	return value
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&amp;/g, '&')
-		.replace(/&quot;/g, '"')
-		.replace(/&apos;/g, "'")
-		.replace(/&#(\d+);/g, (_match, codePoint: string) => {
-			const numericCodePoint = Number(codePoint);
-			return Number.isFinite(numericCodePoint) ? String.fromCodePoint(numericCodePoint) : '';
-		})
-		.replace(/&#x([0-9a-fA-F]+);/g, (_match, codePoint: string) => {
-			const numericCodePoint = Number.parseInt(codePoint, 16);
-			return Number.isFinite(numericCodePoint) ? String.fromCodePoint(numericCodePoint) : '';
-		});
-}
-
-function normalizeExtractedText(value: string): string {
-	return value
-		.replace(/\r/g, '\n')
-		.replace(/[ \t]+\n/g, '\n')
-		.replace(/\n[ \t]+/g, '\n')
-		.replace(/\n{3,}/g, '\n\n')
-		.trim();
-}
-
-function extractTextFromXml(xml: string): string {
-	const pieces: string[] = [];
-	let match: RegExpExecArray | null;
-
-	TEXT_TOKEN_PATTERN.lastIndex = 0;
-
-	while ((match = TEXT_TOKEN_PATTERN.exec(xml)) !== null) {
-		const [token, text] = match;
-		if (text !== undefined) {
-			pieces.push(decodeXmlEntities(text));
-		} else if (token.startsWith('<w:tab')) {
-			pieces.push('\t');
-		} else {
-			pieces.push('\n');
-		}
-	}
-
-	return normalizeExtractedText(pieces.join(''));
-}
 
 function isTextPart(path: string): boolean {
 	return TEXT_PART_PATTERNS.some(pattern => pattern.test(path));
@@ -85,25 +42,26 @@ export async function extractDocxText(buffer: ArrayBuffer): Promise<string> {
 			continue;
 		}
 
-		const text = extractTextFromXml(xml);
+		const text = extractDocxTextFromXml(xml);
 		if (text) {
 			textParts.push(text);
 		}
 	}
 
-	return normalizeExtractedText(textParts.join('\n\n'));
+	return normalizeDocxExtractedText(textParts.join('\n\n'));
 }
 
 const PARAGRAPH_PATTERN = /<w:p\b[^>]*?(?:\/>|>([\s\S]*?)<\/w:p>)/g;
 const RUN_PATTERN = /<w:r\b[^>]*?(?:\/>|>([\s\S]*?)<\/w:r>)/g;
-const RUN_TOKEN_PATTERN = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:br\b[^>]*\/>|<w:cr\b[^>]*\/>/g;
+const MARKDOWN_HARD_BREAK = ' '.repeat(2).concat('\n');
 
 function normalizeMarkdown(value: string): string {
 	return value
 		.replace(/\r/g, '\n')
-		// Strip trailing whitespace on each line but keep leading indentation
-		// (nested list markers depend on it).
-		.replace(/[ \t]+\n/g, '\n')
+		// Strip accidental trailing whitespace while preserving intentional
+		// two-space Markdown hard breaks.
+		.replace(/([ \t]+)\n/g, (_match, whitespace: string) =>
+			whitespace.endsWith('  ') ? MARKDOWN_HARD_BREAK : '\n')
 		.replace(/[ \t]+$/g, '')
 		.replace(/\n{3,}/g, '\n\n')
 		.trim();
@@ -132,25 +90,6 @@ function getRunProperties(runXml: string): string {
 function getParagraphProperties(paragraphXml: string): string {
 	const match = /<w:pPr\b[^>]*>([\s\S]*?)<\/w:pPr>/.exec(paragraphXml);
 	return match?.[1] ?? '';
-}
-
-function extractRunText(runXml: string): string {
-	let result = '';
-	let match: RegExpExecArray | null;
-	RUN_TOKEN_PATTERN.lastIndex = 0;
-
-	while ((match = RUN_TOKEN_PATTERN.exec(runXml)) !== null) {
-		const [token, text] = match;
-		if (text !== undefined) {
-			result += decodeXmlEntities(text);
-		} else if (token.startsWith('<w:tab')) {
-			result += '\t';
-		} else {
-			result += '\n';
-		}
-	}
-
-	return result;
 }
 
 function applyInlineMarkdown(text: string, bold: boolean, italic: boolean): string {
@@ -214,7 +153,7 @@ function paragraphToMarkdown(paragraphInnerXml: string): string {
 		if (runInner === undefined) {
 			continue;
 		}
-		const runText = extractRunText(runInner);
+		const runText = extractDocxRunText(runInner);
 		if (!runText) {
 			continue;
 		}
@@ -225,7 +164,7 @@ function paragraphToMarkdown(paragraphInnerXml: string): string {
 	}
 
 	// Soft line breaks inside a paragraph become Markdown hard breaks.
-	inlineText = inlineText.replace(/\n/g, '  \n').trim();
+	inlineText = inlineText.replace(/\n/g, MARKDOWN_HARD_BREAK).trim();
 	if (!inlineText) {
 		return '';
 	}

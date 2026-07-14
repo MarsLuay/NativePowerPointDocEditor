@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { extractDocxTextFromXml, normalizeDocxExtractedText } from './docxXmlText';
 
 const TEXT_PART_PATTERNS = [
 	/^word\/document\.xml$/,
@@ -9,7 +10,6 @@ const TEXT_PART_PATTERNS = [
 	/^word\/comments\.xml$/,
 ];
 
-const TEXT_TOKEN_PATTERN = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\b[^>]*\/>|<w:br\b[^>]*\/>|<w:cr\b[^>]*\/>|<\/w:p>/g;
 const RUN_PATTERN = /<w:r\b[\s\S]*?<\/w:r>/g;
 const PARAGRAPH_PATTERN = /<w:p\b[\s\S]*?<\/w:p>/g;
 const STYLE_PATTERN = /<w:style\b([^>]*)>([\s\S]*?)<\/w:style>/g;
@@ -55,59 +55,13 @@ export interface HiddenTextScanResult {
 	partsScanned: number;
 }
 
-function decodeXmlEntities(value: string): string {
-	return value
-		.replace(/&lt;/g, '<')
-		.replace(/&gt;/g, '>')
-		.replace(/&amp;/g, '&')
-		.replace(/&quot;/g, '"')
-		.replace(/&apos;/g, "'")
-		.replace(/&#(\d+);/g, (_match, codePoint: string) => {
-			const numericCodePoint = Number(codePoint);
-			return Number.isFinite(numericCodePoint) ? String.fromCodePoint(numericCodePoint) : '';
-		})
-		.replace(/&#x([0-9a-fA-F]+);/g, (_match, codePoint: string) => {
-			const numericCodePoint = Number.parseInt(codePoint, 16);
-			return Number.isFinite(numericCodePoint) ? String.fromCodePoint(numericCodePoint) : '';
-		});
-}
-
-function normalizeText(value: string): string {
-	return value
-		.replace(/\r/g, '\n')
-		.replace(/[ \t]+\n/g, '\n')
-		.replace(/\n[ \t]+/g, '\n')
-		.replace(/\n{3,}/g, '\n\n')
-		.trim();
-}
-
 function truncateText(value: string): string {
-	const normalized = normalizeText(value);
+	const normalized = normalizeDocxExtractedText(value);
 	if (normalized.length <= MAX_SNIPPET_LENGTH) {
 		return normalized;
 	}
 
 	return `${normalized.slice(0, MAX_SNIPPET_LENGTH - 1).trimEnd()}…`;
-}
-
-function extractTextFromXml(xml: string): string {
-	const pieces: string[] = [];
-	let match: RegExpExecArray | null;
-
-	TEXT_TOKEN_PATTERN.lastIndex = 0;
-
-	while ((match = TEXT_TOKEN_PATTERN.exec(xml)) !== null) {
-		const [token, text] = match;
-		if (text !== undefined) {
-			pieces.push(decodeXmlEntities(text));
-		} else if (token.startsWith('<w:tab')) {
-			pieces.push('\t');
-		} else {
-			pieces.push('\n');
-		}
-	}
-
-	return normalizeText(pieces.join(''));
 }
 
 function getAttribute(xml: string, name: string): string | null {
@@ -317,7 +271,7 @@ function scanParagraph(
 	while ((match = RUN_PATTERN.exec(paragraphXml)) !== null) {
 		runIndex += 1;
 		const runXml = match[0];
-		const text = truncateText(extractTextFromXml(runXml));
+		const text = truncateText(extractDocxTextFromXml(runXml));
 		if (!text) {
 			continue;
 		}

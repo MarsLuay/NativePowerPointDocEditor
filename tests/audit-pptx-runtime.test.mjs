@@ -102,6 +102,7 @@ test("forced-JS path renders a deck end-to-end via PresentationEngine", async ()
     );
     const engine = await PresentationEngine.load(buffer);
 
+    assert.equal(engine.getRendererBackend(), "js");
     assert.ok(engine.slideCount > 0, `expected slideCount > 0, got ${engine.slideCount}`);
 
     const { svg } = engine.renderSlide(0);

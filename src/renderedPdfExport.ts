@@ -1,15 +1,23 @@
 import { debugLog, infoLog, warnLog } from './logger';
 import { isText } from './domGuards';
+import {
+	DOCX_EDITOR_PAGES_SELECTOR,
+	DOCX_RENDERED_LIST_MARKER_SELECTOR,
+	DOCX_RENDERED_PAGE_CONTENT_SELECTOR,
+	DOCX_RENDERED_PAGE_SELECTOR,
+	DOCX_RENDERED_PARAGRAPH_SELECTOR,
+	DOCX_RENDERED_RUN_TAB_ATTRIBUTE,
+} from './docxEditorChromeMarkers';
 
 const RENDERED_PDF_EXPORT_SCALE = 2;
 const RENDERED_PDF_PAGE_READY_TIMEOUT_MS = 4000;
 const RENDERED_PDF_MAX_TEXT_RUNS_PER_PAGE = 4500;
 const PDF_POINTS_PER_CSS_PIXEL = 72 / 96;
 const SELECTED_LIST_MARKER_CLASS = 'native-powerpoint-doc-editor-list-marker-selected';
-const LIST_PARAGRAPH_SELECTOR = '.layout-paragraph[data-pm-start]';
-const LIST_MARKER_SELECTOR = '.layout-list-marker, .docx-list-marker';
+const LIST_PARAGRAPH_SELECTOR = `${DOCX_RENDERED_PARAGRAPH_SELECTOR}[data-pm-start]`;
+const LIST_MARKER_SELECTOR = DOCX_RENDERED_LIST_MARKER_SELECTOR;
 const RENDERED_PDF_PM_SPAN_SELECTOR = 'span[data-pm-start][data-pm-end]';
-const RENDERED_PDF_BODY_PM_SPAN_SELECTOR = `.layout-page-content ${RENDERED_PDF_PM_SPAN_SELECTOR}`;
+const RENDERED_PDF_BODY_PM_SPAN_SELECTOR = `${DOCX_RENDERED_PAGE_CONTENT_SELECTOR} ${RENDERED_PDF_PM_SPAN_SELECTOR}`;
 
 function getCssGeneratedContentText(element: HTMLElement) {
 	const generatedContent = window.getComputedStyle(element, '::before').content;
@@ -215,7 +223,7 @@ function getElementExportSize(element: HTMLElement) {
 	}
 
 	if (width <= 0 || height <= 0) {
-		const content = element.querySelector<HTMLElement>('.layout-page-content');
+		const content = element.querySelector<HTMLElement>(DOCX_RENDERED_PAGE_CONTENT_SELECTOR);
 		if (content) {
 			const contentRect = content.getBoundingClientRect();
 			width = width > 0 ? width : Math.ceil(contentRect.width || content.offsetWidth);
@@ -356,17 +364,21 @@ function collectTextNodePdfRuns(textNode: Text, page: HTMLElement, pageRect: DOM
 		const start = match.index;
 		const end = start + token.length;
 		const range = activeDocument.createRange();
-		range.setStart(textNode, start);
-		range.setEnd(textNode, end);
-		const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
-		const runRects = areClientRectsOnSameLine(rects) && rects.length > 1
-			? [getCombinedClientRect(rects)]
-			: rects;
-		for (const rect of runRects) {
-			const run = getPdfTextRunFromRect(token, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
-			if (run) {
-				runs.push(run);
+		try {
+			range.setStart(textNode, start);
+			range.setEnd(textNode, end);
+			const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+			const runRects = areClientRectsOnSameLine(rects) && rects.length > 1
+				? [getCombinedClientRect(rects)]
+				: rects;
+			for (const rect of runRects) {
+				const run = getPdfTextRunFromRect(token, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
+				if (run) {
+					runs.push(run);
+				}
 			}
+		} finally {
+			range.detach();
 		}
 	}
 
@@ -387,16 +399,20 @@ function collectWholeTextNodePdfRun(textNode: Text, page: HTMLElement, pageRect:
 	const style = window.getComputedStyle(parent);
 	const fontSizePx = parseCssPixelValue(style.fontSize) || 12;
 	const range = activeDocument.createRange();
-	range.setStart(textNode, 0);
-	range.setEnd(textNode, text.length);
-	const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
-	if (rects.length === 0 || !areClientRectsOnSameLine(rects)) {
-		return [];
-	}
+	try {
+		range.setStart(textNode, 0);
+		range.setEnd(textNode, text.length);
+		const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+		if (rects.length === 0 || !areClientRectsOnSameLine(rects)) {
+			return [];
+		}
 
-	const rect = rects.length === 1 ? rects[0]! : getCombinedClientRect(rects);
-	const run = getPdfTextRunFromRect(text, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
-	return run ? [run] : [];
+		const rect = rects.length === 1 ? rects[0]! : getCombinedClientRect(rects);
+		const run = getPdfTextRunFromRect(text, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
+		return run ? [run] : [];
+	} finally {
+		range.detach();
+	}
 }
 
 function collectRenderedSpanPdfRuns(page: HTMLElement, pageRect: DOMRect, pdfWidth: number, pdfHeight: number) {
@@ -409,7 +425,7 @@ function collectRenderedSpanPdfRuns(page: HTMLElement, pageRect: DOMRect, pdfWid
 
 		const style = window.getComputedStyle(span);
 		const fontSizePx = parseCssPixelValue(style.fontSize) || 12;
-		if (span.classList.contains('layout-run-tab')) {
+		if (span.getAttribute(DOCX_RENDERED_RUN_TAB_ATTRIBUTE) === 'true') {
 			const run = getPdfTextRunFromRect(' ', span.getBoundingClientRect(), pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
 			if (run) {
 				runs.push(run);
@@ -492,7 +508,7 @@ function collectRenderedPdfTextRuns(page: HTMLElement, pdfWidth: number, pdfHeig
 }
 
 function getRenderedPageElements(container: HTMLElement) {
-	return Array.from(container.querySelectorAll<HTMLElement>('.layout-page'))
+	return Array.from(container.querySelectorAll<HTMLElement>(DOCX_RENDERED_PAGE_SELECTOR))
 		.filter((page) => {
 			const { width, height } = getElementExportSize(page);
 			return width > 0 && height > 0;
@@ -509,8 +525,8 @@ function describeExportContainer(container: HTMLElement) {
 		className: container.className,
 		childElementCount: container.childElementCount,
 		isConnected: container.isConnected,
-		layoutPageCount: container.querySelectorAll('.layout-page').length,
-		layoutPageContentCount: container.querySelectorAll('.layout-page-content').length,
+		layoutPageCount: container.querySelectorAll(DOCX_RENDERED_PAGE_SELECTOR).length,
+		layoutPageContentCount: container.querySelectorAll(DOCX_RENDERED_PAGE_CONTENT_SELECTOR).length,
 		rect: {
 			width: Math.round(rect.width),
 			height: Math.round(rect.height),
@@ -604,7 +620,7 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 		cssText,
 		'html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #ffffff; }',
 		'.native-powerpoint-doc-editor-pdf-export-root { margin: 0; padding: 0; background: #ffffff; color: #000000; }',
-		'.native-powerpoint-doc-editor-pdf-export-root .paged-editor__pages { margin: 0 !important; padding: 0 !important; display: block !important; }',
+		`.native-powerpoint-doc-editor-pdf-export-root ${DOCX_EDITOR_PAGES_SELECTOR} { margin: 0 !important; padding: 0 !important; display: block !important; }`,
 		'.native-powerpoint-doc-editor-pdf-export-page { margin: 0 !important; box-shadow: none !important; transform: none !important; transform-origin: top left !important; }',
 		'.native-powerpoint-doc-editor-pdf-export-root * { animation: none !important; transition: none !important; caret-color: transparent !important; }',
 		`.native-powerpoint-doc-editor-pdf-export-root .${SELECTED_LIST_MARKER_CLASS} { background: transparent !important; outline: none !important; }`,
@@ -619,7 +635,7 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 		']]></style>',
 		`<foreignObject x="0" y="0" width="${pageWidth}" height="${pageHeight}">`,
 		`<div xmlns="http://www.w3.org/1999/xhtml" class="${rootClassName} native-powerpoint-doc-editor-pdf-export-root" style="width:${pageWidth}px;height:${pageHeight}px;">`,
-		'<div class="paged-editor__pages">',
+		'<div data-native-powerpoint-doc-editor-pages="true">',
 		pageHtml,
 		'</div>',
 		'</div>',
@@ -762,7 +778,7 @@ export function createRenderedImagePdf(pages: RenderedPdfImagePage[]) {
 
 export async function exportRenderedPagesToPdf(editorRoot: HTMLElement, renderedPagesContainer?: HTMLElement | null) {
 	await activeDocument.fonts?.ready;
-	const pagesContainer = renderedPagesContainer?.isConnected ? renderedPagesContainer : editorRoot.querySelector<HTMLElement>('.paged-editor__pages');
+	const pagesContainer = renderedPagesContainer?.isConnected ? renderedPagesContainer : editorRoot.querySelector<HTMLElement>(DOCX_EDITOR_PAGES_SELECTOR);
 	const candidateContainers = dedupeElements([
 		...(pagesContainer ? [pagesContainer] : []),
 		editorRoot,

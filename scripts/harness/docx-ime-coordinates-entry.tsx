@@ -47,8 +47,8 @@ function collectCaretMetrics(hostEl: HTMLElement): Pick<
 > {
 	const editables = Array.from(hostEl.querySelectorAll<HTMLElement>('[contenteditable="true"]'));
 	const editable =
-		editables.find((element) => element.closest('.layout-page-content')) ??
-		editables.find((element) => !element.closest('.layout-page-header, .layout-page-footer')) ??
+		editables.find((element) => element.closest('[data-native-powerpoint-doc-editor-page-content]')) ??
+		editables.find((element) => !element.closest('[data-native-powerpoint-doc-editor-hidden-prosemirror]')) ??
 		editables[0] ??
 		null;
 
@@ -105,7 +105,7 @@ function collectScenarioMetrics(name: string, hostEl: HTMLElement): ScenarioMetr
 	const fixedRect = fixedProbe.getBoundingClientRect();
 	fixedProbe.remove();
 
-	const zoomContainer = hostEl.querySelector<HTMLElement>('.ep-root.paged-editor > div[style*="transform"]');
+	const zoomContainer = hostEl.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-root] > div[style*="transform"]');
 	const caretMetrics = collectCaretMetrics(hostEl);
 	const hasRiskyTransform = caretMetrics.transformAncestors.length > 0;
 	const hasFixedProbeOffset = Math.abs(fixedRect.left) > 1 || Math.abs(fixedRect.top) > 1;

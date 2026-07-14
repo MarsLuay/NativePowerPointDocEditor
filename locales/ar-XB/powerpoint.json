@@ -87,6 +87,7 @@
     "tableSizePicker": "‫elbat tresnI"
   },
   "notice": {
+    "createFailed": "‫ :XTPP etaerc ton dluoC{message}",
     "switchFilesPreserveFailed": "‫ morf stide devasnu esuaceb selif hctiws ton dluoC{fileName}.devreserp eb ton dluoc ",
     "closeUnsafe": "‫.rorre etirw tluav eht gnivloser retfa gnisolc ro gnivas yrter dna nepo bat siht peeK .ylefas esolc ton dluoc tnioPrewoP evitaN",
     "openModernToSave": "‫.ti evas ot elif tnioPrewoP nredom a nepO",
@@ -115,6 +116,7 @@
     "couldNotUngroupObjects": "‫ :stcejbo puorgnu ton dluoC{message}",
     "couldNotInsertImage": "‫ :egami tresni ton dluoC{message}",
     "couldNotInsertShape": "‫ :epahs tresni ton dluoC{message}",
+    "couldNotChangeShapeFillColor": "‫ :roloc llif epahs egnahc ton dluoC{message}",
     "couldNotInsertTable": "‫ :elbat tresni ton dluoC{message}",
     "couldNotInsertChart": "‫ :trahc tresni ton dluoC{message}",
     "selectTextBoxFirst": "‫.tsrif txet ni terac eht ecalp ro xob txet a tceleS",
@@ -148,6 +150,7 @@
     "generatedChartLabel": "‫.daetsni lebal yrogetac ro ,dnegel ,eltit trahc dethgilhgih a tidE .atad ro elacs ciremun morf detareneg si lebal trahc sihT",
     "couldNotMoveObjects": "‫ :stcejbo evom ton dluoC{message}",
     "couldNotUpdateObject": "‫ :tcejbo etadpu ton dluoC{message}",
+    "objectNotEditable": "‫.edils eht no yltcerid derots t'nsi ti esuaceb deziser ro devom eb t'nac tcejbo sihT",
     "recoveryCopyUnavailable": "‫.elbaliavanu si noitatneserp nepo eht esuaceb ypoc yrevocer tnioPrewoP evitaN a etaerc ton dluoC",
     "recoveryCopyCreated": "‫ ot nettirw ton erew stide devasnU{fileName} elihw detaerc ypoc yrevoceR .{reason} :{recoveryPath}",
     "saveValidationFailedRecovery": "‫ os ,deliaf noitadilav evaS{fileName} ta detaerc saw tropxe yrevocer detadilavnu nA .nettirwrevo ton saw {recoveryPath} .{validationError}",
@@ -231,6 +234,9 @@
     "selectFileToOpen": "‫.ti nepo ot elif tnioPrewoP a tceleS",
     "openToSave": "‫.ti evas ot elif tnioPrewoP a nepO"
   },
+  "menu": {
+    "newPptx": "‫XTPP weN"
+  },
   "inspector": {
     "title": "‫rotcepsnI",
     "slideBackground": "‫dnuorgkcab edilS",
@@ -259,6 +265,7 @@
   },
   "contextMenu": {
     "newTextBox": "‫xob txet weN",
+    "shapeFillColor": "‫…roloc llif epahS",
     "cropImage": "‫…egami porC",
     "resetImage": "‫egami teseR",
     "setAsBackground": "‫dnuorgkcab sa teS",

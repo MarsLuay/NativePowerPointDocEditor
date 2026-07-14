@@ -41,9 +41,11 @@
   "menu": {
     "optionUnavailable": "‫{option}.won thgir elbaliava ton si ",
     "notAvailable": "‫{option}.won thgir elbaliava ton si ",
-    "menuUnavailable": "‫{menu}.won thgir elbaliava ton si unem "
+    "menuUnavailable": "‫{menu}.won thgir elbaliava ton si unem ",
+    "newDocx": "‫XCOD weN"
   },
   "notice": {
+    "createFailed": "‫ :XCOD etaerc ton dluoC{message}",
     "openToSave": "‫.ti evas ot elif xcod a nepO",
     "openToSaveCopy": "‫.ypoc a evas ot elif xcod a nepO",
     "openToDuplicate": "‫.ti etacilpud ot elif xcod a nepO",

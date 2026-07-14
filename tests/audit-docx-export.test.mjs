@@ -58,6 +58,17 @@ test("extractDocxMarkdown separates paragraphs with a blank line (not txt-identi
   assert.notEqual(`${markdown}\n`, `${text}\n`);
 });
 
+test("extractDocxMarkdown preserves an inline break as a Markdown hard break", async () => {
+  const { extractDocxMarkdown } = await loadDocxTextExtractorModule();
+  const buffer = await createDocxBuffer({
+    "word/document.xml": wrapBody(
+      "<w:p><w:r><w:t>First line</w:t><w:br/><w:t>Second line</w:t></w:r></w:p>",
+    ),
+  });
+
+  assert.equal(await extractDocxMarkdown(buffer), "First line  \nSecond line");
+});
+
 test("extractDocxMarkdown maps headings, emphasis, and list items", async () => {
   const { extractDocxMarkdown } = await loadDocxTextExtractorModule();
   const buffer = await createDocxBuffer({

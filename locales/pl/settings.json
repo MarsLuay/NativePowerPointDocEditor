@@ -6,7 +6,8 @@
 		"search": "Wyszukiwanie",
 		"fileHandoff": "Przekazywanie plików",
 		"diagnostics": "Diagnostyka",
-		"powerpoint": "PowerPoint"
+		"powerpoint": "PowerPoint",
+		"ai": "Interfejs AI"
 	},
 	"docx": {
 		"authorName": {
@@ -29,7 +30,7 @@
 			"resetLabel": "Resetuj"
 		},
 		"autosave": {
-			"name": "Autozapis",
+			"name": "Autozapis DOCX",
 			"description": "Automatycznie zapisuj dokument chwilę po wprowadzeniu zmian."
 		},
 		"createBackupsBeforeSave": {
@@ -65,7 +66,7 @@
 	},
 	"powerpoint": {
 		"autosave": {
-			"name": "Autozapis edycji",
+			"name": "Autozapis PPTX",
 			"description": "Zapisuj edytowalne pliki PowerPoint 1500 ms po ustabilizowaniu się edycji. Po wyłączeniu zamknięcie lub przełączenie pliku zapisuje niezapisane edycje do kopii odzyskiwania bez nadpisywania oryginału."
 		},
 		"showInspector": {
@@ -79,6 +80,11 @@
 		"yoloMode": {
 			"name": "Otwieraj PowerPointy w trybie YOLO",
 			"description": "Zapamiętaj tryb YOLO dla przyszłych plików PPTX, aby oryginalne SVG slajdu było widoczne bez czyszczenia podglądu."
+		},
+		"copyPptxLog": {
+			"name": "Kopiuj log PPTX",
+			"description": "Skopiuj do schowka logi Native PowerPoint Doc Editor dotyczące plików PPTX.",
+			"actionLabel": "Kopiuj"
 		}
 	},
 	"fileHandoff": {
@@ -99,6 +105,23 @@
 	"templates": {
 		"title": "Darmowe szablony prezentacji",
 		"description": "Kilka miejsc, w których można znaleźć gotowe prezentacje do pobrania lub dostosowania."
+	},
+	"ai": {
+		"enableInterfacing": {
+			"name": "Włącz interfejs AI",
+			"description": "Udostępnia API wtyczki, manifest możliwości na dysku oraz polecenia JSON ze schowka, aby zewnętrzne narzędzia AI mogły opisywać, walidować, stosować i zapisywać edycje PPTX i DOCX. Gdy wyłączone, żaden interfejs agenta nie jest publikowany."
+		},
+		"disabledNotice": "Najpierw włącz interfejs AI w ustawieniach wtyczki.",
+		"manifestCopied": "Skopiowano manifest możliwości AI do schowka.",
+		"describeCopied": "Skopiowano wynik describe() do schowka.",
+		"applyCopied": "Skopiowano wynik apply() do schowka.",
+		"validateCopied": "Skopiowano wynik validateOps() do schowka.",
+		"saveCopied": "Skopiowano wynik save() do schowka.",
+		"undoCopied": "Skopiowano wynik undo() do schowka.",
+		"redoCopied": "Skopiowano wynik redo() do schowka.",
+		"clipboardPathRequired": "JSON w schowku musi zawierać path lub aktywny plik PPTX/DOCX: { \"path\": \"vault/file.pptx\" }.",
+		"clipboardApplyInvalid": "JSON w schowku musi zawierać ops: { \"path\"?: \"...\", \"ops\": [...] }.",
+		"clipboardInvalid": "Nie udało się odczytać poprawnego JSON ze schowka."
 	},
 	"debug": {
 		"copyFullLog": {

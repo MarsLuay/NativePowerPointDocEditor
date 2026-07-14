@@ -87,6 +87,7 @@
     "tableSizePicker": "[Įñşęrţ ţąbſę]"
   },
   "notice": {
+    "createFailed": "[Ćǫųſḑ ñǫţ ćręąţę PPŢX: {message}]",
     "switchFilesPreserveFailed": "[Ćǫųſḑ ñǫţ şwįţćh fįſęş bęćąųşę ųñşąvęḑ ęḑįţş frǫm {fileName} ćǫųſḑ ñǫţ bę pręşęrvęḑ.]",
     "closeUnsafe": "[Ñąţįvę PǫwęrPǫįñţ ćǫųſḑ ñǫţ ćſǫşę şąfęſÿ. Kęęp ţhįş ţąb ǫpęñ ąñḑ ręţrÿ şąvįñğ ǫr ćſǫşįñğ ąfţęr ręşǫſvįñğ ţhę vąųſţ wrįţę ęrrǫr.]",
     "openModernToSave": "[Ǫpęñ ą mǫḑęrñ PǫwęrPǫįñţ fįſę ţǫ şąvę įţ.]",
@@ -115,6 +116,7 @@
     "couldNotUngroupObjects": "[Ćǫųſḑ ñǫţ ųñğrǫųp ǫbjęćţş: {message}]",
     "couldNotInsertImage": "[Ćǫųſḑ ñǫţ įñşęrţ įmąğę: {message}]",
     "couldNotInsertShape": "[Ćǫųſḑ ñǫţ įñşęrţ şhąpę: {message}]",
+    "couldNotChangeShapeFillColor": "[Ćǫųſḑ ñǫţ ćhąñğę şhąpę fįſſ ćǫſǫr: {message}]",
     "couldNotInsertTable": "[Ćǫųſḑ ñǫţ įñşęrţ ţąbſę: {message}]",
     "couldNotInsertChart": "[Ćǫųſḑ ñǫţ įñşęrţ ćhąrţ: {message}]",
     "selectTextBoxFirst": "[Şęſęćţ ą ţęxţ bǫx ǫr pſąćę ţhę ćąręţ įñ ţęxţ fįrşţ.]",
@@ -148,6 +150,7 @@
     "generatedChartLabel": "[Ţhįş ćhąrţ ſąbęſ įş ğęñęrąţęḑ frǫm ñųmęrįć şćąſę ǫr ḑąţą. Ęḑįţ ą hįğhſįğhţęḑ ćhąrţ ţįţſę, ſęğęñḑ, ǫr ćąţęğǫrÿ ſąbęſ įñşţęąḑ.]",
     "couldNotMoveObjects": "[Ćǫųſḑ ñǫţ mǫvę ǫbjęćţş: {message}]",
     "couldNotUpdateObject": "[Ćǫųſḑ ñǫţ ųpḑąţę ǫbjęćţ: {message}]",
+    "objectNotEditable": "[Ţhįş ǫbjęćţ ćąñ'ţ bę mǫvęḑ ǫr ręşįzęḑ bęćąųşę įţ įşñ'ţ şţǫręḑ ḑįręćţſÿ ǫñ ţhę şſįḑę.]",
     "recoveryCopyUnavailable": "[Ćǫųſḑ ñǫţ ćręąţę ą Ñąţįvę PǫwęrPǫįñţ ręćǫvęrÿ ćǫpÿ bęćąųşę ţhę ǫpęñ pręşęñţąţįǫñ įş ųñąvąįſąbſę.]",
     "recoveryCopyCreated": "[Ųñşąvęḑ ęḑįţş węrę ñǫţ wrįţţęñ ţǫ {fileName}. Ręćǫvęrÿ ćǫpÿ ćręąţęḑ whįſę {reason}: {recoveryPath}]",
     "saveValidationFailedRecovery": "[Şąvę vąſįḑąţįǫñ fąįſęḑ, şǫ {fileName} wąş ñǫţ ǫvęrwrįţţęñ. Ąñ ųñvąſįḑąţęḑ ręćǫvęrÿ ęxpǫrţ wąş ćręąţęḑ ąţ {recoveryPath}. {validationError}]",
@@ -231,6 +234,9 @@
     "selectFileToOpen": "[Şęſęćţ ą PǫwęrPǫįñţ fįſę ţǫ ǫpęñ įţ.]",
     "openToSave": "[Ǫpęñ ą PǫwęrPǫįñţ fįſę ţǫ şąvę įţ.]"
   },
+  "menu": {
+    "newPptx": "[Ñęw PPŢX]"
+  },
   "inspector": {
     "title": "[Įñşpęćţǫr]",
     "slideBackground": "[Şſįḑę bąćkğrǫųñḑ]",
@@ -259,6 +265,7 @@
   },
   "contextMenu": {
     "newTextBox": "[Ñęw ţęxţ bǫx]",
+    "shapeFillColor": "[Şhąpę fįſſ ćǫſǫr…]",
     "cropImage": "[Ćrǫp įmąğę…]",
     "resetImage": "[Ręşęţ įmąğę]",
     "setAsBackground": "[Şęţ ąş bąćkğrǫųñḑ]",

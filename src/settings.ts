@@ -73,10 +73,11 @@ export interface NativePowerPointDocEditorSettings {
 	powerPointShowInspector: boolean;
 	disableDocxFiles: boolean;
 	disablePowerPointFiles: boolean;
+	enableAiInterfacing: boolean;
 }
 
 export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
-	authorName: 'Mars',
+	authorName: 'Obsidian',
 	editorTheme: 'system',
 	showRuler: false,
 	autosave: true,
@@ -91,6 +92,7 @@ export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
 	powerPointShowInspector: false,
 	disableDocxFiles: false,
 	disablePowerPointFiles: false,
+	enableAiInterfacing: false,
 };
 
 export type NativePowerPointDocEditorSettingSectionId =
@@ -100,9 +102,10 @@ export type NativePowerPointDocEditorSettingSectionId =
 	| 'saving'
 	| 'powerpoint'
 	| 'search'
+	| 'ai'
 	| 'diagnostics';
 
-export type DocxEditorSettingSectionId = Exclude<NativePowerPointDocEditorSettingSectionId, 'powerpoint'>;
+export type DocxEditorSettingSectionId = Exclude<NativePowerPointDocEditorSettingSectionId, 'powerpoint' | 'ai'>;
 
 export type NativePowerPointDocEditorSettingId =
 	| 'authorName'
@@ -120,8 +123,10 @@ export type NativePowerPointDocEditorSettingId =
 	| 'enableDocxSearchIndex'
 	| 'autoIndexDocxSearch'
 	| 'rebuildDocxSearchIndex'
+	| 'enableAiInterfacing'
 	| 'debugLogging'
 	| 'copyDocxLog'
+	| 'copyPptxLog'
 	| 'copyFullLog';
 
 export type DocxEditorSettingId = Extract<
@@ -184,7 +189,7 @@ export interface ReadNativePowerPointDocEditorSettingsResult {
 	shouldPersistSettings: boolean;
 }
 
-export function readNativePowerPointDocEditorSettings(
+export function mergeNativePowerPointDocEditorSettings(
 	saved: Record<string, unknown> | null | undefined,
 	systemTheme: EditorThemeResolution = 'light',
 ): ReadNativePowerPointDocEditorSettingsResult {
@@ -212,6 +217,7 @@ export function readNativePowerPointDocEditorSettings(
 	const normalizedPowerPointShowInspector = raw.powerPointShowInspector === true;
 	const normalizedDisableDocxFiles = raw.disableDocxFiles === true;
 	const normalizedDisablePowerPointFiles = raw.disablePowerPointFiles === true;
+	const normalizedEnableAiInterfacing = raw.enableAiInterfacing === true;
 
 	const settings: NativePowerPointDocEditorSettings = {
 		authorName: readString(raw.authorName, DEFAULT_SETTINGS.authorName),
@@ -229,6 +235,7 @@ export function readNativePowerPointDocEditorSettings(
 		powerPointShowInspector: normalizedPowerPointShowInspector,
 		disableDocxFiles: normalizedDisableDocxFiles,
 		disablePowerPointFiles: normalizedDisablePowerPointFiles,
+		enableAiInterfacing: normalizedEnableAiInterfacing,
 	};
 
 	const shouldPersistSettings = hadLegacyEditorLanguage
@@ -244,7 +251,8 @@ export function readNativePowerPointDocEditorSettings(
 		|| raw.powerPointRemoveUnsupportedSvgContent !== undefined
 		|| raw.powerPointYoloMode !== undefined
 		|| raw.disableDocxFiles !== normalizedDisableDocxFiles
-		|| raw.disablePowerPointFiles !== normalizedDisablePowerPointFiles;
+		|| raw.disablePowerPointFiles !== normalizedDisablePowerPointFiles
+		|| raw.enableAiInterfacing !== normalizedEnableAiInterfacing;
 
 	return {
 		settings,
@@ -327,9 +335,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 	private renderSettings(): void {
 		const { containerEl } = this;
 		const i18n = this.plugin.getI18n()!;
-		const selectedZoom = normalizeDefaultZoom(this.plugin.settings.defaultZoom);
+		const selectedZoom = normalizeDefaultZoom(this.plugin.pluginSettings.defaultZoom);
 
-		this.plugin.settings.defaultZoom = selectedZoom;
+		this.plugin.pluginSettings.defaultZoom = selectedZoom;
 
 		containerEl.empty();
 		containerEl.addClass('native-powerpoint-doc-editor-settings-tab');
@@ -350,15 +358,15 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setDesc(settingDescriptors.authorName.description)
 			.addText(text => text
 				.setPlaceholder(settingDescriptors.authorName.placeholder ?? defaultAuthorName)
-				.setValue(this.plugin.settings.authorName)
+				.setValue(this.plugin.pluginSettings.authorName)
 				.onChange(async (value) => {
-					this.plugin.settings.authorName = value.trim() || defaultAuthorName;
+					this.plugin.pluginSettings.authorName = value.trim() || defaultAuthorName;
 					await this.plugin.saveSettings();
 				}))
 			.addButton(button => button
 				.setButtonText(settingDescriptors.authorName.resetLabel ?? i18n.t('common:actions.reset'))
 				.onClick(async () => {
-					this.plugin.settings.authorName = defaultAuthorName;
+					this.plugin.pluginSettings.authorName = defaultAuthorName;
 					await this.plugin.saveSettings();
 					this.renderSettings();
 				}));
@@ -371,9 +379,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.disableDocxFiles.name)
 			.setDesc(settingDescriptors.disableDocxFiles.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.disableDocxFiles)
+				.setValue(this.plugin.pluginSettings.disableDocxFiles)
 				.onChange(async (value) => {
-					this.plugin.settings.disableDocxFiles = value;
+					this.plugin.pluginSettings.disableDocxFiles = value;
 					await this.plugin.saveSettings();
 					showI18nNotice(i18n, 'settings:fileHandoff.reloadDocxNotice');
 				}));
@@ -382,9 +390,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.disablePowerPointFiles.name)
 			.setDesc(settingDescriptors.disablePowerPointFiles.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.disablePowerPointFiles)
+				.setValue(this.plugin.pluginSettings.disablePowerPointFiles)
 				.onChange(async (value) => {
-					this.plugin.settings.disablePowerPointFiles = value;
+					this.plugin.pluginSettings.disablePowerPointFiles = value;
 					await this.plugin.saveSettings();
 					showI18nNotice(i18n, 'settings:fileHandoff.reloadPptxNotice');
 				}));
@@ -402,9 +410,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				}
 
 				dropdown
-					.setValue(this.plugin.settings.editorTheme)
+					.setValue(this.plugin.pluginSettings.editorTheme)
 					.onChange(async (value) => {
-						this.plugin.settings.editorTheme = normalizeEditorThemePreference(value);
+						this.plugin.pluginSettings.editorTheme = normalizeEditorThemePreference(value);
 						await this.plugin.saveSettings();
 						this.plugin.refreshDocxViews();
 						this.plugin.refreshPowerPointViews();
@@ -415,9 +423,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.showRuler.name)
 			.setDesc(settingDescriptors.showRuler.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.showRuler)
+				.setValue(this.plugin.pluginSettings.showRuler)
 				.onChange(async (value) => {
-					this.plugin.settings.showRuler = value;
+					this.plugin.pluginSettings.showRuler = value;
 					await this.plugin.saveSettings();
 					this.plugin.refreshDocxViews();
 				}));
@@ -436,14 +444,14 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				.setValue(selectedZoom)
 				.onChange(async (value) => {
 					const zoom = normalizeDefaultZoom(value);
-					this.plugin.settings.defaultZoom = zoom;
+					this.plugin.pluginSettings.defaultZoom = zoom;
 					zoomValueEl.setText(formatZoom(zoom));
 					await this.plugin.saveSettings();
 			}))
 			.addButton(button => button
 				.setButtonText(settingDescriptors.defaultZoom.resetLabel ?? i18n.t('common:actions.reset'))
 				.onClick(async () => {
-					this.plugin.settings.defaultZoom = defaultZoom;
+					this.plugin.pluginSettings.defaultZoom = defaultZoom;
 					await this.plugin.saveSettings();
 					this.renderSettings();
 				}));
@@ -456,9 +464,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.autosave.name)
 			.setDesc(settingDescriptors.autosave.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.autosave)
+				.setValue(this.plugin.pluginSettings.autosave)
 				.onChange(async (value) => {
-					this.plugin.settings.autosave = value;
+					this.plugin.pluginSettings.autosave = value;
 					await this.plugin.saveSettings();
 					this.plugin.refreshDocxViews();
 				}));
@@ -467,9 +475,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.createBackupsBeforeSave.name)
 			.setDesc(settingDescriptors.createBackupsBeforeSave.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.createBackupsBeforeSave)
+				.setValue(this.plugin.pluginSettings.createBackupsBeforeSave)
 				.onChange(async (value) => {
-					this.plugin.settings.createBackupsBeforeSave = value;
+					this.plugin.pluginSettings.createBackupsBeforeSave = value;
 					await this.plugin.saveSettings();
 					this.plugin.refreshDocxViews();
 				}));
@@ -478,9 +486,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.powerPointAutosaveEnabled.name)
 			.setDesc(settingDescriptors.powerPointAutosaveEnabled.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.powerPointAutosaveEnabled)
+				.setValue(this.plugin.pluginSettings.powerPointAutosaveEnabled)
 				.onChange(async (value) => {
-					this.plugin.settings.powerPointAutosaveEnabled = value;
+					this.plugin.pluginSettings.powerPointAutosaveEnabled = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -492,9 +500,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.powerPointShowInspector.name)
 			.setDesc(settingDescriptors.powerPointShowInspector.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.powerPointShowInspector)
+				.setValue(this.plugin.pluginSettings.powerPointShowInspector)
 				.onChange(async (value) => {
-					this.plugin.settings.powerPointShowInspector = value;
+					this.plugin.pluginSettings.powerPointShowInspector = value;
 					await this.plugin.saveSettings();
 					this.plugin.refreshPowerPointViews();
 				}));
@@ -503,9 +511,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.powerPointHideUnsupportedSvgContent.name)
 			.setDesc(settingDescriptors.powerPointHideUnsupportedSvgContent.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.powerPointHideUnsupportedSvgContent)
+				.setValue(this.plugin.pluginSettings.powerPointHideUnsupportedSvgContent)
 				.onChange(async (value) => {
-					this.plugin.settings.powerPointHideUnsupportedSvgContent = value;
+					this.plugin.pluginSettings.powerPointHideUnsupportedSvgContent = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -513,9 +521,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.powerPointOpenWithYoloMode.name)
 			.setDesc(settingDescriptors.powerPointOpenWithYoloMode.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.powerPointOpenWithYoloMode)
+				.setValue(this.plugin.pluginSettings.powerPointOpenWithYoloMode)
 				.onChange(async (value) => {
-					this.plugin.settings.powerPointOpenWithYoloMode = value;
+					this.plugin.pluginSettings.powerPointOpenWithYoloMode = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -547,9 +555,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.enableDocxSearchIndex.name)
 			.setDesc(settingDescriptors.enableDocxSearchIndex.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.enableDocxSearchIndex)
+				.setValue(this.plugin.pluginSettings.enableDocxSearchIndex)
 				.onChange(async (value) => {
-					this.plugin.settings.enableDocxSearchIndex = value;
+					this.plugin.pluginSettings.enableDocxSearchIndex = value;
 					await this.plugin.saveSettings();
 					if (value) {
 						await this.plugin.rebuildDocxSearchIndex(false);
@@ -560,11 +568,11 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.autoIndexDocxSearch.name)
 			.setDesc(settingDescriptors.autoIndexDocxSearch.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.autoIndexDocxSearch)
+				.setValue(this.plugin.pluginSettings.autoIndexDocxSearch)
 				.onChange(async (value) => {
-					this.plugin.settings.autoIndexDocxSearch = value;
+					this.plugin.pluginSettings.autoIndexDocxSearch = value;
 					await this.plugin.saveSettings();
-					if (value && this.plugin.settings.enableDocxSearchIndex) {
+					if (value && this.plugin.pluginSettings.enableDocxSearchIndex) {
 						await this.plugin.rebuildDocxSearchIndex(false);
 					}
 				}));
@@ -579,6 +587,21 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
+			.setName(sectionLabels.ai)
+			.setHeading();
+
+		new Setting(containerEl)
+			.setName(settingDescriptors.enableAiInterfacing.name)
+			.setDesc(settingDescriptors.enableAiInterfacing.description)
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.pluginSettings.enableAiInterfacing)
+				.onChange(async (value) => {
+					this.plugin.pluginSettings.enableAiInterfacing = value;
+					await this.plugin.saveSettings();
+					await this.plugin.syncAiInterfacing();
+				}));
+
+		new Setting(containerEl)
 			.setName(sectionLabels.diagnostics)
 			.setHeading();
 
@@ -586,9 +609,9 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 			.setName(settingDescriptors.debugLogging.name)
 			.setDesc(settingDescriptors.debugLogging.description)
 			.addToggle(toggle => toggle
-				.setValue(this.plugin.settings.debugLogging)
+				.setValue(this.plugin.pluginSettings.debugLogging)
 				.onChange(async (value) => {
-					this.plugin.settings.debugLogging = value;
+					this.plugin.pluginSettings.debugLogging = value;
 					configureNativePowerPointDocEditorLogger(value);
 					infoLog('settings', `Debug logging ${value ? 'enabled' : 'disabled'}`);
 					await this.plugin.saveSettings();
@@ -601,6 +624,15 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				.setButtonText(settingDescriptors.copyDocxLog.actionLabel ?? i18n.t('common:actions.copy'))
 				.onClick(async () => {
 					await this.plugin.copyDebugLog('docx');
+				}));
+
+		new Setting(containerEl)
+			.setName(settingDescriptors.copyPptxLog.name)
+			.setDesc(settingDescriptors.copyPptxLog.description)
+			.addButton(button => button
+				.setButtonText(settingDescriptors.copyPptxLog.actionLabel ?? i18n.t('common:actions.copy'))
+				.onClick(async () => {
+					await this.plugin.copyDebugLog('pptx');
 				}));
 
 		new Setting(containerEl)

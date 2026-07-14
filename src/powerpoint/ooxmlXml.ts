@@ -39,6 +39,23 @@ export function getElementChildren(element: Element | undefined): Element[] {
     .filter((node): node is Element => node.nodeType === 1);
 }
 
+export function getShapeTree(xmlDocument: XMLDocument): Element {
+  const shapeTree = getDescendants(xmlDocument, 'spTree')[0];
+  if (!shapeTree) throw new Error('Could not find the slide shape tree.');
+  return shapeTree;
+}
+
+export function getShapeChildren(shapeTree: Element): Element[] {
+  return getElementChildren(shapeTree)
+    .filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
+}
+
+export function getShapeElement(xmlDocument: XMLDocument, shapeIndex: number): Element {
+  const shape = getShapeChildren(getShapeTree(xmlDocument))[shapeIndex];
+  if (!shape) throw new Error(`Could not find slide object ${shapeIndex + 1}.`);
+  return shape;
+}
+
 export function resolvePartPath(sourcePath: string, target: string): string {
   const parts = sourcePath.split('/');
   parts.pop();

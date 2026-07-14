@@ -6,7 +6,8 @@
 		"search": "Search",
 		"fileHandoff": "File handoff",
 		"diagnostics": "Diagnostics",
-		"powerpoint": "PowerPoint"
+		"powerpoint": "PowerPoint",
+		"ai": "AI interfacing"
 	},
 	"docx": {
 		"authorName": {
@@ -29,7 +30,7 @@
 			"resetLabel": "Reset"
 		},
 		"autosave": {
-			"name": "Autosave",
+			"name": "DOCX autosave",
 			"description": "Automatically save the document shortly after changes."
 		},
 		"createBackupsBeforeSave": {
@@ -65,7 +66,7 @@
 	},
 	"powerpoint": {
 		"autosave": {
-			"name": "Autosave edits",
+			"name": "PPTX autosave",
 			"description": "Save editable PowerPoint files 1500 ms after edits settle. When disabled, closing or switching files writes unsaved edits to a recovery copy without overwriting the original."
 		},
 		"showInspector": {
@@ -79,6 +80,11 @@
 		"yoloMode": {
 			"name": "Open PowerPoints with YOLO mode",
 			"description": "Remember YOLO mode for future PPTX files so the original slide SVG is shown without preview cleanup."
+		},
+		"copyPptxLog": {
+			"name": "Copy PPTX log",
+			"description": "Copy PPTX-specific Native PowerPoint Doc Editor logs to the clipboard.",
+			"actionLabel": "Copy"
 		}
 	},
 	"fileHandoff": {
@@ -99,6 +105,23 @@
 	"templates": {
 		"title": "Free presentation templates",
 		"description": "A few places to find starter decks you can download or customize."
+	},
+	"ai": {
+		"enableInterfacing": {
+			"name": "Enable AI-Interfacing",
+			"description": "Expose the plugin API, on-disk capability manifest, and clipboard JSON commands so external AI tools can describe, validate, apply, and save PPTX and DOCX edits. When off, no agent surface is published."
+		},
+		"disabledNotice": "Enable AI-Interfacing in plugin settings first.",
+		"manifestCopied": "Copied AI capability manifest to the clipboard.",
+		"describeCopied": "Copied describe() result to the clipboard.",
+		"applyCopied": "Copied apply() result to the clipboard.",
+		"validateCopied": "Copied validateOps() result to the clipboard.",
+		"saveCopied": "Copied save() result to the clipboard.",
+		"undoCopied": "Copied undo() result to the clipboard.",
+		"redoCopied": "Copied redo() result to the clipboard.",
+		"clipboardPathRequired": "Clipboard JSON must include a path or focus an open PPTX/DOCX file: { \"path\": \"vault/file.pptx\" }.",
+		"clipboardApplyInvalid": "Clipboard JSON must include ops: { \"path\"?: \"...\", \"ops\": [...] }.",
+		"clipboardInvalid": "Could not read valid JSON from the clipboard."
 	},
 	"debug": {
 		"copyFullLog": {

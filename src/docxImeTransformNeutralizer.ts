@@ -1,4 +1,5 @@
 import { isHTMLElement } from './domGuards';
+import { DOCX_CARET_SELECTOR, DOCX_EDITOR_PAGES_SELECTOR, DOCX_HIDDEN_PROSEMIRROR_SELECTOR } from './docxEditorChromeMarkers';
 import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
 import type { EditorView } from 'prosemirror-view';
 
@@ -7,7 +8,6 @@ const IME_ANCHORED_DATASET_KEY = 'nativePowerPointDocEditorImeAnchored';
 const IME_ORIGINAL_LEFT_DATASET_KEY = 'nativePowerPointDocEditorImeOriginalLeft';
 const IME_ORIGINAL_TOP_DATASET_KEY = 'nativePowerPointDocEditorImeOriginalTop';
 const IME_ORIGINAL_POSITION_DATASET_KEY = 'nativePowerPointDocEditorImeOriginalPosition';
-const HIDDEN_PROSEMIRROR_SELECTOR = '.paged-editor__hidden-pm';
 
 export interface ParsedEditorZoomTransform {
 	translateXPx: number;
@@ -123,7 +123,7 @@ export function editorZoomTransformNeedsNeutralization(transform: string): boole
 }
 
 export function findDocxEditorZoomWrapper(editorRoot: HTMLElement): HTMLElement | null {
-	const pages = editorRoot.querySelector('.paged-editor__pages');
+	const pages = editorRoot.querySelector(DOCX_EDITOR_PAGES_SELECTOR);
 	const parent = pages?.parentElement;
 	if (!parent || !editorRoot.contains(parent)) {
 		return null;
@@ -224,7 +224,7 @@ function toViewportCaretRect(rect: CaretRectLike | null | undefined): ViewportCa
 }
 
 function findVisibleCaretRect(editorRoot: HTMLElement): ViewportCaretRect | null {
-	const caret = editorRoot.querySelector<HTMLElement>('[data-testid="caret"]');
+	const caret = editorRoot.querySelector<HTMLElement>(DOCX_CARET_SELECTOR);
 	return toViewportCaretRect(caret?.getBoundingClientRect());
 }
 
@@ -252,7 +252,7 @@ function getRenderedCaretRect(view: EditorView, context: RenderedDomContext | nu
 }
 
 function findHiddenProseMirrorRoot(view: EditorView): HTMLElement | null {
-	const hiddenRoot = view.dom.closest(HIDDEN_PROSEMIRROR_SELECTOR);
+	const hiddenRoot = view.dom.closest(DOCX_HIDDEN_PROSEMIRROR_SELECTOR);
 	return isHTMLElement(hiddenRoot) ? hiddenRoot : null;
 }
 
@@ -587,7 +587,7 @@ export function attachDocxImeTransformNeutralizer(
 	for (const delay of [0, 100, 500, 1500]) {
 		retryTimeouts.push(view.setTimeout(schedule, delay));
 	}
-	pollIntervalId = view.setInterval(schedule, 500);
+	pollIntervalId = view.setInterval(schedule, 1000);
 	emitImeDiagnostic(diagnosticOptions, 'attached', {
 		hasZoomWrapper: Boolean(findDocxEditorZoomWrapper(editorRoot)),
 		...getHiddenAnchorSnapshot(editorRoot, diagnosticOptions),

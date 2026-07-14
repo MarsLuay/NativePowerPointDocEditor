@@ -4,10 +4,14 @@ import {
 	POWERPOINT_EXTENSIONS,
 	isPowerPointExtension,
 } from './NativePowerPointView';
-import { infoLog } from './logger';
+import type { App, Menu } from 'obsidian';
+import { TFolder, normalizePath } from 'obsidian';
+import type { PptxViewAgentBridge } from './ai/aiRuntime';
+import { errorLog, infoLog } from './logger';
 import type NativePowerPointDocEditorPlugin from './main';
 import { pptNotice, pptT } from './i18n/powerpointNotify';
 import type { NativePowerPointSettings } from './settings';
+import { createAndOpenNewOfficeFile } from './vault/createNewOfficeFile';
 
 export { NativePowerPointView, NATIVE_POWERPOINT_VIEW_TYPE, isPowerPointExtension };
 
@@ -49,7 +53,36 @@ export function registerPowerPointSupport(
 		},
 	});
 
+	registerPowerPointFolderMenu(plugin);
+
 	infoLog('plugin', 'PowerPoint support registered');
+}
+
+function registerPowerPointFolderMenu(plugin: NativePowerPointDocEditorPlugin) {
+	plugin.registerEvent(plugin.app.workspace.on('file-menu', (menu, file) => {
+		if (!(file instanceof TFolder)) {
+			return;
+		}
+
+		addCreatePptxMenuItem(plugin, menu, file);
+	}));
+}
+
+function addCreatePptxMenuItem(plugin: NativePowerPointDocEditorPlugin, menu: Menu, folder: TFolder) {
+	menu.addItem((item) => {
+		item
+			.setTitle(pptT('powerpoint:menu.newPptx'))
+			.setIcon('presentation')
+			.onClick(async () => {
+				try {
+					await createAndOpenNewOfficeFile(plugin.app, folder, 'pptx');
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					pptNotice('powerpoint:notice.createFailed', { message });
+					errorLog('file', 'Failed to create blank PPTX', { folder: folder.path, message });
+				}
+			});
+	});
 }
 
 export function refreshPowerPointViews(plugin: NativePowerPointDocEditorPlugin) {
@@ -59,4 +92,32 @@ export function refreshPowerPointViews(plugin: NativePowerPointDocEditorPlugin) 
 			view.refreshSettings();
 		}
 	}
+}
+
+/**
+ * Persist every dirty PPTX view before the development hot-reloader disables
+ * the plugin. Returns false when any source file could not be updated so the
+ * caller can keep the current plugin instance and its in-memory edits alive.
+ */
+export async function savePowerPointViewsBeforePluginReload(
+	plugin: NativePowerPointDocEditorPlugin,
+): Promise<boolean> {
+	const views = plugin.app.workspace
+		.getLeavesOfType(NATIVE_POWERPOINT_VIEW_TYPE)
+		.map((leaf) => leaf.view)
+		.filter((view): view is NativePowerPointView => view instanceof NativePowerPointView);
+
+	const results = await Promise.all(views.map((view) => view.saveBeforePluginReload()));
+	return results.every(Boolean);
+}
+
+export function findPptxViewForPath(app: App, path: string): PptxViewAgentBridge | null {
+	const normalized = normalizePath(path);
+	for (const leaf of app.workspace.getLeavesOfType(NATIVE_POWERPOINT_VIEW_TYPE)) {
+		const view = leaf.view;
+		if (view instanceof NativePowerPointView && view.getLoadedPresentationPath() === normalized) {
+			return view;
+		}
+	}
+	return null;
 }

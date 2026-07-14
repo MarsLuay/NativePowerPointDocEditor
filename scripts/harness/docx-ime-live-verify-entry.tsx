@@ -51,7 +51,7 @@ function inspectWrapper(editorRoot: HTMLElement): WrapperInspection | null {
 
 function findBodyEditable(hostEl: HTMLElement): HTMLElement | null {
 	return (
-		hostEl.ownerDocument.querySelector<HTMLElement>('.paged-editor__hidden-pm .ProseMirror[contenteditable="true"]')
+		hostEl.ownerDocument.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-hidden-prosemirror] .ProseMirror[contenteditable="true"]')
 		?? hostEl.ownerDocument.querySelector<HTMLElement>('.ProseMirror[contenteditable="true"]')
 		?? hostEl.querySelector<HTMLElement>('[contenteditable="true"]')
 	);
@@ -60,8 +60,8 @@ function findBodyEditable(hostEl: HTMLElement): HTMLElement | null {
 function findNeutralizerRoot(hostEl: HTMLElement): HTMLElement | null {
 	return (
 		hostEl.querySelector<HTMLElement>('.native-powerpoint-doc-editor-editor-harness')
-		?? hostEl.querySelector<HTMLElement>('.ep-root.paged-editor')
-		?? hostEl.querySelector<HTMLElement>('.ep-root')
+		?? hostEl.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-root]')
+		?? hostEl.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-root]')
 	);
 }
 
@@ -95,8 +95,8 @@ function collectMetrics(
 	const wrapper = inspectWrapper(editorRoot);
 	const transformAncestorsOnCaret = editable ? countTransformAncestors(editable) : -1;
 	const view = editorRef.current?.getEditorRef()?.getView() ?? null;
-	const hiddenRoot = view?.dom.closest<HTMLElement>('.paged-editor__hidden-pm') ?? null;
-	const visibleCaret = editorRoot.querySelector<HTMLElement>('[data-testid="caret"]');
+	const hiddenRoot = view?.dom.closest<HTMLElement>('[data-native-powerpoint-doc-editor-hidden-prosemirror]') ?? null;
+	const visibleCaret = editorRoot.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-caret]');
 	let hiddenCaretDelta: LiveVerifyMetrics['hiddenCaretDelta'] = null;
 	if (view && visibleCaret) {
 		try {
@@ -158,17 +158,19 @@ function DocxLiveVerifyApp({
 		}
 
 		let detachNeutralizer: (() => void) | undefined;
-		let retryInterval: number | undefined;
+		let retryTimeouts: number[] = [];
 		let compositionStartAnchored = false;
 
 		const attachNeutralizer = (): boolean => {
+			if (detachNeutralizer) {
+				return true;
+			}
 			const editorRoot = findNeutralizerRoot(hostEl);
 			const editorView = editorRef.current?.getEditorRef()?.getView();
 			if (!editorRoot || !editorView) {
 				return false;
 			}
 
-			detachNeutralizer?.();
 			detachNeutralizer = attachDocxImeTransformNeutralizer(editorRoot, {
 				getEditorView: () => editorRef.current?.getEditorRef()?.getView() ?? null,
 				getRenderedDomContext: () => renderedDomContextRef.current,
@@ -196,20 +198,16 @@ function DocxLiveVerifyApp({
 		};
 
 		if (!attachNeutralizer()) {
-			retryInterval = window.setInterval(() => {
-				if (attachNeutralizer() && retryInterval !== undefined) {
-					window.clearInterval(retryInterval);
-					retryInterval = undefined;
-				}
-			}, 100);
+			retryTimeouts = [100, 500, 1500].map((delay) => window.setTimeout(attachNeutralizer, delay));
 		}
 
 		const timers = [1000, 2500, 5000, 10000].map((delay) => window.setTimeout(publish, delay));
 
 		return () => {
-			if (retryInterval !== undefined) {
-				window.clearInterval(retryInterval);
+			for (const timeout of retryTimeouts) {
+				window.clearTimeout(timeout);
 			}
+			retryTimeouts = [];
 			for (const timer of timers) {
 				window.clearTimeout(timer);
 			}

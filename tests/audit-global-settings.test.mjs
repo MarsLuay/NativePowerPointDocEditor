@@ -234,6 +234,7 @@ test("settings catalog covers DOCX and PowerPoint configurable settings", async 
       "disableDocxFiles",
       "disablePowerPointFiles",
       "editorTheme",
+      "enableAiInterfacing",
       "enableDocxSearchIndex",
       "powerPointAutosaveEnabled",
       "powerPointHideUnsupportedSvgContent",
@@ -256,6 +257,6 @@ test("settings catalog covers DOCX and PowerPoint configurable settings", async 
 
   assert.deepEqual(
     sections.map((section) => section.id),
-    ["identity", "fileHandoff", "editorDefaults", "saving", "powerpoint", "search", "diagnostics"],
+    ["identity", "fileHandoff", "editorDefaults", "saving", "powerpoint", "search", "ai", "diagnostics"],
   );
 });

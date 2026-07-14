@@ -72,9 +72,9 @@ export class InlineTextGeometry {
       .filter(isSVGTSpanElement)
       .filter((span) => !span.querySelector('tspan'));
     if (leafTspans.length > 0) {
-      return leafTspans;
+      return leafTspans as SVGTextContentElement[];
     }
-    return [element];
+    return [element as SVGTextContentElement];
   }
 
   isRunTextSpan(span: SVGTextContentElement): boolean {

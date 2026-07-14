@@ -37,3 +37,7 @@ export function isEditablePowerPointExtension(extension: string): boolean {
 export function isMacroEnabledPowerPointExtension(extension: string): boolean {
   return MACRO_ENABLED_POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
 }
+
+export function isLegacyPowerPointExtension(extension: string): boolean {
+  return LEGACY_POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
+}

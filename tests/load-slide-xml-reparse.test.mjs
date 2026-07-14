@@ -9,6 +9,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import { patchPptxRendererSource } from "../scripts/lib/patch-pptx-renderer.mjs";
 
 // Minimal source carrying the exact anchors patchPptxRendererSource keys off of:
@@ -37,12 +38,13 @@ globalThis.__PptxRenderer = PptxRenderer;
 
 function makeRendererClass() {
 	const patched = patchPptxRendererSource(STUB_SOURCE);
-	// Evaluate the patched module body and hand back the class it defines.
-	// eslint-disable-next-line no-new-func
-	new Function(patched)();
-	const cls = globalThis.__PptxRenderer;
-	delete globalThis.__PptxRenderer;
-	return cls;
+	const context = {};
+	runInNewContext(patched, context);
+	return context.__PptxRenderer;
+}
+
+function getRendererCalls(renderer) {
+	return Array.from(renderer.calls, (call) => Array.from(call));
 }
 
 test("loadSlideXml: uses restore_slide_ooxml when present and skips full reinit", () => {
@@ -59,7 +61,7 @@ test("loadSlideXml: uses restore_slide_ooxml when present and skips full reinit"
 
 	assert.deepEqual(reparseArgs, [[2, "<p:sld/>"]], "reparses only the edited slide");
 	assert.deepEqual(
-		renderer.calls,
+		getRendererCalls(renderer),
 		[["persistFile", "ppt/slides/slide3.xml", "<p:sld/>"]],
 		"persists the slide XML and does NOT call reinitializeWasm"
 	);
@@ -71,7 +73,7 @@ test("loadSlideXml: falls back to reinitializeWasm when restore_slide_ooxml is a
 
 	renderer.loadSlideXml(0, "<p:sld/>");
 
-	assert.deepEqual(renderer.calls, [
+	assert.deepEqual(getRendererCalls(renderer), [
 		["persistFile", "ppt/slides/slide1.xml", "<p:sld/>"],
 		["reinitializeWasm"],
 	]);
@@ -86,7 +88,7 @@ test("loadSlideXml: falls back to reinitializeWasm when the per-slide reparse re
 	renderer.loadSlideXml(4, "<broken/>");
 
 	assert.deepEqual(
-		renderer.calls,
+		getRendererCalls(renderer),
 		[
 			["persistFile", "ppt/slides/slide5.xml", "<broken/>"],
 			["reinitializeWasm"],

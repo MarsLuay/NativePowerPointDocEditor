@@ -141,6 +141,51 @@ export interface MenuIconOptions {
 	className?: ClassName;
 }
 
+export interface ToolbarIconButtonOptions {
+	className?: ClassName;
+	icon: string;
+	label: string;
+	tooltip?: string | false;
+	iconClassName?: ClassName;
+	attr?: Record<string, string | undefined>;
+	onClick?: (event: MouseEvent) => void;
+}
+
+export function configureToolbarIconButton(
+	button: HTMLButtonElement,
+	options: ToolbarIconButtonOptions,
+): HTMLButtonElement {
+	button.type = 'button';
+	addClassName(button, mergeClassNames('clickable-icon', options.className));
+	button.setAttribute('aria-label', options.label);
+	const tooltip = options.tooltip ?? options.label;
+	if (tooltip === false) {
+		button.removeAttribute('data-tooltip');
+	} else {
+		button.setAttribute('data-tooltip', tooltip);
+	}
+	setAttributes(button, options.attr);
+	button.replaceChildren();
+	if (options.iconClassName) {
+		const iconEl = button.createSpan({ cls: classNameToString(options.iconClassName) });
+		setIcon(iconEl, options.icon);
+	} else {
+		setIcon(button, options.icon);
+	}
+	if (options.onClick) {
+		button.addEventListener('click', options.onClick);
+	}
+	return button;
+}
+
+export function createToolbarIconButton(
+	parent: HTMLElement,
+	options: ToolbarIconButtonOptions,
+): HTMLButtonElement {
+	const button = parent.createEl('button');
+	return configureToolbarIconButton(button, options);
+}
+
 export interface MenuItemOptions {
 	className: ClassName;
 	text?: string;
@@ -218,6 +263,46 @@ export function configureMenuItemButton(button: HTMLButtonElement, options: Exis
 export function createMenuItem(parent: HTMLElement, options: MenuItemOptions): HTMLButtonElement {
 	const button = parent.createEl('button', { cls: classNameToString(options.className) });
 	return configureMenuItemButton(button, { ...options, className: undefined });
+}
+
+export interface InjectedMenuOptionOptions {
+	onSelect: () => void;
+	dismissBeforeSelect?: boolean;
+	ownerDocument?: Document;
+}
+
+/**
+ * Hardens a button that is injected into a third-party (Eigenpal/Radix) menu so
+ * the host menu cannot swallow or reinterpret its activation. Blocks the host's
+ * pointer/mouse handling, activates on click and Enter/Space, and (by default)
+ * dismisses the host menu with Escape before invoking {@link onSelect}.
+ */
+export function hardenInjectedMenuOption(
+	button: HTMLButtonElement,
+	options: InjectedMenuOptionOptions,
+): HTMLButtonElement {
+	const ownerDocument = options.ownerDocument ?? button.ownerDocument;
+	const swallow = (event: Event): void => {
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		event.stopPropagation();
+	};
+	const activate = (event: Event): void => {
+		swallow(event);
+		if (options.dismissBeforeSelect !== false) {
+			ownerDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		}
+		options.onSelect();
+	};
+	button.addEventListener('pointerdown', swallow);
+	button.addEventListener('mousedown', swallow);
+	button.addEventListener('click', activate);
+	button.addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' || event.key === ' ') {
+			activate(event);
+		}
+	});
+	return button;
 }
 
 export interface MenuSectionOptions {
@@ -304,10 +389,7 @@ export interface SelectRowOptions extends MenuRowBaseOptions {
 }
 
 export function createSelectRow(parent: HTMLElement, options: SelectRowOptions): HTMLSelectElement {
-	const { row } = createMenuRow(parent, {
-		...options,
-		rowExtraClassName: mergeClassNames(options.rowExtraClassName, 'mod-input'),
-	});
+	const { row } = createMenuRow(parent, { ...options, rowExtraClassName: ['mod-input', ...(Array.isArray(options.rowExtraClassName) ? options.rowExtraClassName : options.rowExtraClassName ? [options.rowExtraClassName] : [])] });
 	const select = row.createEl('select', { cls: classNameToString(options.selectClassName) });
 	for (const item of options.options) {
 		const option = select.createEl('option', { text: item.label });

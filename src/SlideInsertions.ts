@@ -5,6 +5,16 @@ import {
   CHART_INSERT_FRAME_TEMPLATE,
   CHART_INSERT_WORKBOOK_BASE64
 } from './chartInsertTemplate';
+import {
+  getDescendants,
+  getElementChildren,
+  getShapeChildren,
+  getShapeElement,
+  getShapeTree,
+  nextRelationshipId,
+  parseXml,
+  serializeXml,
+} from './powerpoint/ooxmlXml';
 
 const DRAWINGML_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const PACKAGE_RELATIONSHIP_NAMESPACE =
@@ -13,7 +23,6 @@ const CONTENT_TYPES_NAMESPACE =
   'http://schemas.openxmlformats.org/package/2006/content-types';
 const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
-const SHAPE_ELEMENT_NAMES = new Set(['cxnSp', 'graphicFrame', 'grpSp', 'pic', 'sp']);
 
 export type ParagraphListStyle = 'none' | 'bullet' | 'number';
 
@@ -25,26 +34,6 @@ export interface SlideInsertionResult {
 const DEFAULT_LIST_MARGIN_LEFT_EMU = 285750;
 const DEFAULT_LIST_HANGING_INDENT_EMU = -285750;
 const DEFAULT_BULLET_FONT = 'Arial';
-
-function parseXml(contents: string, partPath: string): XMLDocument {
-  const document = new DOMParser().parseFromString(contents, 'application/xml');
-  if (document.getElementsByTagName('parsererror').length > 0) {
-    throw new Error(`Could not parse PowerPoint XML part: ${partPath}`);
-  }
-  return document;
-}
-
-function serializeXml(document: XMLDocument): string {
-  return new XMLSerializer().serializeToString(document);
-}
-
-function getDescendants(element: Element | XMLDocument, localName: string): Element[] {
-  return Array.from(element.getElementsByTagNameNS('*', localName));
-}
-
-function getElementChildren(element: Element | undefined): Element[] {
-  return Array.from(element?.childNodes ?? []).filter((node): node is Element => node.nodeType === 1);
-}
 
 function getSlidePath(slideIndex: number): string {
   return `ppt/slides/slide${slideIndex + 1}.xml`;
@@ -63,25 +52,143 @@ function getRequiredTextFile(zip: ZipContents, partPath: string): string {
   return contents;
 }
 
-function getShapeTree(document: XMLDocument): Element {
-  const shapeTree = getDescendants(document, 'spTree')[0];
-  if (!shapeTree) throw new Error('Could not find the slide shape tree.');
-  return shapeTree;
+export function countSlideTopLevelShapes(slideXml: string, slidePath: string): number {
+  const slideDocument = parseXml(slideXml, slidePath);
+  return getShapeChildren(getShapeTree(slideDocument)).length;
 }
 
-function getShapeChildren(shapeTree: Element): Element[] {
-  return getElementChildren(shapeTree).filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
+export type InsertableShapeGeometry =
+  | 'rect'
+  | 'ellipse'
+  | 'roundRect'
+  | 'line'
+  | 'rightArrow'
+  | 'leftArrow'
+  | 'upArrow'
+  | 'downArrow';
+
+const SHAPE_DISPLAY_NAMES: Record<InsertableShapeGeometry, string> = {
+  rect: 'Rectangle',
+  ellipse: 'Ellipse',
+  roundRect: 'Rounded Rectangle',
+  line: 'Line',
+  rightArrow: 'Right Arrow',
+  leftArrow: 'Left Arrow',
+  upArrow: 'Up Arrow',
+  downArrow: 'Down Arrow',
+};
+
+function rgbToSrgbHex(red: number, green: number, blue: number): string {
+  return [red, green, blue]
+    .map((channel) => Math.max(0, Math.min(255, Math.round(channel))).toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
 }
 
-function getNextRelationshipId(document: XMLDocument): string {
-  const usedIds = new Set(
-    getDescendants(document, 'Relationship')
-      .map((relationship) => relationship.getAttribute('Id'))
-      .filter((id): id is string => Boolean(id))
+function buildShapeFillXml(fill: { red: number; green: number; blue: number } | null): string {
+  if (!fill) return '<a:noFill/>';
+  return `<a:solidFill><a:srgbClr val="${rgbToSrgbHex(fill.red, fill.green, fill.blue)}"/></a:solidFill>`;
+}
+
+function buildAutoShapeXml(
+  geometry: InsertableShapeGeometry,
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  options: {
+    fill?: { red: number; green: number; blue: number } | null;
+    text?: string;
+    fontSize?: number;
+    name?: string;
+  } = {},
+): string {
+  const displayName = options.name ?? SHAPE_DISPLAY_NAMES[geometry];
+  const extentCy = geometry === 'line' ? Math.max(cy, 1) : Math.max(cy, 1);
+  const textBody = options.text
+    ? [
+      '<p:txBody><a:bodyPr/><a:lstStyle/>',
+      `<a:p><a:r><a:rPr lang="en-US" sz="${options.fontSize ?? 1800}"/>`,
+      `<a:t>${escapeXmlText(options.text)}</a:t></a:r>`,
+      `<a:endParaRPr lang="en-US" sz="${options.fontSize ?? 1800}"/></a:p>`,
+      '</p:txBody>',
+    ].join('')
+    : '';
+
+  return [
+    '<p:sp>',
+    '<p:nvSpPr>',
+    `<p:cNvPr id="0" name="${escapeXmlText(displayName)}"/>`,
+    '<p:cNvSpPr/>',
+    '<p:nvPr/>',
+    '</p:nvSpPr>',
+    '<p:spPr>',
+    `<a:xfrm><a:off x="${Math.round(x)}" y="${Math.round(y)}"/><a:ext cx="${Math.max(1, Math.round(cx))}" cy="${extentCy}"/></a:xfrm>`,
+    `<a:prstGeom prst="${geometry}"><a:avLst/></a:prstGeom>`,
+    buildShapeFillXml(options.fill ?? null),
+    '</p:spPr>',
+    textBody,
+    '</p:sp>',
+  ].join('');
+}
+
+function appendShapeElement(
+  slideDocument: XMLDocument,
+  shapeXml: string,
+  displayName: string,
+): number {
+  const wrapper = parseXml(
+    `<p:slide xmlns:a="${DRAWINGML_NAMESPACE}" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${shapeXml}</p:slide>`,
+    '(shape)',
   );
-  let nextId = 1;
-  while (usedIds.has(`rId${nextId}`)) nextId++;
-  return `rId${nextId}`;
+  const imported = slideDocument.importNode(getDescendants(wrapper, 'sp')[0]!, true);
+  const shapeTree = getShapeTree(slideDocument);
+  assignUniqueNonVisualIds(slideDocument, imported, displayName);
+  shapeTree.appendChild(imported);
+  return getShapeChildren(shapeTree).length - 1;
+}
+
+export async function insertShapeIntoPresentation(
+  buffer: ArrayBuffer,
+  slideIndex: number,
+  geometry: InsertableShapeGeometry,
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+  fill: { red: number; green: number; blue: number },
+): Promise<SlideInsertionResult> {
+  const slidePath = getSlidePath(slideIndex);
+  const zip = await extractZip(buffer);
+  const slideDocument = parseXml(getRequiredTextFile(zip, slidePath), slidePath);
+  const shapeIndex = appendShapeElement(
+    slideDocument,
+    buildAutoShapeXml(geometry, x, y, cx, cy, { fill }),
+    SHAPE_DISPLAY_NAMES[geometry],
+  );
+  const patched = await buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));
+  return { buffer: patched, shapeIndex };
+}
+
+export async function insertTextBoxIntoPresentation(
+  buffer: ArrayBuffer,
+  slideIndex: number,
+  text: string,
+  x: number,
+  y: number,
+  cx: number,
+  cy: number,
+): Promise<SlideInsertionResult> {
+  const slidePath = getSlidePath(slideIndex);
+  const zip = await extractZip(buffer);
+  const slideDocument = parseXml(getRequiredTextFile(zip, slidePath), slidePath);
+  const shapeIndex = appendShapeElement(
+    slideDocument,
+    buildAutoShapeXml('rect', x, y, cx, cy, { fill: null, text, fontSize: 1800, name: 'TextBox' }),
+    'TextBox',
+  );
+  const patched = await buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));
+  return { buffer: patched, shapeIndex };
 }
 
 function getNextNumberedPartPath(prefix: string, suffix: string, zip: ZipContents, extra: Iterable<string> = []): string {
@@ -284,7 +391,7 @@ export async function insertChartIntoPresentation(
     [chartPath, chartRelsPath]
   );
 
-  const chartRelationshipId = getNextRelationshipId(relationshipsDocument);
+  const chartRelationshipId = nextRelationshipId(relationshipsDocument);
   const chartRelationship = relationshipsDocument.createElementNS(
     PACKAGE_RELATIONSHIP_NAMESPACE,
     'Relationship'
@@ -342,12 +449,6 @@ export async function insertChartIntoPresentation(
   return { buffer: patched, shapeIndex };
 }
 
-function getShapeElement(slideDocument: XMLDocument, shapeIndex: number): Element {
-  const shape = getShapeChildren(getShapeTree(slideDocument))[shapeIndex];
-  if (!shape) throw new Error(`Could not find slide object ${shapeIndex + 1}.`);
-  return shape;
-}
-
 function resolveTextShapeIndex(slideDocument: XMLDocument, shapeIndex: number): number {
   const shapes = getShapeChildren(getShapeTree(slideDocument));
   if (shapes[shapeIndex] && getDrawingParagraphs(shapes[shapeIndex]).length > 0) {
@@ -389,8 +490,14 @@ function getGraphicFrameSignature(frame: Element): string {
 }
 
 function mergePreservedGraphicFrames(previousXml: string, exportedXml: string, slidePath: string): string {
-  const previousDocument = parseXml(previousXml, slidePath);
-  const exportedDocument = parseXml(exportedXml, slidePath);
+  let previousDocument: XMLDocument;
+  let exportedDocument: XMLDocument;
+  try {
+    previousDocument = parseXml(previousXml, slidePath);
+    exportedDocument = parseXml(exportedXml, slidePath);
+  } catch {
+    return exportedXml;
+  }
   const previousFrames = getShapeChildren(getShapeTree(previousDocument)).filter(
     (shape) => shape.localName === 'graphicFrame'
   );
@@ -408,6 +515,36 @@ function mergePreservedGraphicFrames(previousXml: string, exportedXml: string, s
   }
 
   return changed ? serializeXml(exportedDocument) : exportedXml;
+}
+
+/**
+ * Reorder slide XML parts in a buffer to match a renderer slide permutation.
+ * `order[newIndex]` is the source slide index that should occupy `newIndex`.
+ */
+export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]): Promise<ArrayBuffer> {
+  const zip = await extractZip(buffer);
+  const textModifications = new Map<string, string>();
+
+  for (let newIndex = 0; newIndex < order.length; newIndex++) {
+    const sourceIndex = order[newIndex];
+    if (!Number.isInteger(sourceIndex)) continue;
+
+    const sourcePath = getSlidePath(sourceIndex as number);
+    const targetPath = getSlidePath(newIndex);
+    const sourceXml = zip.textFiles.get(sourcePath);
+    if (sourceXml) {
+      textModifications.set(targetPath, sourceXml);
+    }
+
+    const sourceRelsPath = getRelationshipsPath(sourcePath);
+    const targetRelsPath = getRelationshipsPath(targetPath);
+    const sourceRels = zip.textFiles.get(sourceRelsPath);
+    if (sourceRels) {
+      textModifications.set(targetRelsPath, sourceRels);
+    }
+  }
+
+  return textModifications.size > 0 ? buildZip(buffer, textModifications) : buffer;
 }
 
 export async function mergeSlideGraphicFramesFromBuffer(

@@ -25,14 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build plugin
-        run: npm run build
+      - name: Validate release version
+        run: node scripts/check-release-version.mjs
 
-      - name: Smoke-test the pure-JS PPTX engine fallback
-        run: npm run smoke:pptx-js
-
-      - name: Smoke-test the mobile PPTX path (JS fallback via PresentationEngine)
-        run: npm run smoke:mobile-pptx
+      - name: Verify plugin
+        run: npm run verify
 
       - name: Generate artifact attestation for main.js
         uses: actions/attest-build-provenance@v4

@@ -1,0 +1,1 @@
+function i(t,r){if(r<=0)return [];let n=Math.floor(t/r),e=t-n*r;return Array.from({length:r},()=>{let a=n+(e>0?1:0);return e=Math.max(0,e-1),Math.max(1,a)})}export{i as a};

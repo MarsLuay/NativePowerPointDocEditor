@@ -60,7 +60,7 @@ for (const helper of helperExports) {
 
 const requiredConsumers = [
 	['DocxView.tsx', ['createPopoverShell', 'createMenuItem']],
-	['NativePowerPointView.ts', ['createPopoverShell', 'createMenuItem']],
+	['powerpoint/ui/NativePowerPointView.ts', ['createPopoverShell', 'createMenuItem']],
 	['powerpoint/findReplaceController.ts', ['createPopoverShell', 'createMenuItem']],
 	['powerpoint/insertController.ts', ['createPopoverShell', 'createMenuItem']],
 	['powerpoint/menuBarController.ts', ['createPopoverShell', 'createMenuItem', 'createMenuSection']],

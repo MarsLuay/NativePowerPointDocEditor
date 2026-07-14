@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/pptxSupport.ts"],
+  "project": [
+    "src/pptxSupport.ts",
+    "src/NativePowerPointView.ts",
+    "src/powerpoint/*Controller.ts"
+  ]
+}

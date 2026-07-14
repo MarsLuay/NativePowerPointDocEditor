@@ -1,0 +1,1 @@
+'use strict';var chunk4DCTKHS5_js=require('../../chunk-4DCTKHS5.js');require('../../chunk-DC7S76ZX.js');Object.defineProperty(exports,"insertSectionBreakContinuous",{enumerable:true,get:function(){return chunk4DCTKHS5_js.b}});Object.defineProperty(exports,"insertSectionBreakNextPage",{enumerable:true,get:function(){return chunk4DCTKHS5_js.a}});

@@ -10,6 +10,15 @@ import { debugLog, errorLog, warnLog } from '../logger';
 import { cleanError } from './runtimeCompat';
 import { normalizeSvgForDisplay } from './svgUtils';
 import type { HistoryEntry } from './types';
+import { scheduleIdleWork } from '../idleSchedule';
+import { isHTMLElement } from '../domGuards';
+import {
+	priorityThumbnailIndices,
+	remainingThumbnailIndices,
+	shouldUseLazyThumbnails,
+	sortThumbnailIndicesByProximity,
+	THUMBNAIL_IDLE_BATCH_SIZE,
+} from './thumbnailLazyRender';
 
 /**
  * The slice of `NativePowerPointView` that the slide filmstrip subsystem reaches
@@ -55,9 +64,111 @@ export class SlideFilmstripController {
   private thumbnailDragIndex: number | null = null;
   private slideNavigationPromise: Promise<void> = Promise.resolve();
   private readonly notice: TranslateNoticeFn;
+  private pendingThumbnailIndices = new Set<number>();
+  private thumbnailRefreshScheduled = false;
+  private cancelThumbnailRefresh: (() => void) | null = null;
+  private thumbnailRenderGeneration = 0;
+  private thumbnailObserver: IntersectionObserver | null = null;
+  private cancelIdleThumbnailFill: (() => void) | null = null;
+  private renderedThumbnailIndices = new Set<number>();
 
   constructor(private readonly host: SlideFilmstripHost) {
     this.notice = createTranslateNotice(this.host.t);
+  }
+
+  dispose(): void {
+    this.cancelThumbnailRefresh?.();
+    this.cancelThumbnailRefresh = null;
+    this.thumbnailRefreshScheduled = false;
+    this.pendingThumbnailIndices.clear();
+    this.disconnectThumbnailObserver();
+    this.cancelIdleThumbnailFill?.();
+    this.cancelIdleThumbnailFill = null;
+    this.renderedThumbnailIndices.clear();
+    this.thumbnailRenderGeneration += 1;
+  }
+
+  /**
+   * Re-render one filmstrip thumbnail. Used after layout edits so we do not
+   * rebuild every slide preview on each object move.
+   */
+  async renderThumbnailAt(index: number): Promise<void> {
+    if (!this.host.engine || !this.host.thumbnailContainer) return;
+    if (index < 0 || index >= this.host.engine.slideCount) return;
+
+    const items = this.host.thumbnailContainer.querySelectorAll('.native-powerpoint-thumbnail');
+    const item = items.item(index);
+    if (!isHTMLElement(item)) return;
+
+    const started = performance.now();
+    const preview = item.querySelector('.native-powerpoint-thumbnail-preview');
+    if (!isHTMLElement(preview)) return;
+
+    preview.empty();
+    try {
+      const safeSvg = this.host.prepareSvgForRender(this.host.engine.renderSlide(index).svg, true);
+      const thumbnailSvg = createSvgElementFromString(safeSvg.svg, preview.ownerDocument);
+      if (!thumbnailSvg) {
+        throw new Error('Could not read thumbnail SVG.');
+      }
+      preview.appendChild(thumbnailSvg);
+    } catch {
+      preview.createDiv({
+        cls: 'native-powerpoint-thumbnail-error',
+        text: this.host.t('powerpoint:loading.thumbnailError')
+      });
+    }
+
+    const thumbnailSvg = preview.querySelector('svg');
+    if (thumbnailSvg) {
+      this.host.engine.applyFontFidelity(thumbnailSvg);
+      this.host.engine.formatChartAxisLabels(thumbnailSvg, index);
+      normalizeSvgForDisplay(thumbnailSvg);
+      thumbnailSvg.addClass('native-powerpoint-thumbnail-svg');
+    }
+
+    debugLog('render', 'PowerPoint renderThumbnailAt complete', {
+      index,
+      ms: Math.round(performance.now() - started)
+    });
+    this.markThumbnailRendered(index);
+  }
+
+  /**
+   * Coalesce single-slide thumbnail refreshes onto idle time so drag commits
+   * never block on rebuilding the full filmstrip.
+   */
+  scheduleThumbnailRefresh(indices: number | number[]): void {
+    const list = Array.isArray(indices) ? indices : [indices];
+    for (const index of list) {
+      if (Number.isInteger(index) && index >= 0) {
+        this.pendingThumbnailIndices.add(index);
+      }
+    }
+    if (this.thumbnailRefreshScheduled) return;
+
+    this.thumbnailRefreshScheduled = true;
+    this.cancelThumbnailRefresh?.();
+    this.cancelThumbnailRefresh = scheduleIdleWork(() => {
+      this.thumbnailRefreshScheduled = false;
+      const toRefresh = [...this.pendingThumbnailIndices];
+      this.pendingThumbnailIndices.clear();
+      void this.refreshThumbnailsAt(toRefresh);
+    }, { timeout: 2000 });
+  }
+
+  private async refreshThumbnailsAt(indices: number[]): Promise<void> {
+    if (indices.length === 0) return;
+
+    const started = performance.now();
+    const sorted = [...indices].sort((left, right) => left - right);
+    for (const index of sorted) {
+      await this.renderThumbnailAt(index);
+    }
+    debugLog('render', 'PowerPoint thumbnail refresh completed', {
+      indices: sorted,
+      ms: Math.round(performance.now() - started)
+    });
   }
 
   async renderThumbnails(): Promise<void> {
@@ -65,65 +176,170 @@ export class SlideFilmstripController {
 
     const thumbnailStarted = performance.now();
     const slideCount = this.host.engine.slideCount;
-    debugLog('render', 'renderThumbnails start', { slideCount });
+    const generation = ++this.thumbnailRenderGeneration;
+    const lazy = shouldUseLazyThumbnails(slideCount);
+    debugLog('render', 'PowerPoint renderThumbnails start', { slideCount, lazy });
 
+    this.disconnectThumbnailObserver();
+    this.cancelIdleThumbnailFill?.();
+    this.cancelIdleThumbnailFill = null;
+    this.renderedThumbnailIndices.clear();
     this.host.thumbnailContainer.empty();
 
-    for (let index = 0; index < slideCount; index++) {
-      const item = this.host.thumbnailContainer.createDiv({ cls: 'native-powerpoint-thumbnail' });
-      if (index === this.host.currentSlide) item.addClass('active');
-      if (this.selectedSlideIndices.has(index)) item.addClass('is-selected');
+    for (let index = 0; index < slideCount; index += 1) {
+      this.appendThumbnailShell(index, !lazy);
+    }
 
-      const preview = item.createDiv({ cls: 'native-powerpoint-thumbnail-preview' });
-      try {
-        const safeSvg = this.host.prepareSvgForRender(this.host.engine.renderSlide(index).svg, true);
-        const thumbnailSvg = createSvgElementFromString(safeSvg.svg, preview.ownerDocument);
-        if (!thumbnailSvg) {
-          throw new Error('Could not read thumbnail SVG.');
-        }
-        preview.appendChild(thumbnailSvg);
-      } catch {
-        preview.createDiv({
-          cls: 'native-powerpoint-thumbnail-error',
-          text: this.host.t('powerpoint:loading.thumbnailError')
-        });
+    if (!lazy) {
+      for (let index = 0; index < slideCount; index += 1) {
+        if (generation !== this.thumbnailRenderGeneration) return;
+        await this.renderThumbnailAt(index);
       }
-      const thumbnailSvg = preview.querySelector('svg');
-      if (thumbnailSvg) {
-        this.host.engine.applyFontFidelity(thumbnailSvg);
-        this.host.engine.formatChartAxisLabels(thumbnailSvg, index);
-        normalizeSvgForDisplay(thumbnailSvg);
-        thumbnailSvg.addClass('native-powerpoint-thumbnail-svg');
-      }
-
-      const numberEl = item.createDiv({ cls: 'native-powerpoint-thumbnail-number' });
-      numberEl.textContent = String(index + 1);
-      item.addEventListener('click', (event) => {
-        this.host.lastInteractionRegion = 'thumbnails';
-        if (event.shiftKey) {
-          this.selectSlideRange(this.host.currentSlide, index);
-        } else if (event.metaKey || event.ctrlKey) {
-          this.toggleSlideSelection(index);
-        } else {
-          // A plain click both navigates to and selects the slide so it can be
-          // deleted with the keyboard (matching Google Slides' filmstrip).
-          this.selectedSlideIndices.clear();
-          this.selectedSlideIndices.add(index);
-          this.navigateToSlide(index, 'thumbnail-click');
-        }
-      });
-      item.addEventListener('contextmenu', (event) => {
-        event.preventDefault();
-        this.showSlideContextMenu(event, index);
-      });
-      this.registerThumbnailDrag(item, index);
+    } else {
+      const priority = priorityThumbnailIndices(this.host.currentSlide, slideCount);
+      await this.renderThumbnailBatch(priority, generation);
+      if (generation !== this.thumbnailRenderGeneration) return;
+      this.setupThumbnailObserver(generation);
+      this.scheduleIdleThumbnailFill(generation);
     }
 
     const thumbnailMs = Math.round(performance.now() - thumbnailStarted);
-    debugLog('render', 'renderThumbnails complete', { slideCount, ms: thumbnailMs });
-    if (thumbnailMs > 1500) {
-      warnLog('render', 'slow renderThumbnails', { slideCount, ms: thumbnailMs });
+    debugLog('render', 'PowerPoint renderThumbnails complete', {
+      slideCount,
+      lazy,
+      renderedCount: this.renderedThumbnailIndices.size,
+      ms: thumbnailMs
+    });
+    if (!lazy && thumbnailMs > 1500) {
+      warnLog('render', 'slow PowerPoint renderThumbnails', { slideCount, ms: thumbnailMs });
     }
+  }
+
+  private appendThumbnailShell(index: number, renderImmediately: boolean): void {
+    if (!this.host.thumbnailContainer) return;
+
+    const item = this.host.thumbnailContainer.createDiv({ cls: 'native-powerpoint-thumbnail' });
+    item.dataset.slideIndex = String(index);
+    if (index === this.host.currentSlide) item.addClass('active');
+    if (this.selectedSlideIndices.has(index)) item.addClass('is-selected');
+
+    const preview = item.createDiv({
+      cls: renderImmediately
+        ? 'native-powerpoint-thumbnail-preview'
+        : 'native-powerpoint-thumbnail-preview is-pending'
+    });
+    preview.dataset.thumbnailRendered = 'false';
+
+    const numberEl = item.createDiv({ cls: 'native-powerpoint-thumbnail-number' });
+    numberEl.textContent = String(index + 1);
+    item.addEventListener('click', (event) => {
+      this.host.lastInteractionRegion = 'thumbnails';
+      if (event.shiftKey) {
+        this.selectSlideRange(this.host.currentSlide, index);
+      } else if (event.metaKey || event.ctrlKey) {
+        this.toggleSlideSelection(index);
+      } else {
+        this.selectedSlideIndices.clear();
+        this.selectedSlideIndices.add(index);
+        this.navigateToSlide(index, 'thumbnail-click');
+      }
+    });
+    item.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+      this.showSlideContextMenu(event, index);
+    });
+    this.registerThumbnailDrag(item, index);
+  }
+
+  private async renderThumbnailBatch(indices: number[], generation: number): Promise<void> {
+    const sorted = [...indices].sort((left, right) => left - right);
+    for (const index of sorted) {
+      if (generation !== this.thumbnailRenderGeneration) return;
+      if (this.renderedThumbnailIndices.has(index)) continue;
+      await this.renderThumbnailAt(index);
+    }
+  }
+
+  private markThumbnailRendered(index: number): void {
+    this.renderedThumbnailIndices.add(index);
+    const items = this.host.thumbnailContainer?.querySelectorAll('.native-powerpoint-thumbnail');
+    const item = items?.item(index);
+    const preview = item?.querySelector('.native-powerpoint-thumbnail-preview');
+    if (isHTMLElement(preview)) {
+      preview.removeClass('is-pending');
+      preview.dataset.thumbnailRendered = 'true';
+      this.thumbnailObserver?.unobserve(preview);
+    }
+  }
+
+  private disconnectThumbnailObserver(): void {
+    this.thumbnailObserver?.disconnect();
+    this.thumbnailObserver = null;
+  }
+
+  private setupThumbnailObserver(generation: number): void {
+    if (!this.host.thumbnailContainer || typeof IntersectionObserver === 'undefined') return;
+
+    this.disconnectThumbnailObserver();
+    this.thumbnailObserver = new IntersectionObserver((entries) => {
+      if (generation !== this.thumbnailRenderGeneration) return;
+
+      const toRender: number[] = [];
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const preview = entry.target;
+        if (!isHTMLElement(preview)) continue;
+        if (preview.dataset.thumbnailRendered === 'true') continue;
+        const item = preview.closest('.native-powerpoint-thumbnail');
+        const index = Number(item?.getAttribute('data-slide-index'));
+        if (!Number.isInteger(index) || this.renderedThumbnailIndices.has(index)) continue;
+        toRender.push(index);
+      }
+
+      if (toRender.length > 0) {
+        void this.renderThumbnailBatch(toRender, generation);
+      }
+    }, {
+      root: this.host.thumbnailContainer,
+      rootMargin: '240px 0px',
+    });
+
+    this.host.thumbnailContainer
+      .querySelectorAll('.native-powerpoint-thumbnail-preview')
+      .forEach((preview) => {
+        if (isHTMLElement(preview) && preview.dataset.thumbnailRendered !== 'true') {
+          this.thumbnailObserver?.observe(preview);
+        }
+      });
+  }
+
+  private scheduleIdleThumbnailFill(generation: number): void {
+    const fillBatch = () => {
+      if (generation !== this.thumbnailRenderGeneration || !this.host.engine) return;
+
+      const slideCount = this.host.engine.slideCount;
+      const remaining = sortThumbnailIndicesByProximity(
+        remainingThumbnailIndices(slideCount, this.renderedThumbnailIndices),
+        this.host.currentSlide,
+      );
+      if (remaining.length === 0) return;
+
+      const batch = remaining.slice(0, THUMBNAIL_IDLE_BATCH_SIZE);
+		void this.renderThumbnailBatch(batch, generation)
+			.then(() => {
+				if (generation !== this.thumbnailRenderGeneration) return;
+				if (remaining.length > batch.length) {
+					this.cancelIdleThumbnailFill = scheduleIdleWork(fillBatch, { timeout: 3000 });
+				}
+			})
+			.catch((error) => {
+				errorLog('render', 'PowerPoint idle thumbnail render failed', {
+					error: cleanError(error),
+				});
+			});
+    };
+
+    this.cancelIdleThumbnailFill = scheduleIdleWork(fillBatch, { timeout: 1500 });
   }
 
   private registerThumbnailDrag(item: HTMLElement, index: number): void {
@@ -190,8 +406,16 @@ export class SlideFilmstripController {
 
   navigateToSlide(index: number, reason: string): void {
     const run = () => this.goToSlide(index, reason);
-    this.slideNavigationPromise = this.slideNavigationPromise.then(run, run);
-    void this.slideNavigationPromise;
+	this.slideNavigationPromise = this.slideNavigationPromise
+		.then(run, run)
+		.catch((error) => {
+			errorLog('slide', 'PowerPoint slide navigation failed', {
+				index,
+				reason,
+				error: cleanError(error),
+			});
+		});
+	void this.slideNavigationPromise;
   }
 
   private updateThumbnailActiveState(): void {
@@ -237,6 +461,11 @@ export class SlideFilmstripController {
 
       if (rendered) {
         this.updateThumbnailActiveState();
+        if (this.host.engine && shouldUseLazyThumbnails(this.host.engine.slideCount)) {
+          this.scheduleThumbnailRefresh(
+            priorityThumbnailIndices(index, this.host.engine.slideCount),
+          );
+        }
         this.host.renderInspector();
       }
 

@@ -6,7 +6,8 @@
     "search": "[Şęąrćh]",
     "fileHandoff": "[Fįſę hąñḑǫff]",
     "diagnostics": "[Ḑįąğñǫşţįćş]",
-    "powerpoint": "[PǫwęrPǫįñţ]"
+    "powerpoint": "[PǫwęrPǫįñţ]",
+    "ai": "[ĄĮ įñţęrfąćįñğ]"
   },
   "docx": {
     "authorName": {
@@ -29,7 +30,7 @@
       "resetLabel": "[Ręşęţ]"
     },
     "autosave": {
-      "name": "[Ąųţǫşąvę]",
+      "name": "[ḐǪĆX ąųţǫşąvę]",
       "description": "[Ąųţǫmąţįćąſſÿ şąvę ţhę ḑǫćųmęñţ şhǫrţſÿ ąfţęr ćhąñğęş.]"
     },
     "createBackupsBeforeSave": {
@@ -65,7 +66,7 @@
   },
   "powerpoint": {
     "autosave": {
-      "name": "[Ąųţǫşąvę ęḑįţş]",
+      "name": "[PPŢX ąųţǫşąvę]",
       "description": "[Şąvę ęḑįţąbſę PǫwęrPǫįñţ fįſęş 1500 mş ąfţęr ęḑįţş şęţţſę. Whęñ ḑįşąbſęḑ, ćſǫşįñğ ǫr şwįţćhįñğ fįſęş wrįţęş ųñşąvęḑ ęḑįţş ţǫ ą ręćǫvęrÿ ćǫpÿ wįţhǫųţ ǫvęrwrįţįñğ ţhę ǫrįğįñąſ.]"
     },
     "showInspector": {
@@ -79,6 +80,11 @@
     "yoloMode": {
       "name": "[Ǫpęñ PǫwęrPǫįñţş wįţh ŸǪŁǪ mǫḑę]",
       "description": "[Ręmęmbęr ŸǪŁǪ mǫḑę fǫr fųţųrę PPŢX fįſęş şǫ ţhę ǫrįğįñąſ şſįḑę ŞVĞ įş şhǫwñ wįţhǫųţ pręvįęw ćſęąñųp.]"
+    },
+    "copyPptxLog": {
+      "name": "[Ćǫpÿ PPŢX ſǫğ]",
+      "description": "[Ćǫpÿ PPŢX-şpęćįfįć Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ſǫğş ţǫ ţhę ćſįpbǫąrḑ.]",
+      "actionLabel": "[Ćǫpÿ]"
     }
   },
   "fileHandoff": {
@@ -99,6 +105,23 @@
   "templates": {
     "title": "[Fręę pręşęñţąţįǫñ ţęmpſąţęş]",
     "description": "[Ą fęw pſąćęş ţǫ fįñḑ şţąrţęr ḑęćkş ÿǫų ćąñ ḑǫwñſǫąḑ ǫr ćųşţǫmįzę.]"
+  },
+  "ai": {
+    "enableInterfacing": {
+      "name": "[Ęñąbſę ĄĮ-Įñţęrfąćįñğ]",
+      "description": "[Ęxpǫşę ţhę pſųğįñ ĄPĮ, ǫñ-ḑįşk ćąpąbįſįţÿ mąñįfęşţ, ąñḑ ćſįpbǫąrḑ JŞǪÑ ćǫmmąñḑş şǫ ęxţęrñąſ ĄĮ ţǫǫſş ćąñ ḑęşćrįbę, vąſįḑąţę, ąppſÿ, ąñḑ şąvę PPŢX ąñḑ ḐǪĆX ęḑįţş. Whęñ ǫff, ñǫ ąğęñţ şųrfąćę įş pųbſįşhęḑ.]"
+    },
+    "disabledNotice": "[Ęñąbſę ĄĮ-Įñţęrfąćįñğ įñ pſųğįñ şęţţįñğş fįrşţ.]",
+    "manifestCopied": "[Ćǫpįęḑ ĄĮ ćąpąbįſįţÿ mąñįfęşţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "describeCopied": "[Ćǫpįęḑ ḑęşćrįbę() ręşųſţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "applyCopied": "[Ćǫpįęḑ ąppſÿ() ręşųſţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "validateCopied": "[Ćǫpįęḑ vąſįḑąţęǪpş() ręşųſţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "saveCopied": "[Ćǫpįęḑ şąvę() ręşųſţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "undoCopied": "[Ćǫpįęḑ ųñḑǫ() ręşųſţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "redoCopied": "[Ćǫpįęḑ ręḑǫ() ręşųſţ ţǫ ţhę ćſįpbǫąrḑ.]",
+    "clipboardPathRequired": "[Ćſįpbǫąrḑ JŞǪÑ mųşţ įñćſųḑę ą pąţh ǫr fǫćųş ąñ ǫpęñ PPŢX/ḐǪĆX fįſę: { \"path\": \"vault/file.pptx\" }.]",
+    "clipboardApplyInvalid": "[Ćſįpbǫąrḑ JŞǪÑ mųşţ įñćſųḑę ǫpş: { \"path\"?: \"...\", \"ops\": [...] }.]",
+    "clipboardInvalid": "[Ćǫųſḑ ñǫţ ręąḑ vąſįḑ JŞǪÑ frǫm ţhę ćſįpbǫąrḑ.]"
   },
   "debug": {
     "copyFullLog": {

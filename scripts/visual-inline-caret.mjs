@@ -389,7 +389,9 @@ const html = String.raw`<!doctype html>
       frame.className = 'frame';
       const label = document.createElement('div');
       label.className = 'label';
-      label.innerHTML = '<strong>Zoom ' + zoom + 'x</strong>';
+      const labelText = document.createElement('strong');
+      labelText.textContent = 'Zoom ' + zoom + 'x';
+      label.appendChild(labelText);
       const pane = document.createElement('div');
       pane.className = 'native-powerpoint-canvas-pane';
       const surface = document.createElement('div');
@@ -401,15 +403,46 @@ const html = String.raw`<!doctype html>
       svg.setAttribute('viewBox', '0 0 480 270');
       svg.setAttribute('width', String(360 * zoom));
       svg.setAttribute('height', String(202.5 * zoom));
-      svg.innerHTML = [
-        '<rect x="0" y="0" width="480" height="270" fill="#fff"/>',
-        '<rect x="46" y="48" width="365" height="128" rx="7" fill="#f8fafc" stroke="#cbd5e1" stroke-width="2"/>',
-        '<text x="70" y="82" font-family="Arial, sans-serif" font-size="22" fill="#111827">',
-        '<tspan x="70" dy="0">Top row stays calm while editing</tspan>',
-        '<tspan x="70" dy="32">Middle row is only context</tspan>',
-        '<tspan id="target-' + zoom + '" x="70" dy="32">Bottom row click lands here</tspan>',
-        '</text>'
-      ].join('');
+
+      const background = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      background.setAttribute('x', '0');
+      background.setAttribute('y', '0');
+      background.setAttribute('width', '480');
+      background.setAttribute('height', '270');
+      background.setAttribute('fill', '#fff');
+      svg.appendChild(background);
+
+      const textBox = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      textBox.setAttribute('x', '46');
+      textBox.setAttribute('y', '48');
+      textBox.setAttribute('width', '365');
+      textBox.setAttribute('height', '128');
+      textBox.setAttribute('rx', '7');
+      textBox.setAttribute('fill', '#f8fafc');
+      textBox.setAttribute('stroke', '#cbd5e1');
+      textBox.setAttribute('stroke-width', '2');
+      svg.appendChild(textBox);
+
+      const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      text.setAttribute('x', '70');
+      text.setAttribute('y', '82');
+      text.setAttribute('font-family', 'Arial, sans-serif');
+      text.setAttribute('font-size', '22');
+      text.setAttribute('fill', '#111827');
+      const rows = [
+        ['0', 'Top row stays calm while editing'],
+        ['32', 'Middle row is only context'],
+        ['32', 'Bottom row click lands here']
+      ];
+      rows.forEach(([dy, rowText], index) => {
+        const row = document.createElementNS('http://www.w3.org/2000/svg', 'tspan');
+        row.setAttribute('x', '70');
+        row.setAttribute('dy', dy);
+        row.textContent = rowText;
+        if (index === rows.length - 1) row.id = 'target-' + zoom;
+        text.appendChild(row);
+      });
+      svg.appendChild(text);
 
       surface.appendChild(svg);
       pane.appendChild(surface);

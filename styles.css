@@ -1,3 +1,6 @@
+/* obsidian: allow css-important -- scoped third-party DOCX/editor internals and inline-style overrides */
+/* obsidian: allow css-scrollbar-width -- progressive enhancement paired with ::-webkit-scrollbar rules */
+
 .native-powerpoint-doc-editor-theme-light,
 .native-powerpoint-doc-editor-theme-system,
 body {
@@ -252,15 +255,15 @@ body.native-powerpoint-doc-editor-theme-resolved-dark {
 	width: 100%;
 }
 
-.native-powerpoint-doc-editor-host > .ep-root {
+.native-powerpoint-doc-editor-host > [data-native-powerpoint-doc-editor-root] {
 	flex: 1;
 	height: 100%;
 	min-height: 0;
 	width: 100%;
 }
 
-.native-powerpoint-doc-editor-host .ep-root,
-.native-powerpoint-doc-editor-host .ep-root * {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root],
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] * {
 	box-sizing: border-box;
 }
 
@@ -272,7 +275,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark {
 	visibility: hidden;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] {
 	--doc-bg: var(--npde-editor-bg);
 	--doc-bg-hover: var(--npde-editor-hover);
 	--doc-border: var(--npde-editor-border);
@@ -282,63 +285,63 @@ body.native-powerpoint-doc-editor-theme-resolved-dark {
 	--doc-text-muted: var(--npde-editor-text-muted);
 }
 
-.native-powerpoint-doc-editor-host .ep-root button,
-.native-powerpoint-doc-editor-host .ep-root input,
-.native-powerpoint-doc-editor-host .ep-root select,
-.native-powerpoint-doc-editor-host .ep-root textarea {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button,
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] input,
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] select,
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] textarea {
 	font: inherit;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button {
 	appearance: none;
 	box-shadow: none;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button:hover,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button:focus,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root button:active {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button:focus,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button:active {
 	box-shadow: none;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] button.h-7.w-7,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-list-button {
 	background-color: transparent;
 	border-color: transparent;
 	border-style: solid;
 	border-width: 0;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7:hover,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7:focus,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button:hover,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button:focus {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] button.h-7.w-7:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] button.h-7.w-7:focus,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-list-button:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-list-button:focus {
 	background-color: var(--npde-toolbar-bg-subtle);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] button.h-7.w-7[aria-pressed='true'],
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-button-active {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] button.h-7.w-7[aria-pressed='true'],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-list-button-active {
 	background-color: var(--doc-primary-light);
 }
 
-.native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-find-match {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-find-match {
 	background-color: var(--npde-selection-find-bg);
 	border-radius: 2px;
 }
 
-.native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-find-current {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-find-current {
 	background-color: var(--npde-selection-find-current-bg);
 	border-radius: 2px;
 	outline: 1px solid var(--npde-selection-find-current-outline);
 }
 
-.native-powerpoint-doc-editor-host .ep-root .docx-text-context-menu {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-text-context-menu {
 	transform: translate(
 		calc(-1 * var(--native-powerpoint-doc-editor-fixed-left-offset, 0px)),
 		calc(-1 * var(--native-powerpoint-doc-editor-fixed-top-offset, 0px))
 	);
 }
 
-.native-powerpoint-doc-editor-host .ep-root [style*='position: fixed'] {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [style*='position: fixed'] {
 	--native-powerpoint-doc-editor-fixed-correction: translate(
 		calc(-1 * var(--native-powerpoint-doc-editor-fixed-left-offset, 0px)),
 		calc(-1 * var(--native-powerpoint-doc-editor-fixed-top-offset, 0px))
@@ -346,17 +349,17 @@ body.native-powerpoint-doc-editor-theme-resolved-dark {
 	transform: var(--native-powerpoint-doc-editor-fixed-correction);
 }
 
-.native-powerpoint-doc-editor-host .ep-root [style*='position: fixed'][style*='transform'] {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [style*='position: fixed'][style*='transform'] {
 	transform: var(--native-powerpoint-doc-editor-fixed-correction) var(--native-powerpoint-doc-editor-existing-transform, none);
 }
 
-.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-fixed-dialog-layer,
-.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host .ep-root [style*='position: fixed'][role='dialog'][aria-modal='true'] {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-fixed-dialog-layer,
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [style*='position: fixed'][role='dialog'][aria-modal='true'] {
 	inset: 0;
 	transform: none;
 }
 
-.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] {
 	isolation: isolate;
 	position: relative;
 	z-index: 100010;
@@ -364,101 +367,101 @@ body.native-powerpoint-doc-editor-theme-resolved-dark {
 
 .workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar'].native-powerpoint-doc-editor-formatting-dropdown-open {
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar].native-powerpoint-doc-editor-formatting-dropdown-open {
 	overflow: visible;
 }
 
 .workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar'].native-powerpoint-doc-editor-formatting-dropdown-open
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar].native-powerpoint-doc-editor-formatting-dropdown-open
 	> * {
 	left: calc(-1 * var(--native-powerpoint-doc-editor-formatting-scroll-left, 0px));
 	position: relative;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'],
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] > div:nth-child(2),
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] > div:nth-child(2) > div:first-child {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] > div:nth-child(2),
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] > div:nth-child(2) > div:first-child {
 	min-width: 0;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] > div:nth-child(2) > div:first-child {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] > div:nth-child(2) > div:first-child {
 	flex: 1 1 auto;
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] input.truncate,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] span.truncate {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] input.truncate,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] span.truncate {
 	flex: 1 1 auto;
 	max-width: none;
 	min-width: 0;
 	width: 100%;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled[aria-disabled='true'],
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='title-bar'] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled:disabled {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled[aria-disabled='true'],
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-title-bar] button.native-powerpoint-doc-editor-comments-sidebar-toggle-disabled:disabled {
 	cursor: not-allowed;
 	opacity: 0.35;
 	pointer-events: none;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] {
 	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] input,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] select,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] textarea {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] input,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] select,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] textarea {
 	background: var(--npde-dialog-input-bg);
 	border-color: var(--npde-dialog-input-border);
 	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] option {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] option {
 	background: var(--npde-dialog-input-bg);
 	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] button {
 	background-color: var(--npde-dialog-button-bg);
 	border-color: var(--npde-dialog-border);
 	color: var(--npde-dialog-text);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] button:hover,
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='dialog'] button:focus {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] button:hover,
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [role='dialog'] button:focus {
 	background-color: var(--npde-dialog-button-hover-bg);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] {
 	background: var(--npde-menu-bg);
 	border-color: var(--npde-menu-border-subtle);
 	color: var(--npde-menu-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option'] {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] button,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] [role='option'] {
 	background: transparent;
 	border: 0;
 	box-shadow: none;
 	color: var(--npde-menu-item-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] button:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option']:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='listbox'] [role='option']:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='option'][aria-selected='true'],
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='editor-toolbar'] [role='option'][data-highlighted] {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] button:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] [role='option']:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='listbox'] [role='option']:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='option'][aria-selected='true'],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-toolbar] [role='option'][data-highlighted] {
 	background: var(--npde-menu-hover-bg);
 	color: var(--npde-menu-hover-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='font-size-display'],
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [data-testid='font-size-input'] {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-font-size-display],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-font-size-input] {
 	color: var(--npde-toolbar-text);
 }
 
@@ -489,15 +492,15 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	color: var(--npde-menu-hover-text);
 }
 
-.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light .ep-root .docx-outline-toggle {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light [data-native-powerpoint-doc-editor-root] .docx-outline-toggle {
 	background: var(--npde-toolbar-bg);
 	border-color: var(--npde-toolbar-border);
 	box-shadow: none;
 	color: var(--npde-toolbar-text-muted);
 }
 
-.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light .ep-root .docx-outline-toggle:hover,
-.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light .ep-root .docx-outline-toggle:focus {
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light [data-native-powerpoint-doc-editor-root] .docx-outline-toggle:hover,
+.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-theme-light [data-native-powerpoint-doc-editor-root] .docx-outline-toggle:focus {
 	background: var(--npde-toolbar-bg-hover);
 	color: var(--npde-toolbar-text);
 }
@@ -712,26 +715,24 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 }
 
 /* Match the editor's header/footer behavior so typed spaces stay visible in body text. */
-.native-powerpoint-doc-editor-host .ep-root .layout-page-content .ProseMirror p,
-.native-powerpoint-doc-editor-host .ep-root .docx-run-editable[contenteditable='true'] {
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-page-content] .ProseMirror p,
+.native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-run-editable[contenteditable='true'] {
 	white-space: pre-wrap;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .layout-list-marker,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .layout-list-marker-line,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-list-marker {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-list-marker] {
 	-webkit-user-select: text;
 	cursor: text;
 	user-select: text;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-list-marker-selected {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-list-marker-selected {
 	background: var(--npde-selection-active-bg);
 	border-radius: 2px;
 	color: inherit;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-search-menu-button {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-search-menu-button {
 	align-items: center;
 	background: transparent;
 	border: none;
@@ -748,18 +749,18 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	white-space: nowrap;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-search-menu-button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-search-menu-button:focus {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-search-menu-button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-search-menu-button:focus {
 	background: var(--npde-menu-hover-bg);
 	color: var(--npde-menu-hover-text);
 	outline: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-menu,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-menu,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-menu {
 	background: var(--npde-menu-bg);
 	border: 1px solid var(--npde-menu-border);
@@ -777,11 +778,11 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	z-index: 100060;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-section,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-section,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-section {
 	color: var(--npde-menu-text-muted);
 	font-size: 11px;
@@ -791,11 +792,11 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	text-transform: uppercase;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-row {
 	align-items: center;
 	background: transparent;
@@ -810,33 +811,33 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row:focus-within,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row:focus-within,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-row:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-row:focus-within {
 	background: var(--npde-dialog-bg-muted);
 	border-color: var(--npde-dialog-border-subtle);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-copy {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-copy {
 	display: grid;
 	gap: 2px;
 	min-width: 0;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-label,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-label,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-label {
 	color: var(--npde-menu-text);
 	font-size: 12px;
@@ -844,11 +845,11 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	line-height: 1.3;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-desc,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-desc,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-desc {
 	color: var(--npde-menu-text-muted);
 	font-size: 11px;
@@ -857,7 +858,7 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	white-space: normal;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox-control {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-checkbox-control {
 	display: inline-flex;
 	flex: 0 0 auto;
 	height: 18px;
@@ -865,7 +866,7 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	width: 18px;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-checkbox {
 	appearance: none;
 	-webkit-appearance: none;
 	background: var(--npde-dialog-checkbox-bg);
@@ -880,12 +881,12 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	z-index: 1;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox:checked {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-checkbox:checked {
 	background: var(--npde-dialog-checkbox-checked-bg);
 	border-color: var(--npde-dialog-checkbox-checked-bg);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox-mark {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-checkbox-mark {
 	border-bottom: 2px solid var(--npde-dialog-checkbox-check);
 	border-right: 2px solid var(--npde-dialog-checkbox-check);
 	height: 10px;
@@ -899,28 +900,28 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	z-index: 2;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-checkbox:checked + .native-powerpoint-doc-editor-editor-settings-checkbox-mark {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-checkbox:checked + .native-powerpoint-doc-editor-editor-settings-checkbox-mark {
 	opacity: 1;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-inline-controls {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-inline-controls {
 	align-items: center;
 	display: flex;
 	flex: 0 0 auto;
 	gap: 6px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-input,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-select,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-input,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-select,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-input,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-select {
 	background: var(--npde-dialog-input-bg);
 	border: 1px solid var(--npde-dialog-input-border);
@@ -933,31 +934,31 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	padding: 4px 7px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-action,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row > button,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row.mod-action > button,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-action,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-row > button,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-row.mod-action > button {
 	appearance: none;
 	-webkit-appearance: none;
-	background: var(--npde-dialog-button-bg);
-	border: 1px solid var(--npde-settings-action-border, var(--npde-dialog-border));
+	background: var(--npde-dialog-button-bg) !important;
+	border: 1px solid var(--npde-settings-action-border, var(--npde-dialog-border)) !important;
 	border-radius: 5px;
-	box-shadow: none;
-	color: var(--npde-dialog-text);
+	box-shadow: none !important;
+	color: var(--npde-dialog-text) !important;
 	cursor: pointer;
 	flex: 0 0 auto;
 	font-size: 12px;
@@ -967,65 +968,65 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	white-space: nowrap;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-action:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-action:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row > button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row > button:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-action:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-action:focus,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-row > button:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-row > button:focus,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus {
-	background: var(--npde-dialog-button-hover-bg);
-	border-color: var(--npde-settings-action-border, var(--npde-dialog-border));
-	color: var(--npde-dialog-text);
+	background: var(--npde-dialog-button-hover-bg) !important;
+	border-color: var(--npde-settings-action-border, var(--npde-dialog-border)) !important;
+	color: var(--npde-dialog-text) !important;
 	outline: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-action:focus-visible,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row > button:focus-visible,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus-visible,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-action:focus-visible,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row > button:focus-visible,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus-visible,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-action:focus-visible,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-row > button:focus-visible,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-editor-settings-row.mod-action > button:focus-visible {
 	outline: 2px solid var(--npde-toolbar-focus-ring);
 	outline-offset: 2px;
@@ -1033,25 +1034,25 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 
 .workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='editor-toolbar']
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-toolbar]
 	button:is([aria-label*='image' i], [aria-label*='picture' i], [title*='image' i], [title*='picture' i]) {
 	display: none;
 }
 
 .workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='editor-toolbar']
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-toolbar]
 	button:is([aria-label='Search editor options'], [title='Search editor options']) {
 	display: none;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-menu,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-menu,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-option-search-menu {
 	background: var(--npde-menu-bg);
 	border: 1px solid var(--npde-menu-border);
@@ -1067,11 +1068,11 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	z-index: 100050;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-input,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-input,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-option-search-input {
 	background: var(--npde-dialog-input-bg);
 	border: 1px solid var(--npde-dialog-input-border);
@@ -1085,18 +1086,18 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	width: 100%;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-results {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-results {
 	display: grid;
 	gap: 2px;
 	max-height: 260px;
 	overflow: auto;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-result,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-option-search-result {
 	background: transparent;
 	border: 0;
@@ -1114,36 +1115,36 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result:focus,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-result[aria-selected='true'],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-result:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-result:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-result[aria-selected='true'],
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-option-search-result:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-option-search-result:focus,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-option-search-result[aria-selected='true'] {
 	background: var(--npde-menu-hover-bg);
 	color: var(--npde-menu-hover-text);
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-option-search-empty {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-option-search-empty {
 	color: var(--npde-menu-text-muted);
 	font-size: 12px;
 	padding: 8px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'],
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: absolute'] {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'],
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: absolute'] {
 	background: var(--npde-menu-bg);
 	border-color: var(--npde-menu-border);
 	color: var(--npde-menu-text);
@@ -1152,32 +1153,32 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	z-index: 100020;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'] :is(button, [role='menuitem'], [role='option']),
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: absolute'] :is(button, [role='menuitem'], [role='option']) {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'] :is(button, [role='menuitem'], [role='option']),
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: absolute'] :is(button, [role='menuitem'], [role='option']) {
 	background: transparent;
 	box-shadow: none;
 	color: var(--npde-menu-item-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: absolute'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: absolute'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
 	background: var(--npde-menu-hover-bg);
 	color: var(--npde-menu-hover-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .docx-outline-nav {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-outline-nav {
 	z-index: 1;
 }
 
 .workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root.native-powerpoint-doc-editor-has-floating-menu
+	[data-native-powerpoint-doc-editor-root].native-powerpoint-doc-editor-has-floating-menu
 	.docx-outline-nav {
 	opacity: 0;
 	pointer-events: none;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root [role='menubar'] [style*='position: fixed'] > div:first-child {
+.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'] > div:first-child {
 	display: none;
 }
 
@@ -1211,7 +1212,7 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	width: fit-content;
 }
 
-.native-powerpoint-doc-editor-embed-pages .layout-page {
+.native-powerpoint-doc-editor-embed-pages [data-native-powerpoint-doc-editor-page] {
 	flex: 0 0 auto;
 }
 
@@ -1242,26 +1243,26 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	color: var(--text-error);
 }
 
-body > .ep-root,
-.ep-root [data-radix-popper-content-wrapper] {
+body > [data-native-powerpoint-doc-editor-root],
+[data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-light-menu-shell {
 	z-index: 100000;
 }
 
 /* Hide Eigenpal toolbar tooltips; plugin renders the single dark label. */
 .native-powerpoint-doc-editor-host[data-native-powerpoint-doc-editor-toolbar-tooltips='custom']
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'],
 .workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'] {
-	display: none;
-	height: 0;
-	max-height: 0;
-	opacity: 0;
-	overflow: hidden;
-	pointer-events: none;
-	visibility: hidden;
+	display: none !important;
+	height: 0 !important;
+	max-height: 0 !important;
+	opacity: 0 !important;
+	overflow: hidden !important;
+	pointer-events: none !important;
+	visibility: hidden !important;
 }
 
 .native-powerpoint-doc-editor-toolbar-tooltip {
@@ -1408,11 +1409,11 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	margin-left: auto;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-file-menu-button,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-file-menu-button {
 	align-items: center;
 	background: transparent;
@@ -1432,26 +1433,26 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	width: 100%;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button *,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-file-menu-button *,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-file-menu-button * {
 	color: inherit;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button:hover,
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host .ep-root .native-powerpoint-doc-editor-file-menu-button:focus,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-file-menu-button:hover,
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .native-powerpoint-doc-editor-file-menu-button:focus,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-file-menu-button:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-		.ep-root
+		[data-native-powerpoint-doc-editor-root]
 		.native-powerpoint-doc-editor-file-menu-button:focus {
 	background: var(--npde-menu-hover-bg);
 	color: var(--npde-menu-hover-text);
@@ -2443,6 +2444,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	width: 100%;
 }
 
+.native-powerpoint-thumbnail-preview.is-pending {
+	background: var(--background-modifier-form-field);
+}
+
 .native-powerpoint-thumbnail-svg {
 	display: block;
 	height: 100%;
@@ -2902,7 +2907,16 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	user-select: none;
 }
 
-.native-powerpoint-slide-svg g[data-ooxml-shape-idx] {
+.native-powerpoint-slide-svg > image {
+	pointer-events: none;
+}
+
+.native-powerpoint-slide-svg g[data-ooxml-shape-idx^='-'] {
+	cursor: default;
+	pointer-events: none;
+}
+
+.native-powerpoint-slide-svg g[data-ooxml-shape-idx]:not([data-ooxml-shape-idx^='-']) {
 	cursor: pointer;
 }
 
@@ -2959,7 +2973,12 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	box-sizing: border-box;
 	pointer-events: none;
 	position: absolute;
+	transform-origin: center center;
 	z-index: 5;
+}
+
+.native-powerpoint-shape-drag-preview {
+	will-change: transform;
 }
 
 .native-powerpoint-multi-selection-box {
@@ -2985,6 +3004,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	pointer-events: auto;
 	position: absolute;
 	width: 10px;
+	z-index: 5;
 }
 
 .native-powerpoint-resize-nw {
@@ -3011,45 +3031,70 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	right: -6px;
 }
 
-/* Transparent hit-zones over each border so hovering an edge stretches the
- * object along that single axis. Inset from the corners so the corner dots
- * keep their two-axis resize behavior. */
-.native-powerpoint-resize-edge {
-	pointer-events: auto;
-	position: absolute;
-	z-index: 4;
-}
-
-.native-powerpoint-resize-n,
-.native-powerpoint-resize-s {
-	cursor: ns-resize;
-	height: 11px;
-	left: 8px;
-	right: 8px;
-}
-
-.native-powerpoint-resize-e,
-.native-powerpoint-resize-w {
-	bottom: 8px;
-	cursor: ew-resize;
-	top: 8px;
-	width: 11px;
-}
-
 .native-powerpoint-resize-n {
-	top: -5px;
+	cursor: ns-resize;
+	left: 50%;
+	top: -6px;
+	transform: translateX(-50%);
 }
 
 .native-powerpoint-resize-s {
-	bottom: -5px;
+	bottom: -6px;
+	cursor: ns-resize;
+	left: 50%;
+	transform: translateX(-50%);
 }
 
 .native-powerpoint-resize-w {
-	left: -5px;
+	cursor: ew-resize;
+	left: -6px;
+	top: 50%;
+	transform: translateY(-50%);
 }
 
 .native-powerpoint-resize-e {
-	right: -5px;
+	cursor: ew-resize;
+	right: -6px;
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+.native-powerpoint-move-border {
+	pointer-events: auto;
+	position: absolute;
+	z-index: 3;
+}
+
+.native-powerpoint-move-border-n,
+.native-powerpoint-move-border-s {
+	cursor: move;
+	height: 6px;
+	left: 14px;
+	right: 14px;
+}
+
+.native-powerpoint-move-border-n {
+	top: -3px;
+}
+
+.native-powerpoint-move-border-s {
+	bottom: -3px;
+}
+
+.native-powerpoint-move-border-e,
+.native-powerpoint-move-border-w {
+	bottom: 14px;
+	cursor: move;
+	top: 14px;
+	width: 6px;
+}
+
+.native-powerpoint-move-border-w {
+	left: -3px;
+}
+
+.native-powerpoint-move-border-e {
+	right: -3px;
 }
 
 .native-powerpoint-rotate-stem {
@@ -3878,19 +3923,19 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='editor-toolbar'] {
-	background: var(--npde-docx-toolbar-shell-bg);
-	border-color: var(--npde-editor-border);
-	color: var(--npde-editor-text);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-toolbar] {
+	background: var(--npde-docx-toolbar-shell-bg) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar'] {
-	background: var(--npde-docx-formatting-bar-bg);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar] {
+	background: var(--npde-docx-formatting-bar-bg) !important;
 	scrollbar-color: var(--npde-docx-formatting-scrollbar-thumb) var(--npde-docx-formatting-scrollbar-track);
 	scrollbar-width: thin;
 }
@@ -3898,51 +3943,51 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar']::-webkit-scrollbar {
-	background-color: var(--npde-docx-formatting-scrollbar-track);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar {
+	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
 	height: 6px;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar']::-webkit-scrollbar-track {
-	background-color: var(--npde-docx-formatting-scrollbar-track);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-track {
+	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
 	border-radius: 4px;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar']::-webkit-scrollbar-thumb {
-	background-color: var(--npde-docx-formatting-scrollbar-thumb);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-thumb {
+	background-color: var(--npde-docx-formatting-scrollbar-thumb) !important;
 	border-radius: 4px;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar']:hover::-webkit-scrollbar-thumb {
-	background-color: var(--npde-docx-formatting-scrollbar-thumb-hover);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar]:hover::-webkit-scrollbar-thumb {
+	background-color: var(--npde-docx-formatting-scrollbar-thumb-hover) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='formatting-bar']::-webkit-scrollbar-corner {
-	background-color: var(--npde-docx-formatting-scrollbar-track);
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-corner {
+	background-color: var(--npde-docx-formatting-scrollbar-track) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	.docx-editor__scroll-container {
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-scroll-container] {
 	--doc-scrollbar-track: var(--npde-docx-document-scrollbar-track);
 	--doc-scrollbar-thumb: var(--npde-docx-document-scrollbar-thumb);
 	--doc-scrollbar-thumb-hover: var(--npde-docx-document-scrollbar-thumb-hover);
@@ -3957,12 +4002,12 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	[data-testid='editor-toolbar']
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-toolbar]
 	:is(button:hover, button:focus, [role='button']:hover, [role='button']:focus, [aria-pressed='true'], [data-highlighted]):not(.docx-color-picker-dropdown button) {
-	background: var(--npde-editor-toolbar-hover);
-	border-color: var(--npde-editor-border);
-	color: var(--npde-editor-text);
+	background: var(--npde-editor-toolbar-hover) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-slide-surface {
@@ -3975,12 +4020,12 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	.layout-page {
-	background: var(--npde-document-bg);
-	color: var(--npde-document-text);
-	color-scheme: light;
-	filter: none;
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-page] {
+	background: var(--npde-document-bg) !important;
+	color: var(--npde-document-text) !important;
+	color-scheme: light !important;
+	filter: none !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root .native-powerpoint-slide-svg {
@@ -3990,10 +4035,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	.layout-page
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-page]
 	:is(img, svg, canvas, video) {
-	filter: none;
+	filter: none !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface {
@@ -4096,7 +4141,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-doc-edi
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root {
+	[data-native-powerpoint-doc-editor-root] {
 	--doc-bg: var(--npde-editor-bg);
 	--doc-bg-hover: var(--npde-editor-hover);
 	--doc-border: var(--npde-editor-border);
@@ -4111,24 +4156,24 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	:is(
-		[data-testid='title-bar'],
-		[data-testid='title-bar'] > div,
-		[data-testid='title-bar'] > div > div,
-		[role='menubar'],
-		[role='menubar'] > div
+		[data-native-powerpoint-doc-editor-title-bar],
+		[data-native-powerpoint-doc-editor-title-bar] > div,
+		[data-native-powerpoint-doc-editor-title-bar] > div > div,
+		[data-native-powerpoint-doc-editor-menubar],
+		[data-native-powerpoint-doc-editor-menubar] > div
 	) {
-	background: var(--npde-editor-bg);
-	border-color: var(--npde-editor-border);
-	color: var(--npde-editor-text);
-	color-scheme: dark;
+	background: var(--npde-editor-bg) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+	color-scheme: dark !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.docx-outline-toggle {
 	background: var(--npde-editor-toolbar);
 	border-color: var(--npde-editor-border);
@@ -4139,7 +4184,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
+	[data-native-powerpoint-doc-editor-root]
 	.docx-outline-toggle:is(:hover, :focus) {
 	background: var(--npde-editor-toolbar-hover);
 	color: var(--npde-editor-text);
@@ -4148,45 +4193,45 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	:is([data-testid='title-bar'], [data-testid='editor-toolbar'], [role='menubar'])
+	[data-native-powerpoint-doc-editor-root]
+	:is([data-native-powerpoint-doc-editor-title-bar], [data-native-powerpoint-doc-editor-toolbar], [data-native-powerpoint-doc-editor-menubar])
 	:is(button, input, select, textarea, [role='button'], [role='menuitem'], [role='option']):not(.docx-color-picker-dropdown button) {
-	background: transparent;
-	border-color: transparent;
-	box-shadow: none;
-	color: var(--npde-editor-text-muted);
+	background: transparent !important;
+	border-color: transparent !important;
+	box-shadow: none !important;
+	color: var(--npde-editor-text-muted) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	:is([data-testid='title-bar'], [data-testid='editor-toolbar'], [role='menubar'])
+	[data-native-powerpoint-doc-editor-root]
+	:is([data-native-powerpoint-doc-editor-title-bar], [data-native-powerpoint-doc-editor-toolbar], [data-native-powerpoint-doc-editor-menubar])
 	:is(button:hover, button:focus, [role='button']:hover, [role='button']:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [aria-selected='true'], [aria-pressed='true'], [data-highlighted]):not(.docx-color-picker-dropdown button) {
-	background: var(--npde-editor-toolbar-hover);
-	border-color: var(--npde-editor-border);
-	color: var(--npde-editor-text);
+	background: var(--npde-editor-toolbar-hover) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	:is([data-testid='title-bar'], [data-testid='editor-toolbar'])
+	[data-native-powerpoint-doc-editor-root]
+	:is([data-native-powerpoint-doc-editor-title-bar], [data-native-powerpoint-doc-editor-toolbar])
 	:is(input, select, textarea, [role='listbox']) {
-	background: var(--npde-editor-bg);
-	border-color: var(--npde-editor-border-strong);
-	color: var(--npde-editor-text);
-	color-scheme: dark;
+	background: var(--npde-editor-bg) !important;
+	border-color: var(--npde-editor-border-strong) !important;
+	color: var(--npde-editor-text) !important;
+	color-scheme: dark !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host.native-powerpoint-doc-editor-host
-	.ep-root
-	:is([data-testid='title-bar'], [data-testid='editor-toolbar'])
-	:is(.truncate, [data-testid='font-size-display'], [data-testid='font-size-input']) {
-	color: var(--npde-editor-text);
+	[data-native-powerpoint-doc-editor-root]
+	:is([data-native-powerpoint-doc-editor-title-bar], [data-native-powerpoint-doc-editor-toolbar])
+	:is(.truncate, [data-native-powerpoint-doc-editor-font-size-display], [data-native-powerpoint-doc-editor-font-size-input]) {
+	color: var(--npde-editor-text) !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
@@ -4213,13 +4258,13 @@ body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	.ep-root
-	[role='menubar']
+	[data-native-powerpoint-doc-editor-root]
+	[data-native-powerpoint-doc-editor-menubar]
 	[style*='position'] {
-	background: var(--npde-editor-bg);
-	border-color: var(--npde-editor-border);
-	color: var(--npde-editor-text);
-	color-scheme: dark;
+	background: var(--npde-editor-bg) !important;
+	border-color: var(--npde-editor-border) !important;
+	color: var(--npde-editor-text) !important;
+	color-scheme: dark !important;
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
@@ -4322,68 +4367,6 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	outline-offset: 2px;
 }
 
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	.setting-item-control
-	button:not(.clickable-icon) {
-	background: var(--npde-dialog-button-bg);
-	border: 1px solid var(--npde-editor-border-strong);
-	box-shadow: none;
-	color: var(--npde-editor-text);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	.setting-item-control
-	button:not(.clickable-icon):is(:hover, :focus) {
-	background: var(--npde-dialog-button-hover-bg);
-	border-color: var(--npde-editor-border-strong);
-	color: var(--npde-editor-text);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	.setting-item-control
-	button:not(.clickable-icon):focus-visible {
-	outline: 2px solid var(--npde-toolbar-focus-ring);
-	outline-offset: 2px;
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	input[type='checkbox'] {
-	accent-color: var(--npde-editor-accent);
-	color-scheme: dark;
-	--checkbox-color: var(--npde-editor-accent);
-	--checkbox-color-hover: var(--npde-editor-accent-hover);
-	--checkbox-marker-color: var(--npde-editor-on-accent);
-	--checkbox-border-color: var(--npde-editor-accent);
-	--checkbox-border-color-hover: var(--npde-editor-accent-hover);
-	--toggle-thumb-color: var(--npde-editor-on-accent);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	.checkbox-container {
-	background-color: var(--npde-editor-toolbar);
-	box-shadow: inset 0 0 0 1px var(--npde-editor-border-strong);
-	--toggle-thumb-color: var(--npde-editor-text);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	.checkbox-container.is-enabled {
-	background-color: var(--npde-editor-accent);
-	box-shadow: none;
-	--toggle-thumb-color: var(--npde-editor-on-accent);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-dark
-	.native-powerpoint-doc-editor-settings-tab
-	.checkbox-container.is-enabled::after {
-	background-color: var(--npde-editor-on-accent);
-}
-
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 	.native-powerpoint-doc-editor-custom-table-field span,
 	.native-powerpoint-doc-editor-editor-settings-section,
@@ -4409,66 +4392,4 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-doc-edi
 	background: var(--npde-warning-bg);
 	border-color: var(--npde-warning-border);
 	color: var(--npde-warning-text);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	input[type='checkbox'] {
-	accent-color: var(--npde-editor-accent);
-	color-scheme: light;
-	--checkbox-color: var(--npde-editor-accent);
-	--checkbox-color-hover: var(--npde-editor-accent-hover);
-	--checkbox-marker-color: var(--npde-editor-on-accent);
-	--checkbox-border-color: var(--npde-editor-accent);
-	--checkbox-border-color-hover: var(--npde-editor-accent-hover);
-	--toggle-thumb-color: var(--npde-editor-on-accent);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	.setting-item-control
-	button:not(.clickable-icon) {
-	background: var(--npde-dialog-button-bg);
-	border: 1px solid var(--npde-dialog-border);
-	box-shadow: none;
-	color: var(--npde-dialog-text);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	.setting-item-control
-	button:not(.clickable-icon):is(:hover, :focus) {
-	background: var(--npde-dialog-button-hover-bg);
-	border-color: var(--npde-dialog-border);
-	color: var(--npde-dialog-text);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	.setting-item-control
-	button:not(.clickable-icon):focus-visible {
-	outline: 2px solid var(--npde-toolbar-focus-ring);
-	outline-offset: 2px;
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	.checkbox-container {
-	background-color: var(--npde-toolbar-bg-hover);
-	box-shadow: inset 0 0 0 1px var(--npde-dialog-border);
-	--toggle-thumb-color: var(--npde-dialog-checkbox-check);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	.checkbox-container.is-enabled {
-	background-color: var(--npde-editor-accent);
-	box-shadow: none;
-	--toggle-thumb-color: var(--npde-editor-on-accent);
-}
-
-body.native-powerpoint-doc-editor-theme-resolved-light
-	.native-powerpoint-doc-editor-settings-tab
-	.checkbox-container.is-enabled::after {
-	background-color: var(--npde-editor-on-accent);
 }

@@ -128,8 +128,8 @@ export class PowerPointPresentController {
     handler: (event: Event) => void,
     capture = false
   ): void {
-    target.addEventListener(type, handler, capture);
-    this.cleanups.push(() => target.removeEventListener(type, handler, capture));
+    target.addEventListener(type, handler as EventListener, capture);
+    this.cleanups.push(() => target.removeEventListener(type, handler as EventListener, capture));
   }
 
   private handleKeydown(event: KeyboardEvent): void {

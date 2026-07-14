@@ -64,6 +64,41 @@ async function createLayoutBackgroundRelationshipCollisionFixture() {
   );
 }
 
+async function createCroppedLayoutBackgroundFixture() {
+  const input = await readDeck("features.pptx");
+  const source = toArrayBuffer(input);
+  const sourceZip = await extractZip(source);
+  const layoutPath = "ppt/slideLayouts/slideLayout1.xml";
+  const layoutRelsPath = "ppt/slideLayouts/_rels/slideLayout1.xml.rels";
+  const layoutXml = sourceZip.textFiles.get(layoutPath);
+  const layoutRelsXml = sourceZip.textFiles.get(layoutRelsPath);
+  assert.ok(layoutXml);
+  assert.ok(layoutRelsXml);
+
+  const backgroundXml = [
+    '<p:bg><p:bgPr><a:blipFill>',
+    '<a:blip r:embed="rIdImage"/>',
+    '<a:srcRect l="25000" t="0" r="0" b="0"/>',
+    '<a:stretch><a:fillRect/></a:stretch>',
+    '</a:blipFill><a:effectLst/></p:bgPr></p:bg>'
+  ].join("");
+  const patchedLayoutXml = layoutXml.replace('<p:cSld name="Blank"><p:spTree>', `<p:cSld name="Blank">${backgroundXml}<p:spTree>`);
+  const patchedLayoutRelsXml = layoutRelsXml.replace(
+    '</Relationships>',
+    '<Relationship Id="rIdImage" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/layout-bg.png"/></Relationships>'
+  );
+
+  return buildZip(
+    source,
+    new Map([
+      [layoutPath, patchedLayoutXml],
+      [layoutRelsPath, patchedLayoutRelsXml],
+    ]),
+    undefined,
+    new Map([["ppt/media/layout-bg.png", onePixelLayoutBackground]])
+  );
+}
+
 test("pptx, ppsx, and potx fixtures load, render, export, and validate", async (t) => {
   const {
     inspectPowerPointPackage,
@@ -150,6 +185,21 @@ test("rendered layout backgrounds resolve image rels from the layout part", asyn
     backgroundMatch[1],
     `data:image/png;base64,${onePixelLayoutBackground.toString("base64")}`
   );
+});
+
+test("rendered cropped layout backgrounds reconcile href without duplicating full-bleed image", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const engine = await PresentationEngine.load(await createCroppedLayoutBackgroundFixture());
+  const svg = engine.renderSlide(0).svg;
+
+  const fullBleedMatches = svg.match(
+    /<image\b(?=[^>]*\bx="0")(?=[^>]*\by="0")(?=[^>]*\bwidth="960")(?=[^>]*\bheight="540")(?=[^>]*\bpreserveAspectRatio="none")[^>]*>/g
+  ) ?? [];
+  assert.equal(fullBleedMatches.length, 0, "cropped backgrounds should not also emit a full-bleed image");
+
+  assert.match(svg, /clip-path="url\(#bgclip-s1\)"/);
+  const expectedHref = `data:image/png;base64,${onePixelLayoutBackground.toString("base64")}`;
+  assert.ok(svg.includes(`href="${expectedHref}"`), "expected reconciled cropped background href");
 });
 
 test("content validation blocks lossy renderer rewrites of opaque slide markup", async () => {

@@ -65,7 +65,7 @@ const mainSource = readSource('main.ts');
 const settingsSource = readSource('settings.ts');
 const docxViewSource = readSource('DocxView.tsx');
 const docxReactViewSource = readSource('DocxReactView.tsx');
-const pptxViewSource = readSource('NativePowerPointView.ts');
+const pptxViewSource = readSource('powerpoint/ui/NativePowerPointView.ts');
 const docxSupportSource = readSource('docxSupport.ts');
 
 assert.match(

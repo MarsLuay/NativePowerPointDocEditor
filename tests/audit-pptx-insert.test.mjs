@@ -64,7 +64,7 @@ async function assertExportRoundTrips(label, engine) {
 
 test("insert text box round-trips to a valid, loadable deck", async () => {
   const engine = await loadFreshEngine();
-  const shapeIndex = engine.addTextBox(SLIDE_INDEX);
+  const shapeIndex = await engine.addTextBox(SLIDE_INDEX);
   assertShapeIndex("text box", shapeIndex);
   await assertExportRoundTrips("text box", engine);
 });
@@ -74,7 +74,7 @@ test("insert shape geometries round-trip to a valid, loadable deck", async (t) =
   for (const geometry of geometries) {
     await t.test(geometry, async () => {
       const engine = await loadFreshEngine();
-      const shapeIndex = engine.addShapeGeometry(SLIDE_INDEX, geometry);
+      const shapeIndex = await engine.addShapeGeometry(SLIDE_INDEX, geometry);
       assertShapeIndex(geometry, shapeIndex);
       await assertExportRoundTrips(geometry, engine);
     });
@@ -84,7 +84,7 @@ test("insert shape geometries round-trip to a valid, loadable deck", async (t) =
 test("insert image round-trips to a valid, loadable deck", async () => {
   const engine = await loadFreshEngine();
   const image = await readFixtureImage();
-  const shapeIndex = engine.addImage(SLIDE_INDEX, image, "image/png");
+  const shapeIndex = await engine.addImage(SLIDE_INDEX, image, "image/png");
   assertShapeIndex("image", shapeIndex);
   await assertExportRoundTrips("image", engine);
 });

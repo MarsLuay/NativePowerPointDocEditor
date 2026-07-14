@@ -5,9 +5,11 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
+import { createVendoredDocxAliases } from './lib/vendored-docx-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
+const vendoredDocxAliases = await createVendoredDocxAliases(path.join(projectRoot, 'src/vendor/eigenpal'));
 const outputDir = path.join(projectRoot, 'results', 'ime-live-verify');
 const demoDocxPath = path.join(projectRoot, 'test_files', 'demo.docx');
 
@@ -33,6 +35,7 @@ const scenarios = [
 async function bundleHarness() {
 	const outfile = path.join(outputDir, 'harness.js');
 	await build({
+		alias: vendoredDocxAliases,
 		entryPoints: [path.join(projectRoot, 'scripts/harness/docx-ime-live-verify-entry.tsx')],
 		bundle: true,
 		format: 'iife',
@@ -135,15 +138,13 @@ async function main() {
 		const match = output.match(/LIVE_VERIFY_RESULT:(\{.*\})/g);
 		assert.ok(match?.length, `missing LIVE_VERIFY_RESULT for ${scenario.name}\n${output.slice(-800)}`);
 
-		const metrics = JSON.parse(match[match.length - 1].replace('LIVE_VERIFY_RESULT:', ''));
-		if (scenario.name !== 'baseline' && metrics.wrapper?.inlineTransform !== 'none') {
-			const neutralized = match
-				.map((line) => JSON.parse(line.replace('LIVE_VERIFY_RESULT:', '')))
-				.find((entry) => entry.wrapper?.inlineTransform === 'none');
-			if (neutralized) {
-				Object.assign(metrics, neutralized);
-			}
-		}
+		const samples = match.map((line) => JSON.parse(line.replace('LIVE_VERIFY_RESULT:', '')));
+		// Chrome can flush a transient sample after the wrapper's inline transform
+		// is removed but before its computed transform/caret geometry settles. Use
+		// the newest fully passing sample from the verification window instead of
+		// treating console delivery order as a lifecycle guarantee.
+		const metrics = samples.findLast((entry) => entry.passed === true) ?? samples.at(-1);
+		assert.ok(metrics, `missing parsed metrics for ${scenario.name}`);
 		results.push({ scenario, metrics });
 		assertWrapperNeutralized(metrics, scenario);
 

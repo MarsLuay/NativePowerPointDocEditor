@@ -6,6 +6,20 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.34] - 2026-07-14
+
+### Fixed
+
+- Select a word on a double-click and all text in a text box on a triple-click.
+- Keep text geometry stable while resizing a text box, then reflow it when the resize is committed.
+- Add a fill-color action to shape context menus.
+- Save every dirty open presentation before development plugin reloads, and abort the reload if any save fails.
+- Handle background DOCX/PPTX rendering, search, locale, clipboard, and navigation promise failures without unhandled rejections.
+
+### Changed
+
+- Resolve DOCX editor packages through the vendored Eigenpal source and remove direct Eigenpal package dependencies where local equivalents exist.
+
 ## [1.0.30] - 2026-06-24
 
 ### Fixed

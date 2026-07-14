@@ -2,12 +2,15 @@ import type { App, MarkdownPostProcessorContext, Plugin, TFile } from 'obsidian'
 import { useCallback, useEffect, useRef } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { DocxEditor } from '@eigenpal/docx-editor-react';
+import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
 import type { Translations } from '@eigenpal/docx-editor-i18n';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
+import { DOCX_RENDERED_PAGE_SELECTOR } from './docxEditorChromeMarkers';
 import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { ensureEditorStyles } from './DocxReactView';
 import { isHTMLElement } from './domGuards';
 import { Component, MarkdownRenderChild } from './obsidianRuntime';
+import { CoalescedTimeout } from './coalescedTimeout';
 
 const DOCX_EMBED_SELECTOR = '.internal-embed[src], .internal-embed[data-src]';
 
@@ -41,16 +44,17 @@ function DocxEmbedPreview({
 }) {
 	const sourceRef = useRef<HTMLDivElement>(null);
 	const pagesRef = useRef<HTMLDivElement>(null);
+	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
 	const syncFrameRef = useRef<number | null>(null);
 
 	const syncPages = useCallback(() => {
-		const sourceEl = sourceRef.current;
+		const renderedDomContext = renderedDomContextRef.current;
 		const pagesEl = pagesRef.current;
-		if (!sourceEl || !pagesEl) {
+		if (!renderedDomContext?.pagesContainer?.isConnected || !pagesEl) {
 			return;
 		}
 
-		const pages = Array.from(sourceEl.querySelectorAll<HTMLElement>('.layout-page'));
+		const pages = Array.from(renderedDomContext.pagesContainer.querySelectorAll<HTMLElement>(DOCX_RENDERED_PAGE_SELECTOR));
 		if (pages.length === 0) {
 			return;
 		}
@@ -83,6 +87,11 @@ function DocxEmbedPreview({
 		});
 	}, [syncPages]);
 
+	const handleRenderedDomContextReady = useCallback((context: RenderedDomContext) => {
+		renderedDomContextRef.current = context;
+		queueSyncPages();
+	}, [queueSyncPages]);
+
 	useEffect(() => {
 		const sourceEl = sourceRef.current;
 		if (!sourceEl) {
@@ -93,7 +102,7 @@ function DocxEmbedPreview({
 		let neutralizerRetryTimeout: number | undefined;
 
 		const attachNeutralizer = (): boolean => {
-			const editorRoot = sourceEl.querySelector<HTMLElement>('.native-powerpoint-doc-editor-embed-editor, .ep-root');
+			const editorRoot = sourceEl.querySelector<HTMLElement>('.native-powerpoint-doc-editor-embed-editor');
 			if (!editorRoot) {
 				return false;
 			}
@@ -154,6 +163,7 @@ function DocxEmbedPreview({
 					showToolbar={false}
 					showZoomControl={false}
 					onFontsLoaded={queueSyncPages}
+					onRenderedDomContextReady={handleRenderedDomContextReady}
 				/>
 			</div>
 		</>
@@ -263,8 +273,8 @@ class DocxEmbedRenderChild extends MarkdownRenderChild {
 }
 
 class DocxEmbedScanChild extends MarkdownRenderChild {
-	private scanTimeout: number | null = null;
 	private observer: MutationObserver | null = null;
+	private readonly scanTimer: CoalescedTimeout;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -273,13 +283,17 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 		private getEditorLocale: () => Translations | undefined,
 	) {
 		super(containerEl);
+		this.scanTimer = new CoalescedTimeout(
+			containerEl.ownerDocument.defaultView ?? window,
+			() => this.scan(),
+		);
 	}
 
 	onload() {
 		this.scan();
-		this.queueScan(0);
-		this.queueScan(100);
-		this.observer = new MutationObserver(() => this.queueScan(25));
+		this.scanTimer.schedule(0);
+		this.scanTimer.schedule(100);
+		this.observer = new MutationObserver(() => this.scanTimer.schedule(25));
 		this.observer.observe(this.containerEl, {
 			attributes: true,
 			attributeFilter: ['data-src', 'src'],
@@ -289,24 +303,10 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 	}
 
 	onunload() {
-		if (this.scanTimeout !== null) {
-			window.clearTimeout(this.scanTimeout);
-			this.scanTimeout = null;
-		}
+		this.scanTimer.cancel();
 		this.observer?.disconnect();
 		this.observer = null;
 		super.onunload();
-	}
-
-	private queueScan(delay: number) {
-		if (this.scanTimeout !== null) {
-			return;
-		}
-
-		this.scanTimeout = window.setTimeout(() => {
-			this.scanTimeout = null;
-			this.scan();
-		}, delay);
 	}
 
 	private scan() {

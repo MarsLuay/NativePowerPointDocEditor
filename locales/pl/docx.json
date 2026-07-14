@@ -41,9 +41,11 @@
 	"menu": {
 		"optionUnavailable": "Opcja {option} jest teraz niedostępna.",
 		"notAvailable": "Opcja {option} jest teraz niedostępna.",
-		"menuUnavailable": "Menu {menu} jest teraz niedostępne."
+		"menuUnavailable": "Menu {menu} jest teraz niedostępne.",
+		"newDocx": "Nowy DOCX"
 	},
 	"notice": {
+		"createFailed": "Nie udało się utworzyć DOCX: {message}",
 		"openToSave": "Otwórz plik docx, aby go zapisać.",
 		"openToSaveCopy": "Otwórz plik docx, aby zapisać kopię.",
 		"openToDuplicate": "Otwórz plik docx, aby go zduplikować.",

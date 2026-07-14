@@ -96,7 +96,12 @@ export class DocxSearchModal extends Modal {
 
 		this.debounceTimer = window.setTimeout(() => {
 			this.debounceTimer = null;
-			void this.readyPromise?.then(() => this.renderSearch());
+			const readyPromise = this.readyPromise;
+			if (readyPromise) {
+				void readyPromise
+					.then(() => this.renderSearch())
+					.catch((error) => errorLog('search', 'Could not prepare DOCX search', error));
+			}
 		}, SEARCH_DEBOUNCE_MS);
 	}
 

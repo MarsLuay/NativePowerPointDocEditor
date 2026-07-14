@@ -1,5 +1,18 @@
-import { EDITOR_CHROME_NO_TOOLTIP_ATTRIBUTE } from './docxEditorChromeMarkers';
-import { TooltipController } from './ui/TooltipController';
+import {
+	DOCX_EDITOR_FORMATTING_BAR_SELECTOR,
+	DOCX_EDITOR_MENUBAR_SELECTOR,
+	DOCX_EDITOR_ROOT_SELECTOR,
+	DOCX_EDITOR_TITLE_BAR_SELECTOR,
+	DOCX_EDITOR_TOOLBAR_SELECTOR,
+	DOCX_EIGENPAL_TOOLTIP_ATTRIBUTE,
+	DOCX_EIGENPAL_TOOLTIP_SELECTOR,
+	DOCX_HYPERLINK_POPUP_SELECTOR,
+	DOCX_RENDERED_PAGE_CONTENT_SELECTOR,
+	DOCX_RENDERED_PAGE_SELECTOR,
+	DOCX_TABLE_TOOLBAR_SELECTOR,
+	EDITOR_CHROME_NO_TOOLTIP_ATTRIBUTE,
+} from './docxEditorChromeMarkers';
+import { ControlTooltipAdapter } from './ui/ControlTooltipAdapter';
 import {
 	containsEventTarget,
 	getToolbarTooltipText,
@@ -22,56 +35,48 @@ export {
 
 export const DOCX_EDITOR_ROOT_CLASS_PREFIX = 'native-powerpoint-doc-editor-editor-';
 export const DOCX_TOOLBAR_TOOLTIP_CLASS = TOOLBAR_TOOLTIP_CLASS;
-export const EIGENPAL_TOOLTIP_ATTRIBUTE = 'data-native-powerpoint-doc-editor-eigenpal-tooltip';
-export const EIGENPAL_TOOLBAR_TOOLTIP_SELECTOR = [
-	`.ep-root [${EIGENPAL_TOOLTIP_ATTRIBUTE}]`,
-	'.ep-root [role="tooltip"]',
-	'.ep-root [data-radix-tooltip-content]',
-	'.ep-root .fixed.z-50.px-2.py-1.rounded-md.shadow-lg:not([role])',
-].join(', ');
+export const EIGENPAL_TOOLTIP_ATTRIBUTE = DOCX_EIGENPAL_TOOLTIP_ATTRIBUTE;
+export const EIGENPAL_TOOLBAR_TOOLTIP_SELECTOR = DOCX_EIGENPAL_TOOLTIP_SELECTOR;
 
-const DOCX_FORMATTING_TOOLBAR_SELECTOR = '[data-testid="formatting-bar"]';
+const DOCX_FORMATTING_TOOLBAR_SELECTOR = DOCX_EDITOR_FORMATTING_BAR_SELECTOR;
 
 export const DOCX_TOOLTIP_TOOLBAR_SELECTOR = [
-	'[data-testid="editor-toolbar"]',
-	'.docx-table-toolbar',
+	DOCX_EDITOR_TOOLBAR_SELECTOR,
+	DOCX_TABLE_TOOLBAR_SELECTOR,
 ].join(', ');
 
 const DOCX_TOOLTIP_BUTTON_SELECTOR = [
-	'[data-testid="editor-toolbar"] button',
-	'.docx-table-toolbar button',
+	`${DOCX_EDITOR_TOOLBAR_SELECTOR} button`,
+	`${DOCX_TABLE_TOOLBAR_SELECTOR} button`,
 ].join(', ');
 
 const TOOLBAR_BUTTON_SELECTOR = [
-	'.ep-root [data-testid="editor-toolbar"] button',
-	'.ep-root .docx-table-toolbar button',
+	`${DOCX_EDITOR_ROOT_SELECTOR} ${DOCX_EDITOR_TOOLBAR_SELECTOR} button`,
+	`${DOCX_EDITOR_ROOT_SELECTOR} ${DOCX_TABLE_TOOLBAR_SELECTOR} button`,
 ].join(', ');
 
 const DOCUMENT_LINK_TITLE_CONTAINER_SELECTOR = [
-	'.layout-page',
-	'.layout-page-content',
+	DOCX_RENDERED_PAGE_SELECTOR,
+	DOCX_RENDERED_PAGE_CONTENT_SELECTOR,
 	'.ProseMirror',
-	'.ep-hyperlink-popup',
+	DOCX_HYPERLINK_POPUP_SELECTOR,
 ].join(', ');
 
 const TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR = [
 	`[${EDITOR_CHROME_NO_TOOLTIP_ATTRIBUTE}]`,
-	'[data-testid="title-bar"]',
+	DOCX_EDITOR_TITLE_BAR_SELECTOR,
 	DOCX_FORMATTING_TOOLBAR_SELECTOR,
-	'[role="menubar"]',
+	DOCX_EDITOR_MENUBAR_SELECTOR,
 	'[role="menu"]',
 	'[role="dialog"]',
-	'.ep-hyperlink-popup',
-	'[data-radix-popper-content-wrapper]',
+	DOCX_HYPERLINK_POPUP_SELECTOR,
 ].join(', ');
 
 const EIGENPAL_TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR = [
-	'.ep-hyperlink-popup',
+	DOCX_HYPERLINK_POPUP_SELECTOR,
 	'[role="dialog"]',
 	'[role="menu"]',
 	'[role="listbox"]',
-	'[data-radix-select-content]',
-	'[data-radix-popper-content-wrapper]',
 ].join(', ');
 
 function getToolbarButtonMetadata(button: HTMLElement): string {
@@ -203,97 +208,99 @@ export function suppressEigenpalToolbarTooltips(editorRoot: HTMLElement | null):
 	});
 }
 
-const tooltipManagers = new WeakMap<HTMLElement, () => void>();
+/**
+ * DOCX adapter for shared delayed control tooltips. Beyond the shared hover
+ * lifecycle it suspends native `title` tooltips on document hyperlinks and
+ * keeps the vendored Eigenpal toolbar tooltips suppressed as the editor DOM
+ * mutates.
+ */
+class DocxToolbarTooltipController extends ControlTooltipAdapter {
+	protected resolveTarget(target: EventTarget | null, root: HTMLElement): HTMLElement | null {
+		return resolveDocxTooltipTarget(target, root);
+	}
 
-function installDocxToolbarTooltipManager(editorRoot: HTMLElement): () => void {
-	let activeDocumentLink: HTMLAnchorElement | null = null;
-	let eigenpalSuppressionTimer: number | null = null;
-	const view = editorRoot.ownerDocument.defaultView ?? window;
+	protected onTargetRecognized(_target: HTMLElement, root: HTMLElement): void {
+		suppressEigenpalToolbarTooltips(root);
+	}
 
-	const clearDocumentLinkTitle = (): void => {
-		restoreNativeTitle(activeDocumentLink);
-		activeDocumentLink = null;
-	};
+	protected onAttach(editorRoot: HTMLElement): () => void {
+		let activeDocumentLink: HTMLAnchorElement | null = null;
+		let eigenpalSuppressionTimer: number | null = null;
+		const view = editorRoot.ownerDocument.defaultView ?? window;
 
-	const scheduleEigenpalTooltipSuppression = (): void => {
-		if (eigenpalSuppressionTimer !== null) {
-			view.clearTimeout(eigenpalSuppressionTimer);
-		}
-		eigenpalSuppressionTimer = view.setTimeout(() => {
-			eigenpalSuppressionTimer = null;
-			suppressEigenpalToolbarTooltips(editorRoot);
-		}, 0);
-	};
+		const clearDocumentLinkTitle = (): void => {
+			restoreNativeTitle(activeDocumentLink);
+			activeDocumentLink = null;
+		};
 
-	const tooltipController = new TooltipController({
-		root: editorRoot,
-		getTarget: (target) => resolveDocxTooltipTarget(target, editorRoot),
-		onTargetRecognized: () => suppressEigenpalToolbarTooltips(editorRoot),
-	});
+		const scheduleEigenpalTooltipSuppression = (): void => {
+			if (eigenpalSuppressionTimer !== null) {
+				view.clearTimeout(eigenpalSuppressionTimer);
+			}
+			eigenpalSuppressionTimer = view.setTimeout(() => {
+				eigenpalSuppressionTimer = null;
+				suppressEigenpalToolbarTooltips(editorRoot);
+			}, 0);
+		};
 
-	const handlePointerOver = (evt: PointerEvent): void => {
-		const link = getDocumentLinkTitleTarget(evt.target, editorRoot);
-		if (link && link !== activeDocumentLink) {
+		const handlePointerOver = (evt: PointerEvent): void => {
+			const link = getDocumentLinkTitleTarget(evt.target, editorRoot);
+			if (link && link !== activeDocumentLink) {
+				clearDocumentLinkTitle();
+				activeDocumentLink = link;
+				suspendNativeTitle(link);
+			}
+		};
+
+		const handlePointerOut = (evt: PointerEvent): void => {
+			if (
+				activeDocumentLink
+				&& !containsEventTarget(activeDocumentLink, evt.relatedTarget)
+			) {
+				clearDocumentLinkTitle();
+			}
+		};
+
+		const handleBlur = (): void => {
 			clearDocumentLinkTitle();
-			activeDocumentLink = link;
-			suspendNativeTitle(link);
-		}
-	};
+		};
 
-	const handlePointerOut = (evt: PointerEvent): void => {
-		if (
-			activeDocumentLink
-			&& !containsEventTarget(activeDocumentLink, evt.relatedTarget)
-		) {
+		editorRoot.addEventListener('pointerover', handlePointerOver, true);
+		editorRoot.addEventListener('pointerout', handlePointerOut, true);
+		view.addEventListener('blur', handleBlur, false);
+
+		const eigenpalTooltipObserver = new MutationObserver(scheduleEigenpalTooltipSuppression);
+		eigenpalTooltipObserver.observe(editorRoot, { childList: true, subtree: true });
+		scheduleEigenpalTooltipSuppression();
+
+		return () => {
+			eigenpalTooltipObserver.disconnect();
+			if (eigenpalSuppressionTimer !== null) {
+				view.clearTimeout(eigenpalSuppressionTimer);
+				eigenpalSuppressionTimer = null;
+			}
+			editorRoot.removeEventListener('pointerover', handlePointerOver, true);
+			editorRoot.removeEventListener('pointerout', handlePointerOut, true);
+			view.removeEventListener('blur', handleBlur, false);
 			clearDocumentLinkTitle();
-		}
-	};
-
-	const handleBlur = (): void => {
-		clearDocumentLinkTitle();
-	};
-
-	editorRoot.addEventListener('pointerover', handlePointerOver, true);
-	editorRoot.addEventListener('pointerout', handlePointerOut, true);
-	view.addEventListener('blur', handleBlur, false);
-
-	const eigenpalTooltipObserver = new MutationObserver(scheduleEigenpalTooltipSuppression);
-	eigenpalTooltipObserver.observe(editorRoot, { childList: true, subtree: true });
-	scheduleEigenpalTooltipSuppression();
-
-	return () => {
-		eigenpalTooltipObserver.disconnect();
-		if (eigenpalSuppressionTimer !== null) {
-			view.clearTimeout(eigenpalSuppressionTimer);
-			eigenpalSuppressionTimer = null;
-		}
-		editorRoot.removeEventListener('pointerover', handlePointerOver, true);
-		editorRoot.removeEventListener('pointerout', handlePointerOut, true);
-		view.removeEventListener('blur', handleBlur, false);
-		tooltipController.detach();
-		clearDocumentLinkTitle();
-	};
+		};
+	}
 }
 
+const tooltipManagers = new WeakMap<HTMLElement, DocxToolbarTooltipController>();
+
 export function attachDocxToolbarTooltipManager(editorRoot: HTMLElement): () => void {
-	tooltipManagers.get(editorRoot)?.();
+	tooltipManagers.get(editorRoot)?.unload();
 
-	const detachManager = installDocxToolbarTooltipManager(editorRoot);
-	let detached = false;
-	const detach = (): void => {
-		if (detached) {
-			return;
-		}
+	const controller = new DocxToolbarTooltipController();
+	controller.load();
+	controller.attach(editorRoot);
+	tooltipManagers.set(editorRoot, controller);
 
-		detached = true;
-		detachManager();
-	};
-
-	tooltipManagers.set(editorRoot, detach);
 	return () => {
-		if (tooltipManagers.get(editorRoot) === detach) {
+		if (tooltipManagers.get(editorRoot) === controller) {
 			tooltipManagers.delete(editorRoot);
 		}
-		detach();
+		controller.unload();
 	};
 }

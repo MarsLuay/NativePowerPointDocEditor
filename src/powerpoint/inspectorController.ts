@@ -8,11 +8,13 @@ import { debugLog, errorLog } from '../logger';
 import type { PresentationEngine } from '../PresentationEngine';
 import { GENERATED_GRID_SELECTOR } from './constants';
 import { cleanError } from './runtimeCompat';
+import type { PresentationSession } from './session/PresentationSession';
 import { cloneTransform } from './svgUtils';
 import type { HistoryEntry } from './types';
 
 export interface InspectorHost {
   readonly t: TranslateFn;
+  readonly session: PresentationSession;
   readonly engine: PresentationEngine | null;
   readonly inspectorEl: HTMLElement | null;
   readonly selectedShapeIndex: number | null;
@@ -27,7 +29,6 @@ export interface InspectorHost {
   getSelectedShapeElement(): Element | null;
   captureHistoryEntry(label: string): Promise<HistoryEntry>;
   recordHistoryEntry(entry: HistoryEntry): void;
-  markDirty(): void;
   renderCurrentSlide(keepSelection?: boolean): Promise<boolean>;
   renderThumbnails(): Promise<void>;
   renderEditedShape(shapeIndex: number): Promise<boolean>;
@@ -172,9 +173,12 @@ export class InspectorController {
 
     try {
       const history = await this.host.captureHistoryEntry('Slide background');
-      await this.host.engine.setSlideBackgroundColor(this.host.currentSlide, hexColor);
+      await this.host.session.applyCommand({
+        type: 'set-slide-background-color',
+        slideIndex: this.host.currentSlide,
+        hex: hexColor
+      });
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide(true);
       if (rendered) {
         await this.host.renderThumbnails();
@@ -182,6 +186,7 @@ export class InspectorController {
       }
       debugLog('inspector', 'Changed PowerPoint slide background', {
         slide: this.host.currentSlide,
+        property: 'fill',
         color: hexColor
       });
     } catch (error) {
@@ -280,14 +285,19 @@ export class InspectorController {
     const chartShapeIndex = this.host.selectedShapeIndex;
     try {
       const history = await this.host.captureHistoryEntry('Edit chart data');
-      await this.host.engine.updateChartData(this.host.currentSlide, chartShapeIndex, update);
+      await this.host.session.applyCommand({
+        type: 'update-chart-data',
+        slideIndex: this.host.currentSlide,
+        shapeIndex: chartShapeIndex,
+        update
+      });
       this.host.recordHistoryEntry(history);
-      this.host.markDirty();
       const rendered = await this.host.renderEditedShape(chartShapeIndex);
       if (rendered) await this.host.renderThumbnails();
       debugLog('inspector', 'Updated PowerPoint chart data', {
         slide: this.host.currentSlide,
         shapeIndex: chartShapeIndex,
+        property: 'chart-data',
         categoryCount: update.categories.length,
         seriesCount: update.series.length
       });
@@ -364,6 +374,7 @@ export class InspectorController {
     debugLog('inspector', 'Applied PowerPoint inspector transform', {
       slide: this.host.currentSlide,
       shapeIndex: this.host.selectedShapeIndex,
+      properties: ['position', 'size', 'rotation'],
       x: transform.x,
       y: transform.y,
       width: transform.cx,

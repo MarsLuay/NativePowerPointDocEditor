@@ -1,14 +1,18 @@
 import { containsEventTarget, isElementLike } from '../ui/tooltipUtils';
+import {
+	EDITOR_CHROME_REGIONS,
+	PPTX_EDITOR_CHROME_TOOLBAR_POPOVER_CLASS,
+} from '../editorChromeRegions';
 
 export const POWERPOINT_TOOLTIP_TARGET_SELECTOR = [
-	'.native-powerpoint-toolbar button',
-	'.native-powerpoint-text-toolbar button',
+	`${EDITOR_CHROME_REGIONS.toolbar.pptx.selector} button`,
+	`${EDITOR_CHROME_REGIONS.contextToolbar.pptx.selector} button`,
 	'.native-powerpoint-find-panel button',
 	'.native-powerpoint-rotate-handle',
 ].join(', ');
 
 const POWERPOINT_TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR = [
-	'.native-powerpoint-toolbar-popover',
+	`.${PPTX_EDITOR_CHROME_TOOLBAR_POPOVER_CLASS}`,
 	'[role="dialog"]',
 	'[role="menu"]',
 ].join(', ');

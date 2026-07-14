@@ -1,9 +1,9 @@
-import { Notice, Platform, Plugin, setIcon } from 'obsidian';
+import { Notice, Platform, Plugin, normalizePath, setIcon } from 'obsidian';
 import {
 	NativePowerPointDocEditorSettingTab,
 	getNativePowerPointSettings,
 	normalizeEditorThemePreference,
-	readNativePowerPointDocEditorSettings,
+	mergeNativePowerPointDocEditorSettings,
 	resolveEditorThemePreference,
 	type NativePowerPointSettings,
 	type NativePowerPointDocEditorSettings,
@@ -25,6 +25,16 @@ import { getObsidianLocale } from './i18n/obsidianLocale';
 import type { PluginI18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { configureForceJsBackendOverrideReader } from './powerpoint/forceJsBackend';
+import {
+	AiCore,
+	createNpdeAiApi,
+	createAiRuntime,
+	listOpDefinitions,
+	registerAiCommands,
+	removeCapabilitiesManifest,
+	writeCapabilitiesManifest,
+	type NpdeAiApi,
+} from './ai';
 
 type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
@@ -52,8 +62,10 @@ const DOCX_LOG_AREAS = new Set([
 	'security',
 	'settings',
 	'view',
+	'agent',
 ]);
-type DebugLogScope = 'all' | 'docx';
+const PPTX_FILE_EXTENSIONS = ['.pptx', '.pptm', '.ppsx', '.ppsm', '.potx', '.potm'];
+type DebugLogScope = 'all' | 'docx' | 'pptx';
 const EDITOR_THEME_CLASSES = [
 	'native-powerpoint-doc-editor-theme-system',
 	'native-powerpoint-doc-editor-theme-light',
@@ -94,12 +106,15 @@ function loadPptxSupportModule(): Promise<PptxSupportModule> {
 }
 
 export default class NativePowerPointDocEditorPlugin extends Plugin {
-	settings: NativePowerPointDocEditorSettings;
+	pluginSettings: NativePowerPointDocEditorSettings;
 	i18n: PluginI18nService | null = null;
 	private docxSearchIndex: DocxSearchIndex | null = null;
 	private forceJsBackendDevOverride = false;
 	private lastAppliedResolvedEditorTheme?: EditorThemeResolution;
 	private editorThemeObserver: MutationObserver | null = null;
+	private aiCore: AiCore | null = null;
+	/** Agent API surface. Undefined when AI-Interfacing is disabled in settings. */
+	ai: NpdeAiApi | undefined;
 
 	setDocxSearchIndex(index: DocxSearchIndex) {
 		this.docxSearchIndex = index;
@@ -124,12 +139,29 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		preloadDocxEditorLocale(docxLanguage);
 		void loadDocxEditorLocale(docxLanguage);
 		this.applyEditorThemePreference();
-		configureNativePowerPointDocEditorLogger(this.settings.debugLogging);
+		configureNativePowerPointDocEditorLogger(this.pluginSettings.debugLogging);
+		this.aiCore = new AiCore({
+			getEnabled: () => this.pluginSettings.enableAiInterfacing,
+			pluginVersion: this.manifest.version,
+			runtime: createAiRuntime({
+				vault: this.app.vault,
+				normalizePath: (path) => normalizePath(path),
+				findOpenDocxView: (path) => {
+					if (!docxSupportModule) return null;
+					return docxSupportModule.findDocxViewForPath(this.app, path);
+				},
+				findOpenPptxView: (path) => {
+					if (!pptxSupportModule) return null;
+					return pptxSupportModule.findPptxViewForPath(this.app, path);
+				},
+			}),
+		});
+		await this.syncAiInterfacing();
 		infoLog('plugin', 'Plugin loaded', {
 			version: this.manifest.version,
-			debugLogging: this.settings.debugLogging,
+			debugLogging: this.pluginSettings.debugLogging,
 			locale: this.getResolvedLocale(),
-			editorTheme: this.settings.editorTheme,
+			editorTheme: this.pluginSettings.editorTheme,
 		});
 		configureObsidianRuntime({ Notice, Platform, setIcon });
 		configureChromiumVersionReader(() => {
@@ -144,13 +176,13 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 		configureForceJsBackendOverrideReader(() => this.forceJsBackendDevOverride);
 
-		if (!this.settings.disableDocxFiles) {
+		if (!this.pluginSettings.disableDocxFiles) {
 			await this.loadDocxSupport();
 		} else {
 			infoLog('plugin', 'DOCX support disabled by settings');
 		}
 
-		if (!this.settings.disablePowerPointFiles) {
+		if (!this.pluginSettings.disablePowerPointFiles) {
 			await this.loadPowerPointSupport();
 		} else {
 			infoLog('plugin', 'PowerPoint support disabled by settings');
@@ -173,12 +205,14 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'copy-debug-log',
+			id: 'copy-native-powerpoint-doc-editor-debug-log',
 			name: 'Copy debug log',
 			callback: async () => {
 				await this.copyDebugLog();
 			},
 		});
+
+		this.registerAiCommands();
 
 		this.addSettingTab(new NativePowerPointDocEditorSettingTab(this.app, this));
 		this.registerEditorThemeObserver();
@@ -189,6 +223,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		infoLog('plugin', 'Plugin unloaded');
 		this.editorThemeObserver?.disconnect();
 		this.editorThemeObserver = null;
+		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-resolved-theme');
@@ -292,6 +327,14 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			const pluginId = this.manifest.id;
 			infoLog('plugin', 'Detected rebuild; reloading plugin', { pluginId });
 			try {
+				if (pptxSupportModule && !await pptxSupportModule.savePowerPointViewsBeforePluginReload(this)) {
+					reloading = false;
+					errorLog('plugin', 'Hot reload aborted because an open PowerPoint file could not be saved', {
+						pluginId,
+					});
+					return;
+				}
+
 				const plugins = (this.app as unknown as {
 					plugins?: {
 						disablePlugin(id: string): Promise<void>;
@@ -320,11 +363,11 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	async loadSettings() {
 		const savedSettings = await this.loadData() as Record<string, unknown> | null;
-		const { settings, shouldPersistSettings } = readNativePowerPointDocEditorSettings(
+		const { settings, shouldPersistSettings } = mergeNativePowerPointDocEditorSettings(
 			savedSettings,
 			this.getObsidianThemeResolution(),
 		);
-		this.settings = settings;
+		this.pluginSettings = settings;
 
 		if (shouldPersistSettings) {
 			await this.saveSettings();
@@ -333,11 +376,60 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	async saveSettings() {
 		this.applyEditorThemePreference();
-		await this.saveData(this.settings);
+		await this.saveData(this.pluginSettings);
+	}
+
+	async syncAiInterfacing(): Promise<void> {
+		if (!this.aiCore) {
+			this.aiCore = new AiCore({
+				getEnabled: () => this.pluginSettings.enableAiInterfacing,
+				pluginVersion: this.manifest.version,
+				runtime: createAiRuntime({
+					vault: this.app.vault,
+					normalizePath: (path) => normalizePath(path),
+					findOpenDocxView: (path) => {
+						if (!docxSupportModule) return null;
+						return docxSupportModule.findDocxViewForPath(this.app, path);
+					},
+					findOpenPptxView: (path) => {
+						if (!pptxSupportModule) return null;
+						return pptxSupportModule.findPptxViewForPath(this.app, path);
+					},
+				}),
+			});
+		}
+
+		if (this.pluginSettings.enableAiInterfacing) {
+			this.ai = createNpdeAiApi(this.aiCore);
+			const manifestPath = await writeCapabilitiesManifest(
+				this.app.vault.adapter,
+				this.manifest.dir,
+				this.manifest.version,
+				true,
+			);
+			infoLog('agent', 'AI interfacing enabled', {
+				manifestPath,
+				operationCount: listOpDefinitions().length,
+			});
+			return;
+		}
+
+		this.ai = undefined;
+		await removeCapabilitiesManifest(this.app.vault.adapter, this.manifest.dir);
+		infoLog('agent', 'AI interfacing disabled');
+	}
+
+	private registerAiCommands(): void {
+		registerAiCommands({
+			plugin: this,
+			getI18n: () => this.getI18n(),
+			getAi: () => this.ai,
+		});
 	}
 
 	private applyEditorThemePreference(): boolean {
-		const editorTheme = normalizeEditorThemePreference(this.settings.editorTheme);
+		const activeDocument = this.app.workspace.containerEl.ownerDocument;
+		const editorTheme = normalizeEditorThemePreference(this.pluginSettings.editorTheme);
 		const resolvedTheme = this.resolveCurrentEditorTheme();
 		const themeClass = `native-powerpoint-doc-editor-theme-${editorTheme}`;
 		const resolvedThemeClass = `native-powerpoint-doc-editor-theme-resolved-${resolvedTheme}`;
@@ -368,7 +460,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			const previousResolvedTheme = this.lastAppliedResolvedEditorTheme;
 			this.applyEditorThemePreference();
 			if (
-				this.settings.editorTheme === 'system'
+				this.pluginSettings.editorTheme === 'system'
 				&& previousResolvedTheme !== undefined
 				&& previousResolvedTheme !== this.lastAppliedResolvedEditorTheme
 			) {
@@ -376,6 +468,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				this.refreshPowerPointViews();
 			}
 		});
+		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		this.editorThemeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ['class'] });
 		this.register(() => {
 			this.editorThemeObserver?.disconnect();
@@ -384,7 +477,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	}
 
 	private getObsidianThemeResolution(): EditorThemeResolution {
-		const bodyClassList = activeDocument.body.classList;
+		const bodyClassList = this.app.workspace.containerEl.ownerDocument.body?.classList;
 		if (bodyClassList?.contains('theme-dark')) {
 			return 'dark';
 		}
@@ -393,7 +486,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	private resolveCurrentEditorTheme(): EditorThemeResolution {
 		return resolveEditorThemePreference(
-			normalizeEditorThemePreference(this.settings.editorTheme),
+			normalizeEditorThemePreference(this.pluginSettings.editorTheme),
 			this.getObsidianThemeResolution(),
 		);
 	}
@@ -411,7 +504,19 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			} catch {
 				serializedData = String(entry.data).toLowerCase();
 			}
-			return DOCX_LOG_AREAS.has(entry.area)
+
+			if (scope === 'pptx') {
+				const message = entry.message.toLowerCase();
+				return entry.area === 'agent'
+					|| message.includes('powerpoint')
+					|| message.includes('pptx')
+					|| message.includes('ai ')
+					|| message.startsWith('ai ')
+					|| PPTX_FILE_EXTENSIONS.some((extension) => serializedData.includes(extension));
+			}
+
+			return entry.area === 'agent'
+				|| DOCX_LOG_AREAS.has(entry.area)
 				|| entry.message.toLowerCase().includes('docx')
 				|| serializedData.includes('.docx');
 		});
@@ -430,19 +535,20 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			},
 			settings: {
 				locale: this.getResolvedLocale(),
-				editorTheme: this.settings.editorTheme,
-				showRuler: this.settings.showRuler,
-				autosave: this.settings.autosave,
-				createBackupsBeforeSave: this.settings.createBackupsBeforeSave,
-				defaultZoom: this.settings.defaultZoom,
-				debugLogging: this.settings.debugLogging,
-				enableDocxSearchIndex: this.settings.enableDocxSearchIndex,
-				autoIndexDocxSearch: this.settings.autoIndexDocxSearch,
-				powerPointAutosaveEnabled: this.settings.powerPointAutosaveEnabled,
-				powerPointHideUnsupportedSvgContent: this.settings.powerPointHideUnsupportedSvgContent,
-				powerPointOpenWithYoloMode: this.settings.powerPointOpenWithYoloMode,
-				disableDocxFiles: this.settings.disableDocxFiles,
-				disablePowerPointFiles: this.settings.disablePowerPointFiles,
+				editorTheme: this.pluginSettings.editorTheme,
+				showRuler: this.pluginSettings.showRuler,
+				autosave: this.pluginSettings.autosave,
+				createBackupsBeforeSave: this.pluginSettings.createBackupsBeforeSave,
+				defaultZoom: this.pluginSettings.defaultZoom,
+				debugLogging: this.pluginSettings.debugLogging,
+				enableDocxSearchIndex: this.pluginSettings.enableDocxSearchIndex,
+				autoIndexDocxSearch: this.pluginSettings.autoIndexDocxSearch,
+				powerPointAutosaveEnabled: this.pluginSettings.powerPointAutosaveEnabled,
+				powerPointHideUnsupportedSvgContent: this.pluginSettings.powerPointHideUnsupportedSvgContent,
+				powerPointOpenWithYoloMode: this.pluginSettings.powerPointOpenWithYoloMode,
+				disableDocxFiles: this.pluginSettings.disableDocxFiles,
+				disablePowerPointFiles: this.pluginSettings.disablePowerPointFiles,
+				enableAiInterfacing: this.pluginSettings.enableAiInterfacing,
 			},
 			docxEditorBundle: 'main.js',
 			logStats: getNativePowerPointDocEditorLogStats(),
@@ -451,7 +557,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 		try {
 			await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
-			const label = scope === 'docx' ? 'DOCX' : 'Native PowerPoint Doc Editor';
+			const label = scope === 'docx' ? 'DOCX' : scope === 'pptx' ? 'PPTX' : 'Native PowerPoint Doc Editor';
 			showI18nNotice(this.getI18n(), 'settings:debug.logCopied', { count: payload.logs.length, label });
 		} catch (error) {
 			errorLog('diagnostics', 'Could not copy Native PowerPoint Doc Editor debug log', error);
@@ -489,10 +595,10 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	getPowerPointSettings(): NativePowerPointSettings {
 		return getNativePowerPointSettings(
-			this.settings,
+			this.pluginSettings,
 			this.getResolvedEditorTheme(),
 			async (value) => {
-				this.settings.powerPointOpenWithYoloMode = value;
+				this.pluginSettings.powerPointOpenWithYoloMode = value;
 				await this.saveSettings();
 			},
 		);

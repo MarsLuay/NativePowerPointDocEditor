@@ -3,6 +3,14 @@ import { type App, type Menu, TFile, normalizePath } from 'obsidian';
 import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
 import { createTranslateNotice } from '../i18n/translate';
 
+import {
+  getVaultFolderPrefix,
+  resolveArtifactConflict,
+  sanitizeArtifactBaseName,
+  writeVaultBinaryArtifact,
+  type ArtifactConflictChoice,
+  type ArtifactWriteTarget
+} from '../export/artifactPaths';
 import type { PresentationEngine } from '../PresentationEngine';
 import { debugLog, errorLog } from '../logger';
 import { exportSlideToPng, exportSlidesToPdf, exportSlidesToPngZip } from '../PowerPointExport';
@@ -46,6 +54,10 @@ export class ExportController {
       return;
     }
 
+    debugLog('export', 'PowerPoint export menu open started', {
+      op: 'open-menu',
+      slideCount: engine.slideCount
+    });
     const menu = this.host.createNativeMenu();
     menu.addItem((item) =>
       item
@@ -81,7 +93,10 @@ export class ExportController {
     if (!this.host.engine) return;
 
     try {
-      debugLog('export', 'PowerPoint PNG export started', { slide: this.host.currentSlide });
+      debugLog('export', 'PowerPoint PNG export started', {
+        op: 'current-slide-png',
+        slide: this.host.currentSlide
+      });
       const element = this.host.buildSlideSvgElement(this.host.currentSlide);
       if (!element) {
         throw new Error('This slide could not be rendered for export.');
@@ -94,11 +109,16 @@ export class ExportController {
         bytes
       );
       debugLog('export', 'PowerPoint PNG export completed', {
+        op: 'current-slide-png',
         slide: this.host.currentSlide,
         bytes: bytes.byteLength
       });
     } catch (error) {
-      errorLog('export', 'PowerPoint PNG export failed', { slide: this.host.currentSlide, error });
+      errorLog('export', 'PowerPoint PNG export failed', {
+        op: 'current-slide-png',
+        slide: this.host.currentSlide,
+        error
+      });
       this.notice('powerpoint:notice.couldNotExportSlidePng', { message: cleanError(error) });
     }
   }
@@ -108,6 +128,11 @@ export class ExportController {
     if (!engine) return;
 
     try {
+      debugLog('export', 'PowerPoint PDF export started', {
+        op: currentSlideOnly ? 'current-slide-pdf' : 'deck-pdf',
+        currentSlideOnly,
+        slideCount: currentSlideOnly ? 1 : engine.slideCount
+      });
       const indices = currentSlideOnly
         ? [this.host.currentSlide]
         : Array.from({ length: engine.slideCount }, (_, index) => index);
@@ -117,22 +142,23 @@ export class ExportController {
       }
 
       this.notice(currentSlideOnly ? 'powerpoint:notice.exportingSlideToPdf' : 'powerpoint:notice.exportingDeckToPdf');
-      debugLog('export', 'PowerPoint PDF export started', {
-        currentSlideOnly,
-        slideCount: indices.length
-      });
       const bytes = await exportSlidesToPdf(elements, this.host.ownerDocument);
       const baseName = currentSlideOnly
         ? `${this.getExportBaseName()}-slide-${this.host.currentSlide + 1}`
         : this.getExportBaseName();
       await this.saveExportArtifact(baseName, 'pdf', bytes);
       debugLog('export', 'PowerPoint PDF export completed', {
+        op: currentSlideOnly ? 'current-slide-pdf' : 'deck-pdf',
         currentSlideOnly,
         slideCount: indices.length,
         bytes: bytes.byteLength
       });
     } catch (error) {
-      errorLog('export', 'PowerPoint PDF export failed', { currentSlideOnly, error });
+      errorLog('export', 'PowerPoint PDF export failed', {
+        op: currentSlideOnly ? 'current-slide-pdf' : 'deck-pdf',
+        currentSlideOnly,
+        error
+      });
       this.notice('powerpoint:notice.couldNotExportPdf', { message: cleanError(error) });
     }
   }
@@ -142,6 +168,10 @@ export class ExportController {
     if (!engine) return;
 
     try {
+      debugLog('export', 'PowerPoint PNG zip export started', {
+        op: 'deck-png-zip',
+        slideCount: engine.slideCount
+      });
       const indices = Array.from({ length: engine.slideCount }, (_, index) => index);
       const elements = this.host.collectSvgElements(indices);
       if (elements.length === 0) {
@@ -150,15 +180,15 @@ export class ExportController {
 
       this.notice('powerpoint:notice.exportingDeckPngs');
       const baseName = this.getExportBaseName();
-      debugLog('export', 'PowerPoint PNG zip export started', { slideCount: indices.length });
       const bytes = await exportSlidesToPngZip(elements, this.host.ownerDocument, baseName);
       await this.saveExportArtifact(`${baseName}-slides`, 'zip', bytes);
       debugLog('export', 'PowerPoint PNG zip export completed', {
+        op: 'deck-png-zip',
         slideCount: indices.length,
         bytes: bytes.byteLength
       });
     } catch (error) {
-      errorLog('export', 'PowerPoint PNG zip export failed', { error });
+      errorLog('export', 'PowerPoint PNG zip export failed', { op: 'deck-png-zip', error });
       this.notice('powerpoint:notice.couldNotExportPngImages', { message: cleanError(error) });
     }
   }
@@ -168,69 +198,49 @@ export class ExportController {
     return file?.basename || 'presentation';
   }
 
-  private getAvailableNumberedPath(path: string): string {
-    const lastSlashIndex = path.lastIndexOf('/');
-    const folderPrefix = lastSlashIndex >= 0 ? `${path.slice(0, lastSlashIndex)}/` : '';
-    const fileName = lastSlashIndex >= 0 ? path.slice(lastSlashIndex + 1) : path;
-    const extensionIndex = fileName.lastIndexOf('.');
-    const baseName = extensionIndex > 0 ? fileName.slice(0, extensionIndex) : fileName;
-    const extension = extensionIndex > 0 ? fileName.slice(extensionIndex) : '';
-
-    for (let index = 2; index < 1000; index += 1) {
-      const candidatePath = normalizePath(`${folderPrefix}${baseName} ${index}${extension}`);
-      if (!this.host.app.vault.getAbstractFileByPath(candidatePath)) {
-        return candidatePath;
-      }
-    }
-
-    return normalizePath(`${folderPrefix}${baseName} ${Date.now()}${extension}`);
+  private promptOverwriteChoice(): Promise<ArtifactConflictChoice> {
+    return new Promise<ArtifactConflictChoice>((resolve) => {
+      const menu = this.host.createNativeMenu();
+      menu.addItem((item) => item.setTitle('Replace existing file').setIcon('refresh-cw').onClick(() => resolve('replace')));
+      menu.addItem((item) => item.setTitle('Keep both (numbered copy)').setIcon('copy-plus').onClick(() => resolve('keep-both')));
+      menu.addItem((item) => item.setTitle('Cancel export').setIcon('x').onClick(() => resolve('cancel')));
+      menu.onHide(() => resolve('cancel'));
+      const view = this.host.ownerDocument.defaultView;
+      const x = view ? view.innerWidth / 2 : 200;
+      const y = view ? view.innerHeight / 3 : 200;
+      menu.showAtPosition({ x, y });
+    });
   }
 
   private async saveExportArtifact(baseName: string, extension: string, data: ArrayBuffer): Promise<void> {
-    const source = this.host.sourceFile;
-    const folderPath = source?.parent?.path;
-    const folderPrefix = folderPath && folderPath !== '/' ? `${folderPath}/` : '';
-    const safeBaseName = baseName.replace(/[\\/:*?"<>|]/g, '_') || 'presentation';
-    let targetPath = normalizePath(`${folderPrefix}${safeBaseName}.${extension}`);
+    const vault = this.host.app.vault;
+    const exists = (path: string): boolean => Boolean(vault.getAbstractFileByPath(path));
+    const folderPrefix = getVaultFolderPrefix(this.host.sourceFile?.parent?.path);
+    const safeBaseName = sanitizeArtifactBaseName(baseName, 'presentation');
+    const requestedPath = normalizePath(`${folderPrefix}${safeBaseName}.${extension}`);
 
-    const existing = this.host.app.vault.getAbstractFileByPath(targetPath);
+    let target: ArtifactWriteTarget = { path: requestedPath, existingFile: null, replace: false };
+    const existing = vault.getAbstractFileByPath(requestedPath);
     if (existing) {
       if (!(existing instanceof TFile)) {
-        this.notice('powerpoint:notice.pathExistsNotFile', { path: targetPath });
+        this.notice('powerpoint:notice.pathExistsNotFile', { path: requestedPath });
         return;
       }
 
-      const choice = await new Promise<'replace' | 'keep-both' | 'cancel'>((resolve) => {
-        const menu = this.host.createNativeMenu();
-        menu.addItem((item) => item.setTitle('Replace existing file').setIcon('refresh-cw').onClick(() => resolve('replace')));
-        menu.addItem((item) => item.setTitle('Keep both (numbered copy)').setIcon('copy-plus').onClick(() => resolve('keep-both')));
-        menu.addItem((item) => item.setTitle('Cancel export').setIcon('x').onClick(() => resolve('cancel')));
-        menu.onHide(() => resolve('cancel'));
-        const view = this.host.ownerDocument.defaultView;
-        const x = view ? view.innerWidth / 2 : 200;
-        const y = view ? view.innerHeight / 3 : 200;
-        menu.showAtPosition({ x, y });
-      });
-
-      if (choice === 'cancel') return;
-      if (choice === 'keep-both') {
-        targetPath = this.getAvailableNumberedPath(targetPath);
-      }
+      const resolved = resolveArtifactConflict(requestedPath, existing, await this.promptOverwriteChoice(), exists);
+      if (!resolved) return;
+      target = resolved;
     }
 
-    const existingTarget = this.host.app.vault.getAbstractFileByPath(targetPath);
-    if (existingTarget instanceof TFile) {
-      await this.host.app.vault.modifyBinary(existingTarget, data);
-    } else {
-      await this.host.app.vault.createBinary(targetPath, data);
-    }
+    const written = await writeVaultBinaryArtifact(vault, target, data);
 
     debugLog('export', 'PowerPoint export artifact written', {
-      targetPath,
+      op: 'save-artifact',
+      targetPath: written.path,
       extension,
       bytes: data.byteLength,
-      replaced: existingTarget instanceof TFile
+      replaced: target.replace
     });
-    this.notice('powerpoint:notice.exportedTo', { path: targetPath });
+    this.notice('powerpoint:notice.exportedTo', { path: written.path });
   }
 }

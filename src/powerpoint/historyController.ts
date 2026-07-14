@@ -7,7 +7,7 @@ import type { PresentationEngine } from '../PresentationEngine';
 import { HISTORY_LIMIT } from './constants';
 import { debugLog, errorLog } from '../logger';
 import { cleanError } from './runtimeCompat';
-import type { HistoryEntry } from './types';
+import type { HistoryEntry, HistorySlideXmlEntry, HistoryTransformChange } from './types';
 
 /**
  * The slice of `NativePowerPointView` that the undo/redo subsystem reaches back
@@ -28,6 +28,7 @@ export interface HistoryHost {
   markDirty(): void;
   renderCurrentSlide(keepSelection?: boolean): Promise<boolean>;
   renderThumbnails(): Promise<void>;
+  scheduleThumbnailRefresh(indices: number | number[]): void;
 }
 
 /**
@@ -66,6 +67,7 @@ export class HistoryController {
 
   /** Registers the toolbar buttons so availability/labels can be kept in sync. */
   attachButtons(undoButton: HTMLButtonElement, redoButton: HTMLButtonElement): void {
+    debugLog('history', 'PowerPoint history button attachment started', { op: 'attach-buttons' });
     this.undoButton = undoButton;
     this.redoButton = redoButton;
   }
@@ -75,26 +77,140 @@ export class HistoryController {
       throw new Error('Open a loaded PowerPoint file first.');
     }
 
-    const buffer = await this.host.engine.export();
-    debugLog('history', 'Captured PowerPoint history snapshot', {
+    debugLog('history', 'PowerPoint history snapshot capture started', {
+      op: 'capture-snapshot',
       label,
-      slide: this.host.currentSlide,
-      bytes: buffer.byteLength
+      slide: this.host.currentSlide
+    });
+    try {
+      const buffer = await this.host.engine.export();
+      debugLog('history', 'Captured PowerPoint history snapshot', {
+        op: 'capture-snapshot',
+        label,
+        slide: this.host.currentSlide,
+        bytes: buffer.byteLength
+      });
+      return {
+        kind: 'snapshot',
+        buffer,
+        currentSlide: this.host.currentSlide,
+        label
+      };
+    } catch (error) {
+      errorLog('history', 'PowerPoint history snapshot capture failed', {
+        op: 'capture-snapshot',
+        label,
+        error
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Records an object transform as a before/after delta instead of a full-deck
+   * snapshot. This keeps drag/resize commits off the expensive
+   * `engine.export()` path, which is the main cause of move lag on large decks.
+   */
+  captureTransform(slideIndex: number, changes: HistoryTransformChange[], label: string): HistoryEntry {
+    debugLog('history', 'PowerPoint transform history capture started', {
+      op: 'capture-transform',
+      label,
+      slide: slideIndex,
+      changeCount: changes.length
     });
     return {
-      buffer,
+      kind: 'transform',
+      slideIndex,
+      changes: changes.map((change) => ({ ...change })),
       currentSlide: this.host.currentSlide,
       label
     };
   }
 
+  captureSlideXml(slideIndex: number, label: string): HistorySlideXmlEntry {
+    if (!this.host.engine) {
+      throw new Error('Open a loaded PowerPoint file first.');
+    }
+
+    debugLog('history', 'PowerPoint slide XML history capture started', {
+      op: 'capture-slide-xml',
+      label,
+      slide: slideIndex
+    });
+    try {
+      const beforeXml = this.host.engine.getSlideXml(slideIndex);
+      debugLog('history', 'Captured PowerPoint slide XML history base', {
+        op: 'capture-slide-xml',
+        label,
+        slide: slideIndex,
+        chars: beforeXml.length
+      });
+      return {
+        kind: 'slideXml',
+        slideIndex,
+        beforeXml,
+        afterXml: beforeXml,
+        currentSlide: this.host.currentSlide,
+        label
+      };
+    } catch (error) {
+      errorLog('history', 'PowerPoint slide XML history capture failed', {
+        op: 'capture-slide-xml',
+        label,
+        slide: slideIndex,
+        error
+      });
+      throw error;
+    }
+  }
+
+  completeSlideXml(entry: HistorySlideXmlEntry): HistorySlideXmlEntry {
+    if (!this.host.engine) {
+      throw new Error('Open a loaded PowerPoint file first.');
+    }
+
+    debugLog('history', 'PowerPoint slide XML history completion started', {
+      op: 'complete-slide-xml',
+      label: entry.label,
+      slide: entry.slideIndex
+    });
+    try {
+      const afterXml = this.host.engine.getSlideXml(entry.slideIndex);
+      debugLog('history', 'Captured PowerPoint slide XML history result', {
+        op: 'complete-slide-xml',
+        label: entry.label,
+        slide: entry.slideIndex,
+        beforeChars: entry.beforeXml.length,
+        afterChars: afterXml.length,
+        changed: entry.beforeXml !== afterXml
+      });
+      return {
+        ...entry,
+        afterXml
+      };
+    } catch (error) {
+      errorLog('history', 'PowerPoint slide XML history completion failed', {
+        op: 'complete-slide-xml',
+        label: entry.label,
+        slide: entry.slideIndex,
+        error
+      });
+      throw error;
+    }
+  }
+
   record(entry: HistoryEntry): void {
+    debugLog('history', 'PowerPoint history entry record started', {
+      op: 'record',
+      label: entry.label
+    });
     this.undoStack.push(entry);
     if (this.undoStack.length > HISTORY_LIMIT) {
       this.undoStack.shift();
     }
     this.redoStack = [];
     debugLog('history', 'Recorded PowerPoint history entry', {
+      op: 'record',
       label: entry.label,
       undoDepth: this.undoStack.length,
       redoDepth: this.redoStack.length
@@ -103,10 +219,11 @@ export class HistoryController {
   }
 
   clear(): void {
+    debugLog('history', 'PowerPoint history clear started', { op: 'clear' });
     this.undoStack = [];
     this.redoStack = [];
     this.isRestoringHistory = false;
-    debugLog('history', 'Cleared PowerPoint history');
+    debugLog('history', 'Cleared PowerPoint history', { op: 'clear' });
     this.updateAvailability();
   }
 
@@ -138,26 +255,61 @@ export class HistoryController {
     this.host.clearDragState();
     this.updateAvailability();
     debugLog('history', `PowerPoint ${action} started`, {
+      op: action,
       label: entry.label,
       sourceDepth: source.length,
       destinationDepth: destination.length
     });
 
     try {
-      const current = await this.capture(entry.label);
-      await this.host.engine.restoreSnapshot(entry.buffer);
-      source.pop();
-      destination.push(current);
-      if (destination.length > HISTORY_LIMIT) {
-        destination.shift();
+      if (entry.kind === 'transform') {
+        for (const change of entry.changes) {
+          await this.host.engine.updateShapeTransform(
+            entry.slideIndex,
+            change.shapeIndex,
+            action === 'undo' ? change.before : change.after
+          );
+        }
+        source.pop();
+        destination.push(entry);
+        if (destination.length > HISTORY_LIMIT) {
+          destination.shift();
+        }
+        this.host.currentSlide = Math.max(0, Math.min(entry.slideIndex, this.host.engine.slideCount - 1));
+      } else if (entry.kind === 'slideXml') {
+        await this.host.engine.restoreSlideXml(
+          entry.slideIndex,
+          action === 'undo' ? entry.beforeXml : entry.afterXml
+        );
+        source.pop();
+        destination.push(entry);
+        if (destination.length > HISTORY_LIMIT) {
+          destination.shift();
+        }
+        this.host.currentSlide = Math.max(0, Math.min(entry.slideIndex, this.host.engine.slideCount - 1));
+      } else {
+        const current = await this.capture(entry.label);
+        await this.host.engine.restoreSnapshot(entry.buffer);
+        source.pop();
+        destination.push(current);
+        if (destination.length > HISTORY_LIMIT) {
+          destination.shift();
+        }
+        this.host.currentSlide = Math.max(0, Math.min(entry.currentSlide, this.host.engine.slideCount - 1));
       }
 
-      this.host.currentSlide = Math.max(0, Math.min(entry.currentSlide, this.host.engine.slideCount - 1));
       this.host.clearSelection();
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.host.renderThumbnails();
+      if (rendered) {
+        if (entry.kind === 'transform' || entry.kind === 'slideXml') {
+          this.host.scheduleThumbnailRefresh(entry.slideIndex);
+        } else {
+          await this.host.renderThumbnails();
+        }
+      }
       debugLog('history', `PowerPoint ${action} completed`, {
+        op: action,
         label: entry.label,
         slide: this.host.currentSlide,
         sourceDepth: source.length,
@@ -165,6 +317,7 @@ export class HistoryController {
       });
     } catch (error) {
       errorLog('history', `PowerPoint ${action} failed`, {
+        op: action,
         label: entry.label,
         error
       });

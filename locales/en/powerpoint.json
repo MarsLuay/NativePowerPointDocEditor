@@ -87,6 +87,7 @@
 		"tableSizePicker": "Insert table"
 	},
 	"notice": {
+		"createFailed": "Could not create PPTX: {message}",
 		"switchFilesPreserveFailed": "Could not switch files because unsaved edits from {fileName} could not be preserved.",
 		"closeUnsafe": "Native PowerPoint could not close safely. Keep this tab open and retry saving or closing after resolving the vault write error.",
 		"openModernToSave": "Open a modern PowerPoint file to save it.",
@@ -115,6 +116,7 @@
 		"couldNotUngroupObjects": "Could not ungroup objects: {message}",
 		"couldNotInsertImage": "Could not insert image: {message}",
 		"couldNotInsertShape": "Could not insert shape: {message}",
+		"couldNotChangeShapeFillColor": "Could not change shape fill color: {message}",
 		"couldNotInsertTable": "Could not insert table: {message}",
 		"couldNotInsertChart": "Could not insert chart: {message}",
 		"selectTextBoxFirst": "Select a text box or place the caret in text first.",
@@ -148,6 +150,7 @@
 		"generatedChartLabel": "This chart label is generated from numeric scale or data. Edit a highlighted chart title, legend, or category label instead.",
 		"couldNotMoveObjects": "Could not move objects: {message}",
 		"couldNotUpdateObject": "Could not update object: {message}",
+		"objectNotEditable": "This object can't be moved or resized because it isn't stored directly on the slide.",
 		"recoveryCopyUnavailable": "Could not create a Native PowerPoint recovery copy because the open presentation is unavailable.",
 		"recoveryCopyCreated": "Unsaved edits were not written to {fileName}. Recovery copy created while {reason}: {recoveryPath}",
 		"saveValidationFailedRecovery": "Save validation failed, so {fileName} was not overwritten. An unvalidated recovery export was created at {recoveryPath}. {validationError}",
@@ -231,6 +234,9 @@
 		"selectFileToOpen": "Select a PowerPoint file to open it.",
 		"openToSave": "Open a PowerPoint file to save it."
 	},
+	"menu": {
+		"newPptx": "New PPTX"
+	},
 	"inspector": {
 		"title": "Inspector",
 		"slideBackground": "Slide background",
@@ -259,6 +265,7 @@
 	},
 	"contextMenu": {
 		"newTextBox": "New text box",
+		"shapeFillColor": "Shape fill color…",
 		"cropImage": "Crop image…",
 		"resetImage": "Reset image",
 		"setAsBackground": "Set as background",

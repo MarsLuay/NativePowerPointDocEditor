@@ -32,6 +32,23 @@ export interface DragState {
   centerClientX?: number;
   centerClientY?: number;
   startAngle?: number;
+  /** Live-preview element (the dragged shape group) and its original transform. */
+  previewElement?: SVGGElement | null;
+  previewOriginalTransform?: string | null;
+  /** Text boxes keep their rendered contents unchanged until resize commit. */
+  freezeShapeDuringResize?: boolean;
+  /** Pane pixels per EMU; cached at drag start for overlay positioning. */
+  paneEmuScaleX?: number;
+  paneEmuScaleY?: number;
+  /** Live picture resize preview: inner {@link SVGImageElement} attrs at drag start. */
+  previewImageElement?: SVGImageElement | null;
+  previewImageAttrs?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    transform: string | null;
+  } | null;
 }
 
 export interface MarqueeState {
@@ -103,6 +120,8 @@ export interface InlineSelectionDrag {
   pendingFrame: number | null;
   pendingClientX: number;
   pendingClientY: number;
+  lastLogKey?: string | null;
+  lastLogAt?: number;
   cleanup: () => void;
 }
 
@@ -118,11 +137,46 @@ export interface CanvasScrollPosition {
   top: number;
 }
 
-export interface HistoryEntry {
+export interface HistorySnapshotEntry {
+  kind: 'snapshot';
   buffer: ArrayBuffer;
   currentSlide: number;
   label: string;
 }
+
+export interface HistoryTransformChange {
+  shapeIndex: number;
+  before: ShapeTransform;
+  after: ShapeTransform;
+}
+
+/**
+ * Lightweight undo record for object move/resize/rotate. Stores only the
+ * before/after transforms so the drag-commit path never has to export the whole
+ * deck (which is the dominant source of lag on large presentations).
+ */
+export interface HistoryTransformEntry {
+  kind: 'transform';
+  slideIndex: number;
+  changes: HistoryTransformChange[];
+  currentSlide: number;
+  label: string;
+}
+
+/**
+ * Lightweight undo record for edits that only mutate one slide's XML, such as
+ * text formatting. Avoids exporting the whole deck before every toolbar click.
+ */
+export interface HistorySlideXmlEntry {
+  kind: 'slideXml';
+  slideIndex: number;
+  beforeXml: string;
+  afterXml: string;
+  currentSlide: number;
+  label: string;
+}
+
+export type HistoryEntry = HistorySnapshotEntry | HistoryTransformEntry | HistorySlideXmlEntry;
 
 export interface ShapeTextEditTarget {
   kind: 'shape-paragraph';

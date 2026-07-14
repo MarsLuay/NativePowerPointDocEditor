@@ -87,6 +87,7 @@
 		"tableSizePicker": "Wstaw tabelę"
 	},
 	"notice": {
+		"createFailed": "Nie udało się utworzyć PPTX: {message}",
 		"switchFilesPreserveFailed": "Nie można przełączyć plików, ponieważ niezapisane zmiany z pliku {fileName} nie mogły zostać zachowane.",
 		"closeUnsafe": "Native PowerPoint nie mógł bezpiecznie zamknąć widoku. Pozostaw tę kartę otwartą i spróbuj ponownie zapisać lub zamknąć po rozwiązaniu błędu zapisu w skarbcu.",
 		"openModernToSave": "Otwórz nowoczesny plik PowerPoint, aby go zapisać.",
@@ -115,6 +116,7 @@
 		"couldNotUngroupObjects": "Nie udało się rozgrupować obiektów: {message}",
 		"couldNotInsertImage": "Nie udało się wstawić obrazu: {message}",
 		"couldNotInsertShape": "Nie udało się wstawić kształtu: {message}",
+		"couldNotChangeShapeFillColor": "Nie udało się zmienić koloru wypełnienia kształtu: {message}",
 		"couldNotInsertTable": "Nie udało się wstawić tabeli: {message}",
 		"couldNotInsertChart": "Nie udało się wstawić wykresu: {message}",
 		"selectTextBoxFirst": "Zaznacz pole tekstowe lub ustaw kursor w tekście.",
@@ -148,6 +150,7 @@
 		"generatedChartLabel": "Ta etykieta wykresu jest generowana ze skali liczbowej lub danych. Zamiast tego edytuj podświetlony tytuł wykresu, legendę lub etykietę kategorii.",
 		"couldNotMoveObjects": "Nie udało się przesunąć obiektów: {message}",
 		"couldNotUpdateObject": "Nie udało się zaktualizować obiektu: {message}",
+		"objectNotEditable": "Tego obiektu nie można przesunąć ani zmienić rozmiaru, ponieważ nie jest zapisany bezpośrednio na slajdzie.",
 		"recoveryCopyUnavailable": "Nie można utworzyć kopii zapasowej Native PowerPoint, ponieważ otwarta prezentacja jest niedostępna.",
 		"recoveryCopyCreated": "Niezapisane zmiany nie zostały zapisane w {fileName}. Utworzono kopię zapasową podczas {reason}: {recoveryPath}",
 		"saveValidationFailedRecovery": "Walidacja zapisu nie powiodła się, więc {fileName} nie został nadpisany. Utworzono niezweryfikowany eksport zapasowy w {recoveryPath}. {validationError}",
@@ -231,6 +234,9 @@
 		"selectFileToOpen": "Zaznacz plik PowerPoint, aby go otworzyć.",
 		"openToSave": "Otwórz plik PowerPoint, aby go zapisać."
 	},
+	"menu": {
+		"newPptx": "Nowy PPTX"
+	},
 	"inspector": {
 		"title": "Inspektor",
 		"slideBackground": "Tło slajdu",
@@ -259,6 +265,7 @@
 	},
 	"contextMenu": {
 		"newTextBox": "Nowe pole tekstowe",
+		"shapeFillColor": "Kolor wypełnienia kształtu…",
 		"cropImage": "Przytnij obraz…",
 		"resetImage": "Resetuj obraz",
 		"setAsBackground": "Ustaw jako tło",

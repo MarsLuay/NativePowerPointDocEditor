@@ -1,9 +1,4 @@
-import accessibilityEn from '../../locales/en/accessibility.json';
-import commonEn from '../../locales/en/common.json';
-import docxEn from '../../locales/en/docx.json';
-import errorsEn from '../../locales/en/errors.json';
-import powerpointEn from '../../locales/en/powerpoint.json';
-import settingsEn from '../../locales/en/settings.json';
+import { BUNDLED_LOCALE_JSON, BUNDLED_LOCALES } from './bundledLocaleRegistry';
 import { loadEigenpalMessages, type LoadedLocale } from './eigenpalAdapter';
 import { getLocaleDirection, localeCandidates } from './localeResolver';
 
@@ -25,15 +20,6 @@ export interface LocaleFileAdapter {
 	read(path: string): Promise<string>;
 	list(path: string): Promise<Array<{ name: string; type: 'file' | 'folder' }>>;
 }
-
-const BUNDLED_EN_LOCALE_JSON: Record<LocaleNamespace, Record<string, unknown>> = {
-	common: commonEn,
-	settings: settingsEn,
-	docx: docxEn,
-	powerpoint: powerpointEn,
-	errors: errorsEn,
-	accessibility: accessibilityEn,
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -79,12 +65,13 @@ export function mergeNamespaceMessages(
 }
 
 export function loadBundledPluginMessages(locale: string): PluginMessages {
-	if (locale !== 'en') {
+	const localeJson = BUNDLED_LOCALE_JSON[locale as keyof typeof BUNDLED_LOCALE_JSON];
+	if (!localeJson) {
 		return {};
 	}
 
 	return LOCALE_NAMESPACES.reduce<PluginMessages>((messages, namespace) => {
-		Object.assign(messages, mergeNamespaceMessages(namespace, BUNDLED_EN_LOCALE_JSON[namespace]));
+		Object.assign(messages, mergeNamespaceMessages(namespace, localeJson[namespace]));
 		return messages;
 	}, {});
 }
@@ -143,13 +130,23 @@ export async function loadPluginMessagesFromAdapter(
 	return merged;
 }
 
+export function loadBundledPluginMessagesWithFallback(locale: string): PluginMessages {
+	let merged: PluginMessages = {};
+
+	for (const candidate of [...localeCandidates(locale)].reverse()) {
+		merged = { ...merged, ...loadBundledPluginMessages(candidate) };
+	}
+
+	return merged;
+}
+
 export async function loadLocale(
 	adapter: LocaleFileAdapter,
 	pluginDir: string,
 	requestedLocale: string,
 ): Promise<LoadedLocale> {
 	const canonical = localeCandidates(requestedLocale)[0] ?? 'en';
-	const [pluginMessages, eigenpalMessages] = await Promise.all([
+	const [adapterMessages, eigenpalMessages] = await Promise.all([
 		loadPluginMessagesFromAdapter(adapter, pluginDir, canonical),
 		loadEigenpalMessages(canonical),
 	]);
@@ -157,7 +154,10 @@ export async function loadLocale(
 	return {
 		locale: canonical,
 		direction: getLocaleDirection(canonical),
-		pluginMessages,
+		pluginMessages: {
+			...loadBundledPluginMessagesWithFallback(canonical),
+			...adapterMessages,
+		},
 		eigenpalMessages,
 	};
 }
@@ -167,15 +167,14 @@ export async function listInstalledLocales(
 	pluginDir: string,
 ): Promise<string[]> {
 	const localesDir = `${pluginDir}/locales`;
-	if (!(await adapter.exists(localesDir))) {
-		return ['en'];
+	const locales = [...BUNDLED_LOCALES];
+	if (await adapter.exists(localesDir)) {
+		const entries = await adapter.list(localesDir);
+		locales.push(...entries
+			.filter((entry) => entry.type === 'folder')
+			.map((entry) => getLocaleEntryName(entry.name))
+			.filter((name) => name.length > 0 && name !== '.' && name !== '..'));
 	}
 
-	const entries = await adapter.list(localesDir);
-	const locales = entries
-		.filter((entry) => entry.type === 'folder')
-		.map((entry) => getLocaleEntryName(entry.name))
-		.filter((name) => name.length > 0 && name !== '.' && name !== '..');
-
-	return locales.length > 0 ? [...new Set(locales)] : ['en'];
+	return [...new Set(locales)];
 }

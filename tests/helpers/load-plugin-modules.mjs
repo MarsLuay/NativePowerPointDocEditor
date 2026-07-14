@@ -5,8 +5,10 @@ import Module, { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { patchPptxRendererSource } from "../../scripts/lib/patch-pptx-renderer.mjs";
+import { createVendoredDocxAliases } from "../../scripts/lib/vendored-docx-aliases.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const vendoredDocxAliases = await createVendoredDocxAliases(path.join(projectRoot, "src/vendor/eigenpal"));
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require("@xmldom/xmldom");
 let tempDirectoryPromise;
@@ -22,6 +24,9 @@ let docxParagraphLayoutRelayoutModulePromise;
 let docxTableCellFontSizePreserverModulePromise;
 let docxFloatingLayerLayoutModulePromise;
 let docxEditorChromeMarkersModulePromise;
+let docxSessionModulePromise;
+let fakeDocxEditorAdapterModulePromise;
+let docxToolbarTooltipModulePromise;
 let tooltipControllerModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
@@ -44,10 +49,11 @@ function getTempDirectory() {
   return tempDirectoryPromise;
 }
 
-async function bundleSource(entry, outputName, external = []) {
+async function bundleSource(entry, outputName, external = [], plugins = []) {
   const outputDirectory = await getTempDirectory();
   const outfile = path.join(outputDirectory, outputName);
   await build({
+    alias: vendoredDocxAliases,
     entryPoints: [path.join(projectRoot, entry)],
     bundle: true,
     external,
@@ -55,6 +61,7 @@ async function bundleSource(entry, outputName, external = []) {
     logLevel: "silent",
     outfile,
     platform: "node",
+    plugins,
     target: "node22",
   });
   return outfile;
@@ -67,7 +74,18 @@ const stubObsidianPlugin = {
   setup(buildContext) {
     buildContext.onResolve({ filter: /^obsidian$/ }, () => ({ path: "obsidian", namespace: "stub-obsidian" }));
     buildContext.onLoad({ filter: /.*/, namespace: "stub-obsidian" }, () => ({
-      contents: "export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };",
+      contents: `
+        export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };
+        export class Component {
+          constructor() { this.cleanups = []; }
+          register(cleanup) { this.cleanups.push(cleanup); }
+          load() { this.onload?.(); }
+          unload() {
+            this.onunload?.();
+            for (const cleanup of this.cleanups.splice(0)) cleanup();
+          }
+        }
+      `,
       loader: "js",
     }));
   },
@@ -231,11 +249,30 @@ export function loadDocxEditorChromeMarkersModule() {
   return docxEditorChromeMarkersModulePromise;
 }
 
+export function loadDocxSessionModule() {
+	docxSessionModulePromise ??= bundleSource(
+		"src/docx/session/DocxSession.ts",
+		"docx-session.cjs",
+	).then((outfile) => require(outfile));
+	return docxSessionModulePromise;
+}
+
+export function loadFakeDocxEditorAdapterModule() {
+	fakeDocxEditorAdapterModulePromise ??= bundleSource(
+		"src/docx/adapter/FakeDocxEditorAdapter.ts",
+		"fake-docx-editor-adapter.cjs",
+	).then((outfile) => require(outfile));
+	return fakeDocxEditorAdapterModulePromise;
+}
+
 export function loadDocxToolbarTooltipModule() {
-  return bundleSource(
+  docxToolbarTooltipModulePromise ??= bundleSource(
     "src/docxToolbarTooltip.ts",
     "docx-toolbar-tooltip.cjs",
+    [],
+    [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
+  return docxToolbarTooltipModulePromise;
 }
 
 export function loadTooltipControllerModule() {

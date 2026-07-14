@@ -37,6 +37,7 @@ export function getNativePowerPointDocEditorSettingSectionLabels(
 		saving: i18n.t('settings:section.saving'),
 		powerpoint: i18n.t('settings:section.powerpoint'),
 		search: i18n.t('settings:section.search'),
+		ai: i18n.t('settings:section.ai'),
 		diagnostics: i18n.t('settings:section.diagnostics'),
 	};
 }
@@ -138,6 +139,12 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:docx.rebuildDocxSearchIndex.description'),
 			actionLabel: i18n.t('common:actions.rebuild'),
 		},
+		enableAiInterfacing: {
+			sectionId: 'ai',
+			name: i18n.t('settings:ai.enableInterfacing.name'),
+			description: i18n.t('settings:ai.enableInterfacing.description'),
+			defaultValue: DEFAULT_SETTINGS.enableAiInterfacing,
+		},
 		debugLogging: {
 			sectionId: 'diagnostics',
 			name: i18n.t('settings:docx.debugLogging.name'),
@@ -148,6 +155,12 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			sectionId: 'diagnostics',
 			name: i18n.t('settings:docx.copyDocxLog.name'),
 			description: i18n.t('settings:docx.copyDocxLog.description'),
+			actionLabel: i18n.t('common:actions.copy'),
+		},
+		copyPptxLog: {
+			sectionId: 'diagnostics',
+			name: i18n.t('settings:powerpoint.copyPptxLog.name'),
+			description: i18n.t('settings:powerpoint.copyPptxLog.description'),
 			actionLabel: i18n.t('common:actions.copy'),
 		},
 		copyFullLog: {
@@ -172,7 +185,8 @@ export function getNativePowerPointDocEditorSettingsTabSections(i18n: I18nServic
 		{ id: 'saving', label: sectionLabels.saving, settings: ['autosave', 'createBackupsBeforeSave', 'powerPointAutosaveEnabled'] },
 		{ id: 'powerpoint', label: sectionLabels.powerpoint, settings: ['powerPointShowInspector', 'powerPointHideUnsupportedSvgContent', 'powerPointOpenWithYoloMode'] },
 		{ id: 'search', label: sectionLabels.search, settings: ['enableDocxSearchIndex', 'autoIndexDocxSearch', 'rebuildDocxSearchIndex'] },
-		{ id: 'diagnostics', label: sectionLabels.diagnostics, settings: ['debugLogging', 'copyDocxLog', 'copyFullLog'] },
+		{ id: 'ai', label: sectionLabels.ai, settings: ['enableAiInterfacing'] },
+		{ id: 'diagnostics', label: sectionLabels.diagnostics, settings: ['debugLogging', 'copyDocxLog', 'copyPptxLog', 'copyFullLog'] },
 	];
 }
 

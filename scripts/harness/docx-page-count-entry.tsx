@@ -16,10 +16,10 @@ function PageCountApp() {
 				return;
 			}
 			const totalPages = editorRef.current?.getTotalPages() ?? 0;
-			const renderedPages = document.querySelectorAll('.layout-page').length;
+			const renderedPages = document.querySelectorAll('[data-native-powerpoint-doc-editor-page]').length;
 			if ((totalPages > 0 && renderedPages > 0) || Date.now() >= deadline) {
 				const layout = editorRef.current?.getEditorRef()?.getLayout();
-				const pageText = Array.from(document.querySelectorAll<HTMLElement>('.layout-page')).map(
+				const pageText = Array.from(document.querySelectorAll<HTMLElement>('[data-native-powerpoint-doc-editor-page]')).map(
 					(page) => page.textContent?.replace(/\s+/g, ' ').trim() ?? '',
 				);
 				const pageFragments = layout?.pages.map((page) => page.fragments.map((fragment) => ({

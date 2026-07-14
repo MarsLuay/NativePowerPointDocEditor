@@ -1,4 +1,14 @@
 import { buildZip, extractZip, type ZipContents } from 'pptx-svg';
+import {
+  getDescendants,
+  getElementChildren,
+  getShapeChildren,
+  getShapeElement,
+  getShapeTree,
+  nextRelationshipId,
+  parseXml,
+  serializeXml,
+} from './powerpoint/ooxmlXml';
 
 const DRAWING_RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -6,7 +16,6 @@ const PACKAGE_RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/package/2006/relationships';
 const CONTENT_TYPES_NAMESPACE =
   'http://schemas.openxmlformats.org/package/2006/content-types';
-const SHAPE_ELEMENT_NAMES = new Set(['cxnSp', 'graphicFrame', 'grpSp', 'pic', 'sp']);
 const DEFAULT_PASTE_OFFSET_EMU = 228600;
 
 export interface SlideObjectClipboard {
@@ -96,18 +105,6 @@ export async function pasteSlideObject(
   return { buffer, shapeIndex };
 }
 
-function parseXml(contents: string, partPath: string): XMLDocument {
-  const document = new DOMParser().parseFromString(contents, 'application/xml');
-  if (document.getElementsByTagName('parsererror').length > 0) {
-    throw new Error(`Could not parse PowerPoint XML part: ${partPath}`);
-  }
-  return document;
-}
-
-function serializeXml(document: XMLDocument): string {
-  return new XMLSerializer().serializeToString(document);
-}
-
 function getRequiredTextFile(zip: ZipContents, partPath: string): string {
   const contents = zip.textFiles.get(partPath);
   if (!contents) throw new Error(`Missing PowerPoint XML part: ${partPath}`);
@@ -116,32 +113,6 @@ function getRequiredTextFile(zip: ZipContents, partPath: string): string {
 
 function getSlidePath(slideIndex: number): string {
   return `ppt/slides/slide${slideIndex + 1}.xml`;
-}
-
-function getShapeTree(document: XMLDocument): Element {
-  const shapeTree = getDescendants(document, 'spTree')[0];
-  if (!shapeTree) throw new Error('Could not find the slide shape tree.');
-  return shapeTree;
-}
-
-function getShapeElement(document: XMLDocument, shapeIndex: number): Element {
-  const shape = getShapeChildren(getShapeTree(document))[shapeIndex];
-  if (!shape) throw new Error(`Could not find slide object ${shapeIndex + 1}.`);
-  return shape;
-}
-
-function getShapeChildren(shapeTree: Element): Element[] {
-  return getElementChildren(shapeTree)
-    .filter((element) => SHAPE_ELEMENT_NAMES.has(element.localName));
-}
-
-function getDescendants(element: Element | XMLDocument, localName: string): Element[] {
-  return Array.from(element.getElementsByTagNameNS('*', localName));
-}
-
-function getElementChildren(element: Element | undefined): Element[] {
-  return Array.from(element?.childNodes ?? [])
-    .filter((node): node is Element => node.nodeType === 1);
 }
 
 function offsetShape(shape: Element, dxEmu: number, dyEmu: number): void {
@@ -220,7 +191,7 @@ async function copyShapeRelationships(
     if (!sourceRelationship) continue;
 
     const clonedRelationship = destinationRelationships.importNode(sourceRelationship, true);
-    const relationshipId = getNextRelationshipId(destinationRelationships);
+    const relationshipId = nextRelationshipId(destinationRelationships);
     clonedRelationship.setAttribute('Id', relationshipId);
     attribute.value = relationshipId;
 
@@ -264,21 +235,10 @@ function createRelationshipsDocument(): XMLDocument {
   );
 }
 
-function findRelationship(document: XMLDocument, relationshipId: string): Element | null {
-  return getDescendants(document, 'Relationship')
+function findRelationship(xmlDocument: XMLDocument, relationshipId: string): Element | null {
+  return getDescendants(xmlDocument, 'Relationship')
     .find((relationship) => relationship.getAttribute('Id') === relationshipId)
     ?? null;
-}
-
-function getNextRelationshipId(document: XMLDocument): string {
-  const usedIds = new Set(
-    getDescendants(document, 'Relationship')
-      .map((relationship) => relationship.getAttribute('Id'))
-      .filter((id): id is string => Boolean(id))
-  );
-  let nextId = 1;
-  while (usedIds.has(`rId${nextId}`)) nextId++;
-  return `rId${nextId}`;
 }
 
 function isChartRelationship(relationship: Element): boolean {

@@ -61,18 +61,18 @@ function createStructuralHarnessHtml(scenario) {
     .workspace-shell { width: 100%; height: 100%; padding: 24px; box-sizing: border-box; transform: ${scenario.workspaceTransform}; transform-origin: top left; }
     .native-powerpoint-doc-editor-host { width: 100%; height: 100%; background: #f8fafc; position: relative; }
     .native-powerpoint-doc-editor-fixed-probe { left: 0; position: fixed; top: 0; visibility: hidden; pointer-events: none; }
-    .ep-root.paged-editor { width: 100%; height: 100%; }
+    [data-native-powerpoint-doc-editor-root] { width: 100%; height: 100%; }
     .editor-transform { transform: ${scenario.editorTransform}; transform-origin: top center; width: 816px; margin: 0 auto; background: white; box-shadow: 0 0 0 1px #d1d5db; }
-    .layout-page-content { padding: 96px 72px; min-height: 400px; }
+    [data-native-powerpoint-doc-editor-page-content] { padding: 96px 72px; min-height: 400px; }
     .docx-run-editable { display: inline; min-height: 1em; outline: none; }
   </style>
 </head>
 <body>
   <div class="workspace-shell">
     <div class="native-powerpoint-doc-editor-host">
-      <div class="ep-root paged-editor">
+      <div data-native-powerpoint-doc-editor-root="true">
         <div class="editor-transform">
-          <div class="layout-page-content">
+          <div data-native-powerpoint-doc-editor-page-content="true">
             <p><span class="docx-run-editable" contenteditable="true">Japanese IME caret probe line.</span></p>
           </div>
         </div>

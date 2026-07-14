@@ -3,7 +3,9 @@ import obsidianmd from 'eslint-plugin-obsidianmd';
 import noUnsanitizedPlugin from 'eslint-plugin-no-unsanitized';
 import globals from 'globals';
 import tsParser from '@typescript-eslint/parser';
+import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
+import { obsidianLogicEslintRules } from './scripts/lib/obsidian-logic-eslint-rules.mjs';
 
 export default defineConfig([
 	globalIgnores([
@@ -11,6 +13,7 @@ export default defineConfig([
 		'dist',
 		'main.js',
 		'package-lock.json',
+		'src/vendor/**',
 	]),
 	{
 		files: ['src/**/*.ts', 'src/**/*.tsx'],
@@ -25,11 +28,13 @@ export default defineConfig([
 			},
 		},
 		plugins: {
+			'@typescript-eslint': tseslint.plugin,
 			'@microsoft/sdl': sdl,
 			'no-unsanitized': noUnsanitizedPlugin,
 			obsidianmd,
 		},
 		rules: {
+			...obsidianLogicEslintRules,
 			'@microsoft/sdl/no-inner-html': 'error',
 			'no-unsanitized/method': 'error',
 			'no-unsanitized/property': 'error',

@@ -36,7 +36,7 @@ function countMatches(value: string, pattern: RegExp): number {
 }
 
 function findExactTextElement(text: string): HTMLElement | null {
-	const elements = document.querySelectorAll<HTMLElement>('.paged-editor__pages *');
+	const elements = document.querySelectorAll<HTMLElement>('[data-native-powerpoint-doc-editor-pages] *');
 	for (const element of elements) {
 		if (element.children.length === 0 && element.textContent?.trim() === text) {
 			return element;

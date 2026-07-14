@@ -5,6 +5,7 @@ import { access, copyFile, cp, readFile, writeFile } from "fs/promises";
 import path from "node:path";
 import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
+import { createVendoredDocxAliases } from "./scripts/lib/vendored-docx-aliases.mjs";
 
 const banner =
 `/*
@@ -24,7 +25,8 @@ const vaultPluginDir =
 	process.env.OBSIDIAN_PLUGIN_DIR
 	|| path.resolve("../../.obsidian/plugins/native-powerpoint-doc-editor");
 const filesToDeploy = ["main.js", "styles.css", "manifest.json"];
-const dirsToDeploy = ["locales"];
+const dirsToDeploy = ["locales", "ai"];
+const vendoredDocxAliases = await createVendoredDocxAliases(path.resolve("src/vendor/eigenpal"));
 
 const deployToVaultPlugin = {
 	name: "deploy-to-vault-plugin",
@@ -105,6 +107,25 @@ const stripReactDomScriptPlugin = {
 	}
 };
 
+const stripVendoredDocxCssSideEffectImports = {
+	name: "strip-vendored-docx-css-side-effect-imports",
+	setup(build) {
+		build.onLoad({ filter: /docx-editor-react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
+			const normalizedPath = args.path.replace(/\\/g, "/");
+			if (!normalizedPath.endsWith("/src/vendor/eigenpal/docx-editor-react/dist/index.mjs")) {
+				return undefined;
+			}
+
+			const source = await readFile(args.path, "utf8");
+			const contents = source
+				.replace(/import['"]prosemirror-view\/style\/prosemirror\.css['"];/g, "")
+				.replace(/import['"]@eigenpal\/docx-editor-core\/prosemirror\/editor\.css['"];/g, "");
+
+			return { contents, loader: "js" };
+		});
+	}
+};
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -135,13 +156,7 @@ const context = await esbuild.context({
 	// of which support BigInt natively (Chrome 67+), so don't down-level or warn.
 	supported: { bigint: true },
 	alias: {
-		"@eigenpal/docx-editor-i18n/en": "./node_modules/@eigenpal/docx-editor-i18n/dist/en.mjs",
-		"@eigenpal/docx-editor-i18n/he": "./node_modules/@eigenpal/docx-editor-i18n/dist/he.mjs",
-		"@eigenpal/docx-editor-i18n/pl": "./node_modules/@eigenpal/docx-editor-i18n/dist/pl.mjs",
-		"@eigenpal/docx-editor-i18n/pt-BR": "./node_modules/@eigenpal/docx-editor-i18n/dist/pt-BR.mjs",
-		"@eigenpal/docx-editor-i18n/tr": "./node_modules/@eigenpal/docx-editor-i18n/dist/tr.mjs",
-		"@eigenpal/docx-editor-i18n/zh-CN": "./node_modules/@eigenpal/docx-editor-i18n/dist/zh-CN.mjs",
-		"@eigenpal/docx-editor-i18n": "./src/shims/docx-editor-i18n.ts",
+		...vendoredDocxAliases,
 		"jszip": "./node_modules/jszip/lib/index.js",
 		"immediate": "./src/shims/immediate.cjs",
 		"readable-stream": "./node_modules/jszip/lib/readable-stream-browser.js",
@@ -156,7 +171,7 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	plugins: [stripReactDomScriptPlugin, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
+	plugins: [stripReactDomScriptPlugin, stripVendoredDocxCssSideEffectImports, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
 	outdir: ".",
 	entryNames: "[name]",
 	minify: prod,

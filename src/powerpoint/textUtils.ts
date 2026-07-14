@@ -16,6 +16,27 @@ export function normalizeSearchText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/** Resolve the word a text caret sits in, using browser-native Unicode segmentation. */
+export function getInlineWordRange(text: string, caretOffset: number): { start: number; end: number } {
+  const offset = Math.max(0, Math.min(caretOffset, text.length));
+  if (!text) return { start: 0, end: 0 };
+
+  const wordSegments: { start: number; end: number }[] = [];
+  for (const segment of new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text)) {
+    if (!segment.isWordLike) continue;
+    wordSegments.push({ start: segment.index, end: segment.index + segment.segment.length });
+  }
+
+  const containing = wordSegments.find((range) => offset >= range.start && offset < range.end);
+  if (containing) return containing;
+
+  for (let index = wordSegments.length - 1; index >= 0; index--) {
+    const range = wordSegments[index];
+    if (range?.end === offset) return range;
+  }
+  return { start: offset, end: offset };
+}
+
 /** Join visual line fragments for one OOXML paragraph (soft wraps are not newlines). */
 export function joinParagraphVisualLines(lineTexts: string[]): string {
   return lineTexts.join('');
