@@ -35,14 +35,14 @@ export class DocxSearchModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 		contentEl.addClass('native-powerpoint-doc-editor-search-modal');
-		contentEl.createEl('h2', { text: 'Search DOCX files' });
+		contentEl.createEl('h2', { text: 'Search docx files' });
 
 		const toolbarEl = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-search-toolbar' });
 		this.inputEl = toolbarEl.createEl('input', {
 			cls: 'native-powerpoint-doc-editor-search-input',
 			type: 'search',
 		});
-		this.inputEl.placeholder = 'Search indexed DOCX text...';
+		this.inputEl.placeholder = 'Search indexed docx text...';
 		this.inputEl.setAttribute('spellcheck', 'false');
 
 		const rebuildButton = toolbarEl.createEl('button', { text: 'Rebuild' });

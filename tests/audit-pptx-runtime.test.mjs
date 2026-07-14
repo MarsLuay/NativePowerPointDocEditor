@@ -85,6 +85,10 @@ test("cleanError normalizes Error, string, and empty/undefined inputs", async ()
   assert.equal(cleanError(null), "Unknown error");
   assert.equal(cleanError(""), "Unknown error");
   assert.equal(cleanError(42), "42");
+  assert.equal(cleanError({ code: "E_RENDER" }), '{"code":"E_RENDER"}');
+  const circular = {};
+  circular.self = circular;
+  assert.equal(cleanError(circular), "Unknown error");
 });
 
 test("forced-JS path renders a deck end-to-end via PresentationEngine", async () => {

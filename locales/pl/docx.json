@@ -42,10 +42,13 @@
 		"optionUnavailable": "Opcja {option} jest teraz niedostępna.",
 		"notAvailable": "Opcja {option} jest teraz niedostępna.",
 		"menuUnavailable": "Menu {menu} jest teraz niedostępne.",
-		"newDocx": "Nowy DOCX"
+		"newDocx": "Nowy DOCX",
+		"convertMarkdownToDocx": "Konwertuj do DOCX"
 	},
 	"notice": {
 		"createFailed": "Nie udało się utworzyć DOCX: {message}",
+		"convertMarkdownFailed": "Nie udało się przekonwertować Markdown do DOCX: {message}",
+		"convertedMarkdownToDocx": "Przekonwertowano do {path}",
 		"openToSave": "Otwórz plik docx, aby go zapisać.",
 		"openToSaveCopy": "Otwórz plik docx, aby zapisać kopię.",
 		"openToDuplicate": "Otwórz plik docx, aby go zduplikować.",

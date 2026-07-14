@@ -6,7 +6,17 @@ type NoticeValues = Record<string, string | number | boolean>;
 
 export function showI18nNotice(
 	i18n: I18nService | null | undefined,
-	key: MessageKey | string,
+	key: MessageKey,
+	values?: NoticeValues,
+): void;
+export function showI18nNotice(
+	i18n: I18nService | null | undefined,
+	key: string,
+	values?: NoticeValues,
+): void;
+export function showI18nNotice(
+	i18n: I18nService | null | undefined,
+	key: string,
 	values?: NoticeValues,
 ): void {
 	new Notice(i18n?.t(key, values) ?? key);

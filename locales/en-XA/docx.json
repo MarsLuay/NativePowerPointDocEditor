@@ -42,10 +42,13 @@
     "optionUnavailable": "[{option} įş ñǫţ ąvąįſąbſę rįğhţ ñǫw.]",
     "notAvailable": "[{option} įş ñǫţ ąvąįſąbſę rįğhţ ñǫw.]",
     "menuUnavailable": "[{menu} męñų įş ñǫţ ąvąįſąbſę rįğhţ ñǫw.]",
-    "newDocx": "[Ñęw ḐǪĆX]"
+    "newDocx": "[Ñęw ḐǪĆX]",
+    "convertMarkdownToDocx": "[Ćǫñvęrţ ţǫ ḐǪĆX]"
   },
   "notice": {
     "createFailed": "[Ćǫųſḑ ñǫţ ćręąţę ḐǪĆX: {message}]",
+    "convertMarkdownFailed": "[Ćǫųſḑ ñǫţ ćǫñvęrţ Mąrkḑǫwñ ţǫ ḐǪĆX: {message}]",
+    "convertedMarkdownToDocx": "[Ćǫñvęrţęḑ ţǫ {path}]",
     "openToSave": "[Ǫpęñ ą ḑǫćx fįſę ţǫ şąvę įţ.]",
     "openToSaveCopy": "[Ǫpęñ ą ḑǫćx fįſę ţǫ şąvę ą ćǫpÿ.]",
     "openToDuplicate": "[Ǫpęñ ą ḑǫćx fįſę ţǫ ḑųpſįćąţę įţ.]",

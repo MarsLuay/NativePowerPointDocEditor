@@ -53,7 +53,8 @@ function augmentDomQueries(root: Element): void {
 			querySelectorAll?: (selector: string) => Element[];
 			closest?: (selector: string) => Element | null;
 		};
-		if (typeof target.querySelector !== 'function') {
+		const nativeQuerySelector: unknown = Reflect.get(target, 'querySelector');
+		if (typeof nativeQuerySelector !== 'function') {
 			const patch = target as unknown as Record<string, unknown>;
 			patch.querySelector = (selector: string) => querySelector(element, selector);
 			patch.querySelectorAll = (selector: string) => querySelectorAll(element, selector);
@@ -68,7 +69,7 @@ export function parseRenderedSlideSvg(svgString: string): SVGSVGElement {
 	const doc = new DOMParser().parseFromString(svgString, 'image/svg+xml');
 	const root = doc.documentElement;
 	const rootTagName = root.tagName?.toLowerCase() ?? root.localName?.toLowerCase() ?? '';
-	if (rootTagName !== 'svg' && !(typeof SVGSVGElement !== 'undefined' && root instanceof SVGSVGElement)) {
+	if (rootTagName !== 'svg') {
 		throw new Error('Could not parse slide SVG.');
 	}
 	augmentDomQueries(root);

@@ -656,7 +656,7 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 		});
 		reportBugBox.createEl('a', {
 			cls: 'native-powerpoint-report-bug-link',
-			text: 'Buy Me a Coffee',
+			text: 'Buy me a coffee',
 			attr: {
 				href: 'https://buymeacoffee.com/marwanluaye',
 				rel: 'noopener noreferrer',

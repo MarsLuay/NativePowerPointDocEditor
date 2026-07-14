@@ -1,12 +1,12 @@
 # Welcome to Native PowerPoint Doc Editor!
 
+## What Native PowerPoint Doc Editor Does
+
 Native PowerPoint Doc Editor opens, searches, and edits `.docx` and `.pptx` files directly inside your Obsidian vault without converting them to Markdown.
 
 | DOCX editor | PowerPoint editor |
 | --- | --- |
 | ![Native PowerPoint Doc Editor DOCX screen](screenshot.png) | ![Native PowerPoint Doc Editor PPTX screen](screenshot-pptx.png) |
-
-## What Native PowerPoint Doc Editor Does
 
 ### Editing and viewing
 

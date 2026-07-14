@@ -3,6 +3,7 @@ import { isPowerPointExtension } from '../powerpoint/extensions';
 import type { AiRuntime } from './aiRuntime';
 import { buildCapabilityManifest } from './capabilities';
 import { createAiError, AI_ERROR_CODES } from './errors';
+import type { AiErrorDetail } from './errors';
 import { getOpDefinition, validateDocumentOps } from './opRegistry';
 import type {
 	ApplyOptions,
@@ -88,14 +89,14 @@ export class AiCore {
 		});
 	}
 
-	listCapabilities(): CapabilityManifest | { ok: false; errors: ReturnType<typeof createAiError>[] } {
+	listCapabilities(): CapabilityManifest | { ok: false; errors: AiErrorDetail[] } {
 		if (!this.isEnabled()) {
 			return { ok: false, errors: [this.disabledError()] };
 		}
 		return this.buildManifest(true);
 	}
 
-	validateOps(ops: DocumentOp[]): { ok: boolean; errors: ReturnType<typeof createAiError>[] } {
+	validateOps(ops: DocumentOp[]): { ok: boolean; errors: AiErrorDetail[] } {
 		if (!this.isEnabled()) {
 			return { ok: false, errors: [this.disabledError()] };
 		}

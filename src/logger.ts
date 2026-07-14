@@ -85,7 +85,7 @@ function writeConsole(level: NativePowerPointDocEditorLogLevel, area: string, me
 	}
 
 	const consoleMethod = level === 'debug' ? console.debug
-		: level === 'info' ? console.info
+		: level === 'info' ? console.debug
 			: level === 'warn' ? console.warn
 				: console.error;
 

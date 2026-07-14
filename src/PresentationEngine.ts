@@ -395,7 +395,7 @@ export interface SlideMoveResult {
 }
 
 export class PresentationEngine {
-  private document!: PptxPackageDocument;
+  private pptxDocument!: PptxPackageDocument;
   private chartTextValues = new Map<string, string[]>();
   private chartAxisFormats = new Map<string, ChartAxisFormat[]>();
   private chartDataDescriptors = new Map<string, ChartDataDescriptor>();
@@ -417,7 +417,7 @@ export class PresentationEngine {
 
   static async load(buffer: ArrayBuffer): Promise<PresentationEngine> {
     const engine = new PresentationEngine();
-    engine.document = await PptxPackageDocument.load(buffer, {
+    engine.pptxDocument = await PptxPackageDocument.load(buffer, {
       reconcileExport: (authoritativePackage, renderedExport) =>
         engine.reconcileRendererExport(authoritativePackage, renderedExport),
       refreshDerivedState: (packageBuffer) => engine.refreshDerivedState(packageBuffer),
@@ -427,27 +427,27 @@ export class PresentationEngine {
   }
 
   private get renderer() {
-    return this.document.renderer;
+    return this.pptxDocument.renderer;
   }
 
   private get fontFidelity() {
-    return this.document.fontFidelity;
+    return this.pptxDocument.fontFidelity;
   }
 
   private get currentBuffer(): ArrayBuffer {
-    return this.document.packageBuffer;
+    return this.pptxDocument.packageBuffer;
   }
 
   private set currentBuffer(buffer: ArrayBuffer) {
-    this.document.packageBuffer = buffer;
+    this.pptxDocument.packageBuffer = buffer;
   }
 
   private get slideCountValue(): number {
-    return this.document.slideCount;
+    return this.pptxDocument.slideCount;
   }
 
   getRendererBackend(): PptxRendererBackend {
-    return this.document.rendererBackend;
+    return this.pptxDocument.rendererBackend;
   }
 
   static async validateRoundTrip(buffer: ArrayBuffer, expectedSlideCount: number): Promise<void> {
@@ -1441,7 +1441,7 @@ export class PresentationEngine {
         // The renderer now holds this slide; `currentBuffer` is behind for it.
         // Record the lossless XML so a later `currentBuffer` reader can fold it in
         // (preserving renderer-dropped content) instead of reading stale slide XML.
-        this.document.recordPendingSlideXml(slideIndex, serialized);
+        this.pptxDocument.recordPendingSlideXml(slideIndex, serialized);
         debugLog('mutate', 'Slide document commit completed', {
           op: 'commit-slide-doc',
           slide: slideIndex,
@@ -2461,7 +2461,7 @@ export class PresentationEngine {
   }
 
   async restoreSnapshot(buffer: ArrayBuffer): Promise<void> {
-    await this.document.restore(buffer);
+    await this.pptxDocument.restore(buffer);
     this.resetSlideRunCache();
   }
 
@@ -2475,11 +2475,11 @@ export class PresentationEngine {
     // The reinitialized model serves lossless highlights again; drop the stale
     // cache (shape indices may have shifted) and let it re-seed on demand.
     this.resetSlideRunCache();
-    await this.document.reload(buffer, expectedSlideCount);
+    await this.pptxDocument.reload(buffer, expectedSlideCount);
   }
 
   private async exportRendererState(): Promise<ArrayBuffer> {
-    return this.document.export();
+    return this.pptxDocument.export();
   }
 
   /**
@@ -2507,7 +2507,7 @@ export class PresentationEngine {
    * nothing is pending, so callers can guard any `currentBuffer` read with it.
    */
   private async syncCurrentBuffer(): Promise<void> {
-    await this.document.syncPackageFromPendingSlides();
+    await this.pptxDocument.syncPackageFromPendingSlides();
   }
 
   private async refreshDerivedState(buffer: ArrayBuffer): Promise<void> {

@@ -27,9 +27,11 @@ let docxEditorChromeMarkersModulePromise;
 let docxSessionModulePromise;
 let fakeDocxEditorAdapterModulePromise;
 let docxToolbarTooltipModulePromise;
+let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
+let parseRenderedSlideSvgModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -76,6 +78,7 @@ const stubObsidianPlugin = {
     buildContext.onLoad({ filter: /.*/, namespace: "stub-obsidian" }, () => ({
       contents: `
         export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };
+        export const normalizePath = (value) => value.replace(/\\\\/g, "/").replace(/\\/{2,}/g, "/");
         export class Component {
           constructor() { this.cleanups = []; }
           register(cleanup) { this.cleanups.push(cleanup); }
@@ -139,6 +142,14 @@ export function loadInlineTextGeometryModule() {
     "inline-text-geometry.cjs",
   ).then((outfile) => require(outfile));
   return inlineTextGeometryModulePromise;
+}
+
+export function loadParseRenderedSlideSvgModule() {
+  parseRenderedSlideSvgModulePromise ??= bundleSource(
+    "src/powerpoint/parseRenderedSlideSvg.ts",
+    "parse-rendered-slide-svg.cjs",
+  ).then((outfile) => require(outfile));
+  return parseRenderedSlideSvgModulePromise;
 }
 
 export function loadPowerPointPackageModule() {
@@ -273,6 +284,16 @@ export function loadDocxToolbarTooltipModule() {
     [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
   return docxToolbarTooltipModulePromise;
+}
+
+export function loadMarkdownToDocxModule() {
+  markdownToDocxModulePromise ??= bundleSource(
+    "src/vault/markdownToDocx.ts",
+    "markdown-to-docx.cjs",
+    [],
+    [stubObsidianPlugin],
+  ).then((outfile) => require(outfile));
+  return markdownToDocxModulePromise;
 }
 
 export function loadTooltipControllerModule() {

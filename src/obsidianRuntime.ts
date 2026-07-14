@@ -48,7 +48,7 @@ export class Notice {
 			return new RuntimeNotice(message, timeout) as Notice;
 		}
 
-		console.info(`[Native PowerPoint Doc Editor] ${message}`);
+		console.warn(`[Native PowerPoint Doc Editor] ${message}`);
 	}
 }
 

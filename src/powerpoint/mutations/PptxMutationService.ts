@@ -55,7 +55,7 @@ export class PptxMutationService implements MutationExecutor {
     return engine;
   }
 
-  private apply(engine: PresentationEngine, command: MutationCommand): Promise<unknown> | unknown {
+  private apply(engine: PresentationEngine, command: MutationCommand): unknown {
     switch (command.type) {
       case 'add-slide':
         return engine.addSlide(command.afterIndex);

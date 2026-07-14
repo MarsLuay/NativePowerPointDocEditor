@@ -169,7 +169,10 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				return null;
 			}
 			try {
-				return typeof process !== 'undefined' ? process.versions?.chrome ?? null : null;
+				const electronProcess = (window as unknown as {
+					process?: { versions?: { chrome?: string } };
+				}).process;
+				return electronProcess?.versions?.chrome ?? null;
 			} catch {
 				return null;
 			}
@@ -205,6 +208,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 
 		this.addCommand({
+			// eslint-disable-next-line obsidianmd/commands/no-plugin-id-in-command-id -- Released command ID; changing it would break saved hotkeys.
 			id: 'copy-native-powerpoint-doc-editor-debug-log',
 			name: 'Copy debug log',
 			callback: async () => {

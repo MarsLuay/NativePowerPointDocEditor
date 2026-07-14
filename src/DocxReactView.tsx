@@ -344,7 +344,7 @@ function createParagraphLayoutRelayoutPlugin(scheduleRelayout: () => void) {
 					return true;
 				}
 
-				const normalizedAttrs = getListParagraphIndentAttrs(node.attrs as Record<string, unknown>);
+				const normalizedAttrs = getListParagraphIndentAttrs(node.attrs);
 				if (normalizedAttrs) {
 					transaction = transaction.setNodeMarkup(position, undefined, normalizedAttrs, node.marks);
 					normalizedCount += 1;
@@ -606,20 +606,15 @@ function clampFormattingDropdownToViewport(layer: HTMLElement): void {
 }
 
 function scheduleFormattingDropdownClamp(layer: HTMLElement): void {
-	const activeWindow = layer.ownerDocument.defaultView;
-	if (!activeWindow) {
-		return;
-	}
-
 	const clampIfConnected = () => {
 		if (layer.isConnected) {
 			clampFormattingDropdownToViewport(layer);
 		}
 	};
-	activeWindow.requestAnimationFrame(() => {
-		activeWindow.requestAnimationFrame(clampIfConnected);
+	window.requestAnimationFrame(() => {
+		window.requestAnimationFrame(clampIfConnected);
 	});
-	activeWindow.setTimeout(clampIfConnected, 100);
+	window.setTimeout(clampIfConnected, 100);
 }
 
 function syncFormattingBarDropdownState(formattingBar: HTMLElement, open: boolean): void {
@@ -855,10 +850,24 @@ function rememberTextSelectionFromView(view: EditorView): TextSelectionRange | n
 	return clampTextSelectionRange(view.state.doc, { from, to });
 }
 
+function getFontFamilyFromMark(mark: Mark | undefined): string | null {
+	if (!mark) {
+		return null;
+	}
+
+	const ascii: unknown = mark.attrs.ascii;
+	if (typeof ascii === 'string') {
+		return ascii;
+	}
+
+	const hAnsi: unknown = mark.attrs.hAnsi;
+	return typeof hAnsi === 'string' ? hAnsi : null;
+}
+
 function getFontFamilyNameFromEditorSelection(view: EditorView): string | null {
 	const stored = view.state.storedMarks?.find((mark) => mark.type.name === 'fontFamily');
 	if (stored) {
-		return stored.attrs.ascii ?? stored.attrs.hAnsi ?? null;
+		return getFontFamilyFromMark(stored);
 	}
 
 	let activeMarks: readonly Mark[] = view.state.selection.$from.marks();
@@ -875,12 +884,12 @@ function getFontFamilyNameFromEditorSelection(view: EditorView): string | null {
 
 	const mark = activeMarks.find((candidate) => candidate.type.name === 'fontFamily');
 	if (mark) {
-		return mark.attrs.ascii ?? mark.attrs.hAnsi ?? null;
+		return getFontFamilyFromMark(mark);
 	}
 
 	try {
 		const dom = view.domAtPos(view.state.selection.from);
-		const element = dom.node instanceof Element ? dom.node : dom.node.parentElement;
+		const element = isElement(dom.node) ? dom.node : dom.node.parentElement;
 		const cssFont = element?.ownerDocument.defaultView?.getComputedStyle(element).fontFamily;
 		return parsePrimaryFontFamily(cssFont ?? '');
 	} catch {
@@ -3210,7 +3219,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			applied: result.applied,
 			snappedSelection: Boolean(result.range),
 			displayName: resolveFontFamilyDisplayName(fontFamily, fontFamiliesRef.current),
-			storedFontFamily: storedFontMark?.attrs?.ascii ?? storedFontMark?.attrs?.hAnsi ?? null,
+			storedFontFamily: getFontFamilyFromMark(storedFontMark),
 			displaySyncQueued: result.applied,
 		});
 

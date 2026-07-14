@@ -40,7 +40,7 @@ export interface DocxOpExecutionContext {
 }
 
 function asRecord(op: DocumentOp): Record<string, unknown> {
-	return op as Record<string, unknown>;
+	return op;
 }
 
 function requireString(value: unknown, field: string): string {
@@ -68,7 +68,7 @@ function asRunStylePatch(value: unknown): DocxRunStylePatch {
 		...(typeof record.underline === 'boolean' ? { underline: record.underline } : {}),
 		...(typeof record.fontFamily === 'string' ? { fontFamily: record.fontFamily } : {}),
 		...(typeof record.fontSizePt === 'number' ? { fontSizePt: record.fontSizePt } : {}),
-		...(typeof record.color === 'string' || record.color === null ? { color: record.color as string | null } : {}),
+		...(typeof record.color === 'string' || record.color === null ? { color: record.color } : {}),
 	};
 }
 
@@ -176,7 +176,7 @@ export async function executeDocxOp(
 			}
 			let partXml = getPartXmlForLocation(context.session, parsed);
 			const paragraphXml = getParagraphXml(partXml, parsed);
-			const nextParagraphXml = patchParagraphStyle(paragraphXml, style as Record<string, unknown>);
+			const nextParagraphXml = patchParagraphStyle(paragraphXml, style);
 			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
 			setPartXmlForLocation(context.session, parsed, partXml);
 			if (parsed.part === 'body') {

@@ -37,7 +37,8 @@ export function validateDocumentOp(op: DocumentOp, index: number): AiErrorDetail
 		return errors;
 	}
 
-	const { op: _ignored, ...payload } = op;
+	const payload: Record<string, unknown> = { ...op };
+	delete payload.op;
 	const issues = validateAgainstSchema(payload, definition.parameters, `ops[${index}]`);
 	for (const issue of issues) {
 		errors.push(createAiError(AI_ERROR_CODES.SCHEMA_INVALID, issue.message, {

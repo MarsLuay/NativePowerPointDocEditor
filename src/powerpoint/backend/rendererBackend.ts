@@ -18,7 +18,7 @@ export interface PresentationRenderer {
 }
 
 function isWasmGcUnsupportedError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error || '');
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   return /WebAssembly GC support|Wasm init failed/i.test(message);
 }
 

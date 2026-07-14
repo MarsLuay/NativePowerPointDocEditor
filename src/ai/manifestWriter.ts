@@ -5,8 +5,12 @@ import { PLUGIN_ID } from './types';
 
 export const AI_MANIFEST_RELATIVE_PATH = `plugins/${PLUGIN_ID}/ai/capabilities.json`;
 
-export function getAiManifestPath(pluginDir: string | undefined, configDir = '.obsidian'): string {
-	const base = pluginDir || `${configDir}/plugins/${PLUGIN_ID}`;
+export function getAiManifestPath(
+	pluginDir: string | undefined,
+	configDir?: string,
+): string | null {
+	const base = pluginDir || (configDir ? `${configDir}/plugins/${PLUGIN_ID}` : null);
+	if (!base) return null;
 	return `${base}/ai/capabilities.json`;
 }
 
@@ -15,8 +19,10 @@ export async function writeCapabilitiesManifest(
 	pluginDir: string | undefined,
 	pluginVersion: string,
 	enabled: boolean,
+	configDir?: string,
 ): Promise<string | null> {
-	const manifestPath = getAiManifestPath(pluginDir);
+	const manifestPath = getAiManifestPath(pluginDir, configDir);
+	if (!manifestPath) return null;
 	const manifest = buildCapabilityManifest({ pluginVersion, enabled });
 	const directory = manifestPath.slice(0, manifestPath.lastIndexOf('/'));
 
@@ -34,8 +40,10 @@ export async function writeCapabilitiesManifest(
 export async function removeCapabilitiesManifest(
 	adapter: DataAdapter,
 	pluginDir: string | undefined,
+	configDir?: string,
 ): Promise<void> {
-	const manifestPath = getAiManifestPath(pluginDir);
+	const manifestPath = getAiManifestPath(pluginDir, configDir);
+	if (!manifestPath) return;
 	try {
 		if (await adapter.exists(manifestPath)) {
 			await adapter.remove(manifestPath);

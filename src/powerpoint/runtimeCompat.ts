@@ -2,7 +2,23 @@
 // WebAssembly GC support detection. Extracted from NativePowerPointView.ts.
 
 export function cleanError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error || 'Unknown error');
+  if (error instanceof Error) {
+    return error.message || 'Unknown error';
+  }
+  if (typeof error === 'string') {
+    return error || 'Unknown error';
+  }
+  if (typeof error === 'number' || typeof error === 'boolean' || typeof error === 'bigint') {
+    return String(error);
+  }
+  if (error && typeof error === 'object') {
+    try {
+      return JSON.stringify(error) || 'Unknown error';
+    } catch {
+      return 'Unknown error';
+    }
+  }
+  return 'Unknown error';
 }
 
 /**
@@ -14,7 +30,7 @@ export function cleanError(error: unknown): string {
  * unaffected, so we translate this specific failure into actionable guidance.
  */
 export function isWasmGcUnsupportedError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error || '');
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   return /WebAssembly GC support|Wasm init failed/i.test(message);
 }
 

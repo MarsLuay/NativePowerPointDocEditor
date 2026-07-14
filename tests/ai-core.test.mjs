@@ -12,6 +12,7 @@ const require = createRequire(import.meta.url);
 let cachedErrorsModule;
 let cachedOpRegistryModule;
 let cachedAiCoreModule;
+let cachedManifestWriterModule;
 
 async function loadErrorsModule() {
 	if (cachedErrorsModule) return cachedErrorsModule;
@@ -64,6 +65,56 @@ async function loadAiTestModule() {
 	cachedAiCoreModule = require(outfile);
 	return cachedAiCoreModule;
 }
+
+async function loadManifestWriterModule() {
+	if (cachedManifestWriterModule) return cachedManifestWriterModule;
+	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
+	const outfile = path.join(outputDirectory, 'manifest-writer.cjs');
+	await build({
+		entryPoints: [path.join(projectRoot, 'src/ai/manifestWriter.ts')],
+		bundle: true,
+		format: 'cjs',
+		logLevel: 'silent',
+		outfile,
+		platform: 'node',
+		target: 'node22',
+	});
+	cachedManifestWriterModule = require(outfile);
+	return cachedManifestWriterModule;
+}
+
+test('AI errors are throwable Error objects with a stable JSON detail contract', async () => {
+	const { AiError, AI_ERROR_CODES, createAiError, isAiErrorDetail } = await loadErrorsModule();
+	const error = createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'Invalid operation.', {
+		op: 'pptx.updateShapeText',
+		field: 'text',
+	});
+
+	assert.ok(error instanceof Error);
+	assert.ok(error instanceof AiError);
+	assert.equal(isAiErrorDetail(error), true);
+	assert.equal(isAiErrorDetail({ code: 'UNRECOGNIZED', message: 'Unknown error.' }), false);
+	assert.deepEqual(JSON.parse(JSON.stringify(error)), {
+		code: AI_ERROR_CODES.SCHEMA_INVALID,
+		message: 'Invalid operation.',
+		op: 'pptx.updateShapeText',
+		field: 'text',
+	});
+});
+
+test('AI manifest paths honor a custom Obsidian config directory', async () => {
+	const { getAiManifestPath } = await loadManifestWriterModule();
+
+	assert.equal(
+		getAiManifestPath(undefined, '.custom-obsidian'),
+		'.custom-obsidian/plugins/native-powerpoint-doc-editor/ai/capabilities.json',
+	);
+	assert.equal(
+		getAiManifestPath('.custom-obsidian/plugins/native-powerpoint-doc-editor', '.unused-config-dir'),
+		'.custom-obsidian/plugins/native-powerpoint-doc-editor/ai/capabilities.json',
+	);
+	assert.equal(getAiManifestPath(undefined), null);
+});
 
 test('AI op catalog validates known pptx.updateShapeText payload', async () => {
 	const { validateDocumentOps } = await loadOpRegistryModule();

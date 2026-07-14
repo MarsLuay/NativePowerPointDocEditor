@@ -194,7 +194,7 @@ export class DocxSearchIndex {
 								await processBatch();
 								resolve();
 							} catch (error) {
-								reject(error);
+								reject(error instanceof Error ? error : new Error(String(error)));
 							}
 						})();
 					}, { timeout: 5000 });

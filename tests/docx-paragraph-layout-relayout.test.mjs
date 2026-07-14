@@ -66,3 +66,11 @@ test("didParagraphLayoutChange ignores unchanged documents", async () => {
 	const doc = schema.node("doc", null, [paragraph({ styleId: "Normal" }, "Hello")]);
 	assert.equal(didParagraphLayoutChange(doc, doc), false);
 });
+
+test("stableParagraphLayoutValue avoids default object stringification", async () => {
+	const { stableParagraphLayoutValue } = await loadDocxParagraphLayoutRelayoutModule();
+	assert.equal(stableParagraphLayoutValue({ level: 2 }), '{"level":2}');
+	const circular = {};
+	circular.self = circular;
+	assert.equal(stableParagraphLayoutValue(circular), "");
+});

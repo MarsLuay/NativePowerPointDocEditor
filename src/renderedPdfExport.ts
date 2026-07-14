@@ -364,21 +364,17 @@ function collectTextNodePdfRuns(textNode: Text, page: HTMLElement, pageRect: DOM
 		const start = match.index;
 		const end = start + token.length;
 		const range = activeDocument.createRange();
-		try {
-			range.setStart(textNode, start);
-			range.setEnd(textNode, end);
-			const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
-			const runRects = areClientRectsOnSameLine(rects) && rects.length > 1
-				? [getCombinedClientRect(rects)]
-				: rects;
-			for (const rect of runRects) {
-				const run = getPdfTextRunFromRect(token, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
-				if (run) {
-					runs.push(run);
-				}
+		range.setStart(textNode, start);
+		range.setEnd(textNode, end);
+		const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+		const runRects = areClientRectsOnSameLine(rects) && rects.length > 1
+			? [getCombinedClientRect(rects)]
+			: rects;
+		for (const rect of runRects) {
+			const run = getPdfTextRunFromRect(token, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
+			if (run) {
+				runs.push(run);
 			}
-		} finally {
-			range.detach();
 		}
 	}
 
@@ -399,20 +395,16 @@ function collectWholeTextNodePdfRun(textNode: Text, page: HTMLElement, pageRect:
 	const style = window.getComputedStyle(parent);
 	const fontSizePx = parseCssPixelValue(style.fontSize) || 12;
 	const range = activeDocument.createRange();
-	try {
-		range.setStart(textNode, 0);
-		range.setEnd(textNode, text.length);
-		const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
-		if (rects.length === 0 || !areClientRectsOnSameLine(rects)) {
-			return [];
-		}
-
-		const rect = rects.length === 1 ? rects[0]! : getCombinedClientRect(rects);
-		const run = getPdfTextRunFromRect(text, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
-		return run ? [run] : [];
-	} finally {
-		range.detach();
+	range.setStart(textNode, 0);
+	range.setEnd(textNode, text.length);
+	const rects = Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
+	if (rects.length === 0 || !areClientRectsOnSameLine(rects)) {
+		return [];
 	}
+
+	const rect = rects.length === 1 ? rects[0]! : getCombinedClientRect(rects);
+	const run = getPdfTextRunFromRect(text, rect, pageRect, page, pdfWidth, pdfHeight, fontSizePx, style.fontFamily, style.fontWeight, style.fontStyle);
+	return run ? [run] : [];
 }
 
 function collectRenderedSpanPdfRuns(page: HTMLElement, pageRect: DOMRect, pdfWidth: number, pdfHeight: number) {

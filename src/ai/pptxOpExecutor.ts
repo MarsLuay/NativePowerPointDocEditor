@@ -43,7 +43,7 @@ const INSERTABLE_GEOMETRIES = new Set<InsertableShapeGeometry>([
 ]);
 
 function asRecord(op: DocumentOp): Record<string, unknown> {
-	return op as Record<string, unknown>;
+	return op;
 }
 
 function requireNumber(value: unknown, field: string): number {

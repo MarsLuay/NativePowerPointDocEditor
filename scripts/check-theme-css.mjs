@@ -10,22 +10,6 @@ function lineForIndex(text, index) {
 	return text.slice(0, index).split('\n').length;
 }
 
-function selectorForDeclaration(text, index) {
-	const blockStart = text.lastIndexOf('{', index);
-	const previousBlockEnd = text.lastIndexOf('}', index);
-	if (blockStart === -1 || previousBlockEnd > blockStart) {
-		return '';
-	}
-	const selectorStart = text.lastIndexOf('}', blockStart - 1) + 1;
-	return text.slice(selectorStart, blockStart).trim().replace(/\s+/g, ' ');
-}
-
-function isAllowedImportantSelector(selector) {
-	return selector.includes('.workspace-leaf-content')
-		&& selector.includes('.native-powerpoint-doc-editor-host')
-		&& selector.includes('[data-native-powerpoint-doc-editor-root]');
-}
-
 function collectSourceFiles(root) {
 	const files = [];
 	const skipDirNames = new Set(['vendor', 'node_modules', 'build', 'dist']);
@@ -55,8 +39,8 @@ const failures = [];
 const requiredDocxScrollbarFragments = [
 	'--npde-docx-toolbar-shell-bg: var(--npde-chrome-bg);',
 	'--npde-docx-formatting-bar-bg: var(--npde-toolbar-bg);',
-	'background: var(--npde-docx-toolbar-shell-bg) !important;',
-	'background: var(--npde-docx-formatting-bar-bg) !important;',
+	'background: var(--npde-docx-toolbar-shell-bg);',
+	'background: var(--npde-docx-formatting-bar-bg);',
 	"[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar {",
 	"[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-track",
 	"[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-thumb",
@@ -78,10 +62,10 @@ const requiredDocxDarkDocumentFragments = [
 	'--doc-text: var(--npde-editor-text);',
 	'--doc-caret: var(--npde-document-text);',
 	'[data-native-powerpoint-doc-editor-page] {',
-	'background: var(--npde-document-bg) !important;',
-	'color: var(--npde-document-text) !important;',
-	'color-scheme: light !important;',
-	'filter: none !important;',
+	'background: var(--npde-document-bg);',
+	'color: var(--npde-document-text);',
+	'color-scheme: light;',
+	'filter: none;',
 ];
 
 const requiredSettingsButtonFragments = [
@@ -92,7 +76,7 @@ const requiredSettingsButtonFragments = [
 	'.native-powerpoint-doc-editor-editor-settings-row.mod-action > button',
 	'--npde-settings-action-border:',
 	'border: 1px solid var(--npde-editor-border-strong);',
-	'box-shadow: none !important;',
+	'box-shadow: none;',
 	'outline: 2px solid var(--npde-toolbar-focus-ring);',
 ];
 
@@ -143,9 +127,9 @@ for (const fragment of requiredSettingsButtonFragments) {
 const requiredDocxEigenpalTooltipHideFragments = [
 	"data-native-powerpoint-doc-editor-toolbar-tooltips='custom'",
 	"[data-native-powerpoint-doc-editor-eigenpal-tooltip='true']",
-	'display: none !important;',
-	'opacity: 0 !important;',
-	'visibility: hidden !important;',
+	'display: none;',
+	'opacity: 0;',
+	'visibility: hidden;',
 ];
 
 const requiredDocxToolbarTooltipFragments = [
@@ -185,12 +169,9 @@ if (/\[data-native-powerpoint-doc-editor-toolbar\]\s*>\s*div\s*\{/.test(css)) {
 
 for (const match of css.matchAll(/!important/g)) {
 	const index = match.index ?? 0;
-	const selector = selectorForDeclaration(css, index);
-	if (!isAllowedImportantSelector(selector)) {
-		failures.push(
-			`${path.relative(process.cwd(), stylePath)}:${lineForIndex(css, index)} uses !important outside the DOCX editor override allowlist.`,
-		);
-	}
+	failures.push(
+		`${path.relative(process.cwd(), stylePath)}:${lineForIndex(css, index)} uses !important; increase selector specificity or use a CSS variable instead.`,
+	);
 }
 
 const colorLiteralRe = /#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(/;
@@ -227,4 +208,4 @@ assert.deepEqual(
 	`Theme CSS guard failed:\n${failures.join('\n')}`,
 );
 
-console.log('Theme CSS check passed: tokens and !important allowlists are respected.');
+console.log('Theme CSS check passed: tokens are respected and styles.css contains no !important declarations.');

@@ -13,6 +13,7 @@ import { errorLog, infoLog } from './logger';
 import { getDocxEditorLocale, loadDocxEditorLocale, preloadDocxEditorLocale } from './locales';
 import type NativePowerPointDocEditorPlugin from './main';
 import { createAndOpenNewOfficeFile } from './vault/createNewOfficeFile';
+import { convertMarkdownFileToDocx } from './vault/markdownToDocx';
 
 export { createDocxReactMount, DocxFileEmbed, renderDocxEmbeds, hasReviewMarkup } from './docxEditorChunk';
 export { DocxView, VIEW_TYPE_DOCX };
@@ -50,7 +51,7 @@ export async function registerDocxSupport(
 	registerDeferredDocxEmbedProcessor(plugin);
 
 	registerDocxCommands(plugin, docxSearchIndex);
-	registerDocxFolderMenu(plugin);
+	registerDocxFileMenu(plugin);
 	registerDocxSearchEvents(plugin, docxSearchIndex);
 	queueInitialDocxSearchIndex(plugin, docxSearchIndex);
 
@@ -58,13 +59,16 @@ export async function registerDocxSupport(
 	return docxSearchIndex;
 }
 
-function registerDocxFolderMenu(plugin: NativePowerPointDocEditorPlugin) {
+function registerDocxFileMenu(plugin: NativePowerPointDocEditorPlugin) {
 	plugin.registerEvent(plugin.app.workspace.on('file-menu', (menu, file) => {
-		if (!(file instanceof TFolder)) {
+		if (file instanceof TFolder) {
+			addCreateDocxMenuItem(plugin, menu, file);
 			return;
 		}
 
-		addCreateDocxMenuItem(plugin, menu, file);
+		if (file instanceof TFile && file.extension.toLowerCase() === 'md') {
+			addConvertMarkdownToDocxMenuItem(plugin, menu, file);
+		}
 	}));
 }
 
@@ -81,6 +85,29 @@ function addCreateDocxMenuItem(plugin: NativePowerPointDocEditorPlugin, menu: Me
 					const message = error instanceof Error ? error.message : String(error);
 					showI18nNotice(i18n, 'docx:notice.createFailed', { message });
 					errorLog('file', 'Failed to create blank DOCX', { folder: folder.path, message });
+				}
+			});
+	});
+}
+
+function addConvertMarkdownToDocxMenuItem(
+	plugin: NativePowerPointDocEditorPlugin,
+	menu: Menu,
+	file: TFile,
+) {
+	const i18n = plugin.getI18n();
+	menu.addItem((item) => {
+		item
+			.setTitle(i18n?.t('docx:menu.convertMarkdownToDocx') ?? 'Convert to DOCX')
+			.setIcon('file-output')
+			.onClick(async () => {
+				try {
+					const outputFile = await convertMarkdownFileToDocx(plugin.app, file);
+					showI18nNotice(i18n, 'docx:notice.convertedMarkdownToDocx', { path: outputFile.path });
+				} catch (error) {
+					const message = error instanceof Error ? error.message : String(error);
+					showI18nNotice(i18n, 'docx:notice.convertMarkdownFailed', { message });
+					errorLog('file', 'Failed to convert Markdown to DOCX', { sourcePath: file.path, message });
 				}
 			});
 	});
@@ -124,7 +151,7 @@ function registerDocxCommands(plugin: NativePowerPointDocEditorPlugin, docxSearc
 	});
 	plugin.addCommand({
 		id: 'save-current-docx-as',
-		name: 'Save current DOCX as...',
+		name: 'Save current docx as...',
 		callback: async () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
@@ -137,7 +164,7 @@ function registerDocxCommands(plugin: NativePowerPointDocEditorPlugin, docxSearc
 	});
 	plugin.addCommand({
 		id: 'duplicate-current-docx',
-		name: 'Duplicate current DOCX',
+		name: 'Duplicate current docx',
 		callback: async () => {
 			const docxView = plugin.app.workspace.getActiveViewOfType(DocxView);
 			if (!docxView) {
@@ -176,7 +203,7 @@ function registerDocxCommands(plugin: NativePowerPointDocEditorPlugin, docxSearc
 	});
 	plugin.addCommand({
 		id: 'search-docx-files',
-		name: 'Search DOCX files in vault',
+		name: 'Search docx files in vault',
 		callback: async () => {
 			if (!plugin.pluginSettings.enableDocxSearchIndex) {
 				showI18nNotice(plugin.getI18n(), 'docx:notice.enableSearchIndexFirst');
@@ -189,7 +216,7 @@ function registerDocxCommands(plugin: NativePowerPointDocEditorPlugin, docxSearc
 	});
 	plugin.addCommand({
 		id: 'rebuild-docx-search-index',
-		name: 'Rebuild DOCX search index',
+		name: 'Rebuild docx search index',
 		callback: async () => {
 			await rebuildDocxSearchIndex(plugin, docxSearchIndex, true, true);
 		},

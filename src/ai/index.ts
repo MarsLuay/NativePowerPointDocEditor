@@ -1,4 +1,4 @@
-export { AI_ERROR_CODES, createAiError, isAiErrorDetail } from './errors';
+export { AI_ERROR_CODES, AiError, createAiError, isAiErrorDetail } from './errors';
 export type { AiErrorCode, AiErrorDetail } from './errors';
 export { AiCore } from './aiCore';
 export { buildCapabilityManifest } from './capabilities';

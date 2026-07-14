@@ -676,7 +676,7 @@ class ExternalDocxChangeModal extends Modal {
 			text: `${this.fileName} was modified outside Native PowerPoint Doc Editor after it was opened.`,
 		});
 		contentEl.createEl('p', {
-			text: 'Saving now will overwrite those outside changes. Cancel and use Save as... or Duplicate current DOCX if you want to keep both versions.',
+			text: 'Saving now will overwrite those outside changes. Cancel and use save as... Or duplicate current docx if you want to keep both versions.',
 		});
 
 		const buttonRow = contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-unsaved-actions' });
@@ -1093,7 +1093,7 @@ export class DocxView extends FileView {
 		}
 
 		this.editorChromeSyncQueued = true;
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			this.editorChromeSyncQueued = false;
 			this.runEditorChromeSync();
 		});
@@ -1132,9 +1132,6 @@ export class DocxView extends FileView {
 
 	private isLeafActive(): boolean {
 		if (this.app.workspace.getActiveViewOfType(DocxView) === this) {
-			return true;
-		}
-		if (this.app.workspace.activeLeaf?.view === this) {
 			return true;
 		}
 		if (!this.file) {

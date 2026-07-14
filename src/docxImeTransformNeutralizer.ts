@@ -465,8 +465,8 @@ export function attachDocxImeTransformNeutralizer(
 		...options,
 		onDiagnostic: (event) => {
 			if (event.event === 'anchor-state') {
-				const status = String(event.details?.status ?? '');
-				const reason = String(event.details?.reason ?? '');
+				const status = typeof event.details?.status === 'string' ? event.details.status : '';
+				const reason = typeof event.details?.reason === 'string' ? event.details.reason : '';
 				const signature = `${status}:${reason}`;
 				if (signature === lastAnchorState) {
 					return;

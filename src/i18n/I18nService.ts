@@ -8,7 +8,8 @@ export type { MessageKey };
 export interface I18nService {
 	readonly locale: string;
 	readonly direction: 'ltr' | 'rtl';
-	t(key: MessageKey | string, values?: Record<string, string | number | boolean>): string;
+	t(key: MessageKey, values?: Record<string, string | number | boolean>): string;
+	t(key: string, values?: Record<string, string | number | boolean>): string;
 	formatNumber(value: number, options?: Intl.NumberFormatOptions): string;
 	formatDate(value: Date | number, options?: Intl.DateTimeFormatOptions): string;
 }
@@ -22,7 +23,9 @@ export class PluginI18nService implements I18nService {
 		private readonly englishFallback: PluginMessages,
 	) {}
 
-	t(key: MessageKey | string, values?: Record<string, string | number | boolean>): string {
+	t(key: MessageKey, values?: Record<string, string | number | boolean>): string;
+	t(key: string, values?: Record<string, string | number | boolean>): string;
+	t(key: string, values?: Record<string, string | number | boolean>): string {
 		const template =
 			this.messages[key]
 			?? this.baseLanguageMessages?.[key]

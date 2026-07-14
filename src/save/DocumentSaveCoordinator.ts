@@ -25,8 +25,8 @@ export interface DocumentSaveCoordinatorOptions<Context, Serialized, Prepared, V
 	onAutosaveStarted?(version: number): void;
 	/** If set, autosave timers call this instead of coordinator.save(). */
 	runAutosave?(version: number): void;
-	setTimeout?(callback: () => void, delayMs: number): number;
-	clearTimeout?(timer: number): void;
+	setTimeout?(this: void, callback: () => void, delayMs: number): number;
+	clearTimeout?(this: void, timer: number): void;
 }
 
 interface PendingSave<Source extends string> extends DocumentSaveRequest<Source> {

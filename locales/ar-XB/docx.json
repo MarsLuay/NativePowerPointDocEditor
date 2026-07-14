@@ -42,10 +42,13 @@
     "optionUnavailable": "‫{option}.won thgir elbaliava ton si ",
     "notAvailable": "‫{option}.won thgir elbaliava ton si ",
     "menuUnavailable": "‫{menu}.won thgir elbaliava ton si unem ",
-    "newDocx": "‫XCOD weN"
+    "newDocx": "‫XCOD weN",
+    "convertMarkdownToDocx": "‫XCOD ot trevnoC"
   },
   "notice": {
     "createFailed": "‫ :XCOD etaerc ton dluoC{message}",
+    "convertMarkdownFailed": "‫ :XCOD ot nwodkraM trevnoc ton dluoC{message}",
+    "convertedMarkdownToDocx": "‫ ot detrevnoC{path}",
     "openToSave": "‫.ti evas ot elif xcod a nepO",
     "openToSaveCopy": "‫.ypoc a evas ot elif xcod a nepO",
     "openToDuplicate": "‫.ti etacilpud ot elif xcod a nepO",

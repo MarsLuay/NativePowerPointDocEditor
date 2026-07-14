@@ -329,6 +329,9 @@ function createAppStub() {
 			},
 		},
 		workspace: {
+			containerEl: {
+				ownerDocument: globalThis.activeDocument,
+			},
 			getActiveViewOfType() {
 				return null;
 			},

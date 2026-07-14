@@ -389,7 +389,10 @@ export interface SelectRowOptions extends MenuRowBaseOptions {
 }
 
 export function createSelectRow(parent: HTMLElement, options: SelectRowOptions): HTMLSelectElement {
-	const { row } = createMenuRow(parent, { ...options, rowExtraClassName: ['mod-input', ...(Array.isArray(options.rowExtraClassName) ? options.rowExtraClassName : options.rowExtraClassName ? [options.rowExtraClassName] : [])] });
+	const { row } = createMenuRow(parent, {
+		...options,
+		rowExtraClassName: mergeClassNames('mod-input', options.rowExtraClassName),
+	});
 	const select = row.createEl('select', { cls: classNameToString(options.selectClassName) });
 	for (const item of options.options) {
 		const option = select.createEl('option', { text: item.label });

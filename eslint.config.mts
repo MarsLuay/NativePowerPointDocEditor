@@ -15,6 +15,7 @@ export default defineConfig([
 		'package-lock.json',
 		'src/vendor/**',
 	]),
+	...obsidianmd.configs.recommended,
 	{
 		files: ['src/**/*.ts', 'src/**/*.tsx'],
 		languageOptions: {
