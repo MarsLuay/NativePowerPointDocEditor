@@ -1,1 +1,0 @@
-'use strict';var n={top:4,bottom:4,left:7,right:7},o=200;function a(e,t){let r=e.kind??"<unknown>";throw new Error(`${t}: unhandled FlowBlock kind "${r}". Add the case alongside the other FlowBlock switches (see types.ts).`)}exports.a=n;exports.b=o;exports.c=a;

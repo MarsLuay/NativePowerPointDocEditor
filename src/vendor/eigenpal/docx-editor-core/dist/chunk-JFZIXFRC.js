@@ -1,1 +1,0 @@
-'use strict';var t=["square","tight","through"],e=["behind","inFront"],o=[...t,...e];function i(n){return !!n&&o.includes(n)}function r(n){return n==="behind"||n==="inFront"}function s(n){return !!n&&t.includes(n)}exports.a=i;exports.b=r;exports.c=s;

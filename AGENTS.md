@@ -15,6 +15,13 @@
 - Avoid new `!important` rules. Limit to documented third-party DOCX/editor internals, inline-style overrides, or PDF export isolation.
 - After theme/menu/settings changes, run guards: `npm run check:theme-architecture`, `npm run check:theme-css`, `npm run check:shared-ui-patterns`.
 
+### Eigenpal DOCX editor (in-repo monorepo)
+
+- Source + package dist: `docx-editor/` (pin `npde-mirror-1.9.0` / `66d74702…`, Apache-2.0). Runtime aliases: `scripts/lib/docx-editor-aliases.mjs` → `docx-editor/packages/{core,react,i18n}`. `agentsStub/` stubs `AgentPanel` so the Obsidian bundle stays lean.
+- Edit source → `npm run build:docx-editor` (needs bun) → `npm run build` / `dev`. Users still only get `main.js`; monorepo is not an Obsidian download.
+- **Publish always fresh-rebuilds:** when publishing this plugin, run `npm run build:docx-editor` then `npm run build` (see vault publish skill). Fail if bun/rebuild tooling is missing — do not release stale package dist.
+- Do **not** add `@eigenpal/*` to root `package.json`. Details: `src/docx/editor/README.md`.
+
 ### PPTX action logging
 
 - Use `debugLog(area, message, data?)` for PPTX actions; `warnLog` and `errorLog` are always on. Prefer `logPptxAction(area, op, data?)` for user-triggered action starts.
@@ -266,3 +273,7 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 - Developer policies: https://docs.obsidian.md/Developer+policies
 - Plugin guidelines: https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines
 - Style guide: https://help.obsidian.md/style-guide
+
+## Code analysis — wont-fix
+
+- `src/powerpoint/backend/pptxJsEngine.mjs` (`repo/large-file`): generated pure-JS fallback of `pptx-svg` MoonBit JS backend (`npm run regen:pptx-js`). Must stay Git-tracked for offline Obsidian installs without WASM GC; size is inherent to the engine, not compressible without losing the fallback. External source of truth is the pptx-svg package + regen script.

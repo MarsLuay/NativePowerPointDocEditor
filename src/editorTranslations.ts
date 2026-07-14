@@ -1,5 +1,5 @@
 /** @deprecated Use PluginI18nService from `./i18n/pluginI18n` instead. */
-import { createT, deepMerge, en, type Translations, type TranslationKey } from '@eigenpal/docx-editor-i18n';
+import { createT, deepMerge, en, type Translations, type TranslationKey } from '@npde/docx-editor-i18n';
 
 type TranslationVars = Record<string, string | number>;
 

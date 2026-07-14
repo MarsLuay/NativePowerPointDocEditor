@@ -1,4 +1,4 @@
-export { loadEigenpalMessages, type LoadedLocale } from './eigenpalAdapter';
+export { loadDocxEditorMessages, type LoadedLocale } from './docxEditorLocaleAdapter';
 export { getPluginI18n, initPluginI18n, resolvePluginLocale } from './pluginI18n';
 export {
 	createPluginI18nService,

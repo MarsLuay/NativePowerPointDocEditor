@@ -103,9 +103,19 @@ function stampAttribute(element: Element, attribute: string): void {
 
 /**
  * Stamps plugin-owned region markers onto vendored DOCX DOM that Eigenpal does
- * not mark yet (table context toolbar). Safe to call repeatedly from chrome sync.
+ * not mark yet (pages surface, hidden PM, table context toolbar). Safe to call
+ * repeatedly from chrome sync.
  */
 export function stampDocxEditorChromeRegions(root: ParentNode): void {
+	root.querySelectorAll<HTMLElement>('.paged-editor__pages').forEach((pages) => {
+		stampAttribute(pages, DOCX_EDITOR_PAGES_ATTRIBUTE);
+	});
+	root.querySelectorAll<HTMLElement>('.paged-editor__hidden-pm').forEach((hidden) => {
+		stampAttribute(hidden, DOCX_HIDDEN_PROSEMIRROR_ATTRIBUTE);
+	});
+	root.querySelectorAll<HTMLElement>('[data-testid="caret"]').forEach((caret) => {
+		stampAttribute(caret, DOCX_CARET_ATTRIBUTE);
+	});
 	root.querySelectorAll<HTMLElement>(`.${DOCX_VENDOR_TABLE_TOOLBAR_CLASS}[role="toolbar"]`).forEach((toolbar) => {
 		stampAttribute(toolbar, DOCX_TABLE_TOOLBAR_ATTRIBUTE);
 	});

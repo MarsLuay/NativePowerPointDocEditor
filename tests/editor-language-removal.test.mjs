@@ -6,12 +6,17 @@ import Module, { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
-import { createVendoredDocxAliases } from '../scripts/lib/vendored-docx-aliases.mjs';
+import {
+	createDocxEditorAliases,
+	resolveDocxEditorAgentsStub,
+	resolveDocxEditorPackagesRoot,
+} from '../scripts/lib/docx-editor-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
-const vendoredDocxAliases = await createVendoredDocxAliases(
-	path.join(projectRoot, 'src/vendor/eigenpal'),
+const docxEditorAliases = await createDocxEditorAliases(
+	resolveDocxEditorPackagesRoot(projectRoot),
+	{ agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
 );
 
 async function loadModule(entry, external = []) {
@@ -19,7 +24,7 @@ async function loadModule(entry, external = []) {
 	const outfile = path.join(outdir, 'module.cjs');
 	await build({
 		absWorkingDir: projectRoot,
-		alias: vendoredDocxAliases,
+		alias: docxEditorAliases,
 		entryPoints: [entry],
 		bundle: true,
 		external,
@@ -58,7 +63,7 @@ async function loadSettingsModule() {
 	const outfile = path.join(outdir, 'settings.cjs');
 	await build({
 		absWorkingDir: projectRoot,
-		alias: vendoredDocxAliases,
+		alias: docxEditorAliases,
 		entryPoints: ['src/settings.ts'],
 		bundle: true,
 		external: ['obsidian'],

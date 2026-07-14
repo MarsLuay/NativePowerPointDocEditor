@@ -5,10 +5,17 @@ import Module, { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { patchPptxRendererSource } from "../../scripts/lib/patch-pptx-renderer.mjs";
-import { createVendoredDocxAliases } from "../../scripts/lib/vendored-docx-aliases.mjs";
+import {
+  createDocxEditorAliases,
+  resolveDocxEditorAgentsStub,
+  resolveDocxEditorPackagesRoot,
+} from "../../scripts/lib/docx-editor-aliases.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const vendoredDocxAliases = await createVendoredDocxAliases(path.join(projectRoot, "src/vendor/eigenpal"));
+const docxEditorAliases = await createDocxEditorAliases(
+  resolveDocxEditorPackagesRoot(projectRoot),
+  { agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
+);
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require("@xmldom/xmldom");
 let tempDirectoryPromise;
@@ -55,7 +62,7 @@ async function bundleSource(entry, outputName, external = [], plugins = []) {
   const outputDirectory = await getTempDirectory();
   const outfile = path.join(outputDirectory, outputName);
   await build({
-    alias: vendoredDocxAliases,
+    alias: docxEditorAliases,
     entryPoints: [path.join(projectRoot, entry)],
     bundle: true,
     external,

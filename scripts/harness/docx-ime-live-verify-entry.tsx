@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocxEditor, type DocxEditorRef } from '@eigenpal/docx-editor-react';
-import editorStyles from '@eigenpal/docx-editor-react/styles.css';
-import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
+import { DocxEditor, type DocxEditorRef } from '@npde/docx-editor-react';
+import editorStyles from '@npde/docx-editor-react/styles.css';
+import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
 import {
 	attachDocxImeTransformNeutralizer,
 	countTransformAncestors,
@@ -52,6 +52,7 @@ function inspectWrapper(editorRoot: HTMLElement): WrapperInspection | null {
 function findBodyEditable(hostEl: HTMLElement): HTMLElement | null {
 	return (
 		hostEl.ownerDocument.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-hidden-prosemirror] .ProseMirror[contenteditable="true"]')
+		?? hostEl.ownerDocument.querySelector<HTMLElement>('.paged-editor__hidden-pm .ProseMirror[contenteditable="true"]')
 		?? hostEl.ownerDocument.querySelector<HTMLElement>('.ProseMirror[contenteditable="true"]')
 		?? hostEl.querySelector<HTMLElement>('[contenteditable="true"]')
 	);
@@ -95,8 +96,12 @@ function collectMetrics(
 	const wrapper = inspectWrapper(editorRoot);
 	const transformAncestorsOnCaret = editable ? countTransformAncestors(editable) : -1;
 	const view = editorRef.current?.getEditorRef()?.getView() ?? null;
-	const hiddenRoot = view?.dom.closest<HTMLElement>('[data-native-powerpoint-doc-editor-hidden-prosemirror]') ?? null;
-	const visibleCaret = editorRoot.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-caret]');
+	const hiddenRoot =
+		view?.dom.closest<HTMLElement>('[data-native-powerpoint-doc-editor-hidden-prosemirror]')
+		?? view?.dom.closest<HTMLElement>('.paged-editor__hidden-pm')
+		?? null;
+	const visibleCaret = editorRoot.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-caret]')
+		?? editorRoot.querySelector<HTMLElement>('[data-testid="caret"]');
 	let hiddenCaretDelta: LiveVerifyMetrics['hiddenCaretDelta'] = null;
 	if (view && visibleCaret) {
 		try {
@@ -201,7 +206,7 @@ function DocxLiveVerifyApp({
 			retryTimeouts = [100, 500, 1500].map((delay) => window.setTimeout(attachNeutralizer, delay));
 		}
 
-		const timers = [1000, 2500, 5000, 10000].map((delay) => window.setTimeout(publish, delay));
+		const timers = [1000, 2500, 5000, 10000, 15000, 20000].map((delay) => window.setTimeout(publish, delay));
 
 		return () => {
 			for (const timeout of retryTimeouts) {

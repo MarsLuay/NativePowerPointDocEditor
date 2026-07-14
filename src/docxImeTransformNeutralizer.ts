@@ -1,6 +1,6 @@
 import { isHTMLElement } from './domGuards';
 import { DOCX_CARET_SELECTOR, DOCX_EDITOR_PAGES_SELECTOR, DOCX_HIDDEN_PROSEMIRROR_SELECTOR } from './docxEditorChromeMarkers';
-import type { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
+import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
 import type { EditorView } from 'prosemirror-view';
 
 const IME_NEUTRALIZED_DATASET_KEY = 'nativePowerPointDocEditorImeNeutralized';
@@ -123,7 +123,11 @@ export function editorZoomTransformNeedsNeutralization(transform: string): boole
 }
 
 export function findDocxEditorZoomWrapper(editorRoot: HTMLElement): HTMLElement | null {
-	const pages = editorRoot.querySelector(DOCX_EDITOR_PAGES_SELECTOR);
+	// Prefer plugin-stamped markers; fall back to Eigenpal's class when chrome
+	// sync has not stamped yet (live harnesses / first paint).
+	const pages =
+		editorRoot.querySelector(DOCX_EDITOR_PAGES_SELECTOR)
+		?? editorRoot.querySelector('.paged-editor__pages');
 	const parent = pages?.parentElement;
 	if (!parent || !editorRoot.contains(parent)) {
 		return null;
@@ -224,7 +228,9 @@ function toViewportCaretRect(rect: CaretRectLike | null | undefined): ViewportCa
 }
 
 function findVisibleCaretRect(editorRoot: HTMLElement): ViewportCaretRect | null {
-	const caret = editorRoot.querySelector<HTMLElement>(DOCX_CARET_SELECTOR);
+	const caret =
+		editorRoot.querySelector<HTMLElement>(DOCX_CARET_SELECTOR)
+		?? editorRoot.querySelector<HTMLElement>('[data-testid="caret"]');
 	return toViewportCaretRect(caret?.getBoundingClientRect());
 }
 
@@ -252,7 +258,9 @@ function getRenderedCaretRect(view: EditorView, context: RenderedDomContext | nu
 }
 
 function findHiddenProseMirrorRoot(view: EditorView): HTMLElement | null {
-	const hiddenRoot = view.dom.closest(DOCX_HIDDEN_PROSEMIRROR_SELECTOR);
+	const hiddenRoot =
+		view.dom.closest(DOCX_HIDDEN_PROSEMIRROR_SELECTOR)
+		?? view.dom.closest('.paged-editor__hidden-pm');
 	return isHTMLElement(hiddenRoot) ? hiddenRoot : null;
 }
 

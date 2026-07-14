@@ -1,6 +1,6 @@
-import type { Translations } from '@eigenpal/docx-editor-i18n';
+import type { Translations } from '@npde/docx-editor-i18n';
 
-import { loadEigenpalMessages } from './i18n/eigenpalAdapter';
+import { loadDocxEditorMessages } from './i18n/docxEditorLocaleAdapter';
 import { localeCandidates } from './i18n/localeResolver';
 
 const SUPPORTED_DOCX_EDITOR_LANGUAGES = ['en', 'pl', 'pt-BR', 'tr', 'he', 'zh-CN'] as const;
@@ -49,7 +49,7 @@ export function loadDocxEditorLocale(language: LocaleCode): Promise<Translations
 		return pending;
 	}
 
-	const promise = loadEigenpalMessages(language)
+	const promise = loadDocxEditorMessages(language)
 		.then((translations) => {
 			if (translations) {
 				localeCache.set(language, translations);

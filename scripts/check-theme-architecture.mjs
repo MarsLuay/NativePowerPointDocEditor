@@ -9,7 +9,7 @@ const allowedThemeResolutionFiles = new Set([
 ]);
 
 const sourceExtensions = new Set(['.ts', '.tsx']);
-const skipDirNames = new Set(['vendor', 'node_modules', 'build', 'dist']);
+const skipDirNames = new Set(['editor', 'docx-editor', 'node_modules', 'build', 'dist']);
 
 function collectSourceFiles(root) {
 	const files = [];

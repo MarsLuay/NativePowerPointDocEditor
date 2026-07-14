@@ -1,6 +1,6 @@
 // End-to-end smoke test for the pure-JS PPTX engine fallback.
 //
-// Loads a real .pptx through the vendored createPptxJsEngine() factory using the
+// Loads a real .pptx through the local createPptxJsEngine() factory using the
 // same host FFI surface the renderer provides, then renders slide 0 to SVG.
 // Proves the js backend works without any WebAssembly at all.
 //
@@ -15,7 +15,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
 const { createPptxJsEngine } = await import(
-  path.join(projectRoot, 'src/vendor/pptx-js-engine.mjs')
+  path.join(projectRoot, 'src/powerpoint/backend/pptxJsEngine.mjs')
 );
 const { extractZip } = await import(
   path.join(projectRoot, 'node_modules/pptx-svg/dist/zip.js')

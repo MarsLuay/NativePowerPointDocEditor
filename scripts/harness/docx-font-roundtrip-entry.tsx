@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocxEditor, type DocxEditorRef } from '@eigenpal/docx-editor-react';
-import editorStyles from '@eigenpal/docx-editor-react/styles.css';
+import { DocxEditor, type DocxEditorRef } from '@npde/docx-editor-react';
+import editorStyles from '@npde/docx-editor-react/styles.css';
 import JSZip from 'jszip';
 import { preserveDocxTableCellFontSizes } from '../../src/docxTableCellFontSizePreserver';
 
@@ -36,7 +36,10 @@ function countMatches(value: string, pattern: RegExp): number {
 }
 
 function findExactTextElement(text: string): HTMLElement | null {
-	const elements = document.querySelectorAll<HTMLElement>('[data-native-powerpoint-doc-editor-pages] *');
+	const pages =
+		document.querySelector('[data-native-powerpoint-doc-editor-pages]')
+		?? document.querySelector('.paged-editor__pages');
+	const elements = pages?.querySelectorAll<HTMLElement>('*') ?? [];
 	for (const element of elements) {
 		if (element.children.length === 0 && element.textContent?.trim() === text) {
 			return element;

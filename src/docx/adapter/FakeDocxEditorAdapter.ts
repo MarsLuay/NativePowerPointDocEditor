@@ -1,4 +1,4 @@
-import type { EditorMode } from '@eigenpal/docx-editor-react';
+import type { EditorMode } from '@npde/docx-editor-react';
 import type { EditorView } from 'prosemirror-view';
 import type {
 	ChromeListener,

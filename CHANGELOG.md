@@ -6,6 +6,22 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.36] - 2026-07-14
+
+### Added
+
+- Embed the Eigenpal docx-editor source monorepo under `docx-editor/` (1.9.0 pin) and wire package dist into the plugin build; Obsidian downloads remain `main.js` only.
+- Add `npm run build:docx-editor` and require a fresh monorepo package rebuild on publish.
+
+### Changed
+
+- Replace `src/vendor/eigenpal` committed packages with in-repo `docx-editor/packages/{core,react,i18n}` plus `agentsStub` for AgentPanel.
+- Move the pure-JS PPTX engine to `src/powerpoint/backend/pptxJsEngine.mjs`.
+
+### Fixed
+
+- Restore DOCX IME zoom-wrapper and font-roundtrip harness targeting by recognizing Eigenpal `.paged-editor__pages` / `.paged-editor__hidden-pm` and stamping matching plugin chrome markers.
+
 ## [1.0.35] - 2026-07-14
 
 ### Added

@@ -1,5 +1,5 @@
 import { BUNDLED_LOCALE_JSON, BUNDLED_LOCALES } from './bundledLocaleRegistry';
-import { loadEigenpalMessages, type LoadedLocale } from './eigenpalAdapter';
+import { loadDocxEditorMessages, type LoadedLocale } from './docxEditorLocaleAdapter';
 import { getLocaleDirection, localeCandidates } from './localeResolver';
 
 export const LOCALE_NAMESPACES = [
@@ -146,9 +146,9 @@ export async function loadLocale(
 	requestedLocale: string,
 ): Promise<LoadedLocale> {
 	const canonical = localeCandidates(requestedLocale)[0] ?? 'en';
-	const [adapterMessages, eigenpalMessages] = await Promise.all([
+	const [adapterMessages, docxEditorMessages] = await Promise.all([
 		loadPluginMessagesFromAdapter(adapter, pluginDir, canonical),
-		loadEigenpalMessages(canonical),
+		loadDocxEditorMessages(canonical),
 	]);
 
 	return {
@@ -158,7 +158,7 @@ export async function loadLocale(
 			...loadBundledPluginMessagesWithFallback(canonical),
 			...adapterMessages,
 		},
-		eigenpalMessages,
+		docxEditorMessages,
 	};
 }
 

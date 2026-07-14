@@ -1,6 +1,12 @@
 {
   "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
-  "plugins": ["import", "promise", "react", "unicorn", "typescript"],
+  "plugins": [
+    "import",
+    "promise",
+    "react",
+    "unicorn",
+    "typescript"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error"
@@ -18,5 +24,10 @@
     "unicorn/consistent-function-scoping": "off",
     "typescript/no-extraneous-class": "off",
     "react-hooks/exhaustive-deps": "off"
-  }
+  },
+  "ignorePatterns": [
+    "**/pptxJsEngine.mjs",
+    "docx-editor/**",
+    "main.js"
+  ]
 }

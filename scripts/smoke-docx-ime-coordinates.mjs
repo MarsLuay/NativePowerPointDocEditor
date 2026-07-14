@@ -14,7 +14,7 @@ const chromeBinary =
 	process.env.CHROME_PATH
 	|| '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
-// Matches @eigenpal/docx-editor-react sidebar shift when outline is open.
+// Matches @npde/docx-editor-react sidebar shift when outline is open.
 const SIDEBAR_DOCUMENT_SHIFT = 158;
 
 const scenarios = [

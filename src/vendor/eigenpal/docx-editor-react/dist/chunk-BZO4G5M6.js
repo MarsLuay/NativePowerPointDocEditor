@@ -1,1 +1,0 @@
-'use strict';var RenderedDomContext=require('@eigenpal/docx-editor-core/plugin-api/RenderedDomContext');Object.defineProperty(exports,"a",{enumerable:true,get:function(){return RenderedDomContext.RenderedDomContextImpl}});Object.defineProperty(exports,"b",{enumerable:true,get:function(){return RenderedDomContext.createRenderedDomContext}});

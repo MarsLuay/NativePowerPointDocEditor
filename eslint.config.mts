@@ -14,6 +14,8 @@ export default defineConfig([
 		'main.js',
 		'package-lock.json',
 		'src/vendor/**',
+		'src/powerpoint/backend/pptxJsEngine.mjs',
+		'docx-editor/**',
 	]),
 	...obsidianmd.configs.recommended,
 	{

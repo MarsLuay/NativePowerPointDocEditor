@@ -1,1 +1,0 @@
-var t=/^[a-z][a-z0-9+.-]*:/i,i=/^(https?|mailto|tel|ftp):/i;function r(n){if(!n)return;let e=n.replace(/[\t\n\r]/g,"").replace(/^[\x00-\x20]+/,"");if(e)return t.test(e)?i.test(e)?n:void 0:n}export{r as a};

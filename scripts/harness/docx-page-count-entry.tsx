@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DocxEditor, type DocxEditorRef } from '@eigenpal/docx-editor-react';
-import editorStyles from '@eigenpal/docx-editor-react/styles.css';
+import { DocxEditor, type DocxEditorRef } from '@npde/docx-editor-react';
+import editorStyles from '@npde/docx-editor-react/styles.css';
 
 const documentBuffer = Uint8Array.from(atob(window.__DOCX_BASE64__!), (char) => char.charCodeAt(0)).buffer;
 

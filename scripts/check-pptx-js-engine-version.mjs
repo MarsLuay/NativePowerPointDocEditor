@@ -1,27 +1,24 @@
-// Fail when src/vendor/pptx-js-engine.mjs was not regenerated for the installed
-// pptx-svg version. Catches silent drift on older mobile runtimes that rely on
-// the pure-JS fallback instead of the wasm-gc binary.
-
+// Fail when src/powerpoint/backend/pptxJsEngine.mjs was not regenerated for the installed
+// pptx-svg version.
 import {
   formatPptxJsEngineVersionMismatch,
   readInstalledPptxSvgVersion,
-  readVendoredPptxJsEngineVersion,
+  readPptxJsEngineVersion,
   resolveProjectRoot,
 } from './lib/pptx-svg-version.mjs';
 
-const projectRoot = resolveProjectRoot(import.meta.url);
-
 try {
+  const projectRoot = resolveProjectRoot(import.meta.url);
   const installed = readInstalledPptxSvgVersion(projectRoot);
-  const vendored = readVendoredPptxJsEngineVersion(projectRoot);
+  const local = readPptxJsEngineVersion(projectRoot);
 
-  if (!vendored || vendored !== installed) {
+  if (!local || local !== installed) {
     console.error('[check:pptx-js-engine] Version mismatch.\n');
-    console.error(formatPptxJsEngineVersionMismatch({ installed, vendored }));
+    console.error(formatPptxJsEngineVersionMismatch({ installed, local }));
     process.exit(1);
   }
 
-  console.log(`[check:pptx-js-engine] Vendored JS engine matches pptx-svg v${installed}.`);
+  console.log(`[check:pptx-js-engine] Local JS engine matches pptx-svg v${installed}.`);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`[check:pptx-js-engine] ${message}`);

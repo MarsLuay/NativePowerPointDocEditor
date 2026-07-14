@@ -3,7 +3,7 @@ import path from 'node:path';
 import { PROJECT_ROOT } from './lib/i18n-utils.mjs';
 
 const SOURCE_ROOT = path.join(PROJECT_ROOT, 'src');
-const SKIP_DIR_NAMES = new Set(['node_modules', 'vendor', 'build', 'dist']);
+const SKIP_DIR_NAMES = new Set(['node_modules', 'editor', 'docx-editor', 'build', 'dist']);
 
 const SCAN_PATTERNS = [
 	{ label: 'Notice', regex: /new\s+Notice\s*\(\s*(['"`])((?:\\.|(?!\1)[\s\S])*?)\1/g },

@@ -7,32 +7,45 @@
 		"target": "ES6",
 		"allowJs": true,
 		"paths": {
-			"@eigenpal/docx-editor-agents": [
-				"vendor/eigenpal/docx-editor-agents/dist/index.d.ts"
+			"@npde/docx-editor-core": [
+				"../docx-editor/packages/core/dist/core.d.ts"
 			],
-			"@eigenpal/docx-editor-agents/*": [
-				"vendor/eigenpal/docx-editor-agents/dist/*/index.d.ts",
-				"vendor/eigenpal/docx-editor-agents/dist/*.d.ts"
+			"@npde/docx-editor-core/*": [
+				"../docx-editor/packages/core/dist/*/index.d.ts",
+				"../docx-editor/packages/core/dist/*.d.ts"
+			],
+			"@npde/docx-editor-i18n": [
+				"../docx-editor/packages/i18n/dist/index.d.ts"
+			],
+			"@npde/docx-editor-i18n/*": [
+				"../docx-editor/packages/i18n/dist/*.d.ts"
+			],
+			"@npde/docx-editor-react": [
+				"../docx-editor/packages/react/dist/index.d.ts"
+			],
+			"@npde/docx-editor-react/*": [
+				"../docx-editor/packages/react/dist/*/index.d.ts",
+				"../docx-editor/packages/react/dist/*.d.ts"
 			],
 			"@eigenpal/docx-editor-core": [
-				"vendor/eigenpal/docx-editor-core/dist/core.d.ts"
+				"../docx-editor/packages/core/dist/core.d.ts"
 			],
 			"@eigenpal/docx-editor-core/*": [
-				"vendor/eigenpal/docx-editor-core/dist/*/index.d.ts",
-				"vendor/eigenpal/docx-editor-core/dist/*.d.ts"
+				"../docx-editor/packages/core/dist/*/index.d.ts",
+				"../docx-editor/packages/core/dist/*.d.ts"
 			],
 			"@eigenpal/docx-editor-i18n": [
-				"vendor/eigenpal/docx-editor-i18n/dist/index.d.ts"
+				"../docx-editor/packages/i18n/dist/index.d.ts"
 			],
 			"@eigenpal/docx-editor-i18n/*": [
-				"vendor/eigenpal/docx-editor-i18n/dist/*.d.ts"
+				"../docx-editor/packages/i18n/dist/*.d.ts"
 			],
 			"@eigenpal/docx-editor-react": [
-				"vendor/eigenpal/docx-editor-react/dist/index.d.ts"
+				"../docx-editor/packages/react/dist/index.d.ts"
 			],
 			"@eigenpal/docx-editor-react/*": [
-				"vendor/eigenpal/docx-editor-react/dist/*/index.d.ts",
-				"vendor/eigenpal/docx-editor-react/dist/*.d.ts"
+				"../docx-editor/packages/react/dist/*/index.d.ts",
+				"../docx-editor/packages/react/dist/*.d.ts"
 			]
 		},
 		"jsx": "react-jsx",

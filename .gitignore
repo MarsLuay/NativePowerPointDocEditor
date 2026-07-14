@@ -8,9 +8,6 @@
 # npm
 node_modules
 
-# Local static-analysis caches
-.code-analysis/
-
 # Don't include the compiled main.js file in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
@@ -48,3 +45,17 @@ tests/_probe-*.mjs
 
 # Local-only AI-interfacing design doc (not for release)
 docs/AGENT-API.md
+
+# In-repo Eigenpal monorepo (source of truth; only dist is bundled into main.js)
+docx-editor/node_modules/
+docx-editor/**/node_modules/
+docx-editor/**/.turbo/
+docx-editor/**/tsconfig.tsbuildinfo
+
+# Monorepo extras not required for Obsidian bundle / CI rebuild of package dist
+docx-editor/reference/
+docx-editor/examples/
+docx-editor/docs/
+docx-editor/.gstack/
+docx-editor/screenshots/
+docx-editor/.ralph/

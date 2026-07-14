@@ -1,1 +1,0 @@
-export{a as DocxReviewer}from'./chunk-HXXNGLFA.mjs';export{h as ChangeNotFoundError,i as CommentNotFoundError,g as TextNotFoundError,n as createReviewerBridge}from'./chunk-INQUC7PY.mjs';export{a as agentTools,b as executeToolCall,d as getToolSchemas}from'./chunk-MSKW7E36.mjs';

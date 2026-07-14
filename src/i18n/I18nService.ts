@@ -1,6 +1,6 @@
 import type { MessageKey } from './generated/messageKeys.generated';
 import { formatMessage } from './messageFormat';
-import type { LoadedLocale } from './eigenpalAdapter';
+import type { LoadedLocale } from './docxEditorLocaleAdapter';
 import type { PluginMessages } from './localeLoader';
 
 export type { MessageKey };

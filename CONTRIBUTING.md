@@ -41,7 +41,7 @@ Documentation-only changes usually do not need a full build.
 
 ## PowerPoint rendering
 
-PPTX files are rendered with the `pptx-svg` WebAssembly engine when the host supports WebAssembly GC. Older Chromium builds use a vendored pure-JS fallback in `src/vendor/pptx-js-engine.mjs`.
+PPTX files are rendered with the `pptx-svg` WebAssembly engine when the host supports WebAssembly GC. Older Chromium builds use a pure-JS fallback in `src/powerpoint/backend/pptxJsEngine.mjs`.
 
 If you change PPTX rendering or bump `pptx-svg`, run:
 
@@ -50,7 +50,7 @@ npm run smoke:pptx-js
 npm run smoke:mobile-pptx
 ```
 
-After bumping `pptx-svg`, regenerate the vendored JS engine and commit it:
+After bumping `pptx-svg`, regenerate the local JS engine and commit it:
 
 ```bash
 npm run regen:pptx-js

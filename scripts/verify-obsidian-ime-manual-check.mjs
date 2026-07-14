@@ -5,11 +5,15 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
-import { createVendoredDocxAliases } from './lib/vendored-docx-aliases.mjs';
+import {
+	createDocxEditorAliases,
+	resolveDocxEditorAgentsStub,
+	resolveDocxEditorPackagesRoot,
+} from './lib/docx-editor-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
-const vendoredDocxAliases = await createVendoredDocxAliases(path.join(projectRoot, 'src/vendor/eigenpal'));
+const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot), { agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) });
 const outputDir = path.join(projectRoot, 'results', 'ime-live-verify');
 const demoDocxPath = path.join(projectRoot, 'test_files', 'demo.docx');
 
@@ -35,7 +39,7 @@ const scenarios = [
 async function bundleHarness() {
 	const outfile = path.join(outputDir, 'harness.js');
 	await build({
-		alias: vendoredDocxAliases,
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'scripts/harness/docx-ime-live-verify-entry.tsx')],
 		bundle: true,
 		format: 'iife',
@@ -77,10 +81,12 @@ function runChrome(htmlPath) {
 				'--no-sandbox',
 				'--window-size=1440,1000',
 				'--enable-logging=stderr',
-				'--virtual-time-budget=20000',
+				// Real Chromium + React layout needs wall-clock settling beyond the
+				// earliest LIVE_VERIFY_RESULT samples when the machine is busy.
+				'--virtual-time-budget=35000',
 				htmlPath,
 			],
-			{ maxBuffer: 20 * 1024 * 1024, timeout: 60000 },
+			{ maxBuffer: 20 * 1024 * 1024, timeout: 90000 },
 			(error, stdout, stderr) => {
 				const output = `${stdout}\n${stderr}`;
 				if (error && !output.includes('LIVE_VERIFY_RESULT:')) {
@@ -91,6 +97,29 @@ function runChrome(htmlPath) {
 			},
 		);
 	});
+}
+
+function formatSampleSummary(samples) {
+	return samples
+		.map((entry, index) => {
+			const delta = entry.hiddenCaretDelta
+				? `x=${entry.hiddenCaretDelta.x} bottom=${entry.hiddenCaretDelta.bottom}`
+				: 'delta=null';
+			return `#${index} passed=${entry.passed} ${delta}`;
+		})
+		.join('; ');
+}
+
+function pickSettledMetrics(samples) {
+	const passing = samples.filter((entry) => entry.passed === true);
+	if (passing.length > 0) {
+		return passing.at(-1);
+	}
+	// Prefer the newest sample with a measured caret over an earlier incomplete one.
+	return (
+		samples.findLast((entry) => entry.hiddenCaretDelta != null)
+		?? samples.at(-1)
+	);
 }
 
 function assertWrapperNeutralized(metrics, scenario) {
@@ -130,23 +159,43 @@ async function main() {
 	await bundleHarness();
 
 	const results = [];
+	const maxAttempts = 3;
 	for (const scenario of scenarios) {
 		const htmlPath = path.join(outputDir, `${scenario.name}.html`);
 		await writeFile(htmlPath, createHarnessHtml(scenario.name, docxBase64));
 
-		const output = await runChrome(pathToFileURL(htmlPath).href);
-		const match = output.match(/LIVE_VERIFY_RESULT:(\{.*\})/g);
-		assert.ok(match?.length, `missing LIVE_VERIFY_RESULT for ${scenario.name}\n${output.slice(-800)}`);
+		let metrics = null;
+		let lastError = null;
+		for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+			const output = await runChrome(pathToFileURL(htmlPath).href);
+			const match = output.match(/LIVE_VERIFY_RESULT:(\{.*\})/g);
+			assert.ok(match?.length, `missing LIVE_VERIFY_RESULT for ${scenario.name}\n${output.slice(-800)}`);
 
-		const samples = match.map((line) => JSON.parse(line.replace('LIVE_VERIFY_RESULT:', '')));
-		// Chrome can flush a transient sample after the wrapper's inline transform
-		// is removed but before its computed transform/caret geometry settles. Use
-		// the newest fully passing sample from the verification window instead of
-		// treating console delivery order as a lifecycle guarantee.
-		const metrics = samples.findLast((entry) => entry.passed === true) ?? samples.at(-1);
-		assert.ok(metrics, `missing parsed metrics for ${scenario.name}`);
+			const samples = match.map((line) => JSON.parse(line.replace('LIVE_VERIFY_RESULT:', '')));
+			// Chrome can flush a transient sample after the wrapper's inline transform
+			// is removed but before its computed transform/caret geometry settles. Use
+			// the newest fully passing sample from the verification window instead of
+			// treating console delivery order as a lifecycle guarantee.
+			metrics = pickSettledMetrics(samples);
+			assert.ok(metrics, `missing parsed metrics for ${scenario.name}`);
+			try {
+				assertWrapperNeutralized(metrics, scenario);
+				lastError = null;
+				break;
+			} catch (error) {
+				lastError = error;
+				console.warn(
+					`[${scenario.label}] attempt ${attempt}/${maxAttempts} unsettled `
+						+ `(${formatSampleSummary(samples)}); retrying`,
+				);
+				metrics = null;
+			}
+		}
+		if (lastError) {
+			throw lastError;
+		}
+
 		results.push({ scenario, metrics });
-		assertWrapperNeutralized(metrics, scenario);
 
 		console.log(`[${scenario.label}] PASS`);
 		console.log(

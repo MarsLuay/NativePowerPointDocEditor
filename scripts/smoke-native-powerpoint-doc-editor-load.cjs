@@ -425,17 +425,21 @@ function findDocxFiles(dir, limit, results = []) {
 	return results;
 }
 
-function createVendorEigenpalAliases() {
+function createDocxEditorAliases() {
 	const aliases = {};
 	const packages = {
-		'@eigenpal/docx-editor-agents': 'docx-editor-agents',
-		'@eigenpal/docx-editor-core': 'docx-editor-core',
-		'@eigenpal/docx-editor-i18n': 'docx-editor-i18n',
-		'@eigenpal/docx-editor-react': 'docx-editor-react',
+		'@npde/docx-editor-core': 'core',
+		'@npde/docx-editor-i18n': 'i18n',
+		'@npde/docx-editor-react': 'react',
+	};
+	const compatPrefix = {
+		'@npde/docx-editor-core': '@eigenpal/docx-editor-core',
+		'@npde/docx-editor-i18n': '@eigenpal/docx-editor-i18n',
+		'@npde/docx-editor-react': '@eigenpal/docx-editor-react',
 	};
 
-	for (const [packageName, vendorDirName] of Object.entries(packages)) {
-		const packageDir = path.join(projectRoot, 'src/vendor/eigenpal', vendorDirName);
+	for (const [packageName, dirName] of Object.entries(packages)) {
+		const packageDir = path.join(projectRoot, 'docx-editor', 'packages', dirName);
 		const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
 		for (const [exportPath, target] of Object.entries(packageJson.exports ?? {})) {
 			const importTarget = typeof target === 'string'
@@ -443,12 +447,27 @@ function createVendorEigenpalAliases() {
 				: target?.import ?? target?.require ?? target?.default;
 			if (typeof importTarget !== 'string') continue;
 
+			const resolved = path.join(packageDir, importTarget);
 			const aliasKey = exportPath === '.'
 				? packageName
 				: `${packageName}/${exportPath.replace(/^\.\//, '')}`;
-			aliases[aliasKey] = path.join(packageDir, importTarget);
+			aliases[aliasKey] = resolved;
+
+			const compatBase = compatPrefix[packageName];
+			if (compatBase) {
+				const compatKey = exportPath === '.'
+					? compatBase
+					: `${compatBase}/${exportPath.replace(/^\.\//, '')}`;
+				aliases[compatKey] = resolved;
+			}
 		}
 	}
+
+	aliases['@eigenpal/docx-editor-agents/react'] = path.join(
+		projectRoot,
+		'src/docx/editor/agentsStub/react.mjs',
+	);
+	aliases['@npde/docx-editor-agents/react'] = aliases['@eigenpal/docx-editor-agents/react'];
 
 	return aliases;
 }
@@ -458,7 +477,7 @@ function loadBundledDocxSupport() {
 	const outfile = path.join(os.tmpdir(), `native-powerpoint-doc-editor-smoke-docx-support-${process.pid}.cjs`);
 	esbuild.buildSync({
 		absWorkingDir: projectRoot,
-		alias: createVendorEigenpalAliases(),
+		alias: createDocxEditorAliases(),
 		entryPoints: ['src/docxSupport.ts'],
 		bundle: true,
 		external: ['obsidian'],

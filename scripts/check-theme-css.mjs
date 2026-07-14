@@ -12,7 +12,7 @@ function lineForIndex(text, index) {
 
 function collectSourceFiles(root) {
 	const files = [];
-	const skipDirNames = new Set(['vendor', 'node_modules', 'build', 'dist']);
+	const skipDirNames = new Set(['editor', 'docx-editor', 'node_modules', 'build', 'dist']);
 
 	function visit(current) {
 		for (const entry of fs.readdirSync(current, { withFileTypes: true })) {

@@ -23,7 +23,7 @@ function isWasmGcUnsupportedError(error: unknown): boolean {
 }
 
 async function initJsBackend(renderer: PptxRenderer): Promise<void> {
-  const { createPptxJsEngine } = await import('../../vendor/pptx-js-engine.mjs');
+  const { createPptxJsEngine } = await import('./pptxJsEngine.mjs');
   (renderer as unknown as JsBackendCapableRenderer).initJsBackend(createPptxJsEngine());
 }
 

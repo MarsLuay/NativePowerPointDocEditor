@@ -5,10 +5,14 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
-import { createVendoredDocxAliases } from './lib/vendored-docx-aliases.mjs';
+import {
+	createDocxEditorAliases,
+	resolveDocxEditorAgentsStub,
+	resolveDocxEditorPackagesRoot,
+} from './lib/docx-editor-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const vendoredDocxAliases = await createVendoredDocxAliases(path.join(projectRoot, 'src/vendor/eigenpal'));
+const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot), { agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) });
 const outputDir = path.join(projectRoot, 'results', 'docx-font-roundtrip');
 const fixturePath = path.join(projectRoot, 'tests', 'fixtures', 'docx', 'table-cell-direct-24pt-font.docx');
 const chromeBinary = process.env.CHROME_PATH
@@ -16,7 +20,7 @@ const chromeBinary = process.env.CHROME_PATH
 
 async function bundleHarness() {
 	await build({
-		alias: vendoredDocxAliases,
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'scripts', 'harness', 'docx-font-roundtrip-entry.tsx')],
 		bundle: true,
 		format: 'iife',

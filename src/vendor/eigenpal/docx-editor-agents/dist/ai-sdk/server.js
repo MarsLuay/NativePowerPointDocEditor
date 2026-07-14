@@ -1,1 +1,0 @@
-'use strict';var chunkAO5SO6ZS_js=require('../chunk-AO5SO6ZS.js'),ai=require('ai');function n(){return Object.fromEntries(chunkAO5SO6ZS_js.a.map(o=>[o.name,{description:o.description,inputSchema:ai.jsonSchema(o.inputSchema)}]))}exports.getAiSdkTools=n;

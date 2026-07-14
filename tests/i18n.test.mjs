@@ -5,11 +5,16 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
 import { build } from 'esbuild';
-import { createVendoredDocxAliases } from '../scripts/lib/vendored-docx-aliases.mjs';
+import {
+	createDocxEditorAliases,
+	resolveDocxEditorAgentsStub,
+	resolveDocxEditorPackagesRoot,
+} from '../scripts/lib/docx-editor-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const vendoredDocxAliases = await createVendoredDocxAliases(
-	path.join(projectRoot, 'src/vendor/eigenpal'),
+const docxEditorAliases = await createDocxEditorAliases(
+	resolveDocxEditorPackagesRoot(projectRoot),
+	{ agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
 );
 
 async function loadModule(entry) {
@@ -17,7 +22,7 @@ async function loadModule(entry) {
 	const outfile = path.join(outdir, 'module.cjs');
 	await build({
 		absWorkingDir: projectRoot,
-		alias: vendoredDocxAliases,
+		alias: docxEditorAliases,
 		entryPoints: [entry],
 		bundle: true,
 		format: 'cjs',

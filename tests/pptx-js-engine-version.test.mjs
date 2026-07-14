@@ -1,27 +1,26 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import test from 'node:test';
 import {
   formatPptxJsEngineVersionMismatch,
   readInstalledPptxSvgVersion,
-  readVendoredPptxJsEngineVersion,
+  readPptxJsEngineVersion,
   resolveProjectRoot,
 } from '../scripts/lib/pptx-svg-version.mjs';
 
 const projectRoot = resolveProjectRoot(import.meta.url);
 
-test('vendored pptx-js-engine version stamp matches installed pptx-svg', () => {
+test('local pptxJsEngine version stamp matches installed pptx-svg', () => {
   const installed = readInstalledPptxSvgVersion(projectRoot);
-  const vendored = readVendoredPptxJsEngineVersion(projectRoot);
-  assert.equal(vendored, installed);
+  const local = readPptxJsEngineVersion(projectRoot);
+  assert.equal(local, installed);
 });
 
-test('version mismatch helper explains how to regenerate', () => {
+test('formatPptxJsEngineVersionMismatch mentions regenerate path', () => {
   const message = formatPptxJsEngineVersionMismatch({
-    installed: '0.6.0',
-    vendored: '0.5.10',
+    installed: '0.5.11',
+    local: '0.5.10',
   });
-
-  assert.match(message, /0\.6\.0/);
+  assert.match(message, /pptxJsEngine\.mjs/);
+  assert.match(message, /0\.5\.11/);
   assert.match(message, /0\.5\.10/);
-  assert.match(message, /npm run regen:pptx-js/);
 });

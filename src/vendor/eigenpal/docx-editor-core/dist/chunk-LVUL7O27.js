@@ -1,1 +1,0 @@
-'use strict';var o=["CONFIDENTIAL","DRAFT","DO NOT COPY","SAMPLE","URGENT","ASAP"];function r(t,n){if(!(t>0)||!(n>0))return;let e=t/n;return e>=1?{widthEmu:3954780,heightEmu:Math.round(3954780/e)}:{widthEmu:Math.round(3954780*e),heightEmu:3954780}}exports.a=o;exports.b=r;

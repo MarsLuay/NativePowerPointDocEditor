@@ -1,4 +1,4 @@
-// Regenerate the pure-JavaScript PPTX engine fallback (src/vendor/pptx-js-engine.mjs).
+// Regenerate the pure-JavaScript PPTX engine fallback (src/powerpoint/backend/pptxJsEngine.mjs).
 //
 // Background
 // ----------
@@ -6,7 +6,7 @@
 // `wasm-gc` target, which requires WebAssembly GC (Chromium 119+ / Electron 28+).
 // Obsidian installs older than 1.5.8 bundle a Chromium that cannot run it. MoonBit
 // can also compile the *same source* to a pure-JS backend that runs everywhere, so
-// we vendor that build as a lazy-loaded fallback.
+// we keep that build as a lazy-loaded fallback.
 //
 // The raw MoonBit JS output is an ES module with module-scoped state and a single
 // trailing `export { internal as public, ... }`. Module state is a singleton, so
@@ -41,7 +41,7 @@ if (!inputPath) {
   process.exit(1);
 }
 
-const outputPath = path.join(projectRoot, 'src/vendor/pptx-js-engine.mjs');
+const outputPath = path.join(projectRoot, 'src/powerpoint/backend/pptxJsEngine.mjs');
 
 const raw = await readFile(inputPath, 'utf8');
 

@@ -1,6 +1,6 @@
-// Regenerate the pure-JS PPTX engine fallback (src/vendor/pptx-js-engine.mjs)
+// Regenerate the pure-JS PPTX engine fallback (src/powerpoint/backend/pptxJsEngine.mjs)
 // end to end: clone the matching pptx-svg source, patch its package config to
-// emit a JS build, compile with MoonBit, and rewrap the output into the vendored
+// emit a JS build, compile with MoonBit, and rewrap the output into the local
 // factory module. Run this whenever the `pptx-svg` dependency is upgraded.
 //
 //   node scripts/regen-pptx-js-engine.mjs
@@ -97,7 +97,7 @@ try {
   }
 
   // 6. Rewrap the raw MoonBit output into the per-instance factory module.
-  log('Rewrapping output into src/vendor/pptx-js-engine.mjs ...');
+  log('Rewrapping output into src/powerpoint/backend/pptxJsEngine.mjs ...');
   run('node', [path.join(projectRoot, 'scripts/build-pptx-js-engine.mjs'), jsBuild], {
     cwd: projectRoot,
     env: {

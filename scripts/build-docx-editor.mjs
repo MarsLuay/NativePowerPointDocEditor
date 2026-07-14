@@ -1,0 +1,103 @@
+#!/usr/bin/env node
+/**
+ * Rebuild docx-editor package dist (i18n → core → react) from source in ./docx-editor.
+ * Obsidian users still only download main.js; this only regenerates local dist inputs.
+ *
+ * Requires: bun (docx-editor package scripts use bun/tsup). Install with:
+ *   curl -fsSL https://bun.sh/install | bash
+ * Or: npm install -g bun
+ */
+import { spawnSync } from 'node:child_process';
+import { existsSync, renameSync, rmSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const monorepoRoot = path.join(projectRoot, 'docx-editor');
+
+function run(cmd, args, cwd) {
+	const result = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: false });
+	if (result.status !== 0) {
+		process.exit(result.status ?? 1);
+	}
+}
+
+function which(bin) {
+	const result = spawnSync(process.platform === 'win32' ? 'where' : 'which', [bin], {
+		encoding: 'utf8',
+	});
+	return result.status === 0 ? result.stdout.trim().split('\n')[0] : null;
+}
+
+if (!existsSync(path.join(monorepoRoot, 'package.json'))) {
+	console.error(`[build:docx-editor] Missing ${monorepoRoot}`);
+	process.exit(1);
+}
+
+const bun = which('bun');
+if (!bun) {
+	console.error('[build:docx-editor] bun is required to rebuild docx-editor packages from source.');
+	console.error('Install: https://bun.sh  (or `npm install -g bun`), then re-run.');
+	console.error('Until then, committed dist under docx-editor/packages/*/dist is used (same as before).');
+	process.exit(1);
+}
+
+if (!existsSync(path.join(monorepoRoot, 'node_modules'))) {
+	console.log('[build:docx-editor] Installing monorepo dependencies…');
+	run(bun, ['install'], monorepoRoot);
+}
+
+// Isolate from plugin root node_modules (duplicate @types collide under tsup dts).
+const env = {
+	...process.env,
+	NODE_PATH: '',
+	npm_config_prefix: monorepoRoot,
+};
+
+function runIsolated(cmd, args, cwd) {
+	const result = spawnSync(cmd, args, { cwd, stdio: 'inherit', shell: false, env });
+	if (result.status !== 0) {
+		process.exit(result.status ?? 1);
+	}
+}
+
+const parentTrustedTypes = path.join(projectRoot, 'node_modules', '@types', 'trusted-types');
+const parentTrustedTypesBak = `${parentTrustedTypes}.publish-bak`;
+let hidParentTrustedTypes = false;
+if (existsSync(parentTrustedTypes) && !existsSync(parentTrustedTypesBak)) {
+	renameSync(parentTrustedTypes, parentTrustedTypesBak);
+	hidParentTrustedTypes = true;
+}
+
+try {
+	console.log('[build:docx-editor] Building i18n → core → react…');
+	runIsolated(bun, ['run', '--filter', '@eigenpal/docx-editor-i18n', 'build'], monorepoRoot);
+	runIsolated(bun, ['run', '--filter', '@eigenpal/docx-editor-core', 'build'], monorepoRoot);
+	runIsolated(bun, ['run', '--filter', '@eigenpal/docx-editor-react', 'build'], monorepoRoot);
+} finally {
+	if (hidParentTrustedTypes && existsSync(parentTrustedTypesBak)) {
+		renameSync(parentTrustedTypesBak, parentTrustedTypes);
+	}
+}
+
+// Keep only package dist in the type path: monorepo node_modules duplicates
+// prosemirror/@types and break plugin `tsc` (dual package brand).
+const monorepoNodeModules = path.join(monorepoRoot, 'node_modules');
+if (existsSync(monorepoNodeModules)) {
+	console.log('[build:docx-editor] Removing monorepo node_modules (dist-only thereafter)…');
+	rmSync(monorepoNodeModules, { recursive: true, force: true });
+}
+
+// Keep sideEffects true for Obsidian esbuild (CSS / chunk side imports).
+for (const pkg of ['i18n', 'core', 'react']) {
+	const pkgPath = path.join(monorepoRoot, 'packages', pkg, 'package.json');
+	run(process.execPath, ['-e', `
+		const fs = require('fs');
+		const p = ${JSON.stringify(pkgPath)};
+		const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+		j.sideEffects = true;
+		fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\\n');
+	`], projectRoot);
+}
+
+console.log('[build:docx-editor] Done. Run npm run build / npm run dev to refresh main.js.');

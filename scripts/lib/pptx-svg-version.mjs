@@ -2,8 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const VENDOR_RELATIVE_PATH = 'src/vendor/pptx-js-engine.mjs';
-const VENDOR_VERSION_PATTERN = /\* Source: pptx-svg v([0-9]+\.[0-9]+\.[0-9]+)/;
+const ENGINE_RELATIVE_PATH = 'src/powerpoint/backend/pptxJsEngine.mjs';
+const ENGINE_VERSION_PATTERN = /\* Source: pptx-svg v([0-9]+\.[0-9]+\.[0-9]+)/;
 
 export function resolveProjectRoot(fromImportMetaUrl) {
   let dir = path.dirname(fileURLToPath(fromImportMetaUrl));
@@ -35,30 +35,32 @@ export function readInstalledPptxSvgVersion(projectRoot) {
   return version;
 }
 
-export function readVendoredPptxJsEngineVersion(projectRoot) {
-  const vendorPath = path.join(projectRoot, VENDOR_RELATIVE_PATH);
-  if (!existsSync(vendorPath)) {
-    throw new Error(`${VENDOR_RELATIVE_PATH} is missing. Run \`npm run regen:pptx-js\`.`);
+export function readPptxJsEngineVersion(projectRoot) {
+  const enginePath = path.join(projectRoot, ENGINE_RELATIVE_PATH);
+  if (!existsSync(enginePath)) {
+    throw new Error(`${ENGINE_RELATIVE_PATH} is missing. Run \`npm run regen:pptx-js\`.`);
   }
 
-  const header = readFileSync(vendorPath, 'utf8').slice(0, 4096);
-  const match = header.match(VENDOR_VERSION_PATTERN);
+  const header = readFileSync(enginePath, 'utf8').slice(0, 4096);
+  const match = header.match(ENGINE_VERSION_PATTERN);
   return match?.[1] ?? null;
 }
 
-export function formatPptxJsEngineVersionMismatch({ installed, vendored }) {
-  if (!vendored) {
+
+export function formatPptxJsEngineVersionMismatch({ installed, local, vendored }) {
+  const engineVersion = local ?? vendored;
+  if (!engineVersion) {
     return [
-      'The vendored pure-JS PPTX engine is missing a pptx-svg version stamp.',
+      'The pure-JS PPTX engine is missing a pptx-svg version stamp.',
       `Installed pptx-svg: ${installed}`,
-      'Run `npm run regen:pptx-js` and commit src/vendor/pptx-js-engine.mjs.',
+      `Run \`npm run regen:pptx-js\` and commit ${ENGINE_RELATIVE_PATH}.`,
     ].join('\n');
   }
 
   return [
-    'The vendored pure-JS PPTX engine does not match the installed pptx-svg package.',
+    'The pure-JS PPTX engine does not match the installed pptx-svg package.',
     `Installed pptx-svg: ${installed}`,
-    `Vendored engine:  ${vendored}`,
-    'Run `npm run regen:pptx-js` and commit src/vendor/pptx-js-engine.mjs.',
+    `Local engine:      ${engineVersion}`,
+    `Run \`npm run regen:pptx-js\` and commit ${ENGINE_RELATIVE_PATH}.`,
   ].join('\n');
 }

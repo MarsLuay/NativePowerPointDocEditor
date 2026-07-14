@@ -5,7 +5,11 @@ import { access, copyFile, cp, readFile, writeFile } from "fs/promises";
 import path from "node:path";
 import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
-import { createVendoredDocxAliases } from "./scripts/lib/vendored-docx-aliases.mjs";
+import {
+	createDocxEditorAliases,
+	resolveDocxEditorAgentsStub,
+	resolveDocxEditorPackagesRoot,
+} from "./scripts/lib/docx-editor-aliases.mjs";
 
 const banner =
 `/*
@@ -26,7 +30,11 @@ const vaultPluginDir =
 	|| path.resolve("../../.obsidian/plugins/native-powerpoint-doc-editor");
 const filesToDeploy = ["main.js", "styles.css", "manifest.json"];
 const dirsToDeploy = ["locales", "ai"];
-const vendoredDocxAliases = await createVendoredDocxAliases(path.resolve("src/vendor/eigenpal"));
+const projectRoot = path.resolve(".");
+const docxEditorAliases = await createDocxEditorAliases(
+	resolveDocxEditorPackagesRoot(projectRoot),
+	{ agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
+);
 
 const deployToVaultPlugin = {
 	name: "deploy-to-vault-plugin",
@@ -107,12 +115,12 @@ const stripReactDomScriptPlugin = {
 	}
 };
 
-const stripVendoredDocxCssSideEffectImports = {
-	name: "strip-vendored-docx-css-side-effect-imports",
+const stripDocxEditorCssSideEffectImports = {
+	name: "strip-docx-editor-css-side-effect-imports",
 	setup(build) {
 		build.onLoad({ filter: /docx-editor-react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
 			const normalizedPath = args.path.replace(/\\/g, "/");
-			if (!normalizedPath.endsWith("/src/vendor/eigenpal/docx-editor-react/dist/index.mjs")) {
+			if (!normalizedPath.endsWith("/docx-editor/packages/react/dist/index.mjs")) {
 				return undefined;
 			}
 
@@ -151,12 +159,12 @@ const context = await esbuild.context({
 		...builtinModules],
 	format: "cjs",
 	target: "es2018",
-	// The pure-JS PPTX engine fallback (src/vendor/pptx-js-engine.mjs) uses BigInt
+	// The pure-JS PPTX engine fallback (src/powerpoint/backend/pptxJsEngine.mjs) uses BigInt
 	// literals. It only runs on Chromium that lacks WebAssembly GC (≈111–118), all
 	// of which support BigInt natively (Chrome 67+), so don't down-level or warn.
 	supported: { bigint: true },
 	alias: {
-		...vendoredDocxAliases,
+		...docxEditorAliases,
 		"jszip": "./node_modules/jszip/lib/index.js",
 		"immediate": "./src/shims/immediate.cjs",
 		"readable-stream": "./node_modules/jszip/lib/readable-stream-browser.js",
@@ -171,7 +179,7 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	plugins: [stripReactDomScriptPlugin, stripVendoredDocxCssSideEffectImports, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
+	plugins: [stripReactDomScriptPlugin, stripDocxEditorCssSideEffectImports, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
 	outdir: ".",
 	entryNames: "[name]",
 	minify: prod,
