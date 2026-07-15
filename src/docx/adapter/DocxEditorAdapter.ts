@@ -1,4 +1,4 @@
-import type { DocxEditorRef, EditorMode } from '@npde/docx-editor-react';
+import type { DocxEditorRef, EditorMode } from '../runtime';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 

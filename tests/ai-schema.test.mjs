@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { test } from 'node:test';
 import { build } from 'esbuild';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { promisify } from 'node:util';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const require = createRequire(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 let cachedModules;
 
@@ -91,8 +93,9 @@ test('OP_EXAMPLES reject missing required fields', async () => {
 });
 
 test('generated capabilities.json includes per-op schemas and examples', async () => {
+	await execFileAsync(process.execPath, ['scripts/generate-ai-capabilities.mjs'], { cwd: projectRoot });
 	const capabilities = JSON.parse(
-		readFileSync(path.join(projectRoot, 'ai/capabilities.json'), 'utf8'),
+		await readFile(path.join(projectRoot, 'ai/capabilities.json'), 'utf8'),
 	);
 	assert.equal(capabilities.schemaVersion, 2);
 	assert.ok(capabilities.limitations?.pptxFormats);

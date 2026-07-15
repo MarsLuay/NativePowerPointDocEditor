@@ -425,53 +425,23 @@ function findDocxFiles(dir, limit, results = []) {
 	return results;
 }
 
-function createDocxEditorAliases() {
-	const aliases = {};
-	const packages = {
-		'@npde/docx-editor-core': 'core',
-		'@npde/docx-editor-i18n': 'i18n',
-		'@npde/docx-editor-react': 'react',
-	};
-	const compatPrefix = {
-		'@npde/docx-editor-core': '@npde/docx-editor-core',
-		'@npde/docx-editor-i18n': '@npde/docx-editor-i18n',
-		'@npde/docx-editor-react': '@npde/docx-editor-react',
-	};
-
-	for (const [packageName, dirName] of Object.entries(packages)) {
-		const packageDir = path.join(projectRoot, 'docx-editor', 'packages', dirName);
-		const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
-		for (const [exportPath, target] of Object.entries(packageJson.exports ?? {})) {
-			const importTarget = typeof target === 'string'
-				? target
-				: target?.import ?? target?.require ?? target?.default;
-			if (typeof importTarget !== 'string') continue;
-
-			const resolved = path.join(packageDir, importTarget);
-			const aliasKey = exportPath === '.'
-				? packageName
-				: `${packageName}/${exportPath.replace(/^\.\//, '')}`;
-			aliases[aliasKey] = resolved;
-
-			const compatBase = compatPrefix[packageName];
-			if (compatBase) {
-				const compatKey = exportPath === '.'
-					? compatBase
-					: `${compatBase}/${exportPath.replace(/^\.\//, '')}`;
-				aliases[compatKey] = resolved;
-			}
-		}
-	}
-
-	return aliases;
+async function createDocxEditorRuntimeAliases() {
+	const {
+		createDocxEditorAliases,
+		resolveDocxEditorPackagesRoot,
+	} = await import('./lib/docx-editor-aliases.mjs');
+	return createDocxEditorAliases(
+		resolveDocxEditorPackagesRoot(projectRoot),
+		projectRoot,
+	);
 }
 
-function loadBundledDocxSupport() {
+async function loadBundledDocxSupport() {
 	const esbuild = require('esbuild');
 	const outfile = path.join(os.tmpdir(), `native-powerpoint-doc-editor-smoke-docx-support-${process.pid}.cjs`);
 	esbuild.buildSync({
 		absWorkingDir: projectRoot,
-		alias: createDocxEditorAliases(),
+		alias: await createDocxEditorRuntimeAliases(),
 		entryPoints: ['src/docxSupport.ts'],
 		bundle: true,
 		external: ['obsidian'],
@@ -611,7 +581,7 @@ async function runSmoke() {
 		'Copied diagnostics should include the feature logging inventory.'
 	);
 
-	const chunk = loadBundledDocxSupport();
+	const chunk = await loadBundledDocxSupport();
 	for (const exportName of ['createDocxReactMount', 'DocxFileEmbed', 'renderDocxEmbeds', 'hasReviewMarkup']) {
 		assert.equal(typeof chunk[exportName], 'function', `docx support bundle should export bundled ${exportName}.`);
 	}

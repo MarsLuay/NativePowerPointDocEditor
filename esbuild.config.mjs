@@ -7,7 +7,6 @@ import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
 import {
 	createDocxEditorAliases,
-	resolveDocxEditorPackagesRoot,
 } from "./scripts/lib/docx-editor-aliases.mjs";
 
 const banner =
@@ -30,8 +29,10 @@ const vaultPluginDir =
 const filesToDeploy = ["main.js", "styles.css", "manifest.json"];
 const dirsToDeploy = ["locales", "ai"];
 const projectRoot = path.resolve(".");
+const docxRuntimeRoot = path.join(projectRoot, 'vendor', 'docx-editor-runtime');
 const docxEditorAliases = await createDocxEditorAliases(
-	resolveDocxEditorPackagesRoot(projectRoot),
+	docxRuntimeRoot,
+	projectRoot,
 );
 
 const deployToVaultPlugin = {
@@ -116,9 +117,9 @@ const stripReactDomScriptPlugin = {
 const stripDocxEditorCssSideEffectImports = {
 	name: "strip-docx-editor-css-side-effect-imports",
 	setup(build) {
-		build.onLoad({ filter: /docx-editor[/\\]packages[/\\]react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
+		build.onLoad({ filter: /vendor[/\\]docx-editor-runtime[/\\]react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
 			const normalizedPath = args.path.replace(/\\/g, "/");
-			if (!normalizedPath.endsWith("/docx-editor/packages/react/dist/index.mjs")) {
+			if (!normalizedPath.endsWith("/vendor/docx-editor-runtime/react/dist/index.mjs")) {
 				return undefined;
 			}
 

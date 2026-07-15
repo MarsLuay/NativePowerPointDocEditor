@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Split DOCX editor development into `docx-editor-source` (the full editable monorepo) and `main` (the independently type-checkable plugin). Main now vendors an allowlisted JavaScript/CSS snapshot at `vendor/docx-editor-runtime` behind `src/docx/runtime`.
+
 ## [1.0.43] - 2026-07-15
 
 ### Fixed
@@ -19,14 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Code-analysis: `css/theme-system-light-chrome` and `obsidian/vendor-floating-toolbar-tooltip` (plus theme-css mirror check).
-- Catalog mirror ESLint: when `docx-editor/CATALOG_SURFACE.md` is present, disable type-checked TypeScript rules so JS-only package dist verifies (fixes failed 1.0.42 release CI).
+- Catalog mirror ESLint: legacy catalog-shaped builds temporarily used a marker-driven type-aware lint bypass so JS-only package dist could verify (fixes failed 1.0.42 release CI).
 
 ## [1.0.42] - 2026-07-15
 
 ### Changed
 
 - Catalog mirror Option A: public packages are **JS-only** (no package `.d.ts` / `types` fields). Sync drops decls; types stay in the vault. Code-analysis fails catalog-shaped trees that still ship package declarations (`catalog/dts-not-excluded`). Sanitized public `.d.ts` retired.
-- Catalog surface build skips `tsc` (`scripts/typecheck-for-surface.mjs`) so clean clones typecheck-free via esbuild against package JS.
+- Catalog-shaped builds formerly used a surface-specific helper to omit the TypeScript compiler while esbuild consumed package JavaScript.
 - Drop leftover Option A / agent hygiene: ambient-stub `rmSync`, `docs/AGENT-API.md` exclude/gitignore, hazard scanners + async catalog check wrapper, empty `dist/agent`, stale `./agent` docs.
 - Remove always-error MCP mutation stubs (`docx_insert_text` / replace / delete / format / apply_style, `docx_insert_variable`). Drop `@npde/docx-editor-agents` package rows from local READMEs / changeset fixed set.
 
@@ -55,18 +59,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Deduplicate shading parse/serialize and consolidate agent navigation helpers onto `text-utils`.
-- Vault code-analysis scans Obsidian-runtime `docx-editor/packages/{core,react,i18n}` and skips demos / unused framework packages.
+- Vault code-analysis scanned the Obsidian-runtime editor packages while skipping demos and unused framework packages.
 
 ## [1.0.39] - 2026-07-15
 
 ### Fixed
 
-- Unblock Obsidian Community catalog checks: public mirror ships dist-only `docx-editor/packages/{core,react,i18n}` (no monorepo TypeScript sources / agents / vue / nuxt). Catalog ESLint scans public `.ts`/`.tsx` regardless of local eslint ignores.
+- Unblock Obsidian Community catalog checks: the public mirror shipped dist-only editor packages (no monorepo TypeScript sources, agents, Vue, or Nuxt). Catalog ESLint scanned public `.ts`/`.tsx` regardless of local ESLint ignores.
 - Rename command id `copy-native-powerpoint-doc-editor-debug-log` → `copy-debug-log` (plugin id must not appear in command ids).
 
 ### Changed
 
-- Add `scripts/sync-obsidian-catalog-mirror.mjs` and make `build:docx-editor` verify committed dist on catalog-shaped trees.
+- Add a catalog-sync utility and make the editor-source build verify committed distribution files on catalog-shaped trees.
 
 ## [1.0.38] - 2026-07-14
 
@@ -91,11 +95,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Embed the Eigenpal docx-editor source monorepo under `docx-editor/` (1.9.0 pin) and wire package dist into the plugin build; Obsidian downloads remain `main.js` only.
-- Add `npm run build:docx-editor` and require a fresh monorepo package rebuild on publish.
+- Add an editor-source build command and require a fresh monorepo package rebuild on publish.
 
 ### Changed
 
-- Replace `src/vendor/eigenpal` committed packages with in-repo `docx-editor/packages/{core,react,i18n}` plus `agentsStub` for AgentPanel.
+- Replace `src/vendor/eigenpal` committed packages with in-repository core, React, and i18n packages plus an AgentPanel stub.
 - Move the pure-JS PPTX engine to `src/powerpoint/backend/pptxJsEngine.mjs`.
 
 ### Fixed

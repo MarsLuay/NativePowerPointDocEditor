@@ -1,4 +1,4 @@
-import type { Translations } from '@npde/docx-editor-i18n';
+import type { Translations } from './docx/runtime';
 
 import { loadDocxEditorMessages } from './i18n/docxEditorLocaleAdapter';
 import { localeCandidates } from './i18n/localeResolver';

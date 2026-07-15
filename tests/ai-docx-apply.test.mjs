@@ -6,6 +6,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { getDocxRuntimeAliases } from './helpers/docx-runtime-aliases.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const require = createRequire(import.meta.url);
@@ -69,6 +70,7 @@ async function loadDocxServiceModule() {
 	const outfile = path.join(outputDirectory, 'docx-service.cjs');
 	await build({
 		absWorkingDir: outputDirectory,
+		alias: await getDocxRuntimeAliases(projectRoot),
 		entryPoints: [path.join(projectRoot, 'src/ai/docxDocumentService.ts')],
 		bundle: true,
 		format: 'cjs',
