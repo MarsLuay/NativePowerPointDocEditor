@@ -1,6 +1,6 @@
 # Core package test fixtures
 
-DOCX (and related) files for `@eigenpal/docx-editor-core` unit tests under `src/**`.
+DOCX (and related) files for `@npde/docx-editor-core` unit tests under `src/**`.
 
 Formerly lived at `e2e/fixtures/` (Playwright). Playwright e2e was removed from this Obsidian-trimmed tree; fixtures used by package tests moved here.
 

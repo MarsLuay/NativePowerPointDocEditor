@@ -1,32 +1,32 @@
 <p align="center">
   <a href="https://www.docx-editor.dev/">
-    <img src="https://raw.githubusercontent.com/eigenpal/docx-editor/main/.github/assets/header.png" alt="DOCX Editor — .docx in, .docx out. Open source, agent ready, client-side." width="500" />
+    <img src="https://raw.githubusercontent.com/MarsLuay/NativePowerPointDocEditor/main/.github/assets/header.png" alt="DOCX Editor — .docx in, .docx out. Open source, agent ready, client-side." width="500" />
   </a>
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@eigenpal/docx-editor-core"><img src="https://img.shields.io/npm/v/@eigenpal/docx-editor-core.svg?style=flat-square&color=3B5BDB" alt="npm version" /></a>
-  <a href="https://www.npmjs.com/package/@eigenpal/docx-editor-core"><img src="https://img.shields.io/npm/dm/@eigenpal/docx-editor-core.svg?style=flat-square&color=3B5BDB" alt="npm downloads" /></a>
-  <a href="https://github.com/eigenpal/docx-editor/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg?style=flat-square&color=3B5BDB" alt="license" /></a>
+  <a href="https://www.npmjs.com/package/@npde/docx-editor-core"><img src="https://img.shields.io/npm/v/@npde/docx-editor-core.svg?style=flat-square&color=3B5BDB" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@npde/docx-editor-core"><img src="https://img.shields.io/npm/dm/@npde/docx-editor-core.svg?style=flat-square&color=3B5BDB" alt="npm downloads" /></a>
+  <a href="https://github.com/MarsLuay/NativePowerPointDocEditor/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-Apache_2.0-blue.svg?style=flat-square&color=3B5BDB" alt="license" /></a>
   <a href="https://docx-editor.dev/editor"><img src="https://img.shields.io/badge/Live_Demo-3B5BDB?style=flat-square&logo=vercel&logoColor=white" alt="Demo" /></a>
   <a href="https://www.docx-editor.dev/docs"><img src="https://img.shields.io/badge/Docs-3B5BDB?style=flat-square&logo=readthedocs&logoColor=white" alt="Documentation" /></a>
 </p>
 
-# @eigenpal/docx-editor-core
+# @npde/docx-editor-core
 
 Framework-agnostic core for the [docx-editor](https://docx-editor.dev). Parses DOCX, builds the document model, runs ProseMirror, and renders Word-fidelity pages. Powers the React and Vue adapters and anything else you build on top.
 
 ## Quick Start
 
-Most users want the [React](https://www.npmjs.com/package/@eigenpal/docx-editor-react) or [Vue](https://www.npmjs.com/package/@eigenpal/docx-editor-vue) adapter. Reach for core directly when building a custom adapter, running headless on the server, or driving DOCX parsing/serialization without a UI.
+Most users want the [React](https://www.npmjs.com/package/@npde/docx-editor-react) or [Vue](https://www.npmjs.com/package/@npde/docx-editor-vue) adapter. Reach for core directly when building a custom adapter, running headless on the server, or driving DOCX parsing/serialization without a UI.
 
 ```bash
-npm install @eigenpal/docx-editor-core
+npm install @npde/docx-editor-core
 ```
 
 ```ts
 import { readFile } from 'node:fs/promises';
-import { parseDocx } from '@eigenpal/docx-editor-core/docx';
+import { parseDocx } from '@npde/docx-editor-core/docx';
 
 const buffer = await readFile('contract.docx');
 const document = await parseDocx(buffer);
@@ -39,12 +39,12 @@ Each subpath tree-shakes independently. Pick the smallest entry point that gives
 
 | Package                                                                                      | Description                                                                                                                                |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`@eigenpal/docx-editor-react`](https://www.npmjs.com/package/@eigenpal/docx-editor-react)   | <img src="https://cdn.simpleicons.org/react/61DAFB" width="20" align="middle" /> &nbsp; React adapter. Toolbar, paged editor, plugins.     |
-| [`@eigenpal/docx-editor-vue`](https://www.npmjs.com/package/@eigenpal/docx-editor-vue)       | <img src="https://cdn.simpleicons.org/vuedotjs/4FC08D" width="20" align="middle" /> &nbsp; Vue 3 adapter. Toolbar, paged editor, plugins.  |
-| [`@eigenpal/docx-editor-core`](https://www.npmjs.com/package/@eigenpal/docx-editor-core)     | Framework-agnostic core: OOXML parser, serializer, layout engine, ProseMirror schema. Depend on this if you fork the React or Vue adapter. |
-| [`@eigenpal/docx-editor-i18n`](https://www.npmjs.com/package/@eigenpal/docx-editor-i18n)     | Shared locale strings and types consumed by both adapters.                                                                                 |
+| [`@npde/docx-editor-react`](https://www.npmjs.com/package/@npde/docx-editor-react)   | <img src="https://cdn.simpleicons.org/react/61DAFB" width="20" align="middle" /> &nbsp; React adapter. Toolbar, paged editor, plugins.     |
+| [`@npde/docx-editor-vue`](https://www.npmjs.com/package/@npde/docx-editor-vue)       | <img src="https://cdn.simpleicons.org/vuedotjs/4FC08D" width="20" align="middle" /> &nbsp; Vue 3 adapter. Toolbar, paged editor, plugins.  |
+| [`@npde/docx-editor-core`](https://www.npmjs.com/package/@npde/docx-editor-core)     | Framework-agnostic core: OOXML parser, serializer, layout engine, ProseMirror schema. Depend on this if you fork the React or Vue adapter. |
+| [`@npde/docx-editor-i18n`](https://www.npmjs.com/package/@npde/docx-editor-i18n)     | Shared locale strings and types consumed by both adapters.                                                                                 |
 
-> **Forking the adapter?** Keep your fork thin. Depend on `@eigenpal/docx-editor-core` directly so parser, serializer, and rendering fixes land in your build automatically, without backporting each upstream change by hand.
+> **Forking the adapter?** Keep your fork thin. Depend on `@npde/docx-editor-core` directly so parser, serializer, and rendering fixes land in your build automatically, without backporting each upstream change by hand.
 
 ## Subpath map
 
@@ -79,9 +79,9 @@ Dual-rendering: a hidden ProseMirror instance owns editing state (selection, und
 
 ## Contributing
 
-Contributions welcome. See [CONTRIBUTING.md](https://github.com/eigenpal/docx-editor/blob/main/CONTRIBUTING.md) for setup, tests, and the one-time CLA signature.
+Contributions welcome. See [CONTRIBUTING.md](https://github.com/MarsLuay/NativePowerPointDocEditor/blob/main/CONTRIBUTING.md) for setup, tests, and the one-time CLA signature.
 
 ## Commercial Support
 
 > [!TIP]
-> Questions or custom features? Email **[docx-editor@eigenpal.com](mailto:docx-editor@eigenpal.com)**.
+> Questions or custom features? Email **[noreply@users.noreply.github.com](mailto:noreply@users.noreply.github.com)**.

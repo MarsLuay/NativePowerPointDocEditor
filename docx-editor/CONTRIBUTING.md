@@ -1,4 +1,4 @@
-# Contributing to @eigenpal/docx-editor-react
+# Contributing to @npde/docx-editor-react
 
 Thanks for your interest in contributing! This guide will help you get started.
 
@@ -11,7 +11,7 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 ```bash
 # Clone the repo
-git clone https://github.com/eigenpal/docx-editor.git
+git clone https://github.com/MarsLuay/NativePowerPointDocEditor.git
 cd docx-editor
 
 # Install dependencies
@@ -83,7 +83,7 @@ Every published package's `@public` exports are locked in `docs/api/<pkg-slug>/<
 If you change a `@public` symbol — or add a new one — regenerate and commit the snapshot:
 
 ```bash
-bun run --filter '@eigenpal/docx-editor-<pkg>' build
+bun run --filter '@npde/docx-editor-<pkg>' build
 bun run api:extract
 git add docs/api/<pkg-slug>/
 ```
@@ -102,7 +102,7 @@ The same `@public` surface is also emitted as structured JSON for downstream doc
 
 ## Adapter Parity
 
-The editor ships first-party adapters for React (`packages/react`) and Vue (`packages/vue`). Both share `@eigenpal/docx-editor-core`, which owns the parser, ProseMirror schema, layout engine, layout bridge (page mapping, footnote convergence, header/footer measurement), and serializer. Adapters only own their framework-specific shell, components, and lifecycle wiring.
+The editor ships first-party adapters for React (`packages/react`) and Vue (`packages/vue`). Both share `@npde/docx-editor-core`, which owns the parser, ProseMirror schema, layout engine, layout bridge (page mapping, footnote convergence, header/footer measurement), and serializer. Adapters only own their framework-specific shell, components, and lifecycle wiring.
 
 **When you touch layout, parsing, or rendering logic, put it in core, not in an adapter.** If you copy a 30-line helper from React to Vue, you've created a divergence trap. The footnote convergence loop (`stabilizeFootnoteLayout` in `packages/core/src/layout-bridge/footnoteLayout.ts`) is the canonical example: one helper, both adapters call it.
 
@@ -110,7 +110,7 @@ Parity smoke tests live under `e2e/tests/parity/smoke/` and run each spec agains
 
 ## Reporting Bugs
 
-Open an issue at [github.com/eigenpal/docx-editor/issues](https://github.com/eigenpal/docx-editor/issues) with:
+Open an issue at [github.com/MarsLuay/NativePowerPointDocEditor/issues](https://github.com/MarsLuay/NativePowerPointDocEditor/issues) with:
 
 - Steps to reproduce
 - Expected vs actual behavior

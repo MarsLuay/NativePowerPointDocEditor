@@ -31,7 +31,7 @@ async function loadNeutralizerModule() {
 	return neutralizerModulePromise;
 }
 
-test("parseEditorZoomTransform reads translateX and scale from eigenpal-style transforms", async () => {
+test("parseEditorZoomTransform reads translateX and scale from vendor-style transforms", async () => {
 	const {
 		parseEditorZoomTransform,
 		editorZoomTransformNeedsNeutralization,

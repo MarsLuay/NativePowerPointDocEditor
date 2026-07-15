@@ -16,7 +16,7 @@ async function readJson(relativePath) {
 	return JSON.parse(await readFile(new URL(relativePath, root), 'utf8'));
 }
 
-test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @eigenpal dependencies', async () => {
+test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm-scoped upstream packages', async () => {
 	const packagesRoot = resolveDocxEditorPackagesRoot(projectRoot);
 	const [manifest, lockfile, esbuildConfig, testBundler, tsconfig, aliases] = await Promise.all([
 		readJson('package.json'),
@@ -32,14 +32,14 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 		...manifest.devDependencies,
 	};
 	assert.deepEqual(
-		Object.keys(declaredDependencies).filter((name) => name.startsWith('@eigenpal/') || name.startsWith('@npde/')),
+		Object.keys(declaredDependencies).filter((name) => name.startsWith('@npde/')),
 		[],
 	);
 
-	const installedEigenpalPackages = Object.keys(lockfile.packages).filter((path) =>
-		path.startsWith('node_modules/@eigenpal/'),
+	const installedScopedDocxEditorPackages = Object.keys(lockfile.packages).filter((path) =>
+		path.startsWith('node_modules/@npde/') || path.startsWith('node_modules/@eigenpal/'),
 	);
-	assert.deepEqual(installedEigenpalPackages, []);
+	assert.deepEqual(installedScopedDocxEditorPackages, []);
 
 	assert.match(esbuildConfig, /createDocxEditorAliases/);
 	assert.match(esbuildConfig, /resolveDocxEditorPackagesRoot/);
@@ -58,6 +58,7 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 	for (const [packageName, dirName] of Object.entries(docxEditorPackages)) {
 		const localManifest = await readJson(`docx-editor/packages/${dirName}/package.json`);
 		assert.equal(localManifest.version, '1.9.0');
+		assert.equal(localManifest.name, packageName);
 		assert.ok(tsconfig.compilerOptions.paths[packageName], `${packageName} needs a local TypeScript path`);
 
 		for (const [exportPath, target] of Object.entries(localManifest.exports)) {
@@ -78,13 +79,10 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 				? packageName
 				: `${packageName}/${exportPath.replace(/^\.\//, '')}`;
 			assert.ok(aliases[aliasKey], `${aliasKey} needs a local runtime alias`);
-
-			const compatKey = aliasKey.replace('@npde/', '@eigenpal/');
-			assert.ok(aliases[compatKey], `${compatKey} needs a compatibility alias for in-dist imports`);
 		}
 	}
 
-	assert.equal(aliases['@eigenpal/docx-editor-agents/react'], undefined);
+	assert.equal(aliases['@npde/docx-editor-agents/react'], undefined);
 	assert.ok(aliases.react?.includes(`${path.sep}node_modules${path.sep}react`), 'react alias must pin to plugin root');
 	assert.ok(aliases['react-dom']?.includes(`${path.sep}node_modules${path.sep}react-dom`), 'react-dom alias must pin to plugin root');
 });

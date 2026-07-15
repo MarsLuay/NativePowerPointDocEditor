@@ -10,12 +10,6 @@ export const docxEditorPackages = {
 	'@npde/docx-editor-react': 'react',
 };
 
-const COMPAT_PREFIX = {
-	'@npde/docx-editor-core': '@eigenpal/docx-editor-core',
-	'@npde/docx-editor-i18n': '@eigenpal/docx-editor-i18n',
-	'@npde/docx-editor-react': '@eigenpal/docx-editor-react',
-};
-
 export function resolvePluginProjectRoot(fromImportMetaUrl) {
 	let dir = path.dirname(fileURLToPath(fromImportMetaUrl));
 	while (dir !== path.dirname(dir)) {
@@ -65,14 +59,6 @@ export async function createDocxEditorAliases(packagesRoot) {
 				? packageName
 				: `${packageName}/${exportPath.replace(/^\.\//, '')}`;
 			aliases[aliasKey] = resolved;
-
-			const compatBase = COMPAT_PREFIX[packageName];
-			if (compatBase) {
-				const compatKey = exportPath === '.'
-					? compatBase
-					: `${compatBase}/${exportPath.replace(/^\.\//, '')}`;
-				aliases[compatKey] = resolved;
-			}
 		}
 	}
 

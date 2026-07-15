@@ -3,7 +3,7 @@
 // can render directly. The clean shape:
 //
 //   {
-//     package: "@eigenpal/docx-editor-react",
+//     package: "@npde/docx-editor-react",
 //     subpath: "./hooks",
 //     version: "1.0.0",
 //     exports: [
@@ -383,7 +383,7 @@ export function transformApiPackageJson(rawJson, { sourceIndex, github, packageN
   // Strip a leading `<scope>/<pkg>[/<subpath>]` line from the entry
   // summary. Our barrels start every `@packageDocumentation` block
   // with this header line; TSDoc reads the `@scope` as an unknown tag
-  // and drops the `@`, leaving prose like `eigenpal/docx-editor-react/...`
+  // and drops the `@`, leaving prose like `MarsLuay/NativePowerPointDocEditor-react/...`
   // in front of the real description. The package/subpath are already
   // structured fields below, so the line is duplicate noise.
   entryDocs.summary = entryDocs.summary

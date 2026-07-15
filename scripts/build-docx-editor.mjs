@@ -103,9 +103,9 @@ if (existsSync(parentTrustedTypes) && !existsSync(parentTrustedTypesBak)) {
 
 try {
 	console.log('[build:docx-editor] Building i18n → core → react…');
-	runIsolated(bun, ['run', '--filter', '@eigenpal/docx-editor-i18n', 'build'], monorepoRoot);
-	runIsolated(bun, ['run', '--filter', '@eigenpal/docx-editor-core', 'build'], monorepoRoot);
-	runIsolated(bun, ['run', '--filter', '@eigenpal/docx-editor-react', 'build'], monorepoRoot);
+	runIsolated(bun, ['run', '--filter', '@npde/docx-editor-i18n', 'build'], monorepoRoot);
+	runIsolated(bun, ['run', '--filter', '@npde/docx-editor-core', 'build'], monorepoRoot);
+	runIsolated(bun, ['run', '--filter', '@npde/docx-editor-react', 'build'], monorepoRoot);
 } finally {
 	if (hidParentTrustedTypes && existsSync(parentTrustedTypesBak)) {
 		renameSync(parentTrustedTypesBak, parentTrustedTypes);

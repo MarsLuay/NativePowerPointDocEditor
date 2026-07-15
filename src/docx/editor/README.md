@@ -1,6 +1,6 @@
 # Local DOCX editor packages
 
-The editable Eigenpal DOCX editor **source monorepo** lives at `docx-editor/` (branch `npde-mirror-1.9.0`, commit `66d74702…`, Apache-2.0). Package **dist** under `docx-editor/packages/{core,react,i18n}/dist` is what esbuild bundles into `main.js`.
+The editable vendored DOCX editor **source monorepo** lives at `docx-editor/` (branch `npde-mirror-1.9.0`, commit `66d74702…`, Apache-2.0). Package **dist** under `docx-editor/packages/{core,react,i18n}/dist` is what esbuild bundles into `main.js`.
 
 Obsidian users only download release `main.js` (+ manifest/css) — **not** this monorepo. Size/performance of that bundle is unchanged as long as you ship the same dist inputs.
 
@@ -12,9 +12,9 @@ Obsidian users only download release `main.js` (+ manifest/css) — **not** this
 | `docx-editor/packages/{core,react,i18n}/` | Wired into the plugin via `scripts/lib/docx-editor-aliases.mjs` |
 | `Projects/docx-editor-mirror-1.9.0/` (vault) | Optional npm `.tgz` insurance outside this plugin |
 
-Plugin imports use `@npde/docx-editor-*`; in-dist imports still use `@eigenpal/*` (compat aliases).
+Plugin and package imports use `@npde/docx-editor-*` (esbuild path aliases).
 
-**Do not** add `@eigenpal/*` to the plugin root `package.json`.
+**Do not** add `@npde/docx-editor-*` to the plugin root `package.json` — resolve via `scripts/lib/docx-editor-aliases.mjs`.
 
 ## Edit → reflect in Obsidian
 
@@ -28,4 +28,4 @@ Until you run step 2, the plugin uses the committed/seeded `dist/` (same bytes a
 
 ## AI and save
 
-There is no `@eigenpal/docx-editor-agents` package and no core `DocumentAgent` tree. Plugin AI lives under `src/ai` only. React DOCX save uses `Document` + packers (`exportDocxBuffer`) directly.
+There is no `@npde/docx-editor-agents` package and no core `DocumentAgent` tree. Plugin AI lives under `src/ai` only. React DOCX save uses `Document` + packers (`exportDocxBuffer`) directly.

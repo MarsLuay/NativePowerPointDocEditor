@@ -8,10 +8,10 @@
   "type": "module",
   "scripts": {
     "build": "bun run build:packages",
-    "build:packages": "bun run --filter '@eigenpal/docx-editor-i18n' build && bun run --filter '@eigenpal/docx-editor-core' build && bun run --filter '@eigenpal/docx-editor-react' build",
+    "build:packages": "bun run --filter '@npde/docx-editor-i18n' build && bun run --filter '@npde/docx-editor-core' build && bun run --filter '@npde/docx-editor-react' build",
     "test": "bun test packages/core packages/react packages/i18n",
     "test:watch": "bun test --watch packages/core packages/react packages/i18n",
-    "typecheck": "bun run --filter '@eigenpal/docx-editor-i18n' --filter '@eigenpal/docx-editor-core' --filter '@eigenpal/docx-editor-react' typecheck",
+    "typecheck": "bun run --filter '@npde/docx-editor-i18n' --filter '@npde/docx-editor-core' --filter '@npde/docx-editor-react' typecheck",
     "lint": "eslint packages/core/src/ packages/react/src/ packages/i18n/src/",
     "lint:fix": "eslint packages/core/src/ packages/react/src/ packages/i18n/src/ --fix",
     "format": "prettier --write \"packages/{core,react,i18n}/src/**/*.{ts,tsx,js,jsx,json,css}\"",
@@ -64,12 +64,12 @@
     "react",
     "prosemirror"
   ],
-  "author": "EigenPal",
+  "author": "Native PowerPoint Doc Editor",
   "license": "Apache-2.0",
   "homepage": "https://docx-editor.dev/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eigenpal/docx-editor.git"
+    "url": "https://github.com/MarsLuay/NativePowerPointDocEditor.git"
   },
   "publishConfig": {
     "access": "public"

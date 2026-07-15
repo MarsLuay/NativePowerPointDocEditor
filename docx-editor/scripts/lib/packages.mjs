@@ -12,20 +12,20 @@ import path from 'node:path';
 
 export const PACKAGES = [
   {
-    name: '@eigenpal/docx-editor-core',
+    name: '@npde/docx-editor-core',
     root: 'packages/core',
     pkgSlug: 'docx-editor-core',
   },
   {
-    name: '@eigenpal/docx-editor-i18n',
+    name: '@npde/docx-editor-i18n',
     root: 'packages/i18n',
     pkgSlug: 'docx-editor-i18n',
   },
   {
-    name: '@eigenpal/docx-editor-react',
+    name: '@npde/docx-editor-react',
     root: 'packages/react',
     pkgSlug: 'docx-editor-react',
-    // Strips dev-time `paths` so Extractor follows `@eigenpal/...` via
+    // Strips dev-time `paths` so Extractor follows `@npde/...` via
     // node_modules instead of through source mappings (the source
     // imports JSON locale data Extractor can't analyze).
     tsconfigPath: 'packages/react/tsconfig.api.json',

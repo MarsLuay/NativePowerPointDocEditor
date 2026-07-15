@@ -36,6 +36,44 @@ function collectSourceFiles(root) {
 const css = fs.readFileSync(stylePath, 'utf8');
 const failures = [];
 
+// Preference `system` stamps theme-system on body + host. That class must not
+// paint light --npde-chrome-* tokens or host overrides resolved-dark inheritance
+// (DOCX chrome stuck white in dark Obsidian). Mirror: code-analysis
+// css/theme-system-light-chrome.
+{
+	const stripped = css.replace(/\/\*[\s\S]*?\*\//g, (match) => ' '.repeat(match.length));
+	for (const match of stripped.matchAll(/([^{}@][^{]*)\{([^}]*)\}/g)) {
+		const selectors = match[1] ?? '';
+		const body = match[2] ?? '';
+		if (!/\.native-powerpoint-doc-editor-theme-system\b/.test(selectors)) {
+			continue;
+		}
+		const sharesLightPref =
+			/\.native-powerpoint-doc-editor-theme-(?:light|resolved-light)\b/.test(selectors);
+		const paintsChrome = /--npde-chrome-[a-z0-9-]+\s*:/.test(body);
+		if (!sharesLightPref && !paintsChrome) {
+			continue;
+		}
+		const line = css.slice(0, match.index ?? 0).split('\n').length;
+		failures.push(
+			`${path.relative(process.cwd(), stylePath)}:${line}: .native-powerpoint-doc-editor-theme-system must not paint light chrome tokens (keep --npde-chrome-* on theme-light / theme-resolved-light / body; dark on .theme-resolved-dark).`,
+		);
+	}
+
+	if (!/\.native-powerpoint-doc-editor-theme-resolved-dark\b/.test(css)
+		|| !/body\.native-powerpoint-doc-editor-theme-resolved-dark\b/.test(css)) {
+		failures.push(
+			`${path.relative(process.cwd(), stylePath)} must define dark --npde-chrome-* on both body.theme-resolved-dark and .theme-resolved-dark (host).`,
+		);
+	}
+
+	if (!css.includes('--doc-surface: var(--npde-editor-bg);')) {
+		failures.push(
+			`${path.relative(process.cwd(), stylePath)} must remap --doc-surface to --npde-editor-bg so TitleBar/Toolbar bg-doc-surface tracks chrome.`,
+		);
+	}
+}
+
 const requiredDocxScrollbarFragments = [
 	'--npde-docx-toolbar-shell-bg: var(--npde-chrome-bg);',
 	'--npde-docx-formatting-bar-bg: var(--npde-toolbar-bg);',
@@ -66,6 +104,13 @@ const requiredDocxDarkDocumentFragments = [
 	'color: var(--npde-document-text);',
 	'color-scheme: light;',
 	'filter: none;',
+];
+
+// Page stays white — --doc-caret must track document ink in the always-on remap
+// (not only under theme-resolved-dark), or vendor .dark paints a light caret.
+const requiredDocxCaretOnWhitePageFragments = [
+	'--doc-caret: var(--npde-document-text);',
+	'/* Page stays Word-white (no canvas invert). Vendor .dark sets a light',
 ];
 
 const requiredSettingsButtonFragments = [
@@ -116,6 +161,14 @@ for (const fragment of requiredDocxDarkDocumentFragments) {
 	}
 }
 
+for (const fragment of requiredDocxCaretOnWhitePageFragments) {
+	if (!css.includes(fragment)) {
+		failures.push(
+			`${path.relative(process.cwd(), stylePath)} must keep DOCX caret on white-page ink (not vendor inverted-canvas light caret): ${fragment}`,
+		);
+	}
+}
+
 for (const fragment of requiredSettingsButtonFragments) {
 	if (!css.includes(fragment)) {
 		failures.push(
@@ -124,9 +177,9 @@ for (const fragment of requiredSettingsButtonFragments) {
 	}
 }
 
-const requiredDocxEigenpalTooltipHideFragments = [
+const requiredDocxVendorTooltipHideFragments = [
 	"data-native-powerpoint-doc-editor-toolbar-tooltips='custom'",
-	"[data-native-powerpoint-doc-editor-eigenpal-tooltip='true']",
+	"[data-native-powerpoint-doc-editor-vendor-tooltip='true']",
 	'display: none;',
 	'opacity: 0;',
 	'visibility: hidden;',
@@ -139,10 +192,10 @@ const requiredDocxToolbarTooltipFragments = [
 	'color: var(--npde-docx-toolbar-tooltip-text);',
 ];
 
-for (const fragment of requiredDocxEigenpalTooltipHideFragments) {
+for (const fragment of requiredDocxVendorTooltipHideFragments) {
 	if (!css.includes(fragment)) {
 		failures.push(
-			`${path.relative(process.cwd(), stylePath)} must hide Eigenpal toolbar tooltips while the plugin renders its own labels: ${fragment}`,
+			`${path.relative(process.cwd(), stylePath)} must hide vendor toolbar tooltips while the plugin renders its own labels: ${fragment}`,
 		);
 	}
 }

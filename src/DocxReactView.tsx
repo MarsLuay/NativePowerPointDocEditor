@@ -36,7 +36,7 @@ import type { EditorThemeResolution } from './settings';
 import {
 	attachDocxToolbarTooltipManager,
 	stripFormattingDropdownButtonTitles,
-	suppressEigenpalToolbarTooltips,
+	suppressVendorToolbarTooltips,
 } from './docxToolbarTooltip';
 import {
 	DOCX_EDITOR_FORMATTING_BAR_SELECTOR,
@@ -574,7 +574,7 @@ function markLightMenuSurface(surface: HTMLElement, className: string) {
 }
 
 function isFullscreenFixedDialogLayer(layer: HTMLElement): boolean {
-	// Eigenpal HyperlinkDialog puts role="dialog" on the fixed overlay itself; other
+	// HyperlinkDialog puts role="dialog" on the fixed overlay itself; other
 	// dialogs use a fixed wrapper with a dialog child (Find/Replace, Page Setup).
 	return isFullscreenDialogLayer(
 		layer.getAttribute('role'),
@@ -680,7 +680,7 @@ function normalizeEditorFloatingLayers(editorRoot: HTMLElement) {
 		}
 	}
 
-	suppressEigenpalToolbarTooltips(editorRoot);
+	suppressVendorToolbarTooltips(editorRoot);
 
 	const hasFloatingMenu = Boolean(
 		editorRoot.querySelector(`${DOCX_EDITOR_MENUBAR_SELECTOR} [style*="position: fixed"], ${DOCX_EDITOR_MENUBAR_SELECTOR} [style*="position: absolute"]`),
@@ -692,17 +692,16 @@ function isFontDropdownListbox(listbox: HTMLElement) {
 	const optionLabels = Array.from(
 		listbox.querySelectorAll<HTMLElement>('[role="option"]'),
 	)
-		.filter((option) => !option.dataset.nativePowerPointDocEditorImportFontOption)
+		.filter((option) => (
+			!option.hasAttribute('data-native-powerpoint-doc-editor-import-font-option')
+			&& !option.hasAttribute('data-native-power-point-doc-editor-import-font-option')
+		))
 		.map((option) => option.textContent?.replace(/\s+/g, ' ').trim().toLowerCase() ?? '')
 		.filter(Boolean);
 
 	return optionLabels.includes('arial')
 		&& optionLabels.includes('times new roman')
 		&& optionLabels.includes('courier new');
-}
-
-function getFontDropdownMenuContainer(listbox: HTMLElement) {
-	return listbox.parentElement;
 }
 
 function resolveFontOptionByName(fontName: string, fonts: FontOption[]) {
@@ -958,11 +957,11 @@ function mergeStoredMarksWithFontFamily(
 
 function isFontPickerMenuItem(target: Element): HTMLElement | null {
 	const item = target.closest<HTMLElement>('[role="option"]');
-	if (!item || item.closest('[data-native-powerpoint-doc-editor-import-font-option]')) {
+	if (!item || item.closest('[data-native-powerpoint-doc-editor-import-font-option], [data-native-power-point-doc-editor-import-font-option]')) {
 		return null;
 	}
 
-	if (item.closest('[data-native-powerpoint-doc-editor-font-menu-decorated]')) {
+	if (item.closest('[data-native-powerpoint-doc-editor-font-menu-decorated], [data-native-power-point-doc-editor-font-menu-decorated]')) {
 		return item;
 	}
 
@@ -1069,12 +1068,14 @@ function scheduleFontFamilySelectTriggerTag(container: HTMLElement) {
 }
 
 function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) {
-	const container = getFontDropdownMenuContainer(listbox);
-	if (!container) {
-		return;
-	}
-
-	if (container.dataset.nativePowerPointDocEditorFontMenuDecorated === 'true') {
+	// Radix puts role="listbox" on Select.Content. Append the Import Font footer
+	// *inside* that panel (after the scroll viewport), not on the theme portal
+	// wrapper — otherwise the row sits outside the bordered dropdown chrome.
+	// Use setAttribute: `dataset.nativePowerPoint…` writes `data-native-power-point-…`
+	// and breaks `data-native-powerpoint-…` selectors / CSS.
+	const decoratedAttr = 'data-native-powerpoint-doc-editor-font-menu-decorated';
+	const importAttr = 'data-native-powerpoint-doc-editor-import-font-option';
+	if (listbox.getAttribute(decoratedAttr) === 'true') {
 		return;
 	}
 
@@ -1082,31 +1083,33 @@ function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) 
 		return;
 	}
 
-	container.dataset.nativePowerPointDocEditorFontMenuDecorated = 'true';
-	markLightMenuSurface(listbox, 'native-powerpoint-doc-editor-font-listbox');
+	listbox.setAttribute(decoratedAttr, 'true');
+	listbox.removeAttribute('data-native-power-point-doc-editor-font-menu-decorated');
 
-	if (container.querySelector('[data-native-powerpoint-doc-editor-import-font-option]')) {
+	if (
+		listbox.querySelector(`[${importAttr}], [data-native-power-point-doc-editor-import-font-option]`)
+	) {
 		return;
 	}
 
 	const footer = activeDocument.createElement('div');
 	footer.className = 'native-powerpoint-doc-editor-font-menu-footer';
-	footer.dataset.nativePowerPointDocEditorFontMenuFooter = 'true';
+	footer.setAttribute('data-native-powerpoint-doc-editor-font-menu-footer', 'true');
 
 	const separator = createMenuSection(footer, {
 		className: 'native-powerpoint-doc-editor-import-font-separator',
 	});
-	separator.dataset.nativePowerPointDocEditorImportFontOption = 'true';
+	separator.setAttribute(importAttr, 'true');
 
 	const button = createMenuItem(footer, {
 		className: 'native-powerpoint-doc-editor-import-font-option',
 		text: IMPORT_FONT_MENU_LABEL,
 	});
-	button.dataset.nativePowerPointDocEditorImportFontOption = 'true';
+	button.setAttribute(importAttr, 'true');
 	hardenInjectedMenuOption(button, { onSelect: onImportFont });
 
-	container.append(footer);
-	scheduleFontFamilySelectTriggerTag(container);
+	listbox.append(footer);
+	scheduleFontFamilySelectTriggerTag(listbox);
 }
 
 function clampCustomTableSize(value: number) {
@@ -1568,20 +1571,49 @@ export function ensureEditorStyles() {
 		return;
 	}
 
-	if (
+	// After vendor tokens: pin --doc-caret to page ink. Vendor `.dark` uses a
+	// light caret for inverted canvas; Obsidian keeps Word-white pages.
+	const hostCaretOverride = `
+.docx-editor-root.docx-editor,
+.docx-editor-root.docx-editor.dark,
+.docx-editor-root.dark {
+	--doc-caret: #000000;
+}
+.docx-editor-root.dark .layout-page,
+.docx-editor-root.dark .layout-page img,
+.docx-editor-root.dark .layout-page svg,
+.docx-editor-root.dark .layout-page canvas,
+.docx-editor-root.dark .layout-page video,
+.docx-editor-root.dark .layout-page [data-no-color-invert] {
+	filter: none;
+}
+`.trim();
+
+	const useAdoptedSheets =
 		typeof CSSStyleSheet !== 'undefined'
 		&& 'adoptedStyleSheets' in activeDocument
-		&& Array.isArray(activeDocument.adoptedStyleSheets)
-	) {
+		&& Array.isArray(activeDocument.adoptedStyleSheets);
+
+	if (useAdoptedSheets) {
 		const styleSheet = new CSSStyleSheet();
 		styleSheet.replaceSync(docxEditorStyles);
-		activeDocument.adoptedStyleSheets = [...activeDocument.adoptedStyleSheets, styleSheet];
+		const caretSheet = new CSSStyleSheet();
+		caretSheet.replaceSync(hostCaretOverride);
+		activeDocument.adoptedStyleSheets = [
+			...activeDocument.adoptedStyleSheets,
+			styleSheet,
+			caretSheet,
+		];
 	} else {
 		const styleEl = activeDocument.createElement('style');
-		styleEl.textContent = docxEditorStyles;
+		styleEl.textContent = `${docxEditorStyles}\n${hostCaretOverride}`;
 		(activeDocument.head ?? activeDocument.body).appendChild(styleEl);
 	}
 	stylesInjected = true;
+	debugLog('editor', 'DOCX editor styles injected with white-page caret override', {
+		via: useAdoptedSheets ? 'adoptedStyleSheets' : 'style-element',
+		caretOverride: '--doc-caret: #000000; layout-page filter: none',
+	});
 }
 
 const SaveButton = ({ onClick }: { onClick: () => void }) => {
@@ -1895,6 +1927,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const imageInputRef = useRef<HTMLInputElement>(null);
 	const fontInputRef = useRef<HTMLInputElement>(null);
 	const editorClassNameRef = useRef(`native-powerpoint-doc-editor-editor-${++editorInstanceCounter}`);
+	useEffect(() => {
+		debugLog('settings', 'DOCX React colorMode', {
+			file: file?.path,
+			resolvedEditorTheme,
+		});
+	}, [file?.path, resolvedEditorTheme]);
 	const rulerSyncFrameRef = useRef<number | null>(null);
 	const rulerSyncTimeoutRef = useRef<number | null>(null);
 	const initialCenterFrameRef = useRef<number | null>(null);
@@ -2062,7 +2100,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	);
 
 	const handleCommentsSidebarOpenChange = useCallback((open: boolean) => {
-		// Eigenpal only renders the new-comment input when the controlled sidebar is
+		// Vendor editor only renders the new-comment input when the controlled sidebar is
 		// open. Do not block programmatic opens while the document still has zero
 		// saved comments; the title-bar toggle stays disabled separately.
 		setCommentsSidebarOpen(open);

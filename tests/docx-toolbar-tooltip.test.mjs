@@ -482,7 +482,7 @@ test("DOCX resolver matches toolbar controls but not links, menus, or popovers",
 	const toolbar = append(editorRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-toolbar": "true" } });
 	const button = append(toolbar, "button", { attrs: { "aria-label": "Bold" } });
 	const icon = append(button, "span");
-	const epRoot = append(editorRoot, "div", { classes: ["ep-root"] });
+	const epRoot = append(editorRoot, "div", { classes: ["docx-editor-root"] });
 	const formattingBar = append(epRoot, "div", { attrs: { "data-native-powerpoint-doc-editor-formatting-bar": "true" } });
 	const formattingButton = append(formattingBar, "button", { attrs: { "aria-label": "Align Left" } });
 	const otherRoot = append(ownerDocument.body, "div", {
@@ -517,7 +517,7 @@ test("DOCX tooltip metadata sync leaves formatting labels alone", async () => {
 		classes: ["native-powerpoint-doc-editor-editor-1"],
 		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
 	});
-	const epRoot = append(editorRoot, "div", { classes: ["ep-root"] });
+	const epRoot = append(editorRoot, "div", { classes: ["docx-editor-root"] });
 	const formattingBar = append(epRoot, "div", {
 		attrs: {
 			"data-native-powerpoint-doc-editor-formatting-bar": "true",
@@ -544,20 +544,20 @@ test("DOCX tooltip metadata sync leaves formatting labels alone", async () => {
 	assert.equal(editorButton.dataset.tooltip, "Save");
 });
 
-test("DOCX suppression hides inline Eigenpal toolbar tooltips without touching body portals", async () => {
-	const { suppressEigenpalToolbarTooltips } = await loadDocxToolbarTooltipModule();
+test("DOCX suppression hides inline vendor toolbar tooltips without touching body portals", async () => {
+	const { suppressVendorToolbarTooltips } = await loadDocxToolbarTooltipModule();
 	const ownerDocument = new FakeDocument();
 	const editorRoot = append(ownerDocument.body, "div", {
 		classes: ["native-powerpoint-doc-editor-editor-1"],
 		attrs: { "data-native-powerpoint-doc-editor-root": "true" },
 	});
-	const epRoot = append(editorRoot, "div", { classes: ["ep-root"] });
+	const epRoot = append(editorRoot, "div", { classes: ["docx-editor-root"] });
 	const inlineTooltip = append(epRoot, "div", {
 		classes: ["fixed", "z-50", "px-2", "py-1", "rounded-md", "shadow-lg"],
-		attrs: { "data-native-powerpoint-doc-editor-eigenpal-tooltip": "true" },
+		attrs: { "data-native-powerpoint-doc-editor-vendor-tooltip": "true" },
 		textContent: "Align Left",
 	});
-	const portalRoot = append(ownerDocument.body, "div", { classes: ["ep-root"] });
+	const portalRoot = append(ownerDocument.body, "div", { classes: ["docx-editor-root"] });
 	const portaledTooltip = append(portalRoot, "div", {
 		classes: ["fixed", "z-50", "px-2", "py-1", "rounded-md", "shadow-lg"],
 		textContent: "Alignment",
@@ -568,14 +568,14 @@ test("DOCX suppression hides inline Eigenpal toolbar tooltips without touching b
 		textContent: "https://example.com",
 	});
 
-	suppressEigenpalToolbarTooltips(editorRoot);
+	suppressVendorToolbarTooltips(editorRoot);
 
 	assert.equal(inlineTooltip.hidden, true);
-	assert.equal(inlineTooltip.getAttribute("data-native-powerpoint-doc-editor-eigenpal-tooltip"), "true");
+	assert.equal(inlineTooltip.getAttribute("data-native-powerpoint-doc-editor-vendor-tooltip"), "true");
 	assert.equal(portaledTooltip.hidden, undefined);
-	assert.equal(portaledTooltip.getAttribute("data-native-powerpoint-doc-editor-eigenpal-tooltip"), null);
+	assert.equal(portaledTooltip.getAttribute("data-native-powerpoint-doc-editor-vendor-tooltip"), null);
 	assert.equal(linkPreview.hidden, undefined);
-	assert.equal(linkPreview.getAttribute("data-native-powerpoint-doc-editor-eigenpal-tooltip"), null);
+	assert.equal(linkPreview.getAttribute("data-native-powerpoint-doc-editor-vendor-tooltip"), null);
 });
 
 test("DOCX toolbar tooltip manager is scoped and singleton per editor root", async () => {
@@ -662,14 +662,14 @@ test("PowerPoint resolver matches toolbar controls but not popovers", async () =
   assert.equal(resolvePowerPointTooltipTarget(popoverButton, root), null);
 });
 
-test("tooltip CSS keeps the same dark palette and semantic Eigenpal marker", async () => {
+test("tooltip CSS keeps the same dark palette and semantic vendor marker", async () => {
   const css = await readFile(path.join(projectRoot, "styles.css"), "utf8");
   const backgroundValues = [...css.matchAll(/--npde-docx-toolbar-tooltip-bg:\s*([^;]+);/g)].map((match) => match[1].trim());
   const textValues = [...css.matchAll(/--npde-docx-toolbar-tooltip-text:\s*([^;]+);/g)].map((match) => match[1].trim());
 
   assert.deepEqual(new Set(backgroundValues), new Set(["#0f172a"]));
   assert.deepEqual(new Set(textValues), new Set(["#f8fafc"]));
-  assert.match(css, /\[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'\]/);
+  assert.match(css, /\[data-native-powerpoint-doc-editor-vendor-tooltip='true'\]/);
   assert.doesNotMatch(css, /\.fixed\.z-50\.px-2\.py-1\.rounded-md\.shadow-lg:not\(\[role\]\)/);
   assert.doesNotMatch(css, /\.native-powerpoint-doc-editor-sr-only-label/);
   assert.match(css, new RegExp(`\\.${tooltipClass}\\s*\\{`));

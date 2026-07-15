@@ -272,7 +272,7 @@ export interface InjectedMenuOptionOptions {
 }
 
 /**
- * Hardens a button that is injected into a third-party (Eigenpal/Radix) menu so
+ * Hardens a button that is injected into a third-party (vendor/Radix) menu so
  * the host menu cannot swallow or reinterpret its activation. Blocks the host's
  * pointer/mouse handling, activates on click and Enter/Space, and (by default)
  * dismisses the host menu with Escape before invoking {@link onSelect}.

@@ -1,4 +1,4 @@
-# Eigenpal DOCX Editor
+# Vendored DOCX Editor
 
 Bun + React/Vue WYSIWYG editor for DOCX. Client-side only, no backend.
 Per-package entries: `packages/react/src/index.ts`, `packages/vue/src/index.ts`, `packages/core/src/headless.ts`.
@@ -66,7 +66,7 @@ Before merging a change in `packages/react/`:
 
 Adapter-only changes are fine for things genuinely scoped to one framework (React-specific hook glue, Vue composition API ergonomics, the demo apps). When in doubt, mirror.
 
-**UI styling / colors are single-source-of-truth.** All editor chrome CSS + color tokens live in `packages/core/src/styles/editor.css`; both adapters only `@import` it (the adapter `src/styles/editor.css` files must stay thin — enforced by `bun run check:adapter-css-thin`). Never hardcode hex/rgba in components — use the `--doc-*` tokens (or shadcn token utilities like `bg-primary`). The shared Tailwind theme lives in `packages/core/tailwind-preset.cjs`, extended by all three `tailwind.config.js`. Dark mode is a token override under `.ep-root.dark` (scaffold in the core stylesheet). The document canvas (painter output) is intentionally NOT themed — it stays Word-faithful.
+**UI styling / colors are single-source-of-truth.** All editor chrome CSS + color tokens live in `packages/core/src/styles/editor.css`; both adapters only `@import` it (the adapter `src/styles/editor.css` files must stay thin — enforced by `bun run check:adapter-css-thin`). Never hardcode hex/rgba in components — use the `--doc-*` tokens (or shadcn token utilities like `bg-primary`). The shared Tailwind theme lives in `packages/core/tailwind-preset.cjs`, extended by all three `tailwind.config.js`. Dark mode is a token override under `.docx-editor-root.dark` (scaffold in the core stylesheet). The document canvas (painter output) is intentionally NOT themed — it stays Word-faithful.
 
 ### FlowBlock invariant — 3 switches
 
@@ -124,7 +124,7 @@ Stable dataset attrs on painted DOM (CSS, queries, selection map depend on these
 
 Shared React/Vue orchestration lives in core (issue #696, Tier 1) — adapters re-export or delegate, so grepping an adapter lands on a thin wrapper:
 
-| Shared op                           | Core module (in `@eigenpal/docx-editor-core`) |
+| Shared op                           | Core module (in `@npde/docx-editor-core`) |
 | ----------------------------------- | --------------------------------------------- |
 | paraId/text helpers                 | `prosemirror/paraText.ts`                     |
 | ref-API queries (find/selInfo/page) | `prosemirror/queries.ts`                      |
@@ -142,7 +142,7 @@ Shared React/Vue orchestration lives in core (issue #696, Tier 1) — adapters r
 ### Pitfalls
 
 - **Icons** — inline SVG in `components/ui/Icons.tsx`, NOT a font. `<MaterialSymbol name="x">` looks up `iconMap`; missing → renders raw text. Add SVG paths from fonts.google.com/icons.
-- **Tailwind scope** — library scoped to `.ep-root`. Painter output isn't always protected → use inline styles on painted elements.
+- **Tailwind scope** — library scoped to `.docx-editor-root`. Painter output isn't always protected → use inline styles on painted elements.
 - **Focus stealing** — any mousedown that bubbles to PM moves caret. Dropdown/dialog mousedown needs `stopPropagation()`.
 - **No `require()`** — ESM only.
 
@@ -242,7 +242,7 @@ Release: merge the bot's `chore: release` PR. Publish runs via OIDC, tags, GH re
 
 Branches: `main` = 1.x line. `0.x` = pre-rename maintenance, patch/minor only; it does NOT receive security fixes (see `SECURITY.md` — only 1.x is security-supported).
 
-Packages: `@eigenpal/docx-editor-{react,core,agents,i18n,vue}`, `@eigenpal/nuxt-docx-editor`. All published.
+Packages: `@npde/docx-editor-{react,core,i18n}` (in-repo for NPDE).
 
 ### Don't
 
@@ -263,6 +263,6 @@ Don't: `@`-mention contributors, reference unrelated PR/issue numbers, list chan
 
 ## Bugs
 
-Issue tracker: `gh issue view <N> --repo eigenpal/docx-editor`. Dev server: `bun run dev` → `http://localhost:5173/`. Commit format: `fix: ... (fixes #N)`.
+Issue tracker: `gh issue view <N> --repo MarsLuay/NativePowerPointDocEditor`. Dev server: `bun run dev` → `http://localhost:5173/`. Commit format: `fix: ... (fixes #N)`.
 
 Toolbar icons: Material Symbol SVGs, saved locally. Screenshots → `screenshots/`.

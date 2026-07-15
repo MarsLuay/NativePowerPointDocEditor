@@ -4,8 +4,8 @@ import {
 	DOCX_EDITOR_ROOT_SELECTOR,
 	DOCX_EDITOR_TITLE_BAR_SELECTOR,
 	DOCX_EDITOR_TOOLBAR_SELECTOR,
-	DOCX_EIGENPAL_TOOLTIP_ATTRIBUTE,
-	DOCX_EIGENPAL_TOOLTIP_SELECTOR,
+	DOCX_VENDOR_TOOLTIP_ATTRIBUTE,
+	DOCX_VENDOR_TOOLTIP_SELECTOR,
 	DOCX_HYPERLINK_POPUP_SELECTOR,
 	DOCX_RENDERED_PAGE_CONTENT_SELECTOR,
 	DOCX_RENDERED_PAGE_SELECTOR,
@@ -35,8 +35,8 @@ export {
 
 export const DOCX_EDITOR_ROOT_CLASS_PREFIX = 'native-powerpoint-doc-editor-editor-';
 export const DOCX_TOOLBAR_TOOLTIP_CLASS = TOOLBAR_TOOLTIP_CLASS;
-export const EIGENPAL_TOOLTIP_ATTRIBUTE = DOCX_EIGENPAL_TOOLTIP_ATTRIBUTE;
-export const EIGENPAL_TOOLBAR_TOOLTIP_SELECTOR = DOCX_EIGENPAL_TOOLTIP_SELECTOR;
+export const VENDOR_TOOLTIP_ATTRIBUTE = DOCX_VENDOR_TOOLTIP_ATTRIBUTE;
+export const VENDOR_TOOLBAR_TOOLTIP_SELECTOR = DOCX_VENDOR_TOOLTIP_SELECTOR;
 
 const DOCX_FORMATTING_TOOLBAR_SELECTOR = DOCX_EDITOR_FORMATTING_BAR_SELECTOR;
 
@@ -72,7 +72,7 @@ const TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR = [
 	DOCX_HYPERLINK_POPUP_SELECTOR,
 ].join(', ');
 
-const EIGENPAL_TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR = [
+const VENDOR_TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR = [
 	DOCX_HYPERLINK_POPUP_SELECTOR,
 	'[role="dialog"]',
 	'[role="menu"]',
@@ -182,28 +182,28 @@ export function resolveDocxTooltipTarget(
 	return getToolbarTooltipTarget(target, editorRoot);
 }
 
-function isEigenpalToolbarTooltip(element: Element): element is HTMLElement {
+function isVendorToolbarTooltip(element: Element): element is HTMLElement {
 	return isElementLike(element)
 		&& !element.classList.contains(DOCX_TOOLBAR_TOOLTIP_CLASS)
-		&& !element.closest(EIGENPAL_TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR)
-		&& element.matches(EIGENPAL_TOOLBAR_TOOLTIP_SELECTOR);
+		&& !element.closest(VENDOR_TOOLTIP_EXCLUDED_ANCESTOR_SELECTOR)
+		&& element.matches(VENDOR_TOOLBAR_TOOLTIP_SELECTOR);
 }
 
-export function suppressEigenpalToolbarTooltips(editorRoot: HTMLElement | null): void {
+export function suppressVendorToolbarTooltips(editorRoot: HTMLElement | null): void {
 	if (!editorRoot) {
 		return;
 	}
 
-	editorRoot.querySelectorAll<HTMLElement>(EIGENPAL_TOOLBAR_TOOLTIP_SELECTOR).forEach((element) => {
-		if (!isEigenpalToolbarTooltip(element)) {
+	editorRoot.querySelectorAll<HTMLElement>(VENDOR_TOOLBAR_TOOLTIP_SELECTOR).forEach((element) => {
+		if (!isVendorToolbarTooltip(element)) {
 			return;
 		}
 
-		if (element.getAttribute(EIGENPAL_TOOLTIP_ATTRIBUTE) === 'true' && element.hidden) {
+		if (element.getAttribute(VENDOR_TOOLTIP_ATTRIBUTE) === 'true' && element.hidden) {
 			return;
 		}
 
-		element.setAttribute(EIGENPAL_TOOLTIP_ATTRIBUTE, 'true');
+		element.setAttribute(VENDOR_TOOLTIP_ATTRIBUTE, 'true');
 		element.hidden = true;
 	});
 }
@@ -211,7 +211,7 @@ export function suppressEigenpalToolbarTooltips(editorRoot: HTMLElement | null):
 /**
  * DOCX adapter for shared delayed control tooltips. Beyond the shared hover
  * lifecycle it suspends native `title` tooltips on document hyperlinks and
- * keeps the vendored Eigenpal toolbar tooltips suppressed as the editor DOM
+ * keeps the vendored toolbar tooltips suppressed as the editor DOM
  * mutates.
  */
 class DocxToolbarTooltipController extends ControlTooltipAdapter {
@@ -220,12 +220,12 @@ class DocxToolbarTooltipController extends ControlTooltipAdapter {
 	}
 
 	protected onTargetRecognized(_target: HTMLElement, root: HTMLElement): void {
-		suppressEigenpalToolbarTooltips(root);
+		suppressVendorToolbarTooltips(root);
 	}
 
 	protected onAttach(editorRoot: HTMLElement): () => void {
 		let activeDocumentLink: HTMLAnchorElement | null = null;
-		let eigenpalSuppressionTimer: number | null = null;
+		let vendorSuppressionTimer: number | null = null;
 		const view = editorRoot.ownerDocument.defaultView ?? window;
 
 		const clearDocumentLinkTitle = (): void => {
@@ -233,13 +233,13 @@ class DocxToolbarTooltipController extends ControlTooltipAdapter {
 			activeDocumentLink = null;
 		};
 
-		const scheduleEigenpalTooltipSuppression = (): void => {
-			if (eigenpalSuppressionTimer !== null) {
-				view.clearTimeout(eigenpalSuppressionTimer);
+		const scheduleVendorTooltipSuppression = (): void => {
+			if (vendorSuppressionTimer !== null) {
+				view.clearTimeout(vendorSuppressionTimer);
 			}
-			eigenpalSuppressionTimer = view.setTimeout(() => {
-				eigenpalSuppressionTimer = null;
-				suppressEigenpalToolbarTooltips(editorRoot);
+			vendorSuppressionTimer = view.setTimeout(() => {
+				vendorSuppressionTimer = null;
+				suppressVendorToolbarTooltips(editorRoot);
 			}, 0);
 		};
 
@@ -269,15 +269,15 @@ class DocxToolbarTooltipController extends ControlTooltipAdapter {
 		editorRoot.addEventListener('pointerout', handlePointerOut, true);
 		view.addEventListener('blur', handleBlur, false);
 
-		const eigenpalTooltipObserver = new MutationObserver(scheduleEigenpalTooltipSuppression);
-		eigenpalTooltipObserver.observe(editorRoot, { childList: true, subtree: true });
-		scheduleEigenpalTooltipSuppression();
+		const vendorTooltipObserver = new MutationObserver(scheduleVendorTooltipSuppression);
+		vendorTooltipObserver.observe(editorRoot, { childList: true, subtree: true });
+		scheduleVendorTooltipSuppression();
 
 		return () => {
-			eigenpalTooltipObserver.disconnect();
-			if (eigenpalSuppressionTimer !== null) {
-				view.clearTimeout(eigenpalSuppressionTimer);
-				eigenpalSuppressionTimer = null;
+			vendorTooltipObserver.disconnect();
+			if (vendorSuppressionTimer !== null) {
+				view.clearTimeout(vendorSuppressionTimer);
+				vendorSuppressionTimer = null;
 			}
 			editorRoot.removeEventListener('pointerover', handlePointerOver, true);
 			editorRoot.removeEventListener('pointerout', handlePointerOut, true);

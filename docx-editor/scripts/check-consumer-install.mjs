@@ -81,8 +81,8 @@ try {
     path.join(appDir, 'src/App.vue'),
     `<script setup lang="ts">
 import { ref } from 'vue';
-import { DocxEditor } from '@eigenpal/docx-editor-vue';
-import '@eigenpal/docx-editor-vue/styles.css';
+import { DocxEditor } from '@npde/docx-editor-vue';
+import '@npde/docx-editor-vue/styles.css';
 
 const buffer = ref<ArrayBuffer | null>(null);
 

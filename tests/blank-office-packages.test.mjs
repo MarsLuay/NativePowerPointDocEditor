@@ -42,6 +42,10 @@ test('blank DOCX package has required parts and styles', async () => {
 	assert.ok(zip.file('word/_rels/document.xml.rels'));
 	const documentXml = await zip.file('word/document.xml').async('string');
 	assert.match(documentXml, /<w:body>/);
+	const stylesXml = await zip.file('word/styles.xml').async('string');
+	assert.match(stylesXml, /w:ascii="Arial"/);
+	assert.match(stylesXml, /w:hAnsi="Arial"/);
+	assert.doesNotMatch(stylesXml, /w:ascii="Calibri"/);
 });
 
 test('blank PPTX package has one blank slide plus master/layout/theme', async () => {

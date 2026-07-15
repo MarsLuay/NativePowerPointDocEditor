@@ -17,7 +17,7 @@ export const DEFAULT_DOCX_STYLES_XML = `<?xml version="1.0" encoding="UTF-8" sta
 	<w:docDefaults>
 		<w:rPrDefault>
 			<w:rPr>
-				<w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>
+				<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>
 				<w:sz w:val="22"/>
 				<w:szCs w:val="22"/>
 				<w:lang w:val="en-US"/>

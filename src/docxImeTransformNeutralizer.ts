@@ -123,7 +123,7 @@ export function editorZoomTransformNeedsNeutralization(transform: string): boole
 }
 
 export function findDocxEditorZoomWrapper(editorRoot: HTMLElement): HTMLElement | null {
-	// Prefer plugin-stamped markers; fall back to Eigenpal's class when chrome
+	// Prefer plugin-stamped markers; fall back to vendor class when chrome
 	// sync has not stamped yet (live harnesses / first paint).
 	const pages =
 		editorRoot.querySelector(DOCX_EDITOR_PAGES_SELECTOR)

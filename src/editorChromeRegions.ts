@@ -50,7 +50,7 @@ export { DOCX_VENDOR_TABLE_TOOLBAR_CLASS };
 /**
  * Shared chrome-region contract.
  * DOCX resolves through `data-native-powerpoint-doc-editor-*` markers (vendored
- * Eigenpal DOM plus plugin stamping). PPTX resolves through owned classes.
+ * Vendor DOM plus plugin stamping). PPTX resolves through owned classes.
  */
 export const EDITOR_CHROME_REGIONS: Record<EditorChromeRegionId, EditorChromeRegionBinding> = {
 	header: {

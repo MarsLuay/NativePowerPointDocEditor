@@ -433,9 +433,9 @@ function createDocxEditorAliases() {
 		'@npde/docx-editor-react': 'react',
 	};
 	const compatPrefix = {
-		'@npde/docx-editor-core': '@eigenpal/docx-editor-core',
-		'@npde/docx-editor-i18n': '@eigenpal/docx-editor-i18n',
-		'@npde/docx-editor-react': '@eigenpal/docx-editor-react',
+		'@npde/docx-editor-core': '@npde/docx-editor-core',
+		'@npde/docx-editor-i18n': '@npde/docx-editor-i18n',
+		'@npde/docx-editor-react': '@npde/docx-editor-react',
 	};
 
 	for (const [packageName, dirName] of Object.entries(packages)) {

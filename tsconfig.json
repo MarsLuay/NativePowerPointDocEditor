@@ -36,26 +36,6 @@
 			"@npde/docx-editor-react/*": [
 				"../docx-editor/packages/react/dist/*/index.d.ts",
 				"../docx-editor/packages/react/dist/*.d.ts"
-			],
-			"@eigenpal/docx-editor-core": [
-				"../docx-editor/packages/core/dist/core.d.ts"
-			],
-			"@eigenpal/docx-editor-core/*": [
-				"../docx-editor/packages/core/dist/*/index.d.ts",
-				"../docx-editor/packages/core/dist/*.d.ts"
-			],
-			"@eigenpal/docx-editor-i18n": [
-				"../docx-editor/packages/i18n/dist/index.d.ts"
-			],
-			"@eigenpal/docx-editor-i18n/*": [
-				"../docx-editor/packages/i18n/dist/*.d.ts"
-			],
-			"@eigenpal/docx-editor-react": [
-				"../docx-editor/packages/react/dist/index.d.ts"
-			],
-			"@eigenpal/docx-editor-react/*": [
-				"../docx-editor/packages/react/dist/*/index.d.ts",
-				"../docx-editor/packages/react/dist/*.d.ts"
 			]
 		},
 		"jsx": "react-jsx",

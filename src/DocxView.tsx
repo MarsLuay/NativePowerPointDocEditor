@@ -807,6 +807,44 @@ function dedupeEditorChromeMenuItem(hostEl: HTMLElement, selector: string): HTML
 	return preferred;
 }
 
+/**
+ * `dataset.nativePowerPoint…` maps to `data-native-power-point-…` (capital P in Point
+ * inserts a hyphen). Selectors / stamps use one-word `powerpoint`. Always set/read the
+ * attribute string explicitly when matching CSS or querySelector.
+ */
+function setDocxEditorDataAttr(element: HTMLElement, suffix: string, value = 'true') {
+	element.setAttribute(`data-native-powerpoint-doc-editor-${suffix}`, value);
+	// Clear the mis-mapped PowerPoint dataset form if an older build wrote it.
+	element.removeAttribute(`data-native-power-point-doc-editor-${suffix}`);
+}
+
+function getDocxEditorDataAttrSelector(suffix: string): string {
+	return `[data-native-powerpoint-doc-editor-${suffix}]`;
+}
+
+/** Keep one injected File/Insert menu row; drop clones from failed dedupe runs. */
+function takeUniqueMenuItem(
+	dropdown: HTMLElement,
+	suffix: string,
+	className: string,
+): HTMLElement | null {
+	const matches = Array.from(dropdown.querySelectorAll<HTMLElement>(
+		`${getDocxEditorDataAttrSelector(suffix)}, .${className}, [data-native-power-point-doc-editor-${suffix}]`,
+	)).filter((item) => item.parentElement === dropdown);
+
+	const preferred = matches[0] ?? null;
+	for (const item of matches) {
+		if (item !== preferred) {
+			item.remove();
+		}
+	}
+	if (preferred) {
+		setDocxEditorDataAttr(preferred, suffix);
+		preferred.addClass(className);
+	}
+	return preferred;
+}
+
 function ensureEditorChromeMenuItemPosition(
 	menubar: HTMLElement,
 	item: HTMLElement,
@@ -1070,11 +1108,13 @@ export class DocxView extends FileView {
 			: <T,>(_step: string, fn: () => T) => fn();
 
 		run('editor-chrome:stamp-regions', () => {
-			const root = this.hostEl?.querySelector<HTMLElement>(DOCX_EDITOR_ROOT_SELECTOR);
-			if (root) {
-				stampDocxEditorChromeRegions(root);
+			if (this.hostEl) {
+				// Stamp from vendor hooks first so root/toolbar/menubar attrs exist
+				// before the rest of chrome sync queries them.
+				stampDocxEditorChromeRegions(this.hostEl);
 			}
 		});
+		run('editor-chrome:sync-vendor-dark-class', () => this.syncVendorEditorDarkClass());
 		run('editor-chrome:dedupe-menu-items', () => this.dedupeEditorChromeMenuItems());
 		run('editor-chrome:remove-titles', () => this.removeNativeButtonTitles());
 		run('editor-chrome:sync-toolbar-tooltip-metadata', () => this.syncToolbarTooltipMetadata());
@@ -1085,6 +1125,37 @@ export class DocxView extends FileView {
 		run('editor-chrome:export-menu', () => this.addEditorFileExportAsMenuItem());
 		run('editor-chrome:insert-menu', () => this.addEditorInsertMenuItems());
 		run('editor-chrome:normalize-menu-items', () => this.normalizeNativeEditorMenuActionItems());
+	}
+
+	private syncVendorEditorDarkClass() {
+		if (!this.hostEl) {
+			return;
+		}
+
+		const wantDark = this.getResolvedEditorTheme() === 'dark';
+		const roots = this.hostEl.querySelectorAll<HTMLElement>('.docx-editor-root.docx-editor, [data-testid="docx-editor"]');
+		roots.forEach((root) => {
+			root.classList.toggle('dark', wantDark);
+			// Vendor `.dark` sets --doc-caret light for an inverted page. Obsidian
+			// keeps Word-white pages (filter: none) — pin caret to document ink.
+			// SelectionOverlay already paints caret as #000000; CSS also remaps --doc-caret.
+			root.setCssProps({ '--doc-caret': '#000000' });
+		});
+
+		const sampleRoot = roots.item(0);
+		const sampleCaret = sampleRoot?.querySelector<HTMLElement>(
+			'[data-testid="caret"], [data-native-powerpoint-doc-editor-caret]',
+		) ?? null;
+		const rootStyles = sampleRoot ? getComputedStyle(sampleRoot) : null;
+		const caretStyles = sampleCaret ? getComputedStyle(sampleCaret) : null;
+		debugLog('editor', 'DOCX caret pinned to page ink', {
+			file: this.file?.path,
+			wantDark,
+			roots: roots.length,
+			docCaretVar: rootStyles?.getPropertyValue('--doc-caret').trim() || null,
+			caretBackground: caretStyles?.backgroundColor || null,
+			rootHasDarkClass: sampleRoot?.classList.contains('dark') ?? false,
+		});
 	}
 
 	private scheduleEditorChromeSync() {
@@ -1119,6 +1190,12 @@ export class DocxView extends FileView {
 
 		this.activeLeafListenerRegistered = true;
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
+			// PPTX↔DOCX leaves must re-bind colorMode from live resolved theme —
+			// inactive DOCX trees kept stale light chrome after system-mode switches.
+			if (this.isLeafActive()) {
+				this.refreshSettings();
+				return;
+			}
 			this.render();
 		}));
 		this.app.workspace.onLayoutReady(() => {
@@ -1918,8 +1995,14 @@ export class DocxView extends FileView {
 			'native-powerpoint-doc-editor-theme-resolved-dark',
 		]);
 		const editorTheme = normalizeEditorThemePreference(this.getEditorTheme());
+		const resolvedTheme = this.getResolvedEditorTheme();
 		this.hostEl.addClass(`native-powerpoint-doc-editor-theme-${editorTheme}`);
-		this.hostEl.addClass(`native-powerpoint-doc-editor-theme-resolved-${this.getResolvedEditorTheme()}`);
+		this.hostEl.addClass(`native-powerpoint-doc-editor-theme-resolved-${resolvedTheme}`);
+		debugLog('settings', 'DOCX host theme classes applied', {
+			file: this.file?.path,
+			editorTheme,
+			resolvedTheme,
+		});
 	}
 
 	private async updateReviewSidebarReservation() {
@@ -2984,10 +3067,12 @@ export class DocxView extends FileView {
 				button.textContent = label;
 			}
 
-			button.querySelectorAll('[data-native-powerpoint-doc-editor-export-chevron]').forEach(chevron => chevron.remove());
+			button.querySelectorAll(
+				'[data-native-powerpoint-doc-editor-export-chevron], [data-native-power-point-doc-editor-export-chevron]',
+			).forEach(chevron => chevron.remove());
 				if (options.showChevron) {
 					const chevron = activeDocument.createElement('span');
-					chevron.dataset.nativePowerPointDocEditorExportChevron = 'true';
+					setDocxEditorDataAttr(chevron, 'export-chevron');
 					chevron.textContent = '›';
 					chevron.addClass('native-powerpoint-doc-editor-export-chevron');
 					button.appendChild(chevron);
@@ -3019,12 +3104,16 @@ export class DocxView extends FileView {
 				});
 				const sourceWrapper = saveWrapper ?? itemWrappers.find((itemWrapper) => itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR));
 
-				let duplicateWrapper = dropdown.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-duplicate-menu-item]');
+				let duplicateWrapper = takeUniqueMenuItem(
+					dropdown,
+					'duplicate-menu-item',
+					'native-powerpoint-doc-editor-duplicate-menu-item',
+				);
 				if (!duplicateWrapper) {
 					duplicateWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-					duplicateWrapper.dataset.nativePowerPointDocEditorDuplicateMenuItem = 'true';
+					setDocxEditorDataAttr(duplicateWrapper, 'duplicate-menu-item');
 					duplicateWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-duplicate-menu-item']);
 
 					const duplicateButton = duplicateWrapper.querySelector('button') ?? duplicateWrapper.createEl('button');
@@ -3050,20 +3139,24 @@ export class DocxView extends FileView {
 					}
 				}
 
-				let exportWrapper = dropdown.querySelector<HTMLElement>('[data-native-powerpoint-doc-editor-export-as-menu-item]');
+				let exportWrapper = takeUniqueMenuItem(
+					dropdown,
+					'export-as-menu-item',
+					'native-powerpoint-doc-editor-export-menu-item',
+				);
 				if (!exportWrapper) {
 					exportWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-						exportWrapper.dataset.nativePowerPointDocEditorExportAsMenuItem = 'true';
+					setDocxEditorDataAttr(exportWrapper, 'export-as-menu-item');
 
-						let exportButton = exportWrapper.querySelector('button');
+					let exportButton = exportWrapper.querySelector('button');
 					if (!exportButton) {
 						exportButton = activeDocument.createElement('button');
 						exportWrapper.appendChild(exportButton);
 					}
-						exportWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-export-menu-item']);
-						retitleMenuButton(exportButton, 'Export as...', labels.save, { showChevron: true });
+					exportWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-export-menu-item']);
+					retitleMenuButton(exportButton, 'Export as...', labels.save, { showChevron: true });
 					exportButton.removeAttribute('disabled');
 					exportButton.removeAttribute('aria-disabled');
 					configureMenuItemButton(exportButton, {
@@ -3084,8 +3177,9 @@ export class DocxView extends FileView {
 							? sourceWrapper.cloneNode(true) as HTMLElement
 							: activeDocument.createElement('div');
 						optionWrapper.removeAttribute('data-native-powerpoint-doc-editor-export-as-menu-item');
-							const optionButton = optionWrapper.querySelector('button') ?? optionWrapper.createEl('button');
-							retitleMenuButton(optionButton, format.label, labels.save);
+						optionWrapper.removeAttribute('data-native-power-point-doc-editor-export-as-menu-item');
+						const optionButton = optionWrapper.querySelector('button') ?? optionWrapper.createEl('button');
+						retitleMenuButton(optionButton, format.label, labels.save);
 						optionButton.removeAttribute('disabled');
 						optionButton.removeAttribute('aria-disabled');
 						configureMenuItemButton(optionButton, {
@@ -3111,14 +3205,19 @@ export class DocxView extends FileView {
 					}
 				}
 
-				if (!dropdown.querySelector('[data-native-powerpoint-doc-editor-find-hidden-text-menu-item]')) {
-					const hiddenTextWrapper = sourceWrapper
+				let hiddenTextWrapper = takeUniqueMenuItem(
+					dropdown,
+					'find-hidden-text-menu-item',
+					'native-powerpoint-doc-editor-find-hidden-text-menu-item',
+				);
+				if (!hiddenTextWrapper) {
+					hiddenTextWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-						hiddenTextWrapper.dataset.nativePowerPointDocEditorFindHiddenTextMenuItem = 'true';
-						hiddenTextWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-find-hidden-text-menu-item']);
-						const hiddenTextButton = hiddenTextWrapper.querySelector('button') ?? hiddenTextWrapper.createEl('button');
-						retitleMenuButton(hiddenTextButton, 'Find hidden text...', labels.save);
+					setDocxEditorDataAttr(hiddenTextWrapper, 'find-hidden-text-menu-item');
+					hiddenTextWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-find-hidden-text-menu-item']);
+					const hiddenTextButton = hiddenTextWrapper.querySelector('button') ?? hiddenTextWrapper.createEl('button');
+					retitleMenuButton(hiddenTextButton, 'Find hidden text...', labels.save);
 					hiddenTextButton.removeAttribute('disabled');
 					hiddenTextButton.removeAttribute('aria-disabled');
 					configureMenuItemButton(hiddenTextButton, {
@@ -3162,7 +3261,16 @@ export class DocxView extends FileView {
 						&& child !== menuButton
 						&& child.matches(DOCX_EDITOR_MENU_DROPDOWN_SELECTOR)
 					));
-					if (!dropdown || dropdown.querySelector('[data-native-powerpoint-doc-editor-insert-image-menu-item]')) {
+					if (!dropdown) {
+						return;
+					}
+
+					takeUniqueMenuItem(
+						dropdown,
+						'insert-image-menu-item',
+						'native-powerpoint-doc-editor-insert-image-menu-item',
+					);
+					if (dropdown.querySelector(getDocxEditorDataAttrSelector('insert-image-menu-item'))) {
 						return;
 					}
 
@@ -3171,7 +3279,7 @@ export class DocxView extends FileView {
 					const insertImageWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
 						: activeDocument.createElement('div');
-					insertImageWrapper.dataset.nativePowerPointDocEditorInsertImageMenuItem = 'true';
+					setDocxEditorDataAttr(insertImageWrapper, 'insert-image-menu-item');
 					insertImageWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-insert-image-menu-item']);
 
 					const insertImageButton = insertImageWrapper.querySelector('button') ?? insertImageWrapper.createEl('button');

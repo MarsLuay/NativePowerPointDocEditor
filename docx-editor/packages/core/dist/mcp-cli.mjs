@@ -53,7 +53,7 @@ Returns validation result with any errors found and list of valid tags.`,inputSc
   <w:docDefaults>
     <w:rPrDefault>
       <w:rPr>
-        <w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/>
+        <w:rFonts w:ascii="Arial" w:hAnsi="Arial"/>
         <w:sz w:val="22"/>
       </w:rPr>
     </w:rPrDefault>
@@ -68,12 +68,12 @@ Returns validation result with any errors found and list of valid tags.`,inputSc
   </w:style>
 </w:styles>`);let t=new Date().toISOString();return e.file("docProps/core.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <dc:creator>EigenPal DOCX Editor</dc:creator>
+  <dc:creator>DOCX Editor</dc:creator>
   <dcterms:created xsi:type="dcterms:W3CDTF">${t}</dcterms:created>
   <dcterms:modified xsi:type="dcterms:W3CDTF">${t}</dcterms:modified>
 </cp:coreProperties>`),e.file("docProps/app.xml",`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
-  <Application>EigenPal DOCX Editor</Application>
+  <Application>DOCX Editor</Application>
   <AppVersion>1.0.0</AppVersion>
 </Properties>`),await e.generateAsync({type:"arraybuffer",compression:"DEFLATE",compressionOptions:{level:6}})}async function on(e,t={}){if(!e.originalBuffer)throw new Error("Cannot repack document: no original buffer for round-trip. Use createDocx() for new documents.");let{compressionLevel:n=6,updateModifiedDate:r=true,modifiedBy:o}=t,i=e,s=await Mi.loadAsync(e.originalBuffer),a=new Mi;for(let[g,m]of Object.entries(s.files)){if(m.dir){a.folder(g.replace(/\/$/,""));continue}let h=await m.async("arraybuffer");a.file(g,h,{compression:"DEFLATE",compressionOptions:{level:n}});}let c=jo(i);await Jo(c,a,n),await Yo(i,a,n),await ti(c,a,n);let f=zo(i);if(a.file("word/document.xml",f,{compression:"DEFLATE",compressionOptions:{level:n}}),Ii(i,a,n),await Si(i,a,n),await vi(i,a,n),await Pi(i,a,n),Ei(i,a,n),ki(i,a,n),r){let g="docProps/core.xml",m=s.file(g);if(m){let h=await m.async("text"),d=Xc(h,{updateModifiedDate:r,modifiedBy:o});a.file(g,d,{compression:"DEFLATE",compressionOptions:{level:n}});}}return await a.generateAsync({type:"arraybuffer",compression:"DEFLATE",compressionOptions:{level:n}})}function Xc(e,t){let n=e;if(t.updateModifiedDate){let r=new Date().toISOString();n.includes("<dcterms:modified")?n=n.replace(/<dcterms:modified[^<>]*>[^<]*<\/dcterms:modified>/,`<dcterms:modified xsi:type="dcterms:W3CDTF">${r}</dcterms:modified>`):n=n.replace("</cp:coreProperties>",`<dcterms:modified xsi:type="dcterms:W3CDTF">${r}</dcterms:modified></cp:coreProperties>`);}return t.modifiedBy&&(n.includes("<cp:lastModifiedBy")?n=n.replace(/<cp:lastModifiedBy>[^<]*<\/cp:lastModifiedBy>/,`<cp:lastModifiedBy>${k(t.modifiedBy)}</cp:lastModifiedBy>`):n=n.replace("</cp:coreProperties>",`<cp:lastModifiedBy>${k(t.modifiedBy)}</cp:lastModifiedBy></cp:coreProperties>`)),n}async function Ai(e){let t=await rn(),n={...e,originalBuffer:t};return on(n)}var gt={type:"string",description:"Document ID returned from docx_load"},Oc={name:"docx_load",description:`Load a DOCX document from base64-encoded content.
 Returns a document ID that can be used with other tools.
@@ -122,7 +122,7 @@ CLAUDE DESKTOP CONFIGURATION:
     "mcpServers": {
       "docx-editor": {
         "command": "npx",
-        "args": ["-y", "@eigenpal/docx-editor", "--mcp"]
+        "args": ["-y", "@npde/docx-editor", "--mcp"]
       }
     }
   }

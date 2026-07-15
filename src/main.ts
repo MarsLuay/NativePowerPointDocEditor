@@ -12,6 +12,7 @@ import {
 import { DocxSearchIndex } from './docxSearchIndex';
 import {
 	configureNativePowerPointDocEditorLogger,
+	debugLog,
 	errorLog,
 	getNativePowerPointDocEditorLogSnapshot,
 	getNativePowerPointDocEditorLogStats,
@@ -112,6 +113,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	private forceJsBackendDevOverride = false;
 	private lastAppliedResolvedEditorTheme?: EditorThemeResolution;
 	private editorThemeObserver: MutationObserver | null = null;
+	private applyingEditorThemePreference = false;
 	private aiCore: AiCore | null = null;
 	/** Agent API surface. Undefined when AI-Interfacing is disabled in settings. */
 	ai: NpdeAiApi | undefined;
@@ -431,28 +433,48 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	}
 
 	private applyEditorThemePreference(): boolean {
-		const activeDocument = this.app.workspace.containerEl.ownerDocument;
-		const editorTheme = normalizeEditorThemePreference(this.pluginSettings.editorTheme);
-		const resolvedTheme = this.resolveCurrentEditorTheme();
-		const themeClass = `native-powerpoint-doc-editor-theme-${editorTheme}`;
-		const resolvedThemeClass = `native-powerpoint-doc-editor-theme-resolved-${resolvedTheme}`;
-		for (const className of EDITOR_THEME_CLASSES) {
-			activeDocument.body.classList.toggle(className, className === themeClass);
+		if (this.applyingEditorThemePreference) {
+			return false;
 		}
-		for (const className of RESOLVED_EDITOR_THEME_CLASSES) {
-			activeDocument.body.classList.toggle(className, className === resolvedThemeClass);
-		}
-		activeDocument.body.setAttribute('data-native-powerpoint-doc-editor-theme', editorTheme);
-		activeDocument.body.setAttribute('data-native-powerpoint-doc-editor-resolved-theme', resolvedTheme);
 
-		const resolvedThemeChanged = this.lastAppliedResolvedEditorTheme !== undefined
-			&& this.lastAppliedResolvedEditorTheme !== resolvedTheme;
-		this.lastAppliedResolvedEditorTheme = resolvedTheme;
-		return resolvedThemeChanged;
+		this.applyingEditorThemePreference = true;
+		try {
+			const activeDocument = this.app.workspace.containerEl.ownerDocument;
+			const editorTheme = normalizeEditorThemePreference(this.pluginSettings.editorTheme);
+			const obsidianTheme = this.getObsidianThemeResolution();
+			const resolvedTheme = resolveEditorThemePreference(editorTheme, obsidianTheme);
+			const themeClass = `native-powerpoint-doc-editor-theme-${editorTheme}`;
+			const resolvedThemeClass = `native-powerpoint-doc-editor-theme-resolved-${resolvedTheme}`;
+			for (const className of EDITOR_THEME_CLASSES) {
+				activeDocument.body.classList.toggle(className, className === themeClass);
+			}
+			for (const className of RESOLVED_EDITOR_THEME_CLASSES) {
+				activeDocument.body.classList.toggle(className, className === resolvedThemeClass);
+			}
+			activeDocument.body.setAttribute('data-native-powerpoint-doc-editor-theme', editorTheme);
+			activeDocument.body.setAttribute('data-native-powerpoint-doc-editor-resolved-theme', resolvedTheme);
+
+			const resolvedThemeChanged = this.lastAppliedResolvedEditorTheme !== undefined
+				&& this.lastAppliedResolvedEditorTheme !== resolvedTheme;
+			this.lastAppliedResolvedEditorTheme = resolvedTheme;
+
+			debugLog('settings', 'Applied editor theme preference', {
+				editorTheme,
+				obsidianTheme,
+				resolvedTheme,
+				resolvedThemeChanged,
+			});
+
+			return resolvedThemeChanged;
+		} finally {
+			this.applyingEditorThemePreference = false;
+		}
 	}
 
 	getResolvedEditorTheme(): EditorThemeResolution {
-		return this.lastAppliedResolvedEditorTheme ?? this.resolveCurrentEditorTheme();
+		// Always live-resolve. Cached lastApplied alone went stale across PPTX↔DOCX
+		// leaf switches when system mode re-sampled Obsidian dark/light.
+		return this.resolveCurrentEditorTheme();
 	}
 
 	private registerEditorThemeObserver() {
@@ -460,6 +482,9 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			return;
 		}
 		this.editorThemeObserver = new MutationObserver(() => {
+			if (this.applyingEditorThemePreference) {
+				return;
+			}
 			const previousResolvedTheme = this.lastAppliedResolvedEditorTheme;
 			this.applyEditorThemePreference();
 			if (
@@ -473,6 +498,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		this.editorThemeObserver.observe(activeDocument.body, { attributes: true, attributeFilter: ['class'] });
+		this.editorThemeObserver.observe(activeDocument.documentElement, { attributes: true, attributeFilter: ['class'] });
 		this.register(() => {
 			this.editorThemeObserver?.disconnect();
 			this.editorThemeObserver = null;
@@ -480,8 +506,18 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	}
 
 	private getObsidianThemeResolution(): EditorThemeResolution {
-		const bodyClassList = this.app.workspace.containerEl.ownerDocument.body?.classList;
-		if (bodyClassList?.contains('theme-dark')) {
+		const activeDocument = this.app.workspace.containerEl.ownerDocument;
+		const bodyClassList = activeDocument.body?.classList;
+		const rootClassList = activeDocument.documentElement?.classList;
+		if (bodyClassList?.contains('theme-dark') || rootClassList?.contains('theme-dark')) {
+			return 'dark';
+		}
+		if (bodyClassList?.contains('theme-light') || rootClassList?.contains('theme-light')) {
+			return 'light';
+		}
+		// Obsidian "Adapt to system" can leave body without theme-* briefly; prefer OS.
+		if (typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+			&& window.matchMedia('(prefers-color-scheme: dark)').matches) {
 			return 'dark';
 		}
 		return 'light';

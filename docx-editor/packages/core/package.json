@@ -1,5 +1,5 @@
 {
-  "name": "@eigenpal/docx-editor-core",
+  "name": "@npde/docx-editor-core",
   "version": "1.9.0",
   "sideEffects": true,
   "description": "Framework-agnostic core for DOCX parsing, editing, and rendering",
@@ -307,10 +307,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "NODE_OPTIONS=--max-old-space-size=8192 tsup && node scripts/copy-assets.mjs && node ../../scripts/inject-package-doc.mjs --package @eigenpal/docx-editor-core",
+    "build": "NODE_OPTIONS=--max-old-space-size=8192 tsup && node scripts/copy-assets.mjs && node ../../scripts/inject-package-doc.mjs --package @npde/docx-editor-core",
     "typecheck": "tsc --noEmit",
-    "api:extract": "node ../../scripts/api-extractor.mjs --package @eigenpal/docx-editor-core --local",
-    "api:check": "node ../../scripts/api-extractor.mjs --package @eigenpal/docx-editor-core"
+    "api:extract": "node ../../scripts/api-extractor.mjs --package @npde/docx-editor-core --local",
+    "api:check": "node ../../scripts/api-extractor.mjs --package @npde/docx-editor-core"
   },
   "dependencies": {
     "docxtemplater": "^3.50.0",
@@ -352,14 +352,14 @@
   ],
   "author": {
     "name": "Jedr Blaszyk",
-    "email": "jedr@eigenpal.com",
+    "email": "noreply@users.noreply.github.com",
     "url": "https://github.com/jedrazb"
   },
   "license": "Apache-2.0",
   "homepage": "https://docx-editor.dev/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/eigenpal/docx-editor.git",
+    "url": "https://github.com/MarsLuay/NativePowerPointDocEditor.git",
     "directory": "packages/core"
   },
   "publishConfig": {

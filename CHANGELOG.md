@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.43] - 2026-07-15
+
+### Fixed
+
+- DOCX chrome in Obsidian dark mode: `theme-system` no longer paints light `--npde-chrome-*` over `theme-resolved-dark`; document surface remaps stay on white pages.
+- Caret stays page ink (`#000000`) on non-inverted DOCX pages in dark Obsidian (vendor `--doc-caret` was light).
+- Formatting-bar vendor tooltips (`Insert link (Ctrl+K)` etc.): `ToolbarButton` / `Tooltip` no longer inject titles; plugin chrome stamps only.
+
+### Changed
+
+- Code-analysis: `css/theme-system-light-chrome` and `obsidian/vendor-floating-toolbar-tooltip` (plus theme-css mirror check).
+- Catalog mirror ESLint: when `docx-editor/CATALOG_SURFACE.md` is present, disable type-checked TypeScript rules so JS-only package dist verifies (fixes failed 1.0.42 release CI).
+
 ## [1.0.42] - 2026-07-15
 
 ### Changed
@@ -15,15 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Catalog mirror Option A: public packages are **JS-only** (no package `.d.ts` / `types` fields). Sync drops decls; types stay in the vault. Code-analysis fails catalog-shaped trees that still ship package declarations (`catalog/dts-not-excluded`). Sanitized public `.d.ts` retired.
 - Catalog surface build skips `tsc` (`scripts/typecheck-for-surface.mjs`) so clean clones typecheck-free via esbuild against package JS.
 - Drop leftover Option A / agent hygiene: ambient-stub `rmSync`, `docs/AGENT-API.md` exclude/gitignore, hazard scanners + async catalog check wrapper, empty `dist/agent`, stale `./agent` docs.
-- Remove always-error MCP mutation stubs (`docx_insert_text` / replace / delete / format / apply_style, `docx_insert_variable`). Drop `@eigenpal/docx-editor-agents` package rows from local READMEs / changeset fixed set.
+- Remove always-error MCP mutation stubs (`docx_insert_text` / replace / delete / format / apply_style, `docx_insert_variable`). Drop `@npde/docx-editor-agents` package rows from local READMEs / changeset fixed set.
 
 ## [1.0.41] - 2026-07-15
 
 ### Changed
 
 - Unbundle Eigenpal `DocumentAgent` / AgentPanel from the Obsidian DOCX editor path: save uses `Document` + `exportDocxBuffer` (selective / repack / create).
-- Remove `@eigenpal/docx-editor-agents` stub/aliases; plugin AI remains `src/ai` only.
-- Re-home content-control types on `@eigenpal/docx-editor-core/contentControls`.
+- Remove `@npde/docx-editor-agents` stub/aliases; plugin AI remains `src/ai` only.
+- Re-home content-control types on `@npde/docx-editor-core/contentControls`.
 - Public catalog mirror sanitizes package `*.d.ts` for Obsidian catalog ESLint (`globalThis`, Identifier `document`, `#private`, etc.). Code-analysis gates the same patterns.
 
 ### Added
@@ -107,7 +120,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Resolve DOCX editor packages through the vendored Eigenpal source and remove direct Eigenpal package dependencies where local equivalents exist.
+- Resolve DOCX editor packages through the vendored source and remove direct Eigenpal package dependencies where local equivalents exist.
 
 ## [1.0.30] - 2026-06-24
 
@@ -127,7 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Upgrade the Eigenpal DOCX editor packages to 1.9.0 for improved Word-compatible
+- Upgrade the vendored DOCX editor packages to 1.9.0 for improved Word-compatible
   pagination and layout fidelity.
 
 ### Fixed
@@ -149,7 +162,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Bump `js-yaml` to 4.2.0 (security), `prosemirror-view` to 1.41.9, and
-  `@eigenpal/docx-editor-i18n` to 1.9.0.
+  `@npde/docx-editor-i18n` to 1.9.0.
 - Bump React and React DOM to 19.2.7 with matching type packages.
 - Bump selected dev dependencies (`@types/node`, `globals`, `jiti`, `tslib`,
   `typescript-eslint`, `electron`).

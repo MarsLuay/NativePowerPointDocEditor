@@ -116,7 +116,7 @@ const stripReactDomScriptPlugin = {
 const stripDocxEditorCssSideEffectImports = {
 	name: "strip-docx-editor-css-side-effect-imports",
 	setup(build) {
-		build.onLoad({ filter: /docx-editor-react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
+		build.onLoad({ filter: /docx-editor[/\\]packages[/\\]react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
 			const normalizedPath = args.path.replace(/\\/g, "/");
 			if (!normalizedPath.endsWith("/docx-editor/packages/react/dist/index.mjs")) {
 				return undefined;
@@ -125,7 +125,7 @@ const stripDocxEditorCssSideEffectImports = {
 			const source = await readFile(args.path, "utf8");
 			const contents = source
 				.replace(/import['"]prosemirror-view\/style\/prosemirror\.css['"];/g, "")
-				.replace(/import['"]@eigenpal\/docx-editor-core\/prosemirror\/editor\.css['"];/g, "");
+				.replace(/import['"]@(?:eigenpal|npde)\/docx-editor-core\/prosemirror\/editor\.css['"];/g, "");
 
 			return { contents, loader: "js" };
 		});

@@ -1,7 +1,10 @@
 /* obsidian: allow css-scrollbar-width -- progressive enhancement paired with ::-webkit-scrollbar rules */
 
+/* Preference `system` must NOT paint light chrome tokens on the host.
+   Host also gets theme-system + theme-resolved-*; light tokens on
+   theme-system overrode inherited body dark tokens and froze DOCX chrome light. */
 .native-powerpoint-doc-editor-theme-light,
-.native-powerpoint-doc-editor-theme-system,
+.native-powerpoint-doc-editor-theme-resolved-light,
 body {
 	--npde-chrome-bg: #ffffff;
 	--npde-chrome-bg-alt: #f8f9fa;
@@ -134,7 +137,8 @@ body {
 	--npde-editor-toolbar-hover: var(--npde-toolbar-bg-hover);
 }
 
-body.native-powerpoint-doc-editor-theme-resolved-dark {
+body.native-powerpoint-doc-editor-theme-resolved-dark,
+.native-powerpoint-doc-editor-theme-resolved-dark {
 	--npde-chrome-bg: #202124;
 	--npde-chrome-bg-alt: #252629;
 	--npde-chrome-bg-muted: #2b2c30;
@@ -275,13 +279,20 @@ body.native-powerpoint-doc-editor-theme-resolved-dark {
 }
 
 .workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] {
+	--doc-surface: var(--npde-editor-bg);
+	--doc-card: var(--npde-editor-bg-alt);
 	--doc-bg: var(--npde-editor-bg);
 	--doc-bg-hover: var(--npde-editor-hover);
+	--doc-bg-subtle: var(--npde-editor-bg-muted);
+	--doc-bg-input: var(--npde-editor-bg-muted);
 	--doc-border: var(--npde-editor-border);
 	--doc-border-light: var(--npde-editor-border);
 	--doc-hover: var(--npde-editor-hover);
 	--doc-text: var(--npde-editor-text);
 	--doc-text-muted: var(--npde-editor-text-muted);
+	/* Page stays Word-white (no canvas invert). Vendor .dark sets a light
+	   --doc-caret for inverted canvas — keep document caret on page ink. */
+	--doc-caret: var(--npde-document-text);
 }
 
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button,
@@ -561,38 +572,54 @@ body [data-native-powerpoint-doc-editor-mode-menu='true'] .native-powerpoint-doc
 }
 
 .native-powerpoint-doc-editor-import-font-separator.native-powerpoint-doc-editor-import-font-separator {
-	background: var(--npde-menu-separator);
+	background: var(--doc-border, var(--npde-menu-separator));
 	height: 1px;
 	margin: 4px 0;
 }
 
+/* Pin Import Font under the scrollable font list, inside Radix Select.Content. */
+[data-native-powerpoint-doc-editor-font-menu-decorated='true'][role='listbox'] {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+[data-native-powerpoint-doc-editor-font-menu-decorated='true'][role='listbox'] > [data-radix-select-viewport] {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+}
+
 .native-powerpoint-doc-editor-font-menu-footer.native-powerpoint-doc-editor-font-menu-footer {
+	flex: 0 0 auto;
 	padding: 0 4px 4px;
 }
 
+/* Match StylePicker / SelectItem row chrome inside the portaled font menu. */
 body .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option,
-body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-import-font-option {
+.docx-editor-root .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option {
 	align-items: center;
 	background: transparent;
 	border: 0;
 	border-radius: 4px;
 	box-shadow: none;
-	color: var(--npde-menu-text);
+	color: var(--doc-text, var(--npde-menu-text));
 	cursor: pointer;
 	display: flex;
 	font-size: 13px;
 	gap: 8px;
-	min-height: 32px;
-	padding: 6px 8px;
+	line-height: 1.25;
+	min-height: 0;
+	padding: 10px 12px;
 	text-align: left;
 	width: 100%;
 }
 
 body .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option:hover,
 body .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option:focus,
-body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-import-font-option:hover,
-body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-doc-editor-import-font-option:focus {
-	background: var(--npde-menu-hover-bg);
+.docx-editor-root .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option:hover,
+.docx-editor-root .native-powerpoint-doc-editor-import-font-option.native-powerpoint-doc-editor-import-font-option:focus {
+	background: var(--doc-bg-hover, var(--npde-menu-hover-bg));
 	outline: none;
 }
 
@@ -1247,14 +1274,14 @@ body > [data-native-powerpoint-doc-editor-root],
 	z-index: 100000;
 }
 
-/* Hide Eigenpal toolbar tooltips; plugin renders the single dark label. */
+/* Hide vendor toolbar tooltips; plugin renders the single dark label. */
 .native-powerpoint-doc-editor-host[data-native-powerpoint-doc-editor-toolbar-tooltips='custom']
 	[data-native-powerpoint-doc-editor-root]
-	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'],
+	[data-native-powerpoint-doc-editor-vendor-tooltip='true'],
 .workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
 	[data-native-powerpoint-doc-editor-root]
-	[data-native-powerpoint-doc-editor-eigenpal-tooltip='true'] {
+	[data-native-powerpoint-doc-editor-vendor-tooltip='true'] {
 	display: none;
 	height: 0;
 	max-height: 0;
@@ -4140,15 +4167,45 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-doc-edi
 body.native-powerpoint-doc-editor-theme-resolved-dark
 	.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view']
 	.native-powerpoint-doc-editor-host
-	[data-native-powerpoint-doc-editor-root] {
+	:is([data-native-powerpoint-doc-editor-root], .docx-editor-root.docx-editor) {
+	/* Vendor TitleBar/Toolbar use bg-doc-surface. Remap chrome tokens here so
+	   DOCX chrome tracks Obsidian dark even when React missed adding `.dark`. */
+	--doc-surface: var(--npde-editor-bg);
+	--doc-card: var(--npde-editor-bg-alt);
 	--doc-bg: var(--npde-editor-bg);
+	--doc-bg-subtle: var(--npde-editor-bg-muted);
 	--doc-bg-hover: var(--npde-editor-hover);
+	--doc-bg-input: var(--npde-editor-bg-muted);
 	--doc-border: var(--npde-editor-border);
 	--doc-border-light: var(--npde-editor-border);
+	--doc-border-dark: var(--npde-editor-border-strong);
+	--doc-border-input: var(--npde-editor-border-strong);
 	--doc-hover: var(--npde-editor-hover);
 	--doc-text: var(--npde-editor-text);
 	--doc-text-muted: var(--npde-editor-text-muted);
+	--doc-text-subtle: var(--npde-editor-text-faint);
+	--doc-text-placeholder: var(--npde-editor-text-faint);
+	--doc-primary: var(--npde-editor-accent);
+	--doc-primary-hover: var(--npde-editor-accent-hover);
+	--doc-primary-light: color-mix(in srgb, var(--npde-editor-accent) 18%, transparent);
+	/* Beat vendor `.docx-editor-root.dark` light --doc-caret (inverted canvas).
+	   Obsidian keeps a white page — caret must stay page ink. */
 	--doc-caret: var(--npde-document-text);
+	--doc-toggle-active-bg: var(--npde-editor-text);
+	--doc-toggle-active-fg: var(--npde-editor-bg);
+	--background: 0 0% 12%;
+	--foreground: 0 0% 91%;
+	--card: 0 0% 18%;
+	--card-foreground: 0 0% 91%;
+	--popover: 0 0% 18%;
+	--popover-foreground: 0 0% 91%;
+	--muted: 0 0% 20%;
+	--muted-foreground: 0 0% 63%;
+	--accent: 0 0% 23%;
+	--accent-foreground: 212 100% 65%;
+	--border: 0 0% 24%;
+	--input: 0 0% 24%;
+	--ring: 212 100% 60%;
 	color-scheme: dark;
 }
 
