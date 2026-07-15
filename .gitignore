@@ -44,6 +44,9 @@ tests/_probe-*.mjs
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
+# Local-only AI-interfacing design doc (not for release)
+docs/AGENT-API.md
+
 # In-repo Eigenpal monorepo (source of truth; only dist is bundled into main.js)
 docx-editor/node_modules/
 docx-editor/**/node_modules/

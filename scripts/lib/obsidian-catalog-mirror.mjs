@@ -34,6 +34,7 @@ export const CATALOG_MIRROR_RSYNC_EXCLUDES = [
 	'scripts/visual-output/',
 	'test-results/',
 	'test_files/',
+	'docs/AGENT-API.md',
 	'docx-editor/node_modules/',
 	'docx-editor/**/node_modules/',
 	'docx-editor/**/.turbo/',
