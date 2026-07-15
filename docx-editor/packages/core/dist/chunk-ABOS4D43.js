@@ -1,1 +1,0 @@
-'use strict';var chunkLNV7VEKX_js=require('./chunk-LNV7VEKX.js');var t=new chunkLNV7VEKX_js.r(chunkLNV7VEKX_js.q());t.buildSchema();t.initializeRuntime();var s=t,n=t.getSchema();exports.a=s;exports.b=n;

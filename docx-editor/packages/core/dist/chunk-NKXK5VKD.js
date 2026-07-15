@@ -1,0 +1,1 @@
+'use strict';var chunkRM2DG27Z_js=require('./chunk-RM2DG27Z.js');var t=new chunkRM2DG27Z_js.r(chunkRM2DG27Z_js.q());t.buildSchema();t.initializeRuntime();var s=t,n=t.getSchema();exports.a=s;exports.b=n;

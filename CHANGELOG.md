@@ -6,6 +6,20 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.40] - 2026-07-15
+
+### Fixed
+
+- DOCX editor a11y: screen-reader labels on header/footer, response preview, and table-options controls.
+- Print path builds the print document with DOM APIs (no `document.write`).
+- Reliability: await empty-DOCX/arrayBuffer helpers; catch unhandled dynamic-import / composition promise chains.
+- Clear empty `innerHTML` assignments and agent-layer text-helper duplication without changing agent offset contracts.
+
+### Changed
+
+- Deduplicate shading parse/serialize and consolidate agent navigation helpers onto `text-utils`.
+- Vault code-analysis scans Obsidian-runtime `docx-editor/packages/{core,react,i18n}` and skips demos / unused framework packages.
+
 ## [1.0.39] - 2026-07-15
 
 ### Fixed
