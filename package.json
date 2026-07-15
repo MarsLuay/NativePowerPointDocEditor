@@ -61,22 +61,22 @@
 		"pluginBundleBudgetReason": "Single-file offline DOCX and PPTX editing bundles the local document editors, PowerPoint renderer, and JavaScript fallback engine."
 	},
 	"devDependencies": {
-		"@eslint/js": "9.30.1",
-		"@eslint/json": "0.14.0",
+		"@eslint/js": "10.0.1",
+		"@eslint/json": "2.0.1",
 		"@microsoft/eslint-plugin-sdl": "1.1.0",
-		"@types/node": "^26.0.0",
+		"@types/node": "^26.1.1",
 		"@types/react": "^19.2.17",
 		"@types/react-dom": "^19.2.3",
-		"electron": "^42.5.0",
+		"electron": "^43.1.1",
 		"esbuild": "0.28.1",
 		"eslint-plugin-no-unsanitized": "4.1.5",
 		"eslint-plugin-obsidianmd": "^0.4.1",
 		"globals": "17.7.0",
 		"jiti": "2.7.0",
-		"knip": "^6.26.0",
+		"knip": "^6.27.0",
 		"tslib": "2.8.1",
-		"typescript": "^5.8.3",
-		"typescript-eslint": "8.62.0"
+		"typescript": "^7.0.2",
+		"typescript-eslint": "8.64.0"
 	},
 	"dependencies": {
 		"@radix-ui/react-select": "^2.3.1",
