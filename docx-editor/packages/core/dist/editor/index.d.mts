@@ -6,7 +6,7 @@ import { S as SectionProperties, y as HeaderFooter } from '../content-BZ9rYecc.m
 import { F as FloatPageGeometry } from '../measureBlocksPipeline-BMqbRFQB.mjs';
 import { H as HeaderFooterContent, F as FootnoteRenderItem } from '../footnotes-BZ24OTAT.mjs';
 import { W as Watermark } from '../watermark-D90356ZM.mjs';
-import { T as Theme, S as StyleDefinitions } from '../styles-BNjUANte.mjs';
+import { T as Theme, S as StyleDefinitions } from '../styles-Diw0MASy.mjs';
 import '../formatting-DFtuRFQY.mjs';
 import '../colors-C3vA7HUU.mjs';
 import '../docx/wrapTypes.mjs';
@@ -38,7 +38,7 @@ interface PageSizePx {
 type MeasureBlocksFn = (blocks: FlowBlock[], contentWidth: number | number[], pageGeometry?: FloatPageGeometry) => Measure[];
 interface ComputeLayoutInputs {
     state: EditorState;
-    document: Document | null;
+    ['document']: Document | null;
     pageSize: PageSizePx;
     margins: PageMargins;
     columns: ColumnLayout | undefined;

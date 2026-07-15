@@ -26,7 +26,7 @@ declare function isMarkActive(state: EditorState, markType: MarkType, attrs?: Re
 /**
  * Get the current value of a mark attribute
  */
-declare function getMarkAttr(state: EditorState, markType: MarkType, attr: string): unknown | null;
+declare function getMarkAttr(state: EditorState, markType: MarkType, attr: string): unknown;
 /**
  * Clear all text formatting (remove all marks)
  */

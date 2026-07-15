@@ -7,7 +7,6 @@ import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
 import {
 	createDocxEditorAliases,
-	resolveDocxEditorAgentsStub,
 	resolveDocxEditorPackagesRoot,
 } from "./scripts/lib/docx-editor-aliases.mjs";
 
@@ -33,7 +32,6 @@ const dirsToDeploy = ["locales", "ai"];
 const projectRoot = path.resolve(".");
 const docxEditorAliases = await createDocxEditorAliases(
 	resolveDocxEditorPackagesRoot(projectRoot),
-	{ agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
 );
 
 const deployToVaultPlugin = {

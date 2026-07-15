@@ -13,7 +13,7 @@ import '../../colors-C3vA7HUU.mjs';
 import '../../formatting-DFtuRFQY.mjs';
 import '../../lists-CyGxd5Y2.mjs';
 import '../../watermark-D90356ZM.mjs';
-import '../../styles-BNjUANte.mjs';
+import '../../styles-Diw0MASy.mjs';
 import '../wrapTypes.mjs';
 
 /**

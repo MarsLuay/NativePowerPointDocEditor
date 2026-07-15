@@ -22,7 +22,7 @@ export { s as serializeDocumentBody, a as serializeDocx, b as serializeSectionPr
 export { createDocx, default as repackDocx, updateMultipleFiles } from './docx/rezip.js';
 export { a as attemptSelectiveSave } from './selectiveSave-CWaPEv0B.js';
 export { b as buildPatchedDocumentXml, v as validatePatchSafety } from './selectiveXmlPatch-ypkxlTD_.js';
-export { C as CreateEmptyDocumentOptions, P as ProcessTemplateOptions, a as ProcessTemplateResult, z as ThemeMatrixCell, b as blendColors, c as colorsEqual, d as createDocumentWithText, e as createEmptyDocument, f as createRgbColor, h as createThemeColor, i as darkenColor, A as ensureHexPrefix, B as generateThemeTintShadeMatrix, j as getContrastingColor, l as getTemplateTags, D as getThemeTintShadeHex, m as isBlack, n as isWhite, o as lightenColor, p as parseColorString, r as processTemplate, t as processTemplateAsBlob, u as processTemplateDetailed, v as resolveColor, w as resolveHighlightColor, E as resolveHighlightToCss, x as resolveShadingColor, y as validateTemplate } from './colorResolver-CcFVVA_s.js';
+export { C as CreateEmptyDocumentOptions, P as ProcessTemplateOptions, a as ProcessTemplateResult, z as ThemeMatrixCell, b as blendColors, c as colorsEqual, d as createDocumentWithText, e as createEmptyDocument, f as createRgbColor, h as createThemeColor, i as darkenColor, A as ensureHexPrefix, B as generateThemeTintShadeMatrix, j as getContrastingColor, l as getTemplateTags, D as getThemeTintShadeHex, m as isBlack, n as isWhite, o as lightenColor, p as parseColorString, r as processTemplate, t as processTemplateAsBlob, u as processTemplateDetailed, v as resolveColor, w as resolveHighlightColor, E as resolveHighlightToCss, x as resolveShadingColor, y as validateTemplate } from './colorResolver-D9T-sBKo.js';
 export { A as AgentContextOptions, D as DocumentAgent, E as ExtendedSelectionContext, e as SelectionContextOptions, f as buildExtendedSelectionContext, g as buildSelectionContext, k as executeCommand, l as executeCommands, m as getAgentContext, n as getDocumentSummary } from './selectionContext-BoiaInyE.js';
 export { emuToPixels, emuToTwips, formatPx, halfPointsToPixels, pixelsToEmu, pixelsToTwips, pointsToPixels, twipsToEmu, twipsToPixels } from './utils/units.js';
 export { I as InsertPosition, c as canRenderFont, a as countPageBreaks, b as createColumnBreak, d as createHorizontalRule, e as createLineBreak, f as createPageBreak, g as createPageBreakParagraph, h as createPageBreakRun, i as findPageBreaks, j as getLoadedFonts, k as hasPageBreakBefore, l as insertHorizontalRule, m as insertPageBreak, n as isBreakContent, o as isColumnBreak, p as isFontLoaded, q as isFontsLoading, r as isGoogleFontsEnabled, s as isLineBreak, t as isPageBreak, u as loadFont, v as loadFontFromBuffer, w as loadFonts, x as onFontsLoaded, y as preloadCommonFonts, z as removePageBreak, A as setGoogleFontsEnabled } from './fontLoader-C2_QwHvP.js';
@@ -46,9 +46,9 @@ export { B as BlockContent, z as BookmarkEnd, A as BookmarkStart, C as Comment, 
 import { EditorView } from 'prosemirror-view';
 export { FlowBlock, FootnoteContent, Layout, Measure, Page } from './layout-engine/types.js';
 export { P as ParagraphFormatting, T as TextFormatting } from './formatting-JhqWT_XM.js';
-export { C as ConvertFootnoteOptions, a as ConvertHeaderFooterOptions, F as FOOTNOTE_SEPARATOR_HEIGHT, b as FootnoteRefLocation, H as HeaderFooterMetrics, M as MAX_FOOTNOTE_LAYOUT_PASSES, c as MeasureBlocksFn, S as StabilizeFootnoteLayoutArgs, d as StabilizeFootnoteLayoutResult, e as buildFootnoteContentMap, f as buildFootnoteRenderItems, g as calculateFootnoteReservedHeights, h as collectFootnoteRefs, i as convertHeaderFooterToContent, j as footnoteReservedHeightsEqual, m as mapFootnotesToPages, s as stabilizeFootnoteLayout } from './headerFooterLayout-BbRwTj_j.js';
+export { C as ConvertFootnoteOptions, a as ConvertHeaderFooterOptions, F as FOOTNOTE_SEPARATOR_HEIGHT, b as FootnoteRefLocation, H as HeaderFooterMetrics, M as MAX_FOOTNOTE_LAYOUT_PASSES, c as MeasureBlocksFn, S as StabilizeFootnoteLayoutArgs, d as StabilizeFootnoteLayoutResult, e as buildFootnoteContentMap, f as buildFootnoteRenderItems, g as calculateFootnoteReservedHeights, h as collectFootnoteRefs, i as convertHeaderFooterToContent, j as footnoteReservedHeightsEqual, m as mapFootnotesToPages, s as stabilizeFootnoteLayout } from './headerFooterLayout-BhYN1-eP.js';
 export { L as ListLevel, a as NumberingDefinitions } from './lists-Bn29SzeS.js';
-export { R as Relationship, a as Style, S as StyleDefinitions, T as Theme, g as ThemeColorScheme, h as ThemeFont, i as ThemeFontScheme } from './styles-BGGjYqnf.js';
+export { R as Relationship, a as Style, S as StyleDefinitions, T as Theme, g as ThemeColorScheme, h as ThemeFont, i as ThemeFontScheme } from './styles-2J4U-Lgk.js';
 import './colors-C3vA7HUU.js';
 import './docx/wrapTypes.js';
 import './watermark-D90356ZM.js';
@@ -140,7 +140,6 @@ declare function extractFormattingFromElement(element: HTMLElement): Run['format
 declare function getSelectionRuns(): Run[];
 /** Create a ClipboardSelection from the current DOM selection. */
 declare function createSelectionFromDOM(): ClipboardSelection | null;
-declare const rgbToHex: typeof cssColorToHex;
 
 /**
  * ErrorManager
@@ -374,7 +373,7 @@ interface EditorCoordinatorOptions {
     /** Initial zoom level (default: 1.0) */
     initialZoom?: number;
     /** Callback when the document changes */
-    onChange?: (document: Document) => void;
+    onChange?: (docxDocument: Document) => void;
     /** Callback when an error occurs */
     onError?: (error: Error) => void;
 }
@@ -406,7 +405,7 @@ declare class EditorCoordinator extends Subscribable<EditorCoordinatorSnapshot> 
     /** Signal that document parsing has started. */
     setParsingStarted(): void;
     /** Signal that document parsing completed successfully. */
-    setDocumentLoaded(document: Document): void;
+    setDocumentLoaded(docxDocument: Document): void;
     /** Signal that font loading completed. */
     setFontsLoaded(): void;
     /** Signal that an error occurred during loading. */
@@ -414,7 +413,7 @@ declare class EditorCoordinator extends Subscribable<EditorCoordinatorSnapshot> 
     /** Get the current document. */
     getDocument(): Document | null;
     /** Update the document (after edits). */
-    updateDocument(document: Document): void;
+    updateDocument(docxDocument: Document): void;
     /** Set the zoom level (1.0 = 100%). */
     setZoom(zoom: number): void;
     /** Get the current zoom level. */
@@ -443,4 +442,4 @@ declare class EditorCoordinator extends Subscribable<EditorCoordinatorSnapshot> 
  */
 declare const VERSION = "0.0.2";
 
-export { type CaretPosition, type ClipboardSelection, type ColumnResizeState, Document, EditorCoordinator, type EditorCoordinatorOptions, type EditorCoordinatorSnapshot, type EditorLoadingState, ErrorManager, ErrorManagerSnapshot, type ImageSelectionInfo, LayoutCoordinator, type LayoutCoordinatorSnapshot, PluginLifecycleConfig, PluginLifecycleManager, PluginLifecycleSnapshot, type PrintOptions, Run, type SelectionRect, Subscribable, VERSION, createSelectionFromDOM, extractFormattingFromElement, formatPageRange, getDefaultPrintOptions, getSelectionRuns, injectStyles, isPrintSupported, openPrintWindow, parsePageRange, rgbToHex, triggerPrint };
+export { type CaretPosition, type ClipboardSelection, type ColumnResizeState, Document, EditorCoordinator, type EditorCoordinatorOptions, type EditorCoordinatorSnapshot, type EditorLoadingState, ErrorManager, ErrorManagerSnapshot, type ImageSelectionInfo, LayoutCoordinator, type LayoutCoordinatorSnapshot, PluginLifecycleConfig, PluginLifecycleManager, PluginLifecycleSnapshot, type PrintOptions, Run, type SelectionRect, Subscribable, VERSION, createSelectionFromDOM, extractFormattingFromElement, formatPageRange, getDefaultPrintOptions, getSelectionRuns, injectStyles, isPrintSupported, openPrintWindow, parsePageRange, cssColorToHex as rgbToHex, triggerPrint };

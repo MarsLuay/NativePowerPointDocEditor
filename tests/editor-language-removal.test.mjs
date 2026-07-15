@@ -8,7 +8,6 @@ import test from 'node:test';
 import { build } from 'esbuild';
 import {
 	createDocxEditorAliases,
-	resolveDocxEditorAgentsStub,
 	resolveDocxEditorPackagesRoot,
 } from '../scripts/lib/docx-editor-aliases.mjs';
 
@@ -16,7 +15,6 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const require = createRequire(import.meta.url);
 const docxEditorAliases = await createDocxEditorAliases(
 	resolveDocxEditorPackagesRoot(projectRoot),
-	{ agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
 );
 
 async function loadModule(entry, external = []) {

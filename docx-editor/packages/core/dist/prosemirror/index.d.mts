@@ -14,12 +14,12 @@
 export { schema } from './schema/index.mjs';
 export { ToProseDocOptions, createEmptyDoc, footnoteToProseDoc, headerFooterToProseDoc, toProseDoc } from './conversion/index.mjs';
 export { fromProseDoc, updateDocumentContent } from './conversion/fromProseDoc.mjs';
-export { R as ResolvedParagraphStyle, S as StyleResolver, c as createStyleResolver } from '../styleResolver-DCaiQV4u.mjs';
+export { R as ResolvedParagraphStyle, S as StyleResolver, c as createStyleResolver } from '../styleResolver-B2Oxc8Lk.mjs';
 import { EditorState, Transaction } from 'prosemirror-state';
 export { TextSelection } from 'prosemirror-state';
 import { T as TextFormatting, P as ParagraphFormatting } from '../formatting-DFtuRFQY.mjs';
 export { SelectionChangeCallback, SelectionContext, createSelectionTrackerPlugin, extractSelectionContext, getSelectionContext, selectionTrackerKey } from './plugins/selectionTracker.mjs';
-export { D as DocumentContext, c as createDocumentContextPlugin, a as createDocumentStylesPlugin, d as documentContextKey, b as documentStylesKey, g as getDefaultTableStyleId, e as getDocumentStyleResolver, f as getDocumentTheme } from '../documentStyles-B96jYfta.mjs';
+export { D as DocumentContext, c as createDocumentContextPlugin, a as createDocumentStylesPlugin, d as documentContextKey, b as documentStylesKey, g as getDefaultTableStyleId, e as getDocumentStyleResolver, f as getDocumentTheme } from '../documentStyles-mHI4uQGS.mjs';
 export { clearFontFamily, clearFontSize, clearFormatting, clearHighlight, clearTextColor, findHyperlinkRangeAt, getHyperlinkAttrs, getMarkAttr, getSelectedText, insertHyperlink, isHyperlinkActive, isMarkActive, removeHyperlink, setFontFamily, setFontSize, setHighlight, setHyperlink, setTextColor, toggleBold, toggleItalic, toggleStrike, toggleSubscript, toggleSuperscript, toggleUnderline } from './commands/formatting.mjs';
 export { addTabStop, alignCenter, alignJustify, alignLeft, alignRight, applyStyle, clearStyle, decreaseIndent, decreaseListLevel, generateTOC, getListInfo, getParagraphAlignment, getParagraphBidi, getStyleId, increaseIndent, increaseListLevel, isInList, removeList, removeTabStop, setAlignment, setIndentFirstLine, setIndentLeft, setIndentRight, setLineSpacing, setLtr, setRtl, toggleBulletList, toggleNumberedList } from './commands/paragraph.mjs';
 export { a as addColumnLeft, b as addColumnRight, c as addRowAbove, d as addRowBelow, e as applyTableStyle, f as autoFitContents, g as deleteColumn, h as deleteRow, i as deleteTable, j as distributeColumns, k as insertTable, m as mergeCells, r as removeTableBorders, s as selectColumn, l as selectRow, n as selectTable, o as setAllTableBorders, p as setCellBorder, q as setCellFillColor, t as setCellMargins, u as setCellTextDirection, v as setCellVerticalAlign, w as setInsideTableBorders, x as setOutsideTableBorders, y as setRowHeight, z as setTableBorderColor, A as setTableBorderWidth, B as setTableBorders, C as setTableProperties, D as splitCell, E as toggleHeaderRow, F as toggleNoWrap } from '../table-_t_W8oQf.mjs';
@@ -38,7 +38,7 @@ import '../lists-CyGxd5Y2.mjs';
 import '../docx/wrapTypes.mjs';
 import '../watermark-D90356ZM.mjs';
 import '../types/document.mjs';
-import '../styles-BNjUANte.mjs';
+import '../styles-Diw0MASy.mjs';
 import '../numberingParser-nSPZlzKr.mjs';
 
 /**

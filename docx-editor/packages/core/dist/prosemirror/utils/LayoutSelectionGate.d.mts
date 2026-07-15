@@ -20,7 +20,16 @@ type RenderCallback = () => void;
  * 5. If safe → callback is called
  */
 declare class LayoutSelectionGate {
-    #private;
+    /** Current document state sequence */
+    private stateSeq;
+    /** Last painted layout sequence */
+    private renderSeq;
+    /** Whether layout is currently being computed/painted */
+    private layoutUpdating;
+    /** Pending render callback */
+    private pendingRender;
+    /** Registered render callbacks */
+    private renderCallbacks;
     /**
      * Set the document state sequence (call when document changes).
      * This should be called on every ProseMirror transaction that changes the doc.
@@ -62,6 +71,14 @@ declare class LayoutSelectionGate {
      * Register a callback to be called on render events.
      */
     onRender(callback: RenderCallback): () => void;
+    /**
+     * Try to execute pending render if safe.
+     */
+    private tryRender;
+    /**
+     * Execute all registered render callbacks.
+     */
+    private executeRender;
     /**
      * Reset the gate state (useful for testing or document reload).
      */

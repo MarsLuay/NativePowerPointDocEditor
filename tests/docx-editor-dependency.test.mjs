@@ -6,7 +6,6 @@ import test from 'node:test';
 import {
 	createDocxEditorAliases,
 	docxEditorPackages,
-	resolveDocxEditorAgentsStub,
 	resolveDocxEditorPackagesRoot,
 } from '../scripts/lib/docx-editor-aliases.mjs';
 
@@ -25,9 +24,7 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 		readFile(new URL('esbuild.config.mjs', root), 'utf8'),
 		readFile(new URL('tests/helpers/load-plugin-modules.mjs', root), 'utf8'),
 		readJson('tsconfig.json'),
-		createDocxEditorAliases(packagesRoot, {
-			agentsStubPath: resolveDocxEditorAgentsStub(projectRoot),
-		}),
+		createDocxEditorAliases(packagesRoot),
 	]);
 
 	const declaredDependencies = {
@@ -50,7 +47,7 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 	assert.equal(docxEditorPackages['@npde/docx-editor-agents'], undefined);
 
 	await assert.rejects(
-		() => readFile(new URL('docx-editor/packages/agents-not-a-package/package.json', root)),
+		() => readFile(new URL('docx-editor/packages/agents/package.json', root)),
 		/ENOENT/,
 	);
 	await assert.rejects(
@@ -87,8 +84,7 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 		}
 	}
 
-	await readFile(new URL('src/docx/editor/agentsStub/react.mjs', root));
-	assert.ok(aliases['@eigenpal/docx-editor-agents/react']);
+	assert.equal(aliases['@eigenpal/docx-editor-agents/react'], undefined);
 	assert.ok(aliases.react?.includes(`${path.sep}node_modules${path.sep}react`), 'react alias must pin to plugin root');
 	assert.ok(aliases['react-dom']?.includes(`${path.sep}node_modules${path.sep}react-dom`), 'react-dom alias must pin to plugin root');
 });

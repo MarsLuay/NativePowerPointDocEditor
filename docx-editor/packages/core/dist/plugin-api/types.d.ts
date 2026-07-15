@@ -124,7 +124,7 @@ interface PanelConfig {
  * Framework adapters (ReactEditorPlugin, VueEditorPlugin) extend this
  * with their own Panel component type and renderOverlay function.
  */
-interface EditorPluginCore<TState = any> {
+interface EditorPluginCore<TState = unknown> {
     /** Unique plugin identifier */
     id: string;
     /** Display name for the plugin */

@@ -109,11 +109,11 @@ declare function useAutoHistory<T>(value: T, options?: UseHistoryOptions<T>): Om
  */
 declare function useDocumentHistory<T extends {
     package?: {
-        document?: unknown;
+        ['document']?: unknown;
         headers?: unknown;
         footers?: unknown;
     } | null;
-} | null>(document: T, options?: Omit<UseHistoryOptions<T>, 'isEqual'>): UseHistoryReturn<T>;
+} | null>(docxDocument: T, options?: Omit<UseHistoryOptions<T>, 'isEqual'>): UseHistoryReturn<T>;
 /**
  * Create a history manager for non-React usage
  */
@@ -165,11 +165,11 @@ interface UseTableSelectionReturn {
     tableContext: TableContext | null;
 }
 interface UseTableSelectionOptions {
-    document: Document | null;
-    onChange?: (document: Document) => void;
+    ['document']: Document | null;
+    onChange?: (docxDocument: Document) => void;
     onSelectionChange?: (context: TableContext | null) => void;
 }
-declare function useTableSelection({ document: doc, onChange, onSelectionChange, }: UseTableSelectionOptions): UseTableSelectionReturn;
+declare function useTableSelection({ ['document']: doc, onChange, onSelectionChange, }: UseTableSelectionOptions): UseTableSelectionReturn;
 
 /**
  * Selection Highlight Hook
@@ -322,7 +322,7 @@ interface UseAutoSaveReturn {
     enable: () => void;
     disable: () => void;
 }
-declare function useAutoSave(document: Document | null | undefined, options?: UseAutoSaveOptions): UseAutoSaveReturn;
+declare function useAutoSave(docxDocument: Document | null | undefined, options?: UseAutoSaveOptions): UseAutoSaveReturn;
 
 /**
  * Drag Auto-Scroll Hook

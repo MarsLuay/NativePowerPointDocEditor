@@ -1,10 +1,18 @@
 #!/usr/bin/env node
+import { existsSync } from 'node:fs';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
+const vuePackagePath = path.join(ROOT, 'packages/vue');
+
+if (!existsSync(vuePackagePath)) {
+  console.log('Skipping Vue consumer install check: packages/vue is not present in this tree.');
+  process.exit(0);
+}
+
 const tempRoot = mkdtempSync(path.join(tmpdir(), 'docx-editor-vue-consumer-'));
 const packDir = path.join(tempRoot, 'packs');
 const appDir = path.join(tempRoot, 'app');
@@ -50,7 +58,6 @@ try {
   const tarballs = [
     packPackage('packages/core'),
     packPackage('packages/i18n'),
-    packPackage('packages/agents'),
     packPackage('packages/vue'),
   ];
 

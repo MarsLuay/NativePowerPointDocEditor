@@ -30,20 +30,6 @@ export const PACKAGES = [
     // imports JSON locale data Extractor can't analyze).
     tsconfigPath: 'packages/react/tsconfig.api.json',
   },
-  {
-    name: '@eigenpal/docx-editor-vue',
-    root: 'packages/vue',
-    pkgSlug: 'docx-editor-vue',
-    tsconfigPath: 'packages/vue/tsconfig.api.json',
-  },
-  {
-    name: '@eigenpal/docx-editor-agents',
-    root: 'packages/agents',
-    pkgSlug: 'docx-editor-agents',
-    // Excludes Vue source files because the Vue adapter for agents
-    // builds with a separate Vite pass.
-    tsconfigPath: 'packages/agents/tsconfig.tsup.json',
-  },
 ];
 
 // Derived: build invocation hint shown in `api:check` drift error

@@ -69,6 +69,33 @@ function docxOp(
 	};
 }
 
+const DOCX_PARAGRAPH_OFFSET: JsonSchema = {
+	type: 'integer',
+	minimum: 0,
+	description: '0-based character offset within paragraph plain text (describe runs[].text concatenated).',
+};
+
+const DOCX_TEXT_POSITION: JsonSchema = {
+	type: 'object',
+	required: ['blockId', 'offset'],
+	properties: {
+		blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[0].' },
+		runId: { type: 'string', description: 'Optional anchor run id; must belong to blockId when provided.' },
+		offset: DOCX_PARAGRAPH_OFFSET,
+	},
+	additionalProperties: false,
+};
+
+const DOCX_TEXT_RANGE: JsonSchema = {
+	type: 'object',
+	required: ['start', 'end'],
+	properties: {
+		start: DOCX_TEXT_POSITION,
+		end: DOCX_TEXT_POSITION,
+	},
+	additionalProperties: false,
+};
+
 /** Canonical operation catalog for agent discovery and schema validation. */
 export const OP_CATALOG: readonly OpDefinition[] = [
 	// PPTX — text-editing
@@ -330,6 +357,55 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		properties: {
 			blockId: { type: 'string', description: 'Image block id from describe(), e.g. body/p[1]' },
 			vaultImagePath: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+
+	docxOp('insertText', 'font', 'Insert text at a paragraph offset identified by describe() block/run ids.', {
+		type: 'object',
+		required: ['blockId', 'offset', 'text'],
+		properties: {
+			blockId: { type: 'string', description: 'Paragraph block id, e.g. body/p[0].' },
+			runId: { type: 'string', description: 'Optional anchor run id, e.g. body/p[0]/r[0].' },
+			offset: DOCX_PARAGRAPH_OFFSET,
+			text: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('deleteRange', 'font', 'Delete a text range within one paragraph or across consecutive paragraphs in the same part.', {
+		type: 'object',
+		required: ['range'],
+		properties: {
+			range: DOCX_TEXT_RANGE,
+		},
+		additionalProperties: false,
+	}),
+	docxOp('insertHyperlink', 'font', 'Wrap a single-paragraph text range in an external OOXML hyperlink.', {
+		type: 'object',
+		required: ['range', 'url'],
+		properties: {
+			range: DOCX_TEXT_RANGE,
+			url: { type: 'string', description: 'http, https, or mailto URL.' },
+			displayText: { type: 'string', description: 'Optional replacement text for the linked range.' },
+			tooltip: { type: 'string' },
+		},
+		additionalProperties: false,
+	}),
+	docxOp('removeHyperlink', 'font', 'Remove hyperlink wrapping in a range while keeping visible text.', {
+		type: 'object',
+		required: ['range'],
+		properties: {
+			range: DOCX_TEXT_RANGE,
+		},
+		additionalProperties: false,
+	}),
+	docxOp('insertParagraphBreak', 'font', 'Split a paragraph at an offset without rewriting the whole part.', {
+		type: 'object',
+		required: ['blockId', 'offset'],
+		properties: {
+			blockId: { type: 'string', description: 'Paragraph block id, e.g. body/p[0].' },
+			runId: { type: 'string', description: 'Optional anchor run id, e.g. body/p[0]/r[0].' },
+			offset: DOCX_PARAGRAPH_OFFSET,
 		},
 		additionalProperties: false,
 	}),

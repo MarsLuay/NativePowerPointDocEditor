@@ -3,7 +3,7 @@
 This checkout ships **dist-only** `docx-editor/packages/{core,react,i18n}`.
 Full TypeScript sources live in the ObsidianNotes vault authoritative tree.
 
-Obsidian Community catalog ESLint scans public `.ts`/`.tsx`; unbundled
-monorepo source fails that gate (style injection, static styles, etc.).
+Package `*.d.ts` are sanitized for Obsidian catalog ESLint (`globalThis`,
+Identifier `document`, `#private` stubs, etc.). Runtime JS is unchanged.
 
 Rebuild from vault: `npm run build:docx-editor` then re-sync.

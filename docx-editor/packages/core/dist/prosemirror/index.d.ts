@@ -14,12 +14,12 @@
 export { schema } from './schema/index.js';
 export { ToProseDocOptions, createEmptyDoc, footnoteToProseDoc, headerFooterToProseDoc, toProseDoc } from './conversion/index.js';
 export { fromProseDoc, updateDocumentContent } from './conversion/fromProseDoc.js';
-export { R as ResolvedParagraphStyle, S as StyleResolver, c as createStyleResolver } from '../styleResolver-seRIOzL8.js';
+export { R as ResolvedParagraphStyle, S as StyleResolver, c as createStyleResolver } from '../styleResolver-CJ1AB9Qd.js';
 import { EditorState, Transaction } from 'prosemirror-state';
 export { TextSelection } from 'prosemirror-state';
 import { T as TextFormatting, P as ParagraphFormatting } from '../formatting-JhqWT_XM.js';
 export { SelectionChangeCallback, SelectionContext, createSelectionTrackerPlugin, extractSelectionContext, getSelectionContext, selectionTrackerKey } from './plugins/selectionTracker.js';
-export { D as DocumentContext, c as createDocumentContextPlugin, a as createDocumentStylesPlugin, d as documentContextKey, b as documentStylesKey, g as getDefaultTableStyleId, e as getDocumentStyleResolver, f as getDocumentTheme } from '../documentStyles-DBwjvhYJ.js';
+export { D as DocumentContext, c as createDocumentContextPlugin, a as createDocumentStylesPlugin, d as documentContextKey, b as documentStylesKey, g as getDefaultTableStyleId, e as getDocumentStyleResolver, f as getDocumentTheme } from '../documentStyles-CQ3SEGD8.js';
 export { clearFontFamily, clearFontSize, clearFormatting, clearHighlight, clearTextColor, findHyperlinkRangeAt, getHyperlinkAttrs, getMarkAttr, getSelectedText, insertHyperlink, isHyperlinkActive, isMarkActive, removeHyperlink, setFontFamily, setFontSize, setHighlight, setHyperlink, setTextColor, toggleBold, toggleItalic, toggleStrike, toggleSubscript, toggleSuperscript, toggleUnderline } from './commands/formatting.js';
 export { addTabStop, alignCenter, alignJustify, alignLeft, alignRight, applyStyle, clearStyle, decreaseIndent, decreaseListLevel, generateTOC, getListInfo, getParagraphAlignment, getParagraphBidi, getStyleId, increaseIndent, increaseListLevel, isInList, removeList, removeTabStop, setAlignment, setIndentFirstLine, setIndentLeft, setIndentRight, setLineSpacing, setLtr, setRtl, toggleBulletList, toggleNumberedList } from './commands/paragraph.js';
 export { a as addColumnLeft, b as addColumnRight, c as addRowAbove, d as addRowBelow, e as applyTableStyle, f as autoFitContents, g as deleteColumn, h as deleteRow, i as deleteTable, j as distributeColumns, k as insertTable, m as mergeCells, r as removeTableBorders, s as selectColumn, l as selectRow, n as selectTable, o as setAllTableBorders, p as setCellBorder, q as setCellFillColor, t as setCellMargins, u as setCellTextDirection, v as setCellVerticalAlign, w as setInsideTableBorders, x as setOutsideTableBorders, y as setRowHeight, z as setTableBorderColor, A as setTableBorderWidth, B as setTableBorders, C as setTableProperties, D as splitCell, E as toggleHeaderRow, F as toggleNoWrap } from '../table-P8esKWAc.js';
@@ -38,7 +38,7 @@ import '../lists-Bn29SzeS.js';
 import '../docx/wrapTypes.js';
 import '../watermark-D90356ZM.js';
 import '../types/document.js';
-import '../styles-BGGjYqnf.js';
+import '../styles-2J4U-Lgk.js';
 import '../numberingParser-ZSQ3SDCV.js';
 
 /**

@@ -7,7 +7,7 @@
  */
 import { Node } from 'prosemirror-model';
 import { Document } from '../../types/document.mjs';
-import { S as StyleDefinitions, T as Theme } from '../../styles-BNjUANte.mjs';
+import { S as StyleDefinitions, T as Theme } from '../../styles-Diw0MASy.mjs';
 import { B as BlockContent } from '../../content-BZ9rYecc.mjs';
 export { fromProseDoc, proseDocToBlocks, updateDocumentContent } from './fromProseDoc.mjs';
 import '../../colors-C3vA7HUU.mjs';
@@ -56,7 +56,7 @@ interface ToProseDocOptions {
  * @param document - The Document to convert
  * @param options - Conversion options including style definitions
  */
-declare function toProseDoc(document: Document, options?: ToProseDocOptions): Node;
+declare function toProseDoc(docxDocument: Document, options?: ToProseDocOptions): Node;
 /**
  * Convert HeaderFooter content (array of Paragraph/Table blocks) to a ProseMirror document.
  * Used for editing headers/footers in their own ProseMirror editor and for the

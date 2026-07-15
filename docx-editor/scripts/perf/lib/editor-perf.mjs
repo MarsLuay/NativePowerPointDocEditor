@@ -12,7 +12,7 @@ export const PERF_DIR = path.join(
 const DEFAULT_PERF_OUTPUT_DIR = process.env.PERF_OUTPUT_DIR
   ? path.resolve(ROOT, process.env.PERF_OUTPUT_DIR)
   : path.join(ROOT, 'test-results/perf');
-export const PARA_ID_FIXTURE = path.join(ROOT, 'e2e/fixtures/example-with-image.docx');
+export const PARA_ID_FIXTURE = path.join(ROOT, 'packages/core/testdata/example-with-image.docx');
 
 export const ADAPTERS = [
   {

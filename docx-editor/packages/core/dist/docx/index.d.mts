@@ -13,9 +13,11 @@
  * @public
  */
 export { parseDocx } from './parser.mjs';
-import { F as FontTable, b as RelationshipMap, M as MediaFile, a as Style, T as Theme } from '../styles-BNjUANte.mjs';
+import { F as FontTable, b as RelationshipMap, M as MediaFile, a as Style, T as Theme } from '../styles-Diw0MASy.mjs';
 export { createDocx, default as repackDocx, updateMultipleFiles } from './rezip.mjs';
+import { S as SelectiveSaveOptions } from '../selectiveSave-jinP_4xa.mjs';
 export { a as attemptSelectiveSave } from '../selectiveSave-jinP_4xa.mjs';
+import { Document } from '../types/document.mjs';
 export { b as buildPatchedDocumentXml, v as validatePatchSafety } from '../selectiveXmlPatch-ypkxlTD_.mjs';
 import { I as Image, E as Endnote, F as Footnote, N as EndnoteProperties, X as FootnoteProperties, l as Run, U as FieldType, O as Field, aq as SimpleField, H as Hyperlink, ak as Shape, T as Table, n as TableCell, P as Paragraph, av as TextBox, a1 as ImageSize, a0 as ImagePosition, a3 as ImageWrap, B as BlockContent, C as Comment } from '../content-BZ9rYecc.mjs';
 import { Element } from 'xml-js';
@@ -24,11 +26,10 @@ export { c as computeListRendering, a as createNumberingMap, f as formatNumber, 
 import { i as TabStopAlignment, h as TabLeader, e as TabStop, j as TableBorders, C as CellMargins, F as FloatingTableProperties, f as TableLook, k as TableMeasurement, a as TableFormatting } from '../formatting-DFtuRFQY.mjs';
 export { emuToPixels, pixelsToEmu } from '../utils/units.mjs';
 import { B as BorderSpec, S as ShadingProperties } from '../colors-C3vA7HUU.mjs';
-import '../types/document.mjs';
-import '../lists-CyGxd5Y2.mjs';
-import '../watermark-D90356ZM.mjs';
-import './wrapTypes.mjs';
 import '../docxInput-DTbCa48g.mjs';
+import '../lists-CyGxd5Y2.mjs';
+import './wrapTypes.mjs';
+import '../watermark-D90356ZM.mjs';
 import 'jszip';
 
 /**
@@ -58,6 +59,22 @@ import 'jszip';
  * @public
  */
 declare function parseFontTable(fontTableXml: string | null | undefined): FontTable;
+
+/**
+ * Export a Document model to a DOCX ArrayBuffer without DocumentAgent.
+ *
+ * Same semantics as the former DocumentAgent.toBuffer path: prefer selective
+ * save against originalBuffer when options are provided, else full repack.
+ */
+
+interface ExportDocxBufferOptions {
+    selective?: SelectiveSaveOptions;
+}
+/**
+ * Pack `doc` to DOCX bytes. Mutates `doc.originalBuffer` on successful save
+ * so subsequent selective saves patch against the latest baseline.
+ */
+declare function exportDocxBuffer(doc: Document, options?: ExportDocxBufferOptions): Promise<ArrayBuffer>;
 
 /**
  * Image Parser - Parse embedded images from w:drawing elements
@@ -1100,4 +1117,4 @@ declare function injectReplyRangeMarkers(content: BlockContent[], comments: Comm
  */
 declare function injectTCReplyRangeMarkers(content: BlockContent[], comments: Comment[]): void;
 
-export { type ComplexFieldContext, type ComplexFieldState, DEFAULT_TAB_ALIGNMENT, DEFAULT_TAB_INTERVAL_TWIPS, DEFAULT_TAB_LEADER, type EndnoteMap, type FieldSwitch, type FootnoteMap, KNOWN_FIELD_TYPES, NumberingMap, type ParagraphParserFn, type ParsedFieldInstruction, type TableParserFn, calculateTabWidth, calculateTabWidthWithAlignment, createComplexFieldContext, extractTextBoxContentElements, getEndnoteText, getFieldDisplayValue, getFootnoteText, getFormatSwitch, getHyperlinkRuns, getHyperlinkText, getHyperlinkUrl, getImageHeightPx, getImageWidthPx, getLeaderCharacter, getNextTabStop, getOutlineWidthPx, getShapeDimensionsPx, getShapeHeightPx, getShapeWidthPx, getTableColumnCount, getTableRowCount, getTextBoxContentElement, getTextBoxDimensionsPx, getTextBoxHeightPx, getTextBoxMarginsPx, getTextBoxOutlineWidthPx, getTextBoxText, getTextBoxWidthPx, getWrapDistancesPx, hasContent, hasFill, hasHeaderRow, hasMergeFormat, hasOutline, hasTextBoxContent, hasTextBoxFill, hasTextBoxOutline, hasTextContent, hasVisibleLeader, injectReplyRangeMarkers, injectTCReplyRangeMarkers, isBehindText, isCellMergeContinuation, isCellMergeStart, isDateTimeField, isDecorativeImage, isDocPropertyField, isExternalLink, isFloatingImage, isFloatingShape, isFloatingTextBox, isInFrontOfText, isInlineImage, isInternalLink, isKnownFieldType, isLineShape, isMergeField, isPageNumberField, isReferenceField, isSeparatorEndnote, isSeparatorFootnote, isShapeDrawing, isShapeTextBox, isTextBoxDrawing, isTextBoxShape, isTocField, isTotalPagesField, mergeTabStops, parseBorderSpec, parseCellMargins, parseDrawing, parseEndnoteProperties, parseEndnotes, parseFieldInstruction, parseFieldType, parseFloatingTableProperties, parseFontTable, parseFootnoteProperties, parseFootnotes, parseHyperlink, parseImage, parseShading, parseShape, parseShapeFromDrawing, parseSimpleField, parseTabStop, parseTabStops, parseTabStopsFromParagraphProperties, parseTableBorders, parseTableLook, parseTableMeasurement, parseTableProperties, parseTextBox, parseTextBoxContent, parseTextBoxFromShape, resolveFillColor, resolveHyperlinkUrl, resolveOutlineColor, resolveTextBoxFillColor, resolveTextBoxOutlineColor };
+export { type ComplexFieldContext, type ComplexFieldState, DEFAULT_TAB_ALIGNMENT, DEFAULT_TAB_INTERVAL_TWIPS, DEFAULT_TAB_LEADER, type EndnoteMap, type ExportDocxBufferOptions, type FieldSwitch, type FootnoteMap, KNOWN_FIELD_TYPES, NumberingMap, type ParagraphParserFn, type ParsedFieldInstruction, SelectiveSaveOptions, type TableParserFn, calculateTabWidth, calculateTabWidthWithAlignment, createComplexFieldContext, exportDocxBuffer, extractTextBoxContentElements, getEndnoteText, getFieldDisplayValue, getFootnoteText, getFormatSwitch, getHyperlinkRuns, getHyperlinkText, getHyperlinkUrl, getImageHeightPx, getImageWidthPx, getLeaderCharacter, getNextTabStop, getOutlineWidthPx, getShapeDimensionsPx, getShapeHeightPx, getShapeWidthPx, getTableColumnCount, getTableRowCount, getTextBoxContentElement, getTextBoxDimensionsPx, getTextBoxHeightPx, getTextBoxMarginsPx, getTextBoxOutlineWidthPx, getTextBoxText, getTextBoxWidthPx, getWrapDistancesPx, hasContent, hasFill, hasHeaderRow, hasMergeFormat, hasOutline, hasTextBoxContent, hasTextBoxFill, hasTextBoxOutline, hasTextContent, hasVisibleLeader, injectReplyRangeMarkers, injectTCReplyRangeMarkers, isBehindText, isCellMergeContinuation, isCellMergeStart, isDateTimeField, isDecorativeImage, isDocPropertyField, isExternalLink, isFloatingImage, isFloatingShape, isFloatingTextBox, isInFrontOfText, isInlineImage, isInternalLink, isKnownFieldType, isLineShape, isMergeField, isPageNumberField, isReferenceField, isSeparatorEndnote, isSeparatorFootnote, isShapeDrawing, isShapeTextBox, isTextBoxDrawing, isTextBoxShape, isTocField, isTotalPagesField, mergeTabStops, parseBorderSpec, parseCellMargins, parseDrawing, parseEndnoteProperties, parseEndnotes, parseFieldInstruction, parseFieldType, parseFloatingTableProperties, parseFontTable, parseFootnoteProperties, parseFootnotes, parseHyperlink, parseImage, parseShading, parseShape, parseShapeFromDrawing, parseSimpleField, parseTabStop, parseTabStops, parseTabStopsFromParagraphProperties, parseTableBorders, parseTableLook, parseTableMeasurement, parseTableProperties, parseTextBox, parseTextBoxContent, parseTextBoxFromShape, resolveFillColor, resolveHyperlinkUrl, resolveOutlineColor, resolveTextBoxFillColor, resolveTextBoxOutlineColor };

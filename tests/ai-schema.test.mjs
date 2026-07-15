@@ -57,7 +57,7 @@ test('every catalog operation has an object schema and example payload', async (
 	const { listOpDefinitions, OP_EXAMPLES } = await loadAiSchemaModules();
 	const operations = listOpDefinitions();
 
-	assert.equal(operations.length, 36);
+	assert.equal(operations.length, 41);
 	for (const operation of operations) {
 		assert.equal(operation.parameters.type, 'object', `${operation.id} parameters must be an object schema`);
 		assert.ok(Array.isArray(operation.parameters.required), `${operation.id} must declare required fields`);
@@ -98,7 +98,7 @@ test('generated capabilities.json includes per-op schemas and examples', async (
 	assert.ok(capabilities.limitations?.pptxFormats);
 	assert.deepEqual(capabilities.limitations.pptxFormats.unsupported, ['ppt', 'pps', 'pot']);
 	assert.ok(capabilities.limitations.pptxRuntime?.fallbackLimits?.length > 0);
-	assert.equal(capabilities.operations.length, 36);
+	assert.equal(capabilities.operations.length, 41);
 	for (const operation of capabilities.operations) {
 		assert.equal(operation.parameters.type, 'object');
 		assert.ok(operation.example, `${operation.id} missing example in capabilities.json`);

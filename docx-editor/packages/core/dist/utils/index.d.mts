@@ -8,9 +8,9 @@
  * @public
  */
 export { PIXELS_PER_INCH, TWIPS_PER_INCH, clamp, eighthsToPixels, emuToPixels, emuToTwips, formatPx, halfPointsToPixels, halfPointsToPoints, pixelsToEmu, pixelsToTwips, pointsToHalfPoints, pointsToPixels, roundPixels, twipsToEmu, twipsToPixels } from './units.mjs';
-export { C as CreateEmptyDocumentOptions, P as ProcessTemplateOptions, a as ProcessTemplateResult, T as TemplateError, z as ThemeMatrixCell, b as blendColors, c as colorsEqual, d as createDocumentWithText, e as createEmptyDocument, f as createRgbColor, g as createTemplateProcessor, h as createThemeColor, i as darkenColor, A as ensureHexPrefix, B as generateThemeTintShadeMatrix, j as getContrastingColor, k as getMissingVariables, l as getTemplateTags, D as getThemeTintShadeHex, m as isBlack, n as isWhite, o as lightenColor, p as parseColorString, q as previewTemplate, r as processTemplate, s as processTemplateAdvanced, F as processTemplateAndDownload, t as processTemplateAsBlob, u as processTemplateDetailed, v as resolveColor, G as resolveColorToHex, w as resolveHighlightColor, E as resolveHighlightToCss, x as resolveShadingColor, y as validateTemplate } from '../colorResolver-BGCmWhJZ.mjs';
+export { C as CreateEmptyDocumentOptions, P as ProcessTemplateOptions, a as ProcessTemplateResult, T as TemplateError, z as ThemeMatrixCell, b as blendColors, c as colorsEqual, d as createDocumentWithText, e as createEmptyDocument, f as createRgbColor, g as createTemplateProcessor, h as createThemeColor, i as darkenColor, A as ensureHexPrefix, B as generateThemeTintShadeMatrix, j as getContrastingColor, k as getMissingVariables, l as getTemplateTags, D as getThemeTintShadeHex, m as isBlack, n as isWhite, o as lightenColor, p as parseColorString, q as previewTemplate, r as processTemplate, s as processTemplateAdvanced, F as processTemplateAndDownload, t as processTemplateAsBlob, u as processTemplateDetailed, v as resolveColor, G as resolveColorToHex, w as resolveHighlightColor, E as resolveHighlightToCss, x as resolveShadingColor, y as validateTemplate } from '../colorResolver-BPAXNZxQ.mjs';
 import { l as Run, P as Paragraph } from '../content-BZ9rYecc.mjs';
-import { T as Theme, F as FontTable } from '../styles-BNjUANte.mjs';
+import { T as Theme, F as FontTable } from '../styles-Diw0MASy.mjs';
 export { D as DocxInput, t as toArrayBuffer } from '../docxInput-DTbCa48g.mjs';
 export { F as FONT_MAPPING, B as FontDefinition, I as InsertPosition, c as canRenderFont, a as countPageBreaks, b as createColumnBreak, d as createHorizontalRule, e as createLineBreak, f as createPageBreak, g as createPageBreakParagraph, h as createPageBreakRun, C as extractFontsFromDocument, i as findPageBreaks, D as getGoogleFontEquivalent, j as getLoadedFonts, k as hasPageBreakBefore, l as insertHorizontalRule, m as insertPageBreak, n as isBreakContent, o as isColumnBreak, p as isFontLoaded, r as isGoogleFontsEnabled, s as isLineBreak, q as isLoading, t as isPageBreak, E as loadDocumentFonts, u as loadFont, G as loadFontDefinitions, v as loadFontFromBuffer, H as loadFontFromUrl, J as loadFontWithMapping, w as loadFonts, K as loadFontsWithMapping, L as onFontError, x as onFontsLoaded, y as preloadCommonFonts, z as removePageBreak, A as setGoogleFontsEnabled } from '../fontLoader-ChYTPDqD.mjs';
 import { FontOption } from './fontOptions.mjs';
@@ -301,7 +301,7 @@ declare function excludeFontsByName(fonts: readonly FontOption[] | undefined, ex
  * - Paragraph: alignment, line-height, margins, padding, borders, background
  */
 /** Framework-agnostic CSS properties type (compatible with React.CSSProperties) */
-type CSSProperties$1 = Record<string, any>;
+type CSSProperties$1 = Record<string, unknown>;
 
 /**
  * Convert TextFormatting to CSS properties for a run/span
@@ -585,7 +585,7 @@ declare function getNavigationShortcutDescriptions(): Array<{
  * - Visual feedback for selection across runs
  */
 /** Framework-agnostic CSS properties type (compatible with React.CSSProperties) */
-type CSSProperties = Record<string, any>;
+type CSSProperties = Record<string, unknown>;
 /**
  * Highlight rectangle representing a selected region
  */

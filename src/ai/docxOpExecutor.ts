@@ -20,6 +20,16 @@ import {
 	replacePartText,
 	type DocxRunStylePatch,
 } from './docxOoxmlWrite';
+import { registerExternalHyperlink } from './docxHyperlink';
+import {
+	applyDeleteRangeInPart,
+	applyInsertHyperlinkInPart,
+	applyInsertParagraphBreakInPart,
+	applyInsertTextInPart,
+	applyRemoveHyperlinkInPart,
+	type DocxTextPosition,
+	type DocxTextRange,
+} from './docxParagraphEdit';
 import { parseStableLocation } from './docxStableIds';
 import { AI_ERROR_CODES, createAiError } from './errors';
 import type { ApplyPreviewChange, DocumentOp } from './types';
@@ -69,6 +79,40 @@ function asRunStylePatch(value: unknown): DocxRunStylePatch {
 		...(typeof record.fontFamily === 'string' ? { fontFamily: record.fontFamily } : {}),
 		...(typeof record.fontSizePt === 'number' ? { fontSizePt: record.fontSizePt } : {}),
 		...(typeof record.color === 'string' || record.color === null ? { color: record.color } : {}),
+	};
+}
+
+function requireInteger(value: unknown, field: string): number {
+	const numberValue = requireNumber(value, field);
+	if (!Number.isInteger(numberValue) || numberValue < 0) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `${field} must be a non-negative integer.`, { field });
+	}
+	return numberValue;
+}
+
+function parseTextPosition(value: unknown, field: string): DocxTextPosition {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `${field} must be an object.`, { field });
+	}
+	const record = value as Record<string, unknown>;
+	const blockId = requireString(record.blockId, `${field}.blockId`);
+	const offset = requireInteger(record.offset, `${field}.offset`);
+	const runId = typeof record.runId === 'string' ? record.runId : undefined;
+	rejectWriteOnlyExcludedId(blockId, `${field}.blockId`);
+	if (runId) {
+		rejectWriteOnlyExcludedId(runId, `${field}.runId`);
+	}
+	return { blockId, offset, ...(runId ? { runId } : {}) };
+}
+
+function parseTextRange(value: unknown, field = 'range'): DocxTextRange {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `${field} must be an object.`, { field });
+	}
+	const record = value as Record<string, unknown>;
+	return {
+		start: parseTextPosition(record.start, `${field}.start`),
+		end: parseTextPosition(record.end, `${field}.end`),
 	};
 }
 
@@ -334,6 +378,99 @@ export async function executeDocxOp(
 					after: replacement,
 				});
 			}
+			break;
+		}
+		case 'docx.insertText': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const offset = requireInteger(record.offset, 'offset');
+			const text = requireString(record.text, 'text');
+			const runId = typeof record.runId === 'string' ? record.runId : undefined;
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			if (runId) rejectWriteOnlyExcludedId(runId, 'runId');
+			const location = parseStableLocation(blockId);
+			if (!location || location.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, location);
+			partXml = applyInsertTextInPart(partXml, { blockId, offset, ...(runId ? { runId } : {}) }, text);
+			setPartXmlForLocation(context.session, location, partXml);
+			if (location.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(blockId);
+			preview.push({ id: blockId, field: 'insertText', before: null, after: { offset, text } });
+			break;
+		}
+		case 'docx.deleteRange': {
+			const range = parseTextRange(record.range, 'range');
+			const startLocation = parseStableLocation(range.start.blockId);
+			if (!startLocation) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, startLocation);
+			partXml = applyDeleteRangeInPart(partXml, range);
+			setPartXmlForLocation(context.session, startLocation, partXml);
+			if (startLocation.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(range.start.blockId, range.end.blockId);
+			preview.push({ id: range.start.blockId, field: 'deleteRange', before: range, after: null });
+			break;
+		}
+		case 'docx.insertHyperlink': {
+			const range = parseTextRange(record.range, 'range');
+			const url = requireString(record.url, 'url');
+			const displayText = typeof record.displayText === 'string' ? record.displayText : undefined;
+			const tooltip = typeof record.tooltip === 'string' ? record.tooltip : undefined;
+			const startLocation = parseStableLocation(range.start.blockId);
+			if (!startLocation) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
+			}
+			const relationshipId = await registerExternalHyperlink(context.session.getZip(), startLocation, url);
+			let partXml = getPartXmlForLocation(context.session, startLocation);
+			partXml = applyInsertHyperlinkInPart(partXml, range, relationshipId, displayText, tooltip);
+			setPartXmlForLocation(context.session, startLocation, partXml);
+			if (startLocation.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(range.start.blockId);
+			preview.push({ id: range.start.blockId, field: 'insertHyperlink', before: null, after: { url, relationshipId } });
+			break;
+		}
+		case 'docx.removeHyperlink': {
+			const range = parseTextRange(record.range, 'range');
+			const startLocation = parseStableLocation(range.start.blockId);
+			if (!startLocation) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, startLocation);
+			partXml = applyRemoveHyperlinkInPart(partXml, range);
+			setPartXmlForLocation(context.session, startLocation, partXml);
+			if (startLocation.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(range.start.blockId);
+			preview.push({ id: range.start.blockId, field: 'removeHyperlink', before: range, after: null });
+			break;
+		}
+		case 'docx.insertParagraphBreak': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const offset = requireInteger(record.offset, 'offset');
+			const runId = typeof record.runId === 'string' ? record.runId : undefined;
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			if (runId) rejectWriteOnlyExcludedId(runId, 'runId');
+			const location = parseStableLocation(blockId);
+			if (!location || location.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, location);
+			partXml = applyInsertParagraphBreakInPart(partXml, { blockId, offset, ...(runId ? { runId } : {}) });
+			setPartXmlForLocation(context.session, location, partXml);
+			if (location.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(blockId);
+			preview.push({ id: blockId, field: 'insertParagraphBreak', before: null, after: { offset } });
 			break;
 		}
 		default:

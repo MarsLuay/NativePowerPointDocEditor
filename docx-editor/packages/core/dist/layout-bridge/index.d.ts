@@ -14,14 +14,14 @@ export { FontMetrics, FontStyle, MeasureParagraphOptions, RunMeasurement, TextMe
 export { F as FloatPageGeometry, a as FloatingExclusionRect, b as FloatingImageZone, c as FloatingLineSegmentZone, M as MeasureBlockFn, g as getFloatingMargins, m as measureBlocksWithFloats, r as rectsToFloatingZones } from '../measureBlocksPipeline-iYNzAH-o.js';
 export { DomCaretPosition, DomSelectionRect, clickToPositionDom, clipRectToTableWindow, getCaretPositionFromDom, getSelectionRectsFromDom, clickToPositionDom as mouseToPosition } from './clickToPositionDom.js';
 import { EditorState } from 'prosemirror-state';
-export { C as ConvertFootnoteOptions, a as ConvertHeaderFooterOptions, k as FOOTNOTE_COLUMN_GAP_PX, F as FOOTNOTE_SEPARATOR_HEIGHT, b as FootnoteRefLocation, H as HeaderFooterMetrics, M as MAX_FOOTNOTE_LAYOUT_PASSES, c as MeasureBlocksFn, S as StabilizeFootnoteLayoutArgs, d as StabilizeFootnoteLayoutResult, l as applyFootnotePresentation, e as buildFootnoteContentMap, f as buildFootnoteRenderItems, g as calculateFootnoteReservedHeights, n as calculateHeaderFooterVisualBounds, h as collectFootnoteRefs, o as computeHfCaretRectFromView, p as computeHfSelectionRectsFromView, q as contributesToHeaderFooterFlowHeight, r as convertFootnoteToContent, t as convertHeaderFooterPmDocToContent, i as convertHeaderFooterToContent, u as distributeFootnotesIntoColumns, j as footnoteReservedHeightsEqual, v as invalidateHfDomCache, m as mapFootnotesToPages, w as normalizeHeaderFooterMeasureBlocks, x as resolveHeaderFooterVisualTop, s as stabilizeFootnoteLayout } from '../headerFooterLayout-BbRwTj_j.js';
+export { C as ConvertFootnoteOptions, a as ConvertHeaderFooterOptions, k as FOOTNOTE_COLUMN_GAP_PX, F as FOOTNOTE_SEPARATOR_HEIGHT, b as FootnoteRefLocation, H as HeaderFooterMetrics, M as MAX_FOOTNOTE_LAYOUT_PASSES, c as MeasureBlocksFn, S as StabilizeFootnoteLayoutArgs, d as StabilizeFootnoteLayoutResult, l as applyFootnotePresentation, e as buildFootnoteContentMap, f as buildFootnoteRenderItems, g as calculateFootnoteReservedHeights, n as calculateHeaderFooterVisualBounds, h as collectFootnoteRefs, o as computeHfCaretRectFromView, p as computeHfSelectionRectsFromView, q as contributesToHeaderFooterFlowHeight, r as convertFootnoteToContent, t as convertHeaderFooterPmDocToContent, i as convertHeaderFooterToContent, u as distributeFootnotesIntoColumns, j as footnoteReservedHeightsEqual, v as invalidateHfDomCache, m as mapFootnotesToPages, w as normalizeHeaderFooterMeasureBlocks, x as resolveHeaderFooterVisualTop, s as stabilizeFootnoteLayout } from '../headerFooterLayout-BhYN1-eP.js';
 import { H as HeaderFooterContent } from '../footnotes-DMsicPGd.js';
 export { TABLE_INSERT_EDGE_PROXIMITY, TABLE_INSERT_HIDE_DELAY_MS, TableInsertHoverHit, TableInsertHoverInput, detectTableInsertHover } from './tableInsertHover.js';
 import { SectionLayoutConfig } from '../layout-engine/index.js';
 import { Document } from '../types/document.js';
 import { S as SectionProperties, y as HeaderFooter } from '../content-B8ScSBzC.js';
 import 'prosemirror-model';
-import '../styles-BGGjYqnf.js';
+import '../styles-2J4U-Lgk.js';
 import '../formatting-JhqWT_XM.js';
 import '../colors-C3vA7HUU.js';
 import '../lists-Bn29SzeS.js';

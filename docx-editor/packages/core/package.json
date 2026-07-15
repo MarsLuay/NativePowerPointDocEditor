@@ -108,6 +108,11 @@
       "import": "./dist/agent/index.mjs",
       "require": "./dist/agent/index.js"
     },
+    "./contentControls": {
+      "types": "./dist/contentControls/index.d.ts",
+      "import": "./dist/contentControls/index.mjs",
+      "require": "./dist/contentControls/index.js"
+    },
     "./layout-engine": {
       "types": "./dist/layout-engine/index.d.ts",
       "import": "./dist/layout-engine/index.mjs",
@@ -432,6 +437,9 @@
       ],
       "agent": [
         "./dist/agent/index.d.ts"
+      ],
+      "contentControls": [
+        "./dist/contentControls/index.d.ts"
       ],
       "layout-engine": [
         "./dist/layout-engine/index.d.ts"

@@ -22,7 +22,7 @@ import { F as FootnoteRenderItem, H as HeaderFooterContent } from '../footnotes-
 export { a as HeaderFooterLayoutInfo, r as resolveHeaderFooterFloatLeft, b as resolveHeaderFooterFloatingTablePosition } from '../footnotes-BZ24OTAT.mjs';
 import { B as BorderSpec } from '../colors-C3vA7HUU.mjs';
 import { W as Watermark } from '../watermark-D90356ZM.mjs';
-import { T as Theme } from '../styles-BNjUANte.mjs';
+import { T as Theme } from '../styles-Diw0MASy.mjs';
 import '../content-BZ9rYecc.mjs';
 import '../formatting-DFtuRFQY.mjs';
 import '../lists-CyGxd5Y2.mjs';
@@ -184,7 +184,7 @@ interface RenderContext {
  */
 interface RenderPageOptions {
     /** Document to create elements in (default: window.document) */
-    document?: Document;
+    ['document']?: Document;
     /** Custom page class name */
     pageClassName?: string;
     /** Show page borders (for debugging) */
@@ -325,7 +325,7 @@ declare function renderLine(block: ParagraphBlock, line: MeasuredLine, alignment
  */
 interface RenderParagraphOptions {
     /** Document to create elements in */
-    document?: Document;
+    ['document']?: Document;
     /** Fragment's Y position relative to content area (for per-line margin calculation) */
     fragmentContentY?: number;
     /** Borders from the previous adjacent paragraph (for border grouping) */
@@ -370,7 +370,7 @@ declare const FRAGMENT_CLASS_NAMES: {
  */
 interface RenderFragmentOptions {
     /** Document to create elements in */
-    document?: Document;
+    ['document']?: Document;
 }
 /**
  * Render a fragment to DOM
@@ -409,7 +409,7 @@ declare const TABLE_CLASS_NAMES: {
  * Options for rendering a table fragment
  */
 interface RenderTableFragmentOptions {
-    document?: Document;
+    ['document']?: Document;
 }
 /**
  * Render a table fragment to DOM
@@ -443,7 +443,7 @@ declare const IMAGE_CLASS_NAMES: {
  * Options for rendering an image fragment
  */
 interface RenderImageFragmentOptions {
-    document?: Document;
+    ['document']?: Document;
 }
 /**
  * Render an image fragment to DOM
@@ -477,7 +477,7 @@ declare const TEXTBOX_CLASS_NAMES: {
  * Options for rendering a text box fragment
  */
 interface RenderTextBoxFragmentOptions {
-    document?: Document;
+    ['document']?: Document;
 }
 /**
  * Render a text box fragment to DOM
@@ -649,7 +649,7 @@ declare function buildBlockLookup(blocks: FlowBlock[], measures: Measure[]): Blo
  */
 interface PainterOptions {
     /** Document to create elements in */
-    document?: Document;
+    ['document']?: Document;
     /** Gap between pages in pixels */
     pageGap?: number;
     /** Show page shadows */

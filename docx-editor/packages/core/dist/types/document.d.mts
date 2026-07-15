@@ -20,8 +20,8 @@ export { A as AbstractNumbering, d as LevelSuffix, L as ListLevel, c as ListRend
 import { D as DocumentBody, F as Footnote, E as Endnote, y as HeaderFooter } from '../content-BZ9rYecc.mjs';
 export { B as BlockContent, v as BlockSdt, z as BookmarkEnd, A as BookmarkStart, x as BreakContent, G as Column, C as Comment, f as CommentRangeEnd, g as CommentRangeStart, J as ComplexField, h as Deletion, K as DrawingContent, L as EndnotePosition, N as EndnoteProperties, O as Field, Q as FieldCharContent, U as FieldType, V as FooterReference, W as FootnotePosition, X as FootnoteProperties, Y as HeaderFooterType, Z as HeaderReference, H as Hyperlink, I as Image, _ as ImageCrop, $ as ImagePadding, a0 as ImagePosition, a1 as ImageSize, a2 as ImageTransform, a3 as ImageWrap, w as InlineSdt, i as Insertion, a4 as InstrTextContent, a5 as LineNumberRestart, a6 as MathEquation, M as MoveFrom, a7 as MoveFromRangeEnd, a8 as MoveFromRangeStart, j as MoveTo, a9 as MoveToRangeEnd, aa as MoveToRangeStart, ab as NoBreakHyphenContent, ac as NoteNumberRestart, ad as NoteRefMarkContent, ae as NoteReferenceContent, af as PageOrientation, P as Paragraph, k as ParagraphContent, b as ParagraphPropertyChange, ag as PropertyChangeInfo, l as Run, m as RunContent, R as RunPropertyChange, u as SdtDataBinding, t as SdtProperties, s as SdtType, ah as Section, S as SectionProperties, ai as SectionStart, aj as SeparatorContent, ak as Shape, al as ShapeContent, am as ShapeFill, an as ShapeOutline, ao as ShapeTextBody, ap as ShapeType, aq as SimpleField, ar as SoftHyphenContent, as as SymbolContent, at as TabContent, T as Table, n as TableCell, d as TableCellPropertyChange, c as TablePropertyChange, o as TableRow, e as TableRowPropertyChange, au as TableStructuralChangeInfo, av as TextBox, p as TextContent, q as TrackedChangeInfo, r as TrackedRunChange, aw as VerticalAlign } from '../content-BZ9rYecc.mjs';
 export { D as DEFAULT_WATERMARK_PRESETS, P as PictureWatermark, T as TextWatermark, W as Watermark, p as pictureWatermarkDisplayEmu } from '../watermark-D90356ZM.mjs';
-import { S as StyleDefinitions, T as Theme, F as FontTable, b as RelationshipMap, M as MediaFile } from '../styles-BNjUANte.mjs';
-export { D as DocDefaults, c as FontEmbed, d as FontInfo, R as Relationship, e as RelationshipType, a as Style, f as StyleType, g as ThemeColorScheme, h as ThemeFont, i as ThemeFontScheme } from '../styles-BNjUANte.mjs';
+import { S as StyleDefinitions, T as Theme, F as FontTable, b as RelationshipMap, M as MediaFile } from '../styles-Diw0MASy.mjs';
+export { D as DocDefaults, c as FontEmbed, d as FontInfo, R as Relationship, e as RelationshipType, a as Style, f as StyleType, g as ThemeColorScheme, h as ThemeFont, i as ThemeFontScheme } from '../styles-Diw0MASy.mjs';
 import '../docx/wrapTypes.mjs';
 
 /**
@@ -84,7 +84,7 @@ interface DocumentSettings {
  */
 interface DocxPackage {
     /** Document body */
-    document: DocumentBody;
+    ['document']: DocumentBody;
     /** Style definitions */
     styles?: StyleDefinitions;
     /** Theme */

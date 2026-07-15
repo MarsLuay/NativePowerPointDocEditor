@@ -14,6 +14,7 @@ import {
 	cpSync,
 	existsSync,
 	mkdtempSync,
+	readFileSync,
 	readdirSync,
 	rmSync,
 	writeFileSync,
@@ -26,6 +27,7 @@ import {
 	CATALOG_MIRROR_RSYNC_EXCLUDES,
 	writeCatalogMirrorExcludeFile,
 } from './lib/obsidian-catalog-mirror.mjs';
+import { sanitizeCatalogDts } from './lib/sanitize-catalog-dts.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const destArg = process.argv[2];
@@ -62,7 +64,6 @@ function which(bin) {
 
 function pathMatchesAnyGlob(relPosix, patterns) {
 	for (const pattern of patterns) {
-		// Convert simple rsync globs to RegExp (**, *, trailing / = directory prefix).
 		let body = pattern.replace(/\/+$/, '');
 		const dirOnly = pattern.endsWith('/');
 		body = body
@@ -90,6 +91,24 @@ function filteredCopy(srcRoot, outRoot) {
 			return !pathMatchesAnyGlob(rel, CATALOG_MIRROR_RSYNC_EXCLUDES);
 		},
 	});
+}
+
+function sanitizePackageDts(pkgRoot) {
+	const stack = [pkgRoot];
+	while (stack.length) {
+		const dir = stack.pop();
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			const full = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				stack.push(full);
+				continue;
+			}
+			if (!/\.d\.[cm]?ts$/i.test(entry.name)) continue;
+			const before = readFileSync(full, 'utf8');
+			const after = sanitizeCatalogDts(before);
+			if (after !== before) writeFileSync(full, after, 'utf8');
+		}
+	}
 }
 
 const rsync = which('rsync');
@@ -123,7 +142,11 @@ for (const pkg of [...CATALOG_DOCX_PACKAGES, 'agents', 'vue', 'nuxt']) {
 	for (const name of ['src', 'tests', 'scripts', 'tsup.config.ts', 'tsconfig.json']) {
 		rmSync(path.join(pkgRoot, name), { recursive: true, force: true });
 	}
+	sanitizePackageDts(pkgRoot);
 }
+
+// Remove leftover ambient stub if an older sync wrote it.
+rmSync(path.join(destRoot, 'src', 'catalog-ambient-modules.d.ts'), { force: true });
 
 const marker = path.join(destRoot, 'docx-editor', 'CATALOG_SURFACE.md');
 writeFileSync(
@@ -134,8 +157,8 @@ writeFileSync(
 		'This checkout ships **dist-only** `docx-editor/packages/{core,react,i18n}`.',
 		'Full TypeScript sources live in the ObsidianNotes vault authoritative tree.',
 		'',
-		'Obsidian Community catalog ESLint scans public `.ts`/`.tsx`; unbundled',
-		'monorepo source fails that gate (style injection, static styles, etc.).',
+		'Package `*.d.ts` are sanitized for Obsidian catalog ESLint (`globalThis`,',
+		'Identifier `document`, `#private` stubs, etc.). Runtime JS is unchanged.',
 		'',
 		'Rebuild from vault: `npm run build:docx-editor` then re-sync.',
 		'',

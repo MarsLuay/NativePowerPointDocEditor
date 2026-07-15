@@ -3,10 +3,10 @@
  * @packageDocumentation
  * @public
  */
-import { S as StyleResolver } from '../../styleResolver-DCaiQV4u.mjs';
-export { R as ResolvedParagraphStyle, c as createStyleResolver } from '../../styleResolver-DCaiQV4u.mjs';
+import { S as StyleResolver } from '../../styleResolver-B2Oxc8Lk.mjs';
+export { R as ResolvedParagraphStyle, c as createStyleResolver } from '../../styleResolver-B2Oxc8Lk.mjs';
 import { f as TableLook } from '../../formatting-DFtuRFQY.mjs';
-import '../../styles-BNjUANte.mjs';
+import '../../styles-Diw0MASy.mjs';
 import '../../colors-C3vA7HUU.mjs';
 
 /**

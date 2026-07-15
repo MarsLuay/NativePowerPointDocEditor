@@ -62,8 +62,20 @@ interface PointerEventHandlerOptions {
  * - Focus management
  */
 declare class PointerEventHandler {
-    #private;
+    private editor;
+    private positionResolver;
+    private container;
+    private onInput?;
+    private dragging;
+    private dragAnchor;
+    private lastClickTime;
+    private lastClickPos;
+    private clickCount;
     static readonly MULTI_CLICK_DELAY = 500;
+    private boundPointerDown;
+    private boundPointerMove;
+    private boundPointerUp;
+    private boundPointerLeave;
     constructor(options: PointerEventHandlerOptions);
     /**
      * Attach event listeners to a container element.
@@ -77,6 +89,38 @@ declare class PointerEventHandler {
      * Update the position resolver reference.
      */
     setPositionResolver(positionResolver: ClickPositionResolver): void;
+    /**
+     * Get position from client coordinates, accounting for zoom.
+     */
+    private getPositionFromCoords;
+    /**
+     * Handle pointer down - start selection or drag.
+     */
+    private onPointerDown;
+    /**
+     * Handle pointer move - extend drag selection.
+     */
+    private onPointerMove;
+    /**
+     * Handle pointer up - end drag.
+     */
+    private onPointerUp;
+    /**
+     * Handle pointer leave - end drag if leaving container.
+     */
+    private onPointerLeave;
+    /**
+     * Select the word at a position.
+     */
+    private selectWord;
+    /**
+     * Select the paragraph at a position.
+     */
+    private selectParagraph;
+    /**
+     * Emit an input event.
+     */
+    private emitEvent;
     /**
      * Get current drag state.
      */

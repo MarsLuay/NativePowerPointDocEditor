@@ -5,7 +5,9 @@
  *
  * Vault / ObsidianNotes keeps full monorepo source for rebuilds.
  * The standalone NativePowerPointDocEditor mirror must be dist-only for packages
- * consumed at runtime: core, react, i18n.
+ * consumed at runtime: core, react, i18n. Declaration files ship, but
+ * `sync-obsidian-catalog-mirror.mjs` sanitizes catalog ESLint hazards
+ * (`globalThis`, bare `document` identifiers, `#private` stubs, etc.).
  */
 import { writeFileSync } from 'node:fs';
 

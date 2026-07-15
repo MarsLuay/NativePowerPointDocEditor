@@ -8,6 +8,26 @@
  * @packageDocumentation
  * @public
  */
+import { Document } from '../types/document.mjs';
+import { P as Paragraph } from '../content-BZ9rYecc.mjs';
+import '../colors-C3vA7HUU.mjs';
+import '../formatting-DFtuRFQY.mjs';
+import '../lists-CyGxd5Y2.mjs';
+import '../watermark-D90356ZM.mjs';
+import '../styles-Diw0MASy.mjs';
+import '../docx/wrapTypes.mjs';
+
+/**
+ * Find & Replace Utility Functions
+ *
+ * Pure utility functions for text search, pattern matching, and
+ * document search. Lifted from packages/react/src/components/dialogs/
+ * findReplaceUtils.ts so the React adapter and the Vue adapter share
+ * one implementation.
+ * @packageDocumentation
+ * @public
+ */
+
 /**
  * A single match result in the document
  */
@@ -101,11 +121,11 @@ declare function getDefaultHighlightOptions(): HighlightOptions;
 /**
  * Find all matches in a document
  */
-declare function findInDocument(document: any, searchText: string, options: FindOptions): FindMatch[];
+declare function findInDocument(docxDocument: Document, searchText: string, options: FindOptions): FindMatch[];
 /**
  * Find matches in a single paragraph
  */
-declare function findInParagraph(paragraph: any, searchText: string, options: FindOptions, paragraphIndex: number): FindMatch[];
+declare function findInParagraph(paragraph: Paragraph, searchText: string, options: FindOptions, paragraphIndex: number): FindMatch[];
 /**
  * Scroll to a match in the document
  */

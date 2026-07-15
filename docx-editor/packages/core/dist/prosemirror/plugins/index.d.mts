@@ -8,12 +8,12 @@
  */
 export { SelectionChangeCallback, SelectionContext, createSelectionTrackerPlugin, extractSelectionContext, getSelectionContext, selectionTrackerKey } from './selectionTracker.mjs';
 import { PluginKey, EditorState, Transaction, Plugin } from 'prosemirror-state';
-export { D as DocumentContext, c as createDocumentContextPlugin, a as createDocumentStylesPlugin, d as documentContextKey, b as documentStylesKey, g as getDefaultTableStyleId, e as getDocumentStyleResolver, f as getDocumentTheme } from '../../documentStyles-B96jYfta.mjs';
+export { D as DocumentContext, c as createDocumentContextPlugin, a as createDocumentStylesPlugin, d as documentContextKey, b as documentStylesKey, g as getDefaultTableStyleId, e as getDocumentStyleResolver, f as getDocumentTheme } from '../../documentStyles-mHI4uQGS.mjs';
 import { a as RevisionInfo } from '../../content-BZ9rYecc.mjs';
 import '../../formatting-DFtuRFQY.mjs';
 import '../../colors-C3vA7HUU.mjs';
-import '../../styles-BNjUANte.mjs';
-import '../../styleResolver-DCaiQV4u.mjs';
+import '../../styles-Diw0MASy.mjs';
+import '../../styleResolver-B2Oxc8Lk.mjs';
 import '../../docx/wrapTypes.mjs';
 import '../../lists-CyGxd5Y2.mjs';
 import '../../watermark-D90356ZM.mjs';

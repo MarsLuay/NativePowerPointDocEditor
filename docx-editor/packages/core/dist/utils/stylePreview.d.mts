@@ -10,7 +10,7 @@
  * @packageDocumentation
  * @public
  */
-import { a as Style } from '../styles-BNjUANte.mjs';
+import { a as Style } from '../styles-Diw0MASy.mjs';
 import '../formatting-DFtuRFQY.mjs';
 import '../colors-C3vA7HUU.mjs';
 

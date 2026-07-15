@@ -5,16 +5,13 @@ const root = resolve(import.meta.dirname, '..');
 
 const entries = {
   react: collectNamedExports(resolve(root, 'packages/react/src/index.ts')),
-  vue: collectNamedExports(resolve(root, 'packages/vue/src/index.ts')),
   reactUi: collectNamedExports(resolve(root, 'packages/react/src/ui.ts')),
   reactPluginApi: collectNamedExports(resolve(root, 'packages/react/src/plugin-api/index.ts')),
-  agentsReact: collectNamedExports(resolve(root, 'packages/agents/src/react.ts')),
-  agentsVue: collectNamedExports(resolve(root, 'packages/agents/src/vue.ts')),
 };
 
 const required = {
   'shared adapter root contract': {
-    entries: ['react', 'vue'],
+    entries: ['react'],
     names: [
       'DocxEditor',
       'DocxEditorProps',
@@ -54,21 +51,6 @@ const required = {
       'createTemplatePlugin',
     ],
   },
-  'agent UI kit canonical entries': {
-    entries: ['agentsReact', 'agentsVue'],
-    names: [
-      'AgentPanel',
-      'AgentPanelProps',
-      'AgentChatLog',
-      'AgentComposer',
-      'AgentSuggestionChip',
-      'AgentTimeline',
-      'AgentMessage',
-      'AgentToolCall',
-      'EditorRefLike',
-      'getToolDisplayName',
-    ],
-  },
 };
 
 let failed = false;
@@ -76,6 +58,11 @@ let failed = false;
 for (const [group, contract] of Object.entries(required)) {
   for (const entry of contract.entries) {
     const names = entries[entry];
+    if (!names) {
+      failed = true;
+      console.error(`Public docs surface drift: ${group} skipped missing entry ${entry}`);
+      continue;
+    }
     const missing = contract.names.filter((name) => !names.has(name));
     if (missing.length > 0) {
       failed = true;

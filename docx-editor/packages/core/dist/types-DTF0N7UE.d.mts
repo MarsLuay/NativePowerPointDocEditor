@@ -91,7 +91,7 @@ interface PluginCommand {
  */
 interface CommandResult {
     /** The modified document */
-    document: Document;
+    ['document']: Document;
     /** Whether the command succeeded */
     success: boolean;
     /** Error message if failed */
@@ -133,7 +133,7 @@ type McpToolHandler = (input: unknown, context: McpToolContext) => Promise<McpTo
  */
 interface McpToolContext {
     /** Current document (if loaded) */
-    document?: Document;
+    ['document']?: Document;
     /** Document buffer (if loaded) */
     documentBuffer?: ArrayBuffer;
     /** Session state */
@@ -161,7 +161,7 @@ interface LoadedDocument {
     /** Document ID */
     id: string;
     /** Parsed document */
-    document: Document;
+    ['document']: Document;
     /** Original buffer (for repacking) */
     buffer?: ArrayBuffer;
     /** Source filename or path */

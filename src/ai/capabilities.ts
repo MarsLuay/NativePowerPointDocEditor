@@ -45,6 +45,8 @@ const STABLE_ID_RULES: StableIdRules = {
 	pptxRun: 'slide:<slideIndex>/shape:<shapeIndex>/p:<paragraphIndex>/r:<runIndex>',
 	docxBlock: 'body/p[<index>] | body/tbl[<index>]/tr[<row>]/tc[<col>]',
 	docxRun: 'body/p[<index>]/r[<runIndex>]',
+	docxTextPosition: '{ blockId: paragraph id, offset: 0-based char offset in paragraph plain text, runId?: optional anchor run }',
+	docxTextRange: '{ start: docxTextPosition, end: docxTextPosition } — same part; end block/run must not precede start',
 	editableRule: 'PPTX shape indices must be integers >= 0. Negative indices are inherited placeholders.',
 };
 

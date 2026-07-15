@@ -13,7 +13,7 @@ import '../lists-Bn29SzeS.js';
 import '../content-B8ScSBzC.js';
 import '../docx/wrapTypes.js';
 import '../watermark-D90356ZM.js';
-import '../styles-BGGjYqnf.js';
+import '../styles-2J4U-Lgk.js';
 
 /**
  * Manager Types
@@ -63,7 +63,7 @@ interface AutoSaveManagerOptions {
 /** Saved document data structure */
 interface SavedDocumentData {
     /** The document JSON */
-    document: Document;
+    ['document']: Document;
     /** When the document was saved */
     savedAt: string;
     /** Version for format compatibility */

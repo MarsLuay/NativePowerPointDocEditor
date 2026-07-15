@@ -41,15 +41,10 @@ export function resolveDocxEditorPackagesRoot(projectRoot) {
 	return path.join(projectRoot, 'docx-editor', 'packages');
 }
 
-export function resolveDocxEditorAgentsStub(projectRoot) {
-	return path.join(projectRoot, 'src', 'docx', 'editor', 'agentsStub', 'react.mjs');
-}
-
 /**
  * @param {string} packagesRoot absolute path to docx-editor/packages
- * @param {{ agentsStubPath?: string }} [options]
  */
-export async function createDocxEditorAliases(packagesRoot, options = {}) {
+export async function createDocxEditorAliases(packagesRoot) {
 	const aliases = {};
 
 	for (const [packageName, dirName] of Object.entries(docxEditorPackages)) {
@@ -80,11 +75,6 @@ export async function createDocxEditorAliases(packagesRoot, options = {}) {
 			}
 		}
 	}
-
-	const agentsStub = options.agentsStubPath
-		?? path.resolve(packagesRoot, '..', '..', 'src', 'docx', 'editor', 'agentsStub', 'react.mjs');
-	aliases['@eigenpal/docx-editor-agents/react'] = agentsStub;
-	aliases['@npde/docx-editor-agents/react'] = agentsStub;
 
 	// Force a single React / ReactDOM copy. docx-editor's bun install can
 	// nest a different React under node_modules/.bun; dual copies crash hooks

@@ -315,13 +315,13 @@ declare function preloadCommonFonts(): Promise<void>;
  * @param document - The parsed document
  * @returns Set of unique font family names
  */
-declare function extractFontsFromDocument(document: unknown): Set<string>;
+declare function extractFontsFromDocument(docxDocument: unknown): Set<string>;
 /**
  * Extract fonts from a document and load them from Google Fonts
  *
  * @param document - The parsed document
  * @returns Promise resolving when fonts are loaded
  */
-declare function loadDocumentFonts(document: unknown): Promise<void>;
+declare function loadDocumentFonts(docxDocument: unknown): Promise<void>;
 
 export { setGoogleFontsEnabled as A, type FontDefinition as B, extractFontsFromDocument as C, getGoogleFontEquivalent as D, loadDocumentFonts as E, FONT_MAPPING as F, loadFontDefinitions as G, loadFontFromUrl as H, type InsertPosition as I, loadFontWithMapping as J, loadFontsWithMapping as K, onFontError as L, countPageBreaks as a, createColumnBreak as b, canRenderFont as c, createHorizontalRule as d, createLineBreak as e, createPageBreak as f, createPageBreakParagraph as g, createPageBreakRun as h, findPageBreaks as i, getLoadedFonts as j, hasPageBreakBefore as k, insertHorizontalRule as l, insertPageBreak as m, isBreakContent as n, isColumnBreak as o, isFontLoaded as p, isLoading as q, isGoogleFontsEnabled as r, isLineBreak as s, isPageBreak as t, loadFont as u, loadFontFromBuffer as v, loadFonts as w, onFontsLoaded as x, preloadCommonFonts as y, removePageBreak as z };

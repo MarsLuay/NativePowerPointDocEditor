@@ -210,12 +210,17 @@ test('DOCX agent ops smoke all implemented operations', async () => {
 		{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Alpha new' },
 		{ op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 		{ op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading2' } },
+		{ op: 'docx.insertText', blockId: 'body/p[0]', offset: 5, text: ' extra' },
+		{ op: 'docx.deleteRange', range: { start: { blockId: 'body/p[0]', offset: 0 }, end: { blockId: 'body/p[0]', offset: 1 } } },
+		{ op: 'docx.insertHyperlink', range: { start: { blockId: 'body/p[0]', offset: 1 }, end: { blockId: 'body/p[0]', offset: 4 } }, url: 'https://example.com' },
+		{ op: 'docx.removeHyperlink', range: { start: { blockId: 'body/p[0]', offset: 1 }, end: { blockId: 'body/p[0]', offset: 4 } } },
 		{ op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Updated cell' },
 		{ op: 'docx.setCellStyle', cellId: 'body/tbl[0]/tr[0]/tc[0]', style: { name: 'Normal' } },
 		{ op: 'docx.replaceImage', blockId: 'body/p[1]', vaultImagePath: imagePath },
 		{ op: 'docx.insertTable', afterBlockId: 'body/p[0]', rows: 1, cols: 2 },
 		{ op: 'docx.insertImage', afterBlockId: 'body/p[0]', vaultImagePath: imagePath },
 		{ op: 'docx.replaceText', query: 'old', replacement: 'fresh' },
+		{ op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', offset: 3 },
 	];
 
 	const applyResult = await service.apply(docPath, ops);

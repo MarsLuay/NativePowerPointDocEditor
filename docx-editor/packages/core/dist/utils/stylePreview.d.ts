@@ -10,7 +10,7 @@
  * @packageDocumentation
  * @public
  */
-import { a as Style } from '../styles-BGGjYqnf.js';
+import { a as Style } from '../styles-2J4U-Lgk.js';
 import '../formatting-JhqWT_XM.js';
 import '../colors-C3vA7HUU.js';
 

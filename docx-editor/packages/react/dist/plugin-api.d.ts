@@ -21,8 +21,8 @@
  * @packageDocumentation
  * @public
  */
-import { P as PluginHostProps, a as PluginHostRef, b as ReactEditorPlugin } from './types-D35gNE-_.js';
-export { E as EditorPlugin, c as PluginContext, R as ReactSidebarItem, S as SidebarItemRenderProps } from './types-D35gNE-_.js';
+import { P as PluginHostProps, a as PluginHostRef, b as ReactEditorPlugin } from './types-CV7spTip.js';
+export { E as EditorPlugin, c as PluginContext, R as ReactSidebarItem, S as SidebarItemRenderProps } from './types-CV7spTip.js';
 import * as React from 'react';
 export { RenderedDomContextImpl, createRenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api/RenderedDomContext';
 import { TemplateTag } from '@eigenpal/docx-editor-core/prosemirror/template/prosemirror-plugin';

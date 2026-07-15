@@ -3,10 +3,10 @@
  * @packageDocumentation
  * @public
  */
-import { S as StyleResolver } from '../../styleResolver-seRIOzL8.js';
-export { R as ResolvedParagraphStyle, c as createStyleResolver } from '../../styleResolver-seRIOzL8.js';
+import { S as StyleResolver } from '../../styleResolver-CJ1AB9Qd.js';
+export { R as ResolvedParagraphStyle, c as createStyleResolver } from '../../styleResolver-CJ1AB9Qd.js';
 import { f as TableLook } from '../../formatting-JhqWT_XM.js';
-import '../../styles-BGGjYqnf.js';
+import '../../styles-2J4U-Lgk.js';
 import '../../colors-C3vA7HUU.js';
 
 /**

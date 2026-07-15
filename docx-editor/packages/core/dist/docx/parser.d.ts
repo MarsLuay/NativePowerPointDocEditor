@@ -27,7 +27,7 @@ import '../lists-Bn29SzeS.js';
 import '../content-B8ScSBzC.js';
 import './wrapTypes.js';
 import '../watermark-D90356ZM.js';
-import '../styles-BGGjYqnf.js';
+import '../styles-2J4U-Lgk.js';
 
 /**
  * Main Parser Orchestrator - Unified parseDocx function

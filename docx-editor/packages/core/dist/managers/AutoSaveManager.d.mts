@@ -21,7 +21,7 @@ import '../lists-CyGxd5Y2.mjs';
 import '../content-BZ9rYecc.mjs';
 import '../docx/wrapTypes.mjs';
 import '../watermark-D90356ZM.mjs';
-import '../styles-BNjUANte.mjs';
+import '../styles-Diw0MASy.mjs';
 
 /**
  * AutoSaveManager
@@ -57,7 +57,7 @@ declare class AutoSaveManager extends Subscribable<AutoSaveSnapshot> {
     private _isEnabled;
     constructor(options?: AutoSaveManagerOptions);
     /** Update the current document. Triggers debounced save if enabled. */
-    onDocumentChanged(document: Document | null): void;
+    onDocumentChanged(docxDocument: Document | null): void;
     /** Manually trigger a save. */
     save(): Promise<boolean>;
     /** Clear auto-saved data from storage. */

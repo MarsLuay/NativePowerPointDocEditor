@@ -22,7 +22,7 @@ on keystroke→repaint latency.
 
 ## Reproduction
 
-Fixture: [`e2e/fixtures/issue-68-large-comments-suggestions.docx`](e2e/fixtures/issue-68-large-comments-suggestions.docx)
+Fixture: [`packages/core/testdata/manual/issue-68-large-comments-suggestions.docx`](packages/core/testdata/manual/issue-68-large-comments-suggestions.docx)
 
 - Same body content/size as `issue-68-large.docx` (~127K words, 309 pages).
 - **212 comments** (one every ~10 body paragraphs) with `comments.xml` +

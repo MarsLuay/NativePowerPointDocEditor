@@ -1,1 +1,1 @@
-export{a as TABLE_DATA_ATTRIBUTES,f as TableSelectionManager,e as deleteTableFromDocument,b as findTableFromClick,c as getTableFromDocument,d as updateTableInDocument}from'../chunk-JHZ3HLSR.mjs';import'../chunk-D6GO7UGD.mjs';import'../chunk-QYUPLKLP.mjs';
+export{a as TABLE_DATA_ATTRIBUTES,f as TableSelectionManager,e as deleteTableFromDocument,b as findTableFromClick,c as getTableFromDocument,d as updateTableInDocument}from'../chunk-AP7GF4VM.mjs';import'../chunk-6SYMJ6HB.mjs';import'../chunk-JR557W27.mjs';

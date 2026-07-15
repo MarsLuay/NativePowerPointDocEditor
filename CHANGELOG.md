@@ -6,6 +6,19 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.41] - 2026-07-15
+
+### Changed
+
+- Unbundle Eigenpal `DocumentAgent` / AgentPanel from the Obsidian DOCX editor path: save uses `Document` + `exportDocxBuffer` (selective / repack / create).
+- Remove `@eigenpal/docx-editor-agents` stub/aliases; plugin AI remains `src/ai` only.
+- Re-home content-control types on `@eigenpal/docx-editor-core/contentControls`.
+- Public catalog mirror sanitizes package `*.d.ts` for Obsidian catalog ESLint (`globalThis`, Identifier `document`, `#private`, etc.). Code-analysis gates the same patterns.
+
+### Added
+
+- AI OOXML ops: `docx.insertText`, `docx.deleteRange`, `docx.insertHyperlink`, `docx.removeHyperlink`, `docx.insertParagraphBreak`.
+
 ## [1.0.40] - 2026-07-15
 
 ### Fixed

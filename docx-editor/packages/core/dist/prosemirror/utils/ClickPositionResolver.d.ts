@@ -51,12 +51,29 @@ interface PositionLookupResult {
  * by caching DOM element positions and using binary search.
  */
 declare class ClickPositionResolver {
-    #private;
+    /** Cached page info sorted by Y position */
+    private pages;
+    /** Fragments indexed by page */
+    private fragmentsByPage;
+    /** Runs indexed by fragment blockId */
+    private runsByFragment;
+    /** The container element we're indexing */
+    private container;
+    /** Whether the index needs rebuilding */
+    private dirty;
     /**
      * Rebuild the entire index from the container.
      * Call this after layout changes.
      */
     rebuild(container: HTMLElement): void;
+    /**
+     * Index all fragments within a page.
+     */
+    private indexFragmentsInPage;
+    /**
+     * Index all runs (text spans) within a fragment.
+     */
+    private indexRunsInFragment;
     /**
      * Mark the index as dirty (needs rebuild).
      */

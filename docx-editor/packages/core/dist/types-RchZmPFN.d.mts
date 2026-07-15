@@ -39,7 +39,7 @@ declare class ExtensionManager {
     /**
      * Get a specific command by name
      */
-    getCommand(name: string): ((...args: any[]) => Command) | undefined;
+    getCommand(name: string): ((...args: unknown[]) => Command) | undefined;
     /**
      * Lifecycle: destroy
      */
@@ -75,7 +75,7 @@ interface ExtensionContext {
      */
     manager: ExtensionManager;
 }
-type CommandMap = Record<string, (...args: any[]) => Command>;
+type CommandMap = Record<string, (...args: unknown[]) => Command>;
 type KeyboardShortcutMap = Record<string, Command>;
 interface ExtensionRuntime {
     commands?: CommandMap;

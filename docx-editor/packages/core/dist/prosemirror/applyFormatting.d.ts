@@ -1,9 +1,9 @@
 import { EditorView } from 'prosemirror-view';
-import { S as StyleResolver } from '../styleResolver-seRIOzL8.js';
+import { S as StyleResolver } from '../styleResolver-CJ1AB9Qd.js';
 import { N as NumberingMap } from '../numberingParser-ZSQ3SDCV.js';
 import '../formatting-JhqWT_XM.js';
 import '../colors-C3vA7HUU.js';
-import '../styles-BGGjYqnf.js';
+import '../styles-2J4U-Lgk.js';
 import '../lists-Bn29SzeS.js';
 
 /**

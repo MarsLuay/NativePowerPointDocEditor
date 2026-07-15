@@ -463,12 +463,6 @@ function createDocxEditorAliases() {
 		}
 	}
 
-	aliases['@eigenpal/docx-editor-agents/react'] = path.join(
-		projectRoot,
-		'src/docx/editor/agentsStub/react.mjs',
-	);
-	aliases['@npde/docx-editor-agents/react'] = aliases['@eigenpal/docx-editor-agents/react'];
-
 	return aliases;
 }
 

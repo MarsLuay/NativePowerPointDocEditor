@@ -27,7 +27,7 @@ import '../formatting-DFtuRFQY.mjs';
 import '../lists-CyGxd5Y2.mjs';
 import '../docx/wrapTypes.mjs';
 import '../watermark-D90356ZM.mjs';
-import '../styles-BNjUANte.mjs';
+import '../styles-Diw0MASy.mjs';
 
 /**
  * TableSelectionManager

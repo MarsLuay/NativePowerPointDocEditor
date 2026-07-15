@@ -7,13 +7,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import {
 	createDocxEditorAliases,
-	resolveDocxEditorAgentsStub,
 	resolveDocxEditorPackagesRoot,
 } from './lib/docx-editor-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
-const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot), { agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) });
+const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot));
 const outputDir = path.join(projectRoot, 'results', 'ime-live-verify');
 const demoDocxPath = path.join(projectRoot, 'test_files', 'demo.docx');
 

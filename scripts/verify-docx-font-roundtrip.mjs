@@ -7,12 +7,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import {
 	createDocxEditorAliases,
-	resolveDocxEditorAgentsStub,
 	resolveDocxEditorPackagesRoot,
 } from './lib/docx-editor-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot), { agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) });
+const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot));
 const outputDir = path.join(projectRoot, 'results', 'docx-font-roundtrip');
 const fixturePath = path.join(projectRoot, 'tests', 'fixtures', 'docx', 'table-cell-direct-24pt-font.docx');
 const chromeBinary = process.env.CHROME_PATH

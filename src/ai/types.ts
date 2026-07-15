@@ -65,6 +65,8 @@ export interface StableIdRules {
 	pptxRun: string;
 	docxBlock: string;
 	docxRun: string;
+	docxTextPosition?: string;
+	docxTextRange?: string;
 	editableRule: string;
 }
 

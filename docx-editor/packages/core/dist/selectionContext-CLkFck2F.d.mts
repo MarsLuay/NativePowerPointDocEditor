@@ -110,7 +110,7 @@ declare class DocumentAgent {
      * @param document - Parsed Document
      * @returns DocumentAgent
      */
-    static fromDocument(document: Document): DocumentAgent;
+    static fromDocument(docxDocument: Document): DocumentAgent;
     /**
      * Get the underlying document
      */
@@ -361,7 +361,7 @@ declare function createAgent(buffer: ArrayBuffer): Promise<DocumentAgent>;
  * @param document - Parsed Document
  * @returns DocumentAgent
  */
-declare function createAgentFromDocument(document: Document): DocumentAgent;
+declare function createAgentFromDocument(docxDocument: Document): DocumentAgent;
 
 /**
  * Command Executor

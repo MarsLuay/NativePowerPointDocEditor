@@ -403,3 +403,69 @@ test('apply can edit header and footer runs via stable ids', async () => {
 	assert.doesNotMatch(headerXml, /Old header/);
 	assert.doesNotMatch(footerXml, /Old footer/);
 });
+
+test('DocxDocumentService applies insertText, deleteRange, hyperlink, and paragraph break ops', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+
+	const docPath = 'notes/phase2.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody('<w:p><w:r><w:t>Hello world</w:t></w:r></w:p>'),
+	});
+
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{ op: 'docx.insertText', blockId: 'body/p[0]', offset: 5, text: ' brave' },
+		{
+			op: 'docx.insertHyperlink',
+			range: {
+				start: { blockId: 'body/p[0]', offset: 6 },
+				end: { blockId: 'body/p[0]', offset: 11 },
+			},
+			url: 'https://example.com',
+			tooltip: 'Example',
+		},
+		{
+			op: 'docx.removeHyperlink',
+			range: {
+				start: { blockId: 'body/p[0]', offset: 6 },
+				end: { blockId: 'body/p[0]', offset: 11 },
+			},
+		},
+		{ op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', offset: 6 },
+		{
+			op: 'docx.deleteRange',
+			range: {
+				start: { blockId: 'body/p[1]', offset: 0 },
+				end: { blockId: 'body/p[1]', offset: 5 },
+			},
+		},
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedBytes = vault.store.get(docPath);
+	const savedZip = await JSZip.loadAsync(savedBytes.buffer);
+	const documentXml = await savedZip.file('word/document.xml').async('string');
+	const relsXml = await savedZip.file('word/_rels/document.xml.rels').async('string');
+	assert.match(documentXml, /Hello/);
+	assert.match(documentXml, /world/);
+	assert.match(relsXml, /Type="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/relationships\/hyperlink"/);
+	assert.match(relsXml, /Target="https:\/\/example\.com"/);
+	assert.doesNotMatch(documentXml, /<w:hyperlink\b[^>]*>[\s\S]*?<w:t>brave<\/w:t>/);
+
+	const snapshot = await describeDocxFromBuffer(
+		savedBytes.buffer.slice(savedBytes.byteOffset, savedBytes.byteOffset + savedBytes.byteLength),
+		docPath,
+	);
+	assert.equal(snapshot.blockCount, 2);
+	assert.equal(snapshot.blocks[0]?.text, 'Hello ');
+	assert.equal(snapshot.blocks[1]?.text, ' world');
+});

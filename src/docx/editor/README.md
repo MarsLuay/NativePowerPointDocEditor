@@ -10,7 +10,6 @@ Obsidian users only download release `main.js` (+ manifest/css) — **not** this
 |------|------|
 | `docx-editor/` | Full clone (TypeScript source + seeded/generated `dist`) |
 | `docx-editor/packages/{core,react,i18n}/` | Wired into the plugin via `scripts/lib/docx-editor-aliases.mjs` |
-| `src/docx/editor/agentsStub/` | No-op `AgentPanel` (full agents UI not shipped in the Obsidian bundle) |
 | `Projects/docx-editor-mirror-1.9.0/` (vault) | Optional npm `.tgz` insurance outside this plugin |
 
 Plugin imports use `@npde/docx-editor-*`; in-dist imports still use `@eigenpal/*` (compat aliases).
@@ -27,6 +26,6 @@ Until you run step 2, the plugin uses the committed/seeded `dist/` (same bytes a
 
 **Publish:** the publish skill always runs `npm run build:docx-editor` then `npm run build` for this project before release assets — never ship stale dist when that script exists.
 
-## Agents
+## AI and save
 
-`docx-editor/packages/agents` exists in the monorepo for reference. The Obsidian bundle still stubs `@eigenpal/docx-editor-agents/react` so agents UI is not pulled into `main.js`.
+There is no `@eigenpal/docx-editor-agents` package in this tree. Plugin AI lives under `src/ai` only. React DOCX save uses `Document` + packers directly — not `DocumentAgent`.

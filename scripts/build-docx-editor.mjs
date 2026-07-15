@@ -30,7 +30,16 @@ function which(bin) {
 	const result = spawnSync(process.platform === 'win32' ? 'where' : 'which', [bin], {
 		encoding: 'utf8',
 	});
-	return result.status === 0 ? result.stdout.trim().split('\n')[0] : null;
+	if (result.status === 0) {
+		return result.stdout.trim().split('\n')[0];
+	}
+	if (bin === 'bun') {
+		const homeBun = path.join(process.env.HOME || '', '.bun', 'bin', 'bun');
+		if (existsSync(homeBun)) {
+			return homeBun;
+		}
+	}
+	return null;
 }
 
 function assertCommittedDist() {

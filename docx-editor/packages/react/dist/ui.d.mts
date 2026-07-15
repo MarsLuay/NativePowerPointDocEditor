@@ -1105,7 +1105,7 @@ interface UnsavedIndicatorProps {
  */
 interface UseUnsavedChangesOptions {
     /** The document to track */
-    document?: Document | null;
+    ['document']?: Document | null;
     /** Whether to warn before leaving page */
     warnBeforeLeave?: boolean;
     /** Custom warning message */

@@ -23,4 +23,4 @@ import '../watermark-D90356ZM.js';
 import 'prosemirror-model';
 import '../nodes-Bu9WifHU.js';
 import '../ImageExtension-BlI5afZD.js';
-import '../styles-BGGjYqnf.js';
+import '../styles-2J4U-Lgk.js';

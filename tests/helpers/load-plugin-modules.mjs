@@ -7,14 +7,12 @@ import { build } from "esbuild";
 import { patchPptxRendererSource } from "../../scripts/lib/patch-pptx-renderer.mjs";
 import {
   createDocxEditorAliases,
-  resolveDocxEditorAgentsStub,
   resolveDocxEditorPackagesRoot,
 } from "../../scripts/lib/docx-editor-aliases.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const docxEditorAliases = await createDocxEditorAliases(
   resolveDocxEditorPackagesRoot(projectRoot),
-  { agentsStubPath: resolveDocxEditorAgentsStub(projectRoot) },
 );
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require("@xmldom/xmldom");

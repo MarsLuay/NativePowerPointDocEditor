@@ -9,7 +9,6 @@
  * - `@eigenpal/docx-editor-react/plugin-api`
  *
  * Framework-agnostic document utilities live in `@eigenpal/docx-editor-core`.
- * Agent/MCP surfaces live in `@eigenpal/docx-editor-agents`.
  *
  * @packageDocumentation
  * @public
@@ -22,52 +21,16 @@ import * as prosemirror_state from 'prosemirror-state';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { Document, HeaderFooter, Theme } from '@eigenpal/docx-editor-core/types/document';
 import { FontOption } from '@eigenpal/docx-editor-core/utils/fontOptions';
-import { R as ReactSidebarItem } from './types-D35gNE-_.mjs';
+import { R as ReactSidebarItem } from './types-CV7spTip.mjs';
 import { Comment } from '@eigenpal/docx-editor-core/types/content';
 import { Translations, TFunction } from '@eigenpal/docx-editor-i18n';
 import { PrintOptions, EditorHandle } from '@eigenpal/docx-editor-core';
 export { CreateEmptyDocumentOptions, createDocumentWithText, createEmptyDocument } from '@eigenpal/docx-editor-core';
-import { DocumentAgent, ContentControlFilter, ContentControlValue } from '@eigenpal/docx-editor-core/agent';
 import { ScrollToParaIdOptions, DocxInput, FontDefinition } from '@eigenpal/docx-editor-core/utils';
 import { SelectionState, PMContentControl } from '@eigenpal/docx-editor-core/prosemirror';
+import { ContentControlFilter, ContentControlValue } from '@eigenpal/docx-editor-core/contentControls';
 import { Layout } from '@eigenpal/docx-editor-core/layout-engine';
 import { RenderedDomContext } from '@eigenpal/docx-editor-core/plugin-api';
-
-/**
- * Options for the agent panel mount on the right side of the editor.
- *
- * Three control patterns:
- *  - **Uncontrolled**: `agentPanel={{ render }}` — toolbar button + panel
- *    close button toggle the panel. Width persists to localStorage.
- *  - **Controlled**: `agentPanel={{ render, open, onOpenChange }}` — the
- *    consumer owns open state (e.g. tied to a global menu).
- *  - **Headless**: omit `agentPanel`, use the toolkit directly via
- *    `useDocxAgentTools` — render the panel anywhere you want.
- */
-interface AgentPanelOptions {
-    /** Render-prop returning the panel content. Called only when open. */
-    render: (ctx: {
-        close: () => void;
-    }) => ReactNode;
-    /** Controlled open state. Omit for uncontrolled. */
-    open?: boolean;
-    /** Fires when toolbar button or panel close button is clicked. */
-    onOpenChange?: (open: boolean) => void;
-    /** Show the toolbar toggle button. Default: true. */
-    showToolbarButton?: boolean;
-    /** Optional badge / dot on the toolbar button. */
-    toolbarBadge?: ReactNode;
-    /** Optional panel title. Default: t('agentPanel.defaultTitle'). */
-    title?: string;
-    /** Optional panel header icon. Default: sparkle. */
-    icon?: ReactNode;
-    /** Initial panel width in px (uncontrolled). Default: 360. */
-    defaultWidth?: number;
-    /** Min drag width. Default: 280. */
-    minWidth?: number;
-    /** Max drag width. Default: 600. */
-    maxWidth?: number;
-}
 
 interface PagedEditorRef {
     /** Get the current document. */
@@ -159,7 +122,7 @@ interface DocxEditorProps {
     /** Document data — ArrayBuffer, Uint8Array, Blob, or File */
     documentBuffer?: DocxInput | null;
     /** Pre-parsed document (alternative to documentBuffer) */
-    document?: Document | null;
+    ['document']?: Document | null;
     /** Callback when document is saved */
     onSave?: (buffer: ArrayBuffer) => void;
     /**
@@ -171,7 +134,7 @@ interface DocxEditorProps {
     /** Author name used for comments and track changes */
     author?: string;
     /** Callback when document changes */
-    onChange?: (document: Document) => void;
+    onChange?: (docxDocument: Document) => void;
     /** Callback when selection changes */
     onSelectionChange?: (state: SelectionState | null) => void;
     /** Callback on error */
@@ -350,29 +313,11 @@ interface DocxEditorProps {
     renderTitleBarRight?: () => ReactNode;
     /** Translation overrides. Import a locale JSON file and pass it directly. */
     i18n?: Translations;
-    /**
-     * Mount a controllable agent panel on the right side of the editor. The
-     * panel is the chrome (header, close button, drag-resize); the consumer
-     * supplies whatever content goes inside via `render` — typically a chat
-     * UI from `@ai-sdk/react`'s `useChat`, `assistant-ui`, or any other
-     * framework. We do not ship message bubbles, a composer, or a chat engine.
-     *
-     * Three control patterns:
-     *  - **Uncontrolled**: `agentPanel={{ render }}` — toolbar button + panel
-     *    close button toggle the panel. Width persists to localStorage.
-     *  - **Controlled**: `agentPanel={{ render, open, onOpenChange }}` — the
-     *    consumer owns open state (e.g. tied to a global menu).
-     *  - **Headless**: omit `agentPanel`, use the toolkit directly via
-     *    `useDocxAgentTools` — render the panel anywhere you want.
-     */
-    agentPanel?: AgentPanelOptions;
 }
 /**
  * DocxEditor ref interface
  */
 interface DocxEditorRef {
-    /** Get the DocumentAgent for programmatic access */
-    getAgent: () => DocumentAgent | null;
     /** Get the current document */
     getDocument: () => Document | null;
     /** Get the editor ref */
@@ -590,7 +535,7 @@ interface DocxEditorRef {
         force?: boolean;
     }) => boolean;
     /** Subscribe to document changes. Fires after every committed edit. Returns unsubscribe. */
-    onContentChange: (listener: (document: Document) => void) => () => void;
+    onContentChange: (listener: (docxDocument: Document) => void) => () => void;
     /** Subscribe to selection changes (cursor moves / selection changes). Returns unsubscribe. */
     onSelectionChange: (listener: (selection: SelectionState | null) => void) => () => void;
 }
@@ -670,7 +615,6 @@ declare function useTranslation(): {
  * - `@eigenpal/docx-editor-react/plugin-api`
  *
  * Framework-agnostic document utilities live in `@eigenpal/docx-editor-core`.
- * Agent/MCP surfaces live in `@eigenpal/docx-editor-agents`.
  *
  * @packageDocumentation
  * @public

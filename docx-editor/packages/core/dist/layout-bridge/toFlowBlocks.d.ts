@@ -12,7 +12,7 @@
  */
 import { Node } from 'prosemirror-model';
 import { BorderStyle, FlowBlock } from '../layout-engine/types.js';
-import { T as Theme } from '../styles-BGGjYqnf.js';
+import { T as Theme } from '../styles-2J4U-Lgk.js';
 import { N as NumberFormat } from '../lists-Bn29SzeS.js';
 import '../content-B8ScSBzC.js';
 import '../formatting-JhqWT_XM.js';

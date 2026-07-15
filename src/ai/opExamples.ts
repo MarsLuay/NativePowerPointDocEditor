@@ -45,6 +45,31 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'docx.insertImage': { op: 'docx.insertImage', afterBlockId: 'body/p[0]', vaultImagePath: 'assets/example.png' },
 	'docx.replaceImage': { op: 'docx.replaceImage', blockId: 'body/p[1]', vaultImagePath: 'assets/example.png' },
 	'docx.replaceText': { op: 'docx.replaceText', query: 'old', replacement: 'new', wholeWord: false },
+	'docx.insertText': { op: 'docx.insertText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', offset: 5, text: ' inserted' },
+	'docx.deleteRange': {
+		op: 'docx.deleteRange',
+		range: {
+			start: { blockId: 'body/p[0]', offset: 0 },
+			end: { blockId: 'body/p[0]', offset: 5 },
+		},
+	},
+	'docx.insertHyperlink': {
+		op: 'docx.insertHyperlink',
+		range: {
+			start: { blockId: 'body/p[0]', offset: 0 },
+			end: { blockId: 'body/p[0]', offset: 5 },
+		},
+		url: 'https://example.com',
+		displayText: 'Example',
+	},
+	'docx.removeHyperlink': {
+		op: 'docx.removeHyperlink',
+		range: {
+			start: { blockId: 'body/p[0]', offset: 0 },
+			end: { blockId: 'body/p[0]', offset: 5 },
+		},
+	},
+	'docx.insertParagraphBreak': { op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', offset: 5 },
 };
 
 export function getOpExample(opId: string): DocumentOp | undefined {
