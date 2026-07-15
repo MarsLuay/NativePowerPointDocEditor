@@ -21,6 +21,7 @@
     "i18n:new": "node scripts/validate-i18n.mjs new",
     "i18n:status": "node scripts/validate-i18n.mjs status",
     "i18n:codegen": "node scripts/validate-i18n.mjs codegen",
+    "check:npde-contract": "node scripts/check-npde-contract.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
