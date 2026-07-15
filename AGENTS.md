@@ -12,12 +12,14 @@
 - Render DOCX settings from shared descriptors in `src/settings.ts`; do not duplicate labels, descriptions, defaults, option lists between Obsidian settings tab and in-editor DOCX settings menu.
 - Resolve editor theme via plugin-level path in `src/main.ts`. DOCX/PPTX roots consume `resolvedEditorTheme`; views must not inspect `document.body` or call `resolveEditorThemePreference()` locally.
 - Theme colors use `--npde-*` tokens. Hardcoded color literals live in token definitions, not component rules.
-- Avoid new `!important` rules. Limit to documented third-party DOCX/editor internals, inline-style overrides, or PDF export isolation.
+- Avoid `!important` in `docx-editor/` CSS entirely (code-analysis `css/no-important` rejects suppressions). Root plugin `styles.css` may use line-scoped `obsidian: allow css-important` only for documented third-party / PDF isolation.
+- Do not use CSS `:has()`, stylesheet `text-indent`, `break-before`/`page-break-*`, or `@tailwind` in scanned source. Stamp class hooks / indent in JS; inject Tailwind at build time; page breaks stay in the layout engine.
+- Prefer CSS2 single-keyword `text-decoration` only. Tint deletes with `box-shadow` / `background` / `color`.
 - After theme/menu/settings changes, run guards: `npm run check:theme-architecture`, `npm run check:theme-css`, `npm run check:shared-ui-patterns`.
 
 ### Eigenpal DOCX editor (in-repo monorepo)
 
-- Source + package dist: `docx-editor/` (pin `npde-mirror-1.9.0` / `66d74702…`, Apache-2.0). Runtime aliases: `scripts/lib/docx-editor-aliases.mjs` → `docx-editor/packages/{core,react,i18n}`. `agentsStub/` stubs `AgentPanel` so the Obsidian bundle stays lean.
+- Source + package dist: `docx-editor/` (pin `npde-mirror-1.9.0` / `66d74702…`, Apache-2.0). Runtime aliases: `scripts/lib/docx-editor-aliases.mjs` → `docx-editor/packages/{core,react,i18n}` plus single-copy `react` / `react-dom` (root `node_modules`). Pin plugin ProseMirror packages to the same versions as `docx-editor` and map them in `tsconfig.json` `paths` so `tsc` does not see dual package identities. `agentsStub/` stubs `AgentPanel` so the Obsidian bundle stays lean.
 - Edit source → `npm run build:docx-editor` (needs bun) → `npm run build` / `dev`. Users still only get `main.js`; monorepo is not an Obsidian download.
 - **Publish always fresh-rebuilds:** when publishing this plugin, run `npm run build:docx-editor` then `npm run build` (see vault publish skill). Fail if bun/rebuild tooling is missing — do not release stale package dist.
 - Do **not** add `@eigenpal/*` to root `package.json`. Details: `src/docx/editor/README.md`.

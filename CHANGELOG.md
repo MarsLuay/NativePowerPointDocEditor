@@ -6,6 +6,17 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.38] - 2026-07-14
+
+### Fixed
+
+- Clear nested editor CSS guardrails without suppressions: build-time Tailwind inject, class hooks instead of `:has`, CSS2 `text-decoration`, JS-stamped indent, no page-break fragmentation CSS, no nested `!important`.
+- Deduplicate React / ProseMirror identities across the in-repo `docx-editor` bun tree (tsconfig paths + esbuild `react` aliases) so harness verifies and `tsc` stay green.
+
+### Changed
+
+- Pin plugin ProseMirror packages to the docx-editor versions and document the dual-copy pin in `AGENTS.md`.
+
 ## [1.0.37] - 2026-07-14
 
 ### Changed

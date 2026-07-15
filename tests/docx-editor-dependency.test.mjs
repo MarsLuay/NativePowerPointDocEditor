@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import {
@@ -88,4 +89,6 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm @e
 
 	await readFile(new URL('src/docx/editor/agentsStub/react.mjs', root));
 	assert.ok(aliases['@eigenpal/docx-editor-agents/react']);
+	assert.ok(aliases.react?.includes(`${path.sep}node_modules${path.sep}react`), 'react alias must pin to plugin root');
+	assert.ok(aliases['react-dom']?.includes(`${path.sep}node_modules${path.sep}react-dom`), 'react-dom alias must pin to plugin root');
 });

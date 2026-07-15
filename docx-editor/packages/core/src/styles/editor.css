@@ -13,14 +13,11 @@
  *   palette) and the .ep-root.dark scaffold
  * - Cursor/caret, selection, content-control, popup/menu chrome, etc.
  *
- * NOTE: `@tailwind utilities` lives here so the directive is shared; each
- * adapter's own Tailwind build (React via the CLI, Vue via vite PostCSS)
- * expands it against that adapter's component sources. We intentionally do NOT
- * include @tailwind base (preflight) to avoid resetting the host application.
+ * NOTE: `@tailwind utilities` is prepended at build time (React `build:css`
+ * temp entry, Vue PostCSS `prepend-tailwind-utilities`) so this shared source
+ * stays plain CSS. We intentionally do NOT include @tailwind base (preflight)
+ * to avoid resetting the host application.
  */
-
-/* css: allow unknown-at-rule -- Tailwind CLI expands this in adapter builds */
-@tailwind utilities;
 
 /* ============================================================================
  * CSS CUSTOM PROPERTIES (shadcn theme)
@@ -255,8 +252,7 @@
   /* Replace the painter's drop shadow (the filter would turn it into a weird
    * light glow) with a 1px ring. Pre-invert dark → post-invert a subtle light
    * border, matching Word's framed dark page. */
-  /* obsidian: allow css-important -- must beat dark-invert filter shadow */
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
 }
 .ep-root.dark .layout-page img,
 .ep-root.dark .layout-page svg,
@@ -392,7 +388,7 @@
  * text across multiple runs (spans) with different formatting.
  *
  * Key considerations:
- * - Use !important to override inline styles from formatting
+ * - Selection rules should stay high-specificity; avoid declaration !important
  * - Ensure selection is visible against various backgrounds
  * - Maintain text color (inherit) for readability
  * - Use rgba for semi-transparent highlight that shows text clearly
@@ -405,8 +401,8 @@
 .docx-run *::selection,
 [contenteditable='true']::selection,
 [contenteditable='true'] *::selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 /* Firefox selection */
@@ -416,8 +412,8 @@
 .docx-run *::-moz-selection,
 [contenteditable='true']::-moz-selection,
 [contenteditable='true'] *::-moz-selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 /* Selection in paragraphs - ensure runs within get consistent styling */
@@ -425,81 +421,81 @@
 .docx-paragraph *::selection,
 .docx-paragraph-editable::selection,
 .docx-paragraph-editable *::selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 .docx-paragraph::-moz-selection,
 .docx-paragraph *::-moz-selection,
 .docx-paragraph-editable::-moz-selection,
 .docx-paragraph-editable *::-moz-selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 /* Selection in hyperlinks */
 .docx-hyperlink::selection,
 .docx-hyperlink *::selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 .docx-hyperlink::-moz-selection,
 .docx-hyperlink *::-moz-selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 /* Selection on highlighted text - use darker selection for visibility */
 .docx-run-highlighted::selection,
 .docx-run-highlighted *::selection {
-  background-color: rgba(26, 115, 232, 0.5) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.5);
+  color: inherit;
 }
 
 .docx-run-highlighted::-moz-selection,
 .docx-run-highlighted *::-moz-selection {
-  background-color: rgba(26, 115, 232, 0.5) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.5);
+  color: inherit;
 }
 
 /* Selection on dark background text - lighter selection */
 .docx-run-dark-bg::selection,
 .docx-run-dark-bg *::selection {
-  background-color: rgba(100, 181, 246, 0.5) !important;
-  color: inherit !important;
+  background-color: rgba(100, 181, 246, 0.5);
+  color: inherit;
 }
 
 .docx-run-dark-bg::-moz-selection,
 .docx-run-dark-bg *::-moz-selection {
-  background-color: rgba(100, 181, 246, 0.5) !important;
-  color: inherit !important;
+  background-color: rgba(100, 181, 246, 0.5);
+  color: inherit;
 }
 
 /* Selection on bold text - ensure same style */
 .docx-run-bold::selection,
 .docx-run-bold *::selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 .docx-run-bold::-moz-selection,
 .docx-run-bold *::-moz-selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 /* Selection on italic text - ensure same style */
 .docx-run-italic::selection,
 .docx-run-italic *::selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 .docx-run-italic::-moz-selection,
 .docx-run-italic *::-moz-selection {
-  background-color: rgba(26, 115, 232, 0.3) !important;
-  color: inherit !important;
+  background-color: rgba(26, 115, 232, 0.3);
+  color: inherit;
 }
 
 /* ============================================================================
@@ -508,15 +504,13 @@
 
 /* Find/replace match highlighting */
 .docx-find-highlight {
-  /* obsidian: allow css-important -- must beat DOCX inline run backgrounds */
-  background-color: rgba(255, 235, 59, 0.5) !important;
+  background-color: rgba(255, 235, 59, 0.5);
   border-radius: 2px;
 }
 
 /* Current find/replace match */
 .docx-find-highlight-current {
-  /* obsidian: allow css-important -- must beat DOCX inline run backgrounds */
-  background-color: rgba(255, 152, 0, 0.6) !important;
+  background-color: rgba(255, 152, 0, 0.6);
   border-radius: 2px;
   outline: 2px solid rgba(255, 152, 0, 0.8);
 }
@@ -691,8 +685,7 @@
 .paged-editor--readonly .layout-table-row-resize-handle,
 .paged-editor--readonly .layout-table-edge-handle-bottom,
 .paged-editor--readonly .layout-table-edge-handle-right {
-  /* obsidian: allow css-important -- hide interactive chrome in readonly mode */
-  display: none !important;
+  display: none;
 }
 
 /* Remove header/footer hover effects and edit hints */

@@ -1,6 +1,6 @@
 {
 	"name": "native-powerpoint-doc-editor",
-	"version": "1.0.37",
+	"version": "1.0.38",
 	"description": "Open, search, and edit DOCX and PPTX files directly in your vault.",
 	"main": "main.js",
 	"type": "module",
@@ -88,15 +88,15 @@
 		"obsidian": "latest",
 		"pizzip": "^3.2.0",
 		"pptx-svg": "^0.5.10",
-		"prosemirror-commands": "^1.7.1",
-		"prosemirror-dropcursor": "^1.8.2",
-		"prosemirror-history": "^1.5.0",
-		"prosemirror-keymap": "^1.2.3",
-		"prosemirror-model": "^1.25.9",
-		"prosemirror-state": "^1.4.4",
-		"prosemirror-tables": "^1.8.5",
-		"prosemirror-transform": "^1.12.0",
-		"prosemirror-view": "^1.41.9",
+		"prosemirror-commands": "1.7.1",
+		"prosemirror-dropcursor": "1.8.2",
+		"prosemirror-history": "1.5.0",
+		"prosemirror-keymap": "1.2.3",
+		"prosemirror-model": "1.25.4",
+		"prosemirror-state": "1.4.4",
+		"prosemirror-tables": "1.8.5",
+		"prosemirror-transform": "1.12.0",
+		"prosemirror-view": "1.41.8",
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"sonner": "^2.0.7",
@@ -106,6 +106,16 @@
 		"electron@42.5.0": true
 	},
 	"overrides": {
-		"js-yaml": "^4.2.0"
+		"js-yaml": "^4.2.0",
+		"prosemirror-commands": "1.7.1",
+		"prosemirror-dropcursor": "1.8.2",
+		"prosemirror-history": "1.5.0",
+		"prosemirror-keymap": "1.2.3",
+		"prosemirror-model": "1.25.4",
+		"prosemirror-state": "1.4.4",
+		"prosemirror-tables": "1.8.5",
+		"prosemirror-transform": "1.12.0",
+		"prosemirror-view": "1.41.8",
+		"orderedmap": "2.1.1"
 	}
 }

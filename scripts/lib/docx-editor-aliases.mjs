@@ -86,5 +86,19 @@ export async function createDocxEditorAliases(packagesRoot, options = {}) {
 	aliases['@eigenpal/docx-editor-agents/react'] = agentsStub;
 	aliases['@npde/docx-editor-agents/react'] = agentsStub;
 
+	// Force a single React / ReactDOM copy. docx-editor's bun install can
+	// nest a different React under node_modules/.bun; dual copies crash hooks
+	// (`Cannot read properties of null (reading 'useState')`).
+	const projectRoot = path.resolve(packagesRoot, '..', '..');
+	const reactRoot = path.join(projectRoot, 'node_modules', 'react');
+	const reactDomRoot = path.join(projectRoot, 'node_modules', 'react-dom');
+	if (existsSync(reactRoot) && existsSync(reactDomRoot)) {
+		aliases.react = reactRoot;
+		aliases['react/jsx-runtime'] = path.join(reactRoot, 'jsx-runtime.js');
+		aliases['react/jsx-dev-runtime'] = path.join(reactRoot, 'jsx-dev-runtime.js');
+		aliases['react-dom'] = reactDomRoot;
+		aliases['react-dom/client'] = path.join(reactDomRoot, 'client.js');
+	}
+
 	return aliases;
 }

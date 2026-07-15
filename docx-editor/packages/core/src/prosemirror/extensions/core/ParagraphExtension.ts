@@ -28,6 +28,11 @@ import {
   listAttrsFromResolvedStyle,
 } from '../../styles/resolvedStyleAttrs';
 import type { NumberingMap } from '../../../docx/numberingParser';
+import {
+  DOC_X_P_BLOCK_IMAGE_CLASS,
+  createParagraphImageLayoutPlugin,
+  getParagraphImageLayoutClasses,
+} from './paragraphImageLayout';
 
 // ============================================================================
 // HELPERS (from nodes.ts)
@@ -361,8 +366,20 @@ const paragraphNodeSpec: NodeSpec = {
   ],
   toDOM(node) {
     const attrs = node.attrs as ParagraphAttrs;
-    const style = paragraphAttrsToDOMStyle(attrs);
+    let style = paragraphAttrsToDOMStyle(attrs);
     const listClass = getListClass(attrs.numPr, attrs.listIsBullet, attrs.listNumFmt);
+    const imageLayoutClasses = getParagraphImageLayoutClasses(node);
+
+    // Block-only image paragraphs: zero first-line indent in the style attribute
+    // (CSS text-indent is only partially supported on the Obsidian baseline).
+    if (imageLayoutClasses.includes(DOC_X_P_BLOCK_IMAGE_CLASS)) {
+      style = style
+        .split(';')
+        .map((part) => part.trim())
+        .filter((part) => part && !/^text-indent\s*:/i.test(part))
+        .concat(['text-indent: 0'])
+        .join('; ');
+    }
 
     const domAttrs: Record<string, string> = {};
 
@@ -415,6 +432,11 @@ const paragraphNodeSpec: NodeSpec = {
       domAttrs['data-revision-id'] = String(first.info.id);
       domAttrs['data-revision-author'] = first.info.author;
       if (first.info.date) domAttrs['data-revision-date'] = first.info.date;
+    }
+
+    if (imageLayoutClasses.length > 0) {
+      domAttrs.class =
+        (domAttrs.class ? domAttrs.class + ' ' : '') + imageLayoutClasses.join(' ');
     }
 
     return ['p', domAttrs, 0];
@@ -737,6 +759,7 @@ export const ParagraphExtension = createNodeExtension({
     const applyStyleFn = makeApplyStyle(ctx.schema);
 
     return {
+      plugins: [createParagraphImageLayoutPlugin()],
       commands: {
         setAlignment: (alignment: ParagraphAlignment) => makeSetAlignment(alignment),
         alignLeft: () => makeSetAlignment('left'),

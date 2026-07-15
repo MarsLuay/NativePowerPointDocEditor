@@ -92,11 +92,8 @@
   background: linear-gradient(to top, transparent, rgba(0, 0, 0, 0.08));
 }
 
-/* Explicit page break (from DOCX pageBreakBefore) */
-.prosemirror-editor .ProseMirror [data-page-break-before='true'] {
-  /* css: allow compat-multicolumn -- DOCX pageBreakBefore fragmentation cue */
-  break-before: page;
-}
+/* Page-break-before is handled by the layout engine / DOCX attrs — do not use
+ * CSS break-before/page-break-before (Obsidian 1.7.4 multicolumn partial). */
 
 /* Page break dashed line indicator (alternative style) */
 .prosemirror-editor .ProseMirror .docx-page-break-line {
@@ -315,18 +312,16 @@
   clear: both;
 }
 
-/* Paragraphs containing only a block image: remove text-indent and center */
-/* css: allow no-has-selector -- Word block-image paragraph shape has no stable class hook yet */
-.prosemirror-editor .ProseMirror p:has(> img.docx-image-block:only-child) {
-  /* css: allow compat-text-indent -- zero indent against DOCX inline indent */
-  /* obsidian: allow css-important -- override DOCX paragraph text-indent inline styles */
-  text-indent: 0 !important;
+/* Paragraphs containing only a block image: center.
+ * Class stamped by paragraphImageLayout. Zero first-line indent is forced in
+ * paragraph toDOM (plain CSS text-indent is Obsidian-baseline partial). */
+.prosemirror-editor .ProseMirror p.docx-p-block-image {
   text-align: center;
 }
 
-/* Clear floats after paragraphs containing floated images */
-/* css: allow no-has-selector -- Word float image clearfix; no parent class hook yet */
-.prosemirror-editor .ProseMirror p:has(img.docx-image-float)::after {
+/* Clear floats after paragraphs containing floated images.
+ * Class stamped by paragraphImageLayout (toDOM + sync plugin) — do not use :has(). */
+.prosemirror-editor .ProseMirror p.docx-p-has-float::after {
   content: '';
   display: table;
   clear: both;
@@ -828,9 +823,8 @@
 }
 .ep-revision-row:not(.layout-table-row).ep-revision-del > * {
   box-shadow: inset 3px 0 0 #c62828;
+  /* CSS2 single-keyword only — avoid text-decoration-color (Obsidian 1.7.4 partial) */
   text-decoration: line-through;
-  /* css: allow compat-text-decoration -- track-changes delete cue color */
-  text-decoration-color: rgba(198, 40, 40, 0.6);
 }
 
 /* Tracked cell — colored top border + faint background tint */
@@ -841,9 +835,8 @@
 .ep-revision-cell.ep-revision-del {
   box-shadow: inset 0 3px 0 #c62828;
   background-color: rgba(198, 40, 40, 0.05);
+  /* CSS2 single-keyword only — avoid text-decoration-color (Obsidian 1.7.4 partial) */
   text-decoration: line-through;
-  /* css: allow compat-text-decoration -- track-changes delete cue color */
-  text-decoration-color: rgba(198, 40, 40, 0.6);
 }
 .ep-revision-cell.ep-revision-merge {
   box-shadow: inset 0 3px 0 #5f6368;
