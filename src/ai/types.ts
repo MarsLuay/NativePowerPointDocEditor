@@ -14,6 +14,7 @@ export interface JsonSchema {
 	items?: JsonSchema;
 	enum?: Array<string | number | boolean | null>;
 	minimum?: number;
+	minLength?: number;
 	description?: string;
 	additionalProperties?: boolean;
 }

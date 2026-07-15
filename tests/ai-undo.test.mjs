@@ -6,7 +6,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { loadPresentationEngineModule } from './helpers/load-plugin-modules.mjs';
-import { getDocxRuntimeAliases } from './helpers/docx-runtime-aliases.mjs';
 import { readDeck, toArrayBuffer } from './helpers/renderer.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
@@ -64,7 +63,6 @@ async function loadPptxServiceModule() {
 	};
 	await build({
 		absWorkingDir: outputDirectory,
-		alias: await getDocxRuntimeAliases(projectRoot),
 		entryPoints: [path.join(projectRoot, 'src/ai/pptxDocumentService.ts')],
 		bundle: true,
 		format: 'cjs',

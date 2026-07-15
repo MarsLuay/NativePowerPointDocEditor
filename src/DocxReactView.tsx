@@ -1,26 +1,22 @@
 import type { TFile } from 'obsidian';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent, type ComponentProps } from 'react';
-import {
-	clearParagraphMeasureCache,
-	DocxEditor,
-	insertTable,
-	loadFontFromBuffer,
-	setFontSize,
-	setLineSpacing,
-	type DocxEditorRef,
-	type EditorMode,
-	type FontOption,
-	type RenderedDomContext,
-	type Translations,
-} from './docx/runtime';
+import { DocxEditor, type DocxEditorRef, type EditorMode } from '@npde/docx-editor-react';
+import { clearParagraphMeasureCache } from '@npde/docx-editor-core/layout-bridge';
+import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
+import { insertTable, setFontSize, setLineSpacing } from '@npde/docx-editor-core/prosemirror/commands';
+import { loadFontFromBuffer } from '@npde/docx-editor-core/utils';
+import type { FontOption } from '@npde/docx-editor-core/utils/fontOptions';
+import type { Translations } from '@npde/docx-editor-i18n';
 import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import proseMirrorViewStyles from 'prosemirror-view/style/prosemirror.css';
-import { docxEditorRuntimeStyles } from './docx/runtime/styles';
+import proseMirrorEditorStyles from '../docx-editor/packages/core/dist/prosemirror/editor.css';
+import editorStyles from '../docx-editor/packages/react/dist/styles.css';
 import type { I18nService } from './i18n/I18nService';
 import { parsePrimaryFontFamily } from './powerpoint/textUtils';
 import { isClipboardEvent, isElement, isHTMLElement, isHTMLButtonElement, isInputEvent, isNode, isPointerEvent } from './domGuards';
+import { summarizeDocxComment, summarizeDocxComments } from './docxCommentLogging';
 import { debugLog, errorLog, warnLog } from './logger';
 import { Platform } from './obsidianRuntime';
 import { configureToolbarIconButton, createMenuItem, createMenuSection, hardenInjectedMenuOption } from './menuControls';
@@ -61,7 +57,8 @@ let stylesInjected = false;
 let editorInstanceCounter = 0;
 const docxEditorStyles = [
 	proseMirrorViewStyles,
-	docxEditorRuntimeStyles,
+	proseMirrorEditorStyles,
+	editorStyles,
 ].join('\n');
 
 interface DocxSectionProperties {
@@ -1096,7 +1093,7 @@ function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) 
 		return;
 	}
 
-	const footer = activeDocument.createElement('div');
+	const footer = activeDocument.createDiv();
 	footer.className = 'native-powerpoint-doc-editor-font-menu-footer';
 	footer.setAttribute('data-native-powerpoint-doc-editor-font-menu-footer', 'true');
 
@@ -1598,24 +1595,22 @@ export function ensureEditorStyles() {
 		&& 'adoptedStyleSheets' in activeDocument
 		&& Array.isArray(activeDocument.adoptedStyleSheets);
 
-	if (useAdoptedSheets) {
-		const styleSheet = new CSSStyleSheet();
-		styleSheet.replaceSync(docxEditorStyles);
-		const caretSheet = new CSSStyleSheet();
-		caretSheet.replaceSync(hostCaretOverride);
-		activeDocument.adoptedStyleSheets = [
-			...activeDocument.adoptedStyleSheets,
-			styleSheet,
-			caretSheet,
-		];
-	} else {
-		const styleEl = activeDocument.createElement('style');
-		styleEl.textContent = `${docxEditorStyles}\n${hostCaretOverride}`;
-		(activeDocument.head ?? activeDocument.body).appendChild(styleEl);
+	if (!useAdoptedSheets) {
+		throw new Error('DOCX editor styles require adoptedStyleSheets (Obsidian Chromium).');
 	}
+
+	const styleSheet = new CSSStyleSheet();
+	styleSheet.replaceSync(docxEditorStyles);
+	const caretSheet = new CSSStyleSheet();
+	caretSheet.replaceSync(hostCaretOverride);
+	activeDocument.adoptedStyleSheets = [
+		...activeDocument.adoptedStyleSheets,
+		styleSheet,
+		caretSheet,
+	];
 	stylesInjected = true;
 	debugLog('editor', 'DOCX editor styles injected with white-page caret override', {
-		via: useAdoptedSheets ? 'adoptedStyleSheets' : 'style-element',
+		via: 'adoptedStyleSheets',
 		caretOverride: '--doc-caret: #000000; layout-page filter: none',
 	});
 }
@@ -1908,8 +1903,10 @@ export interface DocxReactViewProps {
 
 export interface DocxReactViewHandle {
 	save: () => Promise<boolean>;
+	prepareForExternalReload: () => Promise<void>;
 	exportBuffer: (options?: ExportDocumentBufferOptions) => Promise<ArrayBuffer | null>;
 	exportRenderedPdf: () => Promise<ArrayBuffer | null>;
+	getComments: () => Array<{ id: number; parentId?: number | null; author?: string; text?: string }>;
 	pasteFromClipboard: (options: PasteClipboardOptions) => Promise<boolean>;
 	rewriteClipboardTextWithListMarkers: () => Promise<boolean>;
 	openFind: () => void;
@@ -1955,8 +1952,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const dirtyTrackingEnabledRef = useRef(false);
 	const renameTimeoutRef = useRef<number | null>(null);
 	const sessionRef = useRef<DocxSession<DocxSaveContext, ArrayBuffer | null, ArrayBuffer, ArrayBuffer> | null>(null);
-	const saveHostRef = useRef({ file, onSave, showNotice, autosave });
-	saveHostRef.current = { file, onSave, showNotice, autosave };
+	const activeDocumentKeyRef = useRef(documentKey);
+	const externalReloadBlockedRef = useRef(false);
+	if (activeDocumentKeyRef.current !== documentKey) {
+		activeDocumentKeyRef.current = documentKey;
+		externalReloadBlockedRef.current = false;
+	}
+	const saveHostRef = useRef({ file, onSave, showNotice, autosave, documentKey });
+	saveHostRef.current = { file, onSave, showNotice, autosave, documentKey };
 	const [documentName, setDocumentName] = useState(file?.name ?? '');
 	const [editorMode, setEditorMode] = useState<EditorMode>('editing');
 	const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved');
@@ -2003,7 +2006,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const renderedPages = renderedDomContextRef.current?.pagesContainer.querySelectorAll(DOCX_RENDERED_PAGE_SELECTOR).length
 				?? activeDocument.querySelectorAll(`.${editorClassNameRef.current} ${DOCX_RENDERED_PAGE_SELECTOR}`).length;
 			const sourceDiagnostics = getDocxPaginationSourceDiagnostics(editorCore?.getView()?.state.doc);
-			const sourceDocument = editor?.getDocument();
+			const sourceDocument = editor?.getDocument() as DocxDocumentWithSectionProperties | null | undefined;
 			const documentProperties = sourceDocument?.package?.[DOCX_PACKAGE_DOCUMENT_KEY];
 			const sectionProperties = {
 				...documentProperties?.sections?.[0]?.properties,
@@ -2137,6 +2140,120 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		});
 	}, [syncCommentsSidebarToggle]);
 
+	const markCommentsDirty = useCallback((reason: 'change' | 'add' | 'reply' | 'delete' | 'resolve' | 'unresolve') => {
+		const blocked = externalReloadBlockedRef.current;
+		const wrongDocument = activeDocumentKeyRef.current !== documentKey;
+		const dirtyTrackingEnabled = dirtyTrackingEnabledRef.current;
+		const editorReady = Boolean(editorRef.current && editorAdapter.getView());
+		if (blocked || wrongDocument) {
+			debugLog('comments', 'DOCX comment dirty skipped', {
+				file: filePath,
+				reason,
+				blocked,
+				wrongDocument,
+				documentKey,
+				activeDocumentKey: activeDocumentKeyRef.current,
+			});
+			scheduleCommentsSidebarToggleSync();
+			return;
+		}
+		// Load/hydrate emits onCommentsChange (often total:0) before the editor can
+		// serialize. Immediate save then throws "serialization returned no document".
+		if (!dirtyTrackingEnabled && reason === 'change') {
+			debugLog('comments', 'DOCX comment dirty skipped (hydrate)', {
+				file: filePath,
+				reason,
+				dirtyTrackingEnabled,
+				editorReady,
+			});
+			scheduleCommentsSidebarToggleSync();
+			return;
+		}
+		sessionRef.current?.markDirty();
+		debugLog('comments', 'DOCX comment dirty marked', {
+			file: filePath,
+			reason,
+			dirtyTrackingEnabled,
+			editorReady,
+			editVersion: sessionRef.current?.editVersion ?? null,
+		});
+		// Flush quickly when ready; otherwise leave it to the normal autosave delay.
+		if (!editorReady) {
+			debugLog('comments', 'DOCX comment dirty flush deferred (editor not ready)', {
+				file: filePath,
+				reason,
+			});
+			scheduleCommentsSidebarToggleSync();
+			return;
+		}
+		void sessionRef.current?.save('autosave').then((ok) => {
+			debugLog('comments', 'DOCX comment dirty save settled', {
+				file: filePath,
+				reason,
+				ok,
+			});
+		}).catch((saveFailure: unknown) => {
+			debugLog('comments', 'DOCX comment dirty save failed', {
+				file: filePath,
+				reason,
+				error: saveFailure instanceof Error ? saveFailure.message : String(saveFailure),
+			});
+		});
+		scheduleCommentsSidebarToggleSync();
+	}, [documentKey, editorAdapter, filePath, scheduleCommentsSidebarToggleSync]);
+
+	const handleCommentsChange = useCallback((comments: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentsChange']>>[0]) => {
+		debugLog('comments', 'DOCX comments changed', {
+			file: filePath,
+			...summarizeDocxComments(comments),
+		});
+		markCommentsDirty('change');
+	}, [filePath, markCommentsDirty]);
+
+	const handleCommentAdd = useCallback((comment: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentAdd']>>[0]) => {
+		debugLog('comments', 'DOCX comment added', {
+			file: filePath,
+			comment: summarizeDocxComment(comment),
+		});
+		markCommentsDirty('add');
+	}, [filePath, markCommentsDirty]);
+
+	const handleCommentReply = useCallback((
+		reply: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentReply']>>[0],
+		parent: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentReply']>>[1],
+	) => {
+		debugLog('comments', 'DOCX comment reply added', {
+			file: filePath,
+			reply: summarizeDocxComment(reply),
+			parent: summarizeDocxComment(parent),
+		});
+		markCommentsDirty('reply');
+	}, [filePath, markCommentsDirty]);
+
+	const handleCommentDelete = useCallback((comment: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentDelete']>>[0]) => {
+		debugLog('comments', 'DOCX comment deleted', {
+			file: filePath,
+			comment: summarizeDocxComment(comment),
+		});
+		markCommentsDirty('delete');
+	}, [filePath, markCommentsDirty]);
+
+	const handleCommentResolve = useCallback((comment: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentResolve']>>[0]) => {
+		debugLog('comments', 'DOCX comment resolved', {
+			file: filePath,
+			comment: summarizeDocxComment(comment),
+		});
+		markCommentsDirty('resolve');
+	}, [filePath, markCommentsDirty]);
+
+	const handleCommentUnresolve = useCallback((comment: Parameters<NonNullable<ComponentProps<typeof DocxEditor>['onCommentUnresolve']>>[0]) => {
+		debugLog('comments', 'DOCX comment unresolved', {
+			file: filePath,
+			comment: summarizeDocxComment(comment),
+		});
+		markCommentsDirty('unresolve');
+	}, [filePath, markCommentsDirty]);
+
 	useEffect(() => {
 		ensureEditorStyles();
 	}, []);
@@ -2200,7 +2317,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	useEffect(() => {
 		sourceBufferRef.current = buffer;
-	}, [buffer, filePath]);
+	}, [buffer, documentKey, filePath]);
 
 	const syncListMarkerSelectionHighlights = useCallback(() => {
 		const root = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
@@ -2253,13 +2370,13 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	useEffect(() => {
 		setDocumentName(file?.name ?? '');
 		setEditorMode('editing');
+		setSaveStatus('saved');
 		setFindDialogMode(null);
 		setFindSearchText('');
 		setFindReplaceText('');
 		setFindMatches([]);
 		setCurrentFindIndex(0);
-		sessionRef.current?.reset();
-	}, [filePath]);
+	}, [documentKey, filePath]);
 
 	const setMode = useCallback((mode: EditorMode) => {
 		debugLog('editor', 'DOCX editor mode changed', { file: filePath, mode });
@@ -2998,37 +3115,70 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const prepareDocumentBufferRef = useRef(prepareDocumentBufferForWrite);
 	prepareDocumentBufferRef.current = prepareDocumentBufferForWrite;
 
-	if (!sessionRef.current) {
-		sessionRef.current = new DocxSession<DocxSaveContext, ArrayBuffer | null, ArrayBuffer, ArrayBuffer>({
+	const session = useMemo(() => {
+		const assertCurrentSessionCanWrite = () => {
+			if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+				throw new Error('DOCX editor save was superseded by an external reload.');
+			}
+		};
+
+		return new DocxSession<DocxSaveContext, ArrayBuffer | null, ArrayBuffer, ArrayBuffer>({
 			adapter: {
-				serialize: async () => editorAdapter.serialize(),
-				prepareForWrite: async (output) => {
-					if (!output) throw new Error('DOCX editor serialization returned no document');
-					return prepareDocumentBufferRef.current(output, 'save');
+				serialize: async () => {
+					assertCurrentSessionCanWrite();
+					const output = await editorAdapter.serialize();
+					assertCurrentSessionCanWrite();
+					return output;
 				},
-				validate: async (output) => output,
+				prepareForWrite: async (output) => {
+					assertCurrentSessionCanWrite();
+					if (!output) throw new Error('DOCX editor serialization returned no document');
+					const prepared = await prepareDocumentBufferRef.current(output, 'save');
+					assertCurrentSessionCanWrite();
+					return prepared;
+				},
+				validate: async (output) => {
+					assertCurrentSessionCanWrite();
+					return output;
+				},
 				persist: async (output, _validated, context, request) => {
+					assertCurrentSessionCanWrite();
 					const startedAt = performance.now();
 					await context.persist(output);
+					assertCurrentSessionCanWrite();
 					sourceBufferRef.current = output;
 					if (request.source === 'manual') {
 						saveHostRef.current.showNotice('docx:notice.saved', { fileName: context.file.name });
 					}
+					const commentsSummary = summarizeDocxComments(editorRef.current?.getComments() ?? []);
 					debugLog('save', 'DOCX vault write completed', {
 						file: context.file.path,
 						bytes: output.byteLength,
 						source: request.source,
 						targetVersion: request.targetVersion,
 						ms: Math.round(performance.now() - startedAt),
+						comments: commentsSummary,
 					});
 				},
 			},
 			getContext: () => {
-				const { file: currentFile, onSave: persist } = saveHostRef.current;
+				const { file: currentFile, onSave: persist, documentKey: hostDocumentKey } = saveHostRef.current;
+				if (
+					externalReloadBlockedRef.current
+					|| activeDocumentKeyRef.current !== documentKey
+					|| hostDocumentKey !== documentKey
+				) {
+					return null;
+				}
 				return currentFile ? { file: currentFile, persist } : null;
 			},
 			autosave: {
-				enabled: () => saveHostRef.current.autosave,
+				enabled: () => (
+					!externalReloadBlockedRef.current
+					&& activeDocumentKeyRef.current === documentKey
+					&& saveHostRef.current.documentKey === documentKey
+					&& saveHostRef.current.autosave
+				),
 				delayMs: () => 1500,
 				source: 'autosave',
 			},
@@ -3039,9 +3189,13 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				file: saveHostRef.current.file?.path ?? null, dirtyVersion: version,
 			}),
 		});
-	}
+	}, [documentKey, editorAdapter]);
+	sessionRef.current = session;
 
-	useEffect(() => sessionRef.current?.subscribe(({ dirty, saveState, saveError }) => {
+	useEffect(() => session.subscribe(({ dirty, saveState, saveError }) => {
+		if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+			return;
+		}
 		onDirtyChange(dirty);
 		setSaveStatus(saveState === 'clean' ? 'saved' : saveState === 'dirty' ? 'unsaved' : saveState);
 		if (saveState !== 'failed') return;
@@ -3054,27 +3208,40 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				? { fileName: currentFile?.name ?? 'document' }
 				: { fileName: currentFile?.name ?? 'document', message },
 		);
-	}), [onDirtyChange]);
+	}), [documentKey, onDirtyChange, session]);
+
+	useEffect(() => () => {
+		session.clearAutosave();
+		if (activeDocumentKeyRef.current === documentKey) {
+			externalReloadBlockedRef.current = true;
+		}
+	}, [documentKey, session]);
 
 	const saveDocument = useCallback(async (source: DocxSaveSource = 'manual') => {
+		if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+			debugLog('save', 'Ignored stale DOCX save request during external reload', { file: file?.path ?? null, source });
+			return false;
+		}
 		if (!file) {
 			showNotice('docx:notice.noFileOpen');
 			return false;
 		}
 
-		const session = sessionRef.current;
-		if (!session) return false;
 		debugLog('save', 'DOCX save requested', {
 			file: file.path,
 			source,
 			dirtyVersion: session.editVersion,
 		});
 		return session.save(source);
-	}, [file, showNotice]);
+	}, [documentKey, file, session, showNotice]);
 
 	const exportDocumentBuffer = useCallback(async (options?: ExportDocumentBufferOptions) => {
 		if (!options?.preserveAutosave) {
-			sessionRef.current?.clearAutosave();
+			session.clearAutosave();
+		}
+		if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+			debugLog('export', 'Ignored stale DOCX export during external reload', { file: file?.path ?? null });
+			return null;
 		}
 
 		if (!file) {
@@ -3083,15 +3250,28 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		const output = await editorAdapter.serialize();
+		if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+			debugLog('export', 'Discarded stale DOCX export after external reload', { file: file.path });
+			return null;
+		}
 		if (!output) {
 			showNotice('errors:exportNoDocument', { path: file.name });
 			return null;
 		}
 
-		return prepareDocumentBufferForWrite(output, 'export');
-	}, [editorAdapter, file, prepareDocumentBufferForWrite, showNotice]);
+		const prepared = await prepareDocumentBufferForWrite(output, 'export');
+		if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+			debugLog('export', 'Discarded prepared stale DOCX export after external reload', { file: file.path });
+			return null;
+		}
+		return prepared;
+	}, [documentKey, editorAdapter, file, prepareDocumentBufferForWrite, session, showNotice]);
 
 	const exportRenderedPdfBuffer = useCallback(async () => {
+		if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+			debugLog('export', 'Ignored stale DOCX PDF export during external reload', { file: filePath });
+			return null;
+		}
 		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
 		if (!editorRoot) {
 			warnLog('export', 'Could not export rendered PDF because the editor root is missing', {
@@ -3105,6 +3285,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		try {
 			const renderedPagesContainer = renderedDomContextRef.current?.pagesContainer ?? null;
 			const pdfBuffer = await exportRenderedPagesToPdf(editorRoot, renderedPagesContainer);
+			if (externalReloadBlockedRef.current || activeDocumentKeyRef.current !== documentKey) {
+				debugLog('export', 'Discarded stale DOCX PDF export after external reload', { file: filePath });
+				return null;
+			}
 			if (!pdfBuffer) {
 				showNotice('errors:exportNoPages');
 				return null;
@@ -3119,7 +3303,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			showNotice('errors:exportPdfRenderFailed', { message });
 			return null;
 		}
-	}, []);
+	}, [documentKey, filePath, showNotice]);
 
 	const handleRenderedDomContextReady = useCallback((context: RenderedDomContext) => {
 		renderedDomContextRef.current = context;
@@ -3136,9 +3320,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 
 	useEffect(() => {
 		if (!autosave) {
-			sessionRef.current?.clearAutosave();
+			session.clearAutosave();
 		}
-	}, [autosave]);
+	}, [autosave, session]);
 
 	const scheduleRename = useCallback((name: string) => {
 		clearRenameTimeout();
@@ -3760,10 +3944,26 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		void insertImageFile(imageFile);
 	}, [insertImageFile]);
 
+	const prepareForExternalReload = useCallback(async () => {
+		externalReloadBlockedRef.current = true;
+		session.clearAutosave();
+		await session.waitForIdle();
+	}, [session]);
+
 	useImperativeHandle(ref, () => ({
 		save: () => saveDocument(),
+		prepareForExternalReload,
 		exportBuffer: (options?: ExportDocumentBufferOptions) => exportDocumentBuffer(options),
 		exportRenderedPdf: () => exportRenderedPdfBuffer(),
+		getComments: () => {
+			const comments = editorRef.current?.getComments() ?? [];
+			return comments.map((comment) => ({
+				id: comment.id,
+				parentId: comment.parentId ?? null,
+				author: comment.author,
+				text: summarizeDocxComment(comment).text,
+			}));
+		},
 		pasteFromClipboard: async (options: PasteClipboardOptions) => {
 			const view = editorRef.current?.getEditorRef()?.getView();
 			const pasted = view ? await pasteClipboardIntoEditor(view, options) : false;
@@ -3789,7 +3989,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			debugLog('editor', 'DOCX zoom changed', { file: filePath, zoom });
 			editorRef.current?.setZoom(zoom);
 		},
-	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, saveDocument, setMode]);
+	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, prepareForExternalReload, saveDocument, setMode]);
 
 	if (isLoading) {
 		return null;
@@ -3831,6 +4031,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				i18n={i18n}
 				commentsSidebarOpen={commentsSidebarOpen}
 				onCommentsSidebarOpenChange={handleCommentsSidebarOpenChange}
+				onCommentsChange={handleCommentsChange}
+				onCommentAdd={handleCommentAdd}
+				onCommentReply={handleCommentReply}
+				onCommentDelete={handleCommentDelete}
+				onCommentResolve={handleCommentResolve}
+				onCommentUnresolve={handleCommentUnresolve}
 				initialZoom={defaultZoom}
 				className={editorClassNameRef.current}
 				colorMode={resolvedEditorTheme}
@@ -3879,8 +4085,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					<SaveStatusIndicator status={saveStatus} />
 				)}
 				onChange={() => {
-					if (dirtyTrackingEnabledRef.current) {
-						sessionRef.current?.markDirty();
+					if (
+						dirtyTrackingEnabledRef.current
+						&& !externalReloadBlockedRef.current
+						&& activeDocumentKeyRef.current === documentKey
+					) {
+						session.markDirty();
 					}
 					scheduleVerticalRulerMarkerSync(editorRef.current?.getDocument());
 					scheduleListMarkerSelectionHighlightSync();

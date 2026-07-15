@@ -73,6 +73,10 @@ export class DocxSession<Context, Serialized, Prepared, Validated> {
 		return this.saveCoordinator.save(source);
 	}
 
+	waitForIdle(): Promise<void> {
+		return this.saveCoordinator.waitForIdle();
+	}
+
 	clearAutosave(): void {
 		this.saveCoordinator.clearAutosave();
 	}

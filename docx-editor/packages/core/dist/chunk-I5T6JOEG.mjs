@@ -1,0 +1,1 @@
+import {r,q}from'./chunk-Q47ERLLM.mjs';var t=new r(q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();export{s as a,m as b};

@@ -136,7 +136,7 @@ function formatPdfNumber(value: number) {
 let renderedPdfMeasureCanvas: HTMLCanvasElement | null = null;
 
 function measureRenderedPdfTextCssWidth(text: string, fontSizePx: number, fontFamily: string, fontWeight: string, fontStyle: string) {
-	renderedPdfMeasureCanvas ??= activeDocument.createElement('canvas');
+	renderedPdfMeasureCanvas ??= activeDocument.createEl('canvas');
 	const context = renderedPdfMeasureCanvas.getContext('2d');
 	if (!context) {
 		return 0;
@@ -639,7 +639,7 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 	const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
 	try {
 		const image = await loadImageFromUrl(svgUrl);
-		const canvas = activeDocument.createElement('canvas');
+		const canvas = activeDocument.createEl('canvas');
 		canvas.width = Math.max(1, Math.round(pageWidth * RENDERED_PDF_EXPORT_SCALE));
 		canvas.height = Math.max(1, Math.round(pageHeight * RENDERED_PDF_EXPORT_SCALE));
 		const context = canvas.getContext('2d');

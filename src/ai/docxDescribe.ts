@@ -49,6 +49,8 @@ export interface DocxDescribedBlock {
 	cells?: DocxDescribedBlock[];
 	author?: string | null;
 	date?: string | null;
+	/** Present on comment replies when `commentsExtended.xml` threaded them. */
+	parentId?: number | null;
 }
 
 export interface DocxDescribeSnapshot {
@@ -233,13 +235,18 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 	const commentsXml = await zip.file('word/comments.xml')?.async('string');
 	if (commentsXml) {
 		sources.push('word/comments.xml');
-		for (const comment of parseCommentsXml(commentsXml)) {
+		const commentsExtendedXml = await zip.file('word/commentsExtended.xml')?.async('string');
+		if (commentsExtendedXml) {
+			sources.push('word/commentsExtended.xml');
+		}
+		for (const comment of parseCommentsXml(commentsXml, commentsExtendedXml)) {
 			blocks.push({
 				id: `comments/c[${comment.id}]`,
 				kind: 'comment',
 				part: 'comments',
 				author: comment.author,
 				date: comment.date,
+				...(comment.parentId != null ? { parentId: comment.parentId } : {}),
 				text: comment.text,
 			});
 		}

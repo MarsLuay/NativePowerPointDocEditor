@@ -96,6 +96,28 @@ test("DocxSession preserves a newer edit made while saving", async () => {
   assert.equal(session.saveState, "dirty");
 });
 
+test("DocxSession waits for an in-flight save before an external reload", async () => {
+  const { DocxSession } = await loadDocxSessionModule();
+  let releasePersist;
+  const persistStarted = new Promise((resolve) => {
+    releasePersist = resolve;
+  });
+  const session = new DocxSession(createSessionOptions(async () => persistStarted));
+
+  session.markDirty();
+  const save = session.save();
+  const idle = session.waitForIdle();
+  let idleResolved = false;
+  void idle.then(() => { idleResolved = true; }).catch(() => {});
+  await Promise.resolve();
+  assert.equal(idleResolved, false);
+
+  releasePersist();
+  assert.equal(await save, true);
+  await idle;
+  assert.equal(idleResolved, true);
+});
+
 test("FakeDocxEditorAdapter delegates editor operations through its options", async () => {
   const { FakeDocxEditorAdapter } = await loadFakeDocxEditorAdapterModule();
   const match = { from: 1, to: 3 };

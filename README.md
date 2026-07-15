@@ -6,7 +6,7 @@ Native PowerPoint Doc Editor opens, searches, and edits `.docx` and `.pptx` file
 
 | DOCX editor | PowerPoint editor |
 | --- | --- |
-| ![Native PowerPoint Doc Editor DOCX screen](docs/screenshot.png) | ![Native PowerPoint Doc Editor PPTX screen](docs/screenshot-pptx.png) |
+| ![Native PowerPoint Doc Editor DOCX screen](screenshot.png) | ![Native PowerPoint Doc Editor PPTX screen](screenshot-pptx.png) |
 
 ### Editing and viewing
 

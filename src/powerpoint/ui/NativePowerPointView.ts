@@ -1279,14 +1279,16 @@ export class NativePowerPointView extends FileView {
       return;
     }
 
-    const style = doc.createElement('style');
-    style.textContent =
+    // Print iframe needs ephemeral @page CSS; styles.css cannot target this document.
+    const printSheet = new CSSStyleSheet();
+    printSheet.replaceSync(
       '@page { size: landscape; margin: 12mm; }' +
       'html, body { margin: 0; padding: 0; background: #ffffff; }' +
       '.native-powerpoint-print-slide { page-break-after: always; text-align: center; }' +
       '.native-powerpoint-print-slide:last-child { page-break-after: auto; }' +
-      '.native-powerpoint-print-slide img { width: 100%; height: auto; display: block; }';
-    doc.head.appendChild(style);
+      '.native-powerpoint-print-slide img { width: 100%; height: auto; display: block; }',
+    );
+    doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, printSheet];
 
     let remaining = urls.length;
     const onReady = () => {
@@ -1300,9 +1302,9 @@ export class NativePowerPointView extends FileView {
     window.setTimeout(cleanup, 60000);
 
     for (const url of urls) {
-      const wrap = doc.createElement('div');
+      const wrap = doc.createDiv();
       wrap.className = 'native-powerpoint-print-slide';
-      const img = doc.createElement('img');
+      const img = doc.createEl('img');
       img.addEventListener('load', onReady, { once: true });
       img.addEventListener('error', onReady, { once: true });
       img.src = url;
@@ -4745,7 +4747,7 @@ export class NativePowerPointView extends FileView {
     });
 
     this.updateSelectionOverlay();
-    this.activeInlineCaret = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'line');
+    this.activeInlineCaret = activeDocument.createSvg('line');
     this.activeInlineCaret.classList.add('native-powerpoint-svg-caret');
     this.activeInlineCaret.setAttribute('aria-hidden', 'true');
     this.svgEl?.appendChild(this.activeInlineCaret);
@@ -5676,7 +5678,7 @@ export class NativePowerPointView extends FileView {
     // must be removed explicitly to avoid leaving an orphaned stray caret.
     this.activeInlineCaret?.remove();
     this.removeInlineSelection();
-    this.activeInlineCaret = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'line');
+    this.activeInlineCaret = activeDocument.createSvg('line');
     this.activeInlineCaret.classList.add('native-powerpoint-svg-caret');
     this.activeInlineCaret.setAttribute('aria-hidden', 'true');
     this.svgEl?.appendChild(this.activeInlineCaret);
@@ -6157,7 +6159,7 @@ export class NativePowerPointView extends FileView {
     if (!isSVGTextElement(textElement) || !parent) return;
 
     for (const box of boxes) {
-      const rect = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const rect = activeDocument.createSvg('rect');
       rect.classList.add('native-powerpoint-svg-selection');
       rect.setAttribute('x', this.formatSvgNumber(box.x));
       rect.setAttribute('y', this.formatSvgNumber(box.y));
@@ -6560,7 +6562,7 @@ export class NativePowerPointView extends FileView {
         if (!isSVGTextElement(textElement) || !parent) continue;
 
         for (const box of this.getSvgInlineSelectionBoxes(span, 0, total)) {
-          const rect = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          const rect = activeDocument.createSvg('rect');
           rect.classList.add('native-powerpoint-run-highlight');
           rect.setAttribute('x', this.formatSvgNumber(box.x));
           rect.setAttribute('y', this.formatSvgNumber(box.y));
@@ -6940,7 +6942,7 @@ export class NativePowerPointView extends FileView {
     if (text.length === 0) return { left: box.left, ...row };
 
     const style = window.getComputedStyle(editor);
-    const canvas = activeDocument.createElement('canvas');
+    const canvas = activeDocument.createEl('canvas');
     const context = canvas.getContext('2d');
     if (!context) {
       return { left: box.left + box.width * (offset / text.length), ...row };
@@ -7072,7 +7074,7 @@ export class NativePowerPointView extends FileView {
     const text = editor.value;
     const clickOffset = Math.max(0, Math.min(box.width, localClientX - box.left));
     const style = window.getComputedStyle(editor);
-    const canvas = activeDocument.createElement('canvas');
+    const canvas = activeDocument.createEl('canvas');
     const context = canvas.getContext('2d');
     if (!context) {
       return Math.round(text.length * (clickOffset / box.width));

@@ -1,5 +1,5 @@
 import { App, Component, MarkdownPostProcessorContext, MarkdownRenderChild, Plugin, TFile } from 'obsidian';
-import type { Translations } from './docx/runtime';
+import type { Translations } from '@npde/docx-editor-i18n';
 import { loadDocxEditorChunk } from './docxEditorLoader';
 import { isHTMLElement } from './domGuards';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';

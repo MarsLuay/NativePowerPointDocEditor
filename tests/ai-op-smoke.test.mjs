@@ -7,7 +7,6 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { loadPresentationEngineModule } from './helpers/load-plugin-modules.mjs';
-import { getDocxRuntimeAliases } from './helpers/docx-runtime-aliases.mjs';
 import { readDeck, toArrayBuffer } from './helpers/renderer.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
@@ -43,6 +42,7 @@ function wrapBody(...inner) {
 
 let cachedObsidianStub;
 let cachedDocxServiceModule;
+let cachedDocxAgentReloadGuardModule;
 let cachedPptxAiModules;
 
 async function setupObsidianStub(outputDirectory) {
@@ -83,7 +83,6 @@ async function loadDocxServiceModule() {
 	const outfile = path.join(outputDirectory, 'docx-service.cjs');
 	await build({
 		absWorkingDir: outputDirectory,
-		alias: await getDocxRuntimeAliases(projectRoot),
 		entryPoints: [path.join(projectRoot, 'src/ai/docxDocumentService.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -95,6 +94,23 @@ async function loadDocxServiceModule() {
 	});
 	cachedDocxServiceModule = require(outfile);
 	return cachedDocxServiceModule;
+}
+
+async function loadDocxAgentReloadGuardModule() {
+	if (cachedDocxAgentReloadGuardModule) return cachedDocxAgentReloadGuardModule;
+	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-reload-guard-'));
+	const outfile = path.join(outputDirectory, 'docx-agent-reload-guard.cjs');
+	await build({
+		entryPoints: [path.join(projectRoot, 'src/docx/DocxAgentReloadGuard.ts')],
+		bundle: true,
+		format: 'cjs',
+		logLevel: 'silent',
+		outfile,
+		platform: 'node',
+		target: 'node22',
+	});
+	cachedDocxAgentReloadGuardModule = require(outfile);
+	return cachedDocxAgentReloadGuardModule;
 }
 
 async function loadPptxAiModules() {
@@ -119,7 +135,6 @@ async function loadPptxAiModules() {
 	};
 	await build({
 		absWorkingDir: outputDirectory,
-		alias: await getDocxRuntimeAliases(projectRoot),
 		entryPoints: [path.join(projectRoot, 'src/ai/pptxOpExecutor.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -188,6 +203,11 @@ test('DOCX agent ops smoke all implemented operations', async () => {
 			'<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Cell</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
 			imageParagraph,
 		),
+		'docProps/core.xml': [
+			'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">',
+			'<dc:creator>Template Author</dc:creator><cp:lastModifiedBy>Template Editor</cp:lastModifiedBy><cp:revision>7</cp:revision>',
+			'</cp:coreProperties>',
+		].join(''),
 		'word/_rels/document.xml.rels': [
 			'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">',
 			'<Relationship Id="rId5" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/image1.png"/>',
@@ -210,6 +230,8 @@ test('DOCX agent ops smoke all implemented operations', async () => {
 	});
 
 	const ops = [
+		{ op: 'docx.removeComments' },
+		{ op: 'docx.setCoreProperties', creator: 'Marwan & Luay', lastModifiedBy: 'Marwan Luay' },
 		{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Alpha new' },
 		{ op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 		{ op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading2' } },
@@ -231,6 +253,151 @@ test('DOCX agent ops smoke all implemented operations', async () => {
 	const saveResult = await service.save(docPath);
 	assert.equal(saveResult.ok, true, JSON.stringify(saveResult.errors));
 	assert.ok(vault.store.get(docPath)?.byteLength > 0);
+	const output = await JSZip.loadAsync(vault.store.get(docPath));
+	const coreProperties = await output.file('docProps/core.xml')?.async('string');
+	assert.match(coreProperties ?? '', /<dc:creator>Marwan &amp; Luay<\/dc:creator>/);
+	assert.match(coreProperties ?? '', /<cp:lastModifiedBy>Marwan Luay<\/cp:lastModifiedBy>/);
+	assert.match(coreProperties ?? '', /<cp:revision>7<\/cp:revision>/);
+});
+
+test('DOCX metadata dry runs leave the cached session unchanged', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/dry-run-metadata.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody('<w:p><w:r><w:t>Unchanged</w:t></w:r></w:p>'),
+		'docProps/core.xml': [
+			'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">',
+			'<dc:creator>Template Author</dc:creator><cp:lastModifiedBy>Template Editor</cp:lastModifiedBy>',
+			'</cp:coreProperties>',
+		].join(''),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(
+		docPath,
+		[{ op: 'docx.setCoreProperties', creator: 'Marwan Luay', lastModifiedBy: 'Marwan Luay' }],
+		{ dryRun: true },
+	);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	const saveResult = await service.save(docPath);
+	assert.equal(saveResult.ok, true, JSON.stringify(saveResult.errors));
+	const output = await JSZip.loadAsync(vault.store.get(docPath));
+	const coreProperties = await output.file('docProps/core.xml')?.async('string');
+	assert.match(coreProperties ?? '', /<dc:creator>Template Author<\/dc:creator>/);
+	assert.match(coreProperties ?? '', /<cp:lastModifiedBy>Template Editor<\/cp:lastModifiedBy>/);
+});
+
+test('DOCX agent reload guard retains the latest package until its matching editor session is ready', async (t) => {
+	const { DocxAgentReloadGuard } = await loadDocxAgentReloadGuardModule();
+	const hadWindow = Object.prototype.hasOwnProperty.call(globalThis, 'window');
+	const originalWindow = globalThis.window;
+	t.after(() => {
+		if (hadWindow) {
+			globalThis.window = originalWindow;
+		} else {
+			delete globalThis.window;
+		}
+	});
+	if (!globalThis.window) {
+		globalThis.window = {
+			setTimeout: globalThis.setTimeout.bind(globalThis),
+			clearTimeout: globalThis.clearTimeout.bind(globalThis),
+		};
+	}
+	const guard = new DocxAgentReloadGuard();
+	const first = new Uint8Array([1, 2, 3]).buffer;
+	const second = new Uint8Array([4, 5, 6]).buffer;
+	const firstIdentity = { documentSession: 8, filePath: 'notes/first.docx' };
+	const secondIdentity = { documentSession: 9, filePath: 'notes/first.docx' };
+
+	guard.begin(firstIdentity, first);
+	assert.deepEqual([...new Uint8Array(guard.getPendingBuffer(firstIdentity))], [1, 2, 3]);
+	assert.equal(
+		guard.complete({ ...firstIdentity, documentSession: 7 }),
+		false,
+		'a stale editor-ready callback must not release the package',
+	);
+	assert.deepEqual([...new Uint8Array(guard.getPendingBuffer(firstIdentity))], [1, 2, 3]);
+
+	guard.begin(secondIdentity, second);
+	assert.equal(guard.complete(firstIdentity), false, 'a superseded session must not release the newer package');
+	assert.deepEqual([...new Uint8Array(guard.getPendingBuffer(secondIdentity))], [4, 5, 6]);
+	const ready = guard.waitForReady(secondIdentity, 100);
+	assert.equal(guard.complete(secondIdentity), true);
+	await ready;
+	assert.equal(guard.getPendingBuffer(secondIdentity), null);
+	const latest = guard.getLatestBufferAfter(0, secondIdentity);
+	assert.ok(latest);
+	assert.deepEqual([...new Uint8Array(latest.buffer)], [4, 5, 6]);
+
+	const thirdIdentity = { documentSession: 10, filePath: 'notes/first.docx' };
+	guard.begin(thirdIdentity, second);
+	await assert.rejects(guard.waitForReady(thirdIdentity, 1), /did not become ready within 1ms/);
+	assert.equal(guard.getPendingBuffer(thirdIdentity), null, 'a timed-out guard must not mask future saves');
+
+	guard.clear();
+	assert.equal(guard.getPendingBuffer(secondIdentity), null);
+	assert.equal(guard.getLatestBufferAfter(0, secondIdentity), null);
+});
+
+test('DOCX metadata survives immediate view-mode agent save while React still has the old editor buffer', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { DocxAgentReloadGuard } = await loadDocxAgentReloadGuardModule();
+	const docPath = 'notes/open-view-metadata.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody('<w:p><w:r><w:t>Visible text stays unchanged</w:t></w:r></w:p>'),
+		'docProps/core.xml': [
+			'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">',
+			'<dc:creator>Cozzi, Matt</dc:creator><cp:lastModifiedBy>Cozzi, Matt</cp:lastModifiedBy>',
+			'</cp:coreProperties>',
+		].join(''),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const reloadGuard = new DocxAgentReloadGuard();
+	let documentSession = 0;
+	let reloadIdentity = null;
+	const staleEditorBuffer = initialBuffer.slice(0);
+	const mockView = {
+		getLoadedDocumentPath: () => docPath,
+		canAgentEdit: () => true,
+		exportBufferForAgent: async () => reloadIdentity
+			? reloadGuard.getPendingBuffer(reloadIdentity) ?? staleEditorBuffer.slice(0)
+			: staleEditorBuffer.slice(0),
+		reloadFromAgentBuffer: async (buffer) => {
+			documentSession += 1;
+			reloadIdentity = { documentSession, filePath: docPath };
+			reloadGuard.begin(reloadIdentity, buffer);
+			// This deliberately leaves staleEditorBuffer unchanged, matching the
+			// interval before React remounts the editor for the new document key.
+		},
+		saveCurrentDocument: async () => true,
+	};
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => mockView,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{ op: 'docx.setCoreProperties', creator: 'Marwan Luay', lastModifiedBy: 'Marwan Luay' },
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+
+	const saveResult = await service.save(docPath);
+	assert.equal(saveResult.ok, true, JSON.stringify(saveResult.errors));
+	const output = await JSZip.loadAsync(vault.store.get(docPath));
+	const coreProperties = await output.file('docProps/core.xml')?.async('string');
+	const documentXml = await output.file('word/document.xml')?.async('string');
+	assert.match(coreProperties ?? '', /<dc:creator>Marwan Luay<\/dc:creator>/);
+	assert.match(coreProperties ?? '', /<cp:lastModifiedBy>Marwan Luay<\/cp:lastModifiedBy>/);
+	assert.match(documentXml ?? '', /Visible text stays unchanged/);
 });
 
 test('PPTX agent ops smoke dispatches every operation', async (t) => {

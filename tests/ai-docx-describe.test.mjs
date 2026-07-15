@@ -159,4 +159,37 @@ test('describeDocxFromBuffer includes headers, footers, footnotes, and comments'
 	assert.equal(comment?.kind, 'comment');
 	assert.equal(comment?.author, 'Reviewer');
 	assert.equal(comment?.text, 'Please revise.');
+	assert.equal(comment?.parentId, undefined);
+});
+
+test('describeDocxFromBuffer threads comment replies via commentsExtended', async () => {
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const buffer = await createDocxBuffer({
+		'word/document.xml': wrapBody('<w:p><w:r><w:t>Body</w:t></w:r></w:p>'),
+		'word/comments.xml': [
+			'<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml">',
+			'<w:comment w:id="1" w:author="Mars" w:date="2026-07-15T21:18:10Z">',
+			'<w:p w14:paraId="AAAAAAA1"><w:r><w:t>make fancier</w:t></w:r></w:p>',
+			'</w:comment>',
+			'<w:comment w:id="2" w:author="Mars" w:date="2026-07-15T21:19:00Z">',
+			'<w:p w14:paraId="AAAAAAA2"><w:r><w:t>add more polish</w:t></w:r></w:p>',
+			'</w:comment>',
+			'</w:comments>',
+		].join(''),
+		'word/commentsExtended.xml': [
+			'<w15:commentsEx xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml">',
+			'<w15:commentEx w15:paraId="AAAAAAA1" w15:done="0"/>',
+			'<w15:commentEx w15:paraId="AAAAAAA2" w15:paraIdParent="AAAAAAA1" w15:done="0"/>',
+			'</w15:commentsEx>',
+		].join(''),
+	});
+
+	const snapshot = await describeDocxFromBuffer(buffer, 'reply.docx');
+	assert.ok(snapshot.scope.sources.includes('word/commentsExtended.xml'));
+	const parent = snapshot.blocks.find((block) => block.id === 'comments/c[1]');
+	const reply = snapshot.blocks.find((block) => block.id === 'comments/c[2]');
+	assert.equal(parent?.text, 'make fancier');
+	assert.equal(parent?.parentId, undefined);
+	assert.equal(reply?.text, 'add more polish');
+	assert.equal(reply?.parentId, 1);
 });

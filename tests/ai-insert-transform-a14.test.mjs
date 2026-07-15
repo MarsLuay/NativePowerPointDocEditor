@@ -6,7 +6,6 @@ import {
   loadPowerPointPackageModule,
   loadPresentationEngineModule,
 } from "./helpers/load-plugin-modules.mjs";
-import { getDocxRuntimeAliases } from "./helpers/docx-runtime-aliases.mjs";
 import { readDeck, toArrayBuffer } from "./helpers/renderer.mjs";
 
 const FIXTURE = "features.pptx";
@@ -99,7 +98,6 @@ test("workshop deck AI insert+transform saves when deck is available", async () 
   const outfile = path.join(outputDirectory, "pptx-service.cjs");
   await build({
     absWorkingDir: outputDirectory,
-    alias: await getDocxRuntimeAliases(projectRoot),
     entryPoints: [path.join(projectRoot, "src/ai/pptxDocumentService.ts")],
     bundle: true,
     format: "cjs",

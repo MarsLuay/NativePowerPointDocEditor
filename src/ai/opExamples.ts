@@ -36,6 +36,8 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		shapeIndex: 0,
 		data: { categories: ['A', 'B'], series: [{ name: 'S1', values: [1, 2] }] },
 	},
+	'docx.removeComments': { op: 'docx.removeComments' },
+	'docx.setCoreProperties': { op: 'docx.setCoreProperties', creator: 'Document Author', lastModifiedBy: 'Document Editor' },
 	'docx.setRunText': { op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Updated' },
 	'docx.setRunStyle': { op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 	'docx.setParagraphStyle': { op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading1' } },

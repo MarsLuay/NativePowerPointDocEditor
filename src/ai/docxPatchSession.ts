@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { DOCX_DOCUMENT_PATH, listDocxDescribeParts } from './docxParts';
+import { DOCX_CORE_PROPERTIES_PATH, DOCX_DOCUMENT_PATH, listDocxDescribeParts } from './docxParts';
 import { AI_ERROR_CODES, createAiError } from './errors';
 
 export class DocxPatchSession {
@@ -27,7 +27,15 @@ export class DocxPatchSession {
 				session.partXml.set(listed.path, xml);
 			}
 		}
+		const corePropertiesXml = await zip.file(DOCX_CORE_PROPERTIES_PATH)?.async('string');
+		if (corePropertiesXml) {
+			session.partXml.set(DOCX_CORE_PROPERTIES_PATH, corePropertiesXml);
+		}
 		return session;
+	}
+
+	async clone(): Promise<DocxPatchSession> {
+		return DocxPatchSession.load(await this.export());
 	}
 
 	getDocumentXml(): string {

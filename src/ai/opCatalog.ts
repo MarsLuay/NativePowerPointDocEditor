@@ -281,6 +281,23 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		data: { type: 'object', additionalProperties: true, description: 'Chart data grid patch.' },
 	})),
 
+	// DOCX — review / metadata
+	docxOp('removeComments', 'review', 'Remove every comment annotation, inline anchor, and related DOCX package part.', {
+		type: 'object',
+		required: [],
+		properties: {},
+		additionalProperties: false,
+	}),
+	docxOp('setCoreProperties', 'metadata', 'Set the DOCX author and last modifier in docProps/core.xml.', {
+		type: 'object',
+		required: ['creator', 'lastModifiedBy'],
+		properties: {
+			creator: { type: 'string', minLength: 1, description: 'Document author (dc:creator).' },
+			lastModifiedBy: { type: 'string', minLength: 1, description: 'Most recent editor (cp:lastModifiedBy).' },
+		},
+		additionalProperties: false,
+	}),
+
 	// DOCX — text / font
 	docxOp('setRunText', 'font', 'Set run text by stable block/run id (body, header, footer, footnotes, endnotes).', {
 		type: 'object',
