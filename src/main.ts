@@ -208,8 +208,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			// eslint-disable-next-line obsidianmd/commands/no-plugin-id-in-command-id -- Released command ID; changing it would break saved hotkeys.
-			id: 'copy-native-powerpoint-doc-editor-debug-log',
+			id: 'copy-debug-log',
 			name: 'Copy debug log',
 			callback: async () => {
 				await this.copyDebugLog();

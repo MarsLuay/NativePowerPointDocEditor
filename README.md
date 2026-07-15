@@ -68,7 +68,7 @@ See [docs/privacy-policy.md](docs/privacy-policy.md) and [docs/terms-of-service.
 - `save-current-docx` — save the open DOCX file.
 - `save-current-docx-as` — save the open DOCX file under another name.
 - `duplicate-current-docx` — duplicate the open DOCX file.
-- `copy-native-powerpoint-doc-editor-debug-log` — copy the in-memory diagnostic log.
+- `copy-debug-log` — copy the in-memory diagnostic log.
 - `open-powerpoint-file` — choose and open a supported PowerPoint file.
 - `save-current-powerpoint-file` — save the open PowerPoint file.
 

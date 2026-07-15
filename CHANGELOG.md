@@ -6,6 +6,17 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.39] - 2026-07-15
+
+### Fixed
+
+- Unblock Obsidian Community catalog checks: public mirror ships dist-only `docx-editor/packages/{core,react,i18n}` (no monorepo TypeScript sources / agents / vue / nuxt). Catalog ESLint scans public `.ts`/`.tsx` regardless of local eslint ignores.
+- Rename command id `copy-native-powerpoint-doc-editor-debug-log` → `copy-debug-log` (plugin id must not appear in command ids).
+
+### Changed
+
+- Add `scripts/sync-obsidian-catalog-mirror.mjs` and make `build:docx-editor` verify committed dist on catalog-shaped trees.
+
 ## [1.0.38] - 2026-07-14
 
 ### Fixed

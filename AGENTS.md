@@ -22,6 +22,7 @@
 - Source + package dist: `docx-editor/` (pin `npde-mirror-1.9.0` / `66d74702…`, Apache-2.0). Runtime aliases: `scripts/lib/docx-editor-aliases.mjs` → `docx-editor/packages/{core,react,i18n}` plus single-copy `react` / `react-dom` (root `node_modules`). Pin plugin ProseMirror packages to the same versions as `docx-editor` and map them in `tsconfig.json` `paths` so `tsc` does not see dual package identities. `agentsStub/` stubs `AgentPanel` so the Obsidian bundle stays lean.
 - Edit source → `npm run build:docx-editor` (needs bun) → `npm run build` / `dev`. Users still only get `main.js`; monorepo is not an Obsidian download.
 - **Publish always fresh-rebuilds:** when publishing this plugin, run `npm run build:docx-editor` then `npm run build` (see vault publish skill). Fail if bun/rebuild tooling is missing — do not release stale package dist.
+- **Public catalog mirror (NativePowerPointDocEditor):** sync with `node scripts/sync-obsidian-catalog-mirror.mjs <clone>` so the public tree is **dist-only** for `docx-editor/packages/{core,react,i18n}` (no `src/`, no agents/vue/nuxt). Obsidian Community catalog ESLint scans all public `.ts`/`.tsx` and ignores this repo’s `eslint.config.mts` `docx-editor/**` ignore — full monorepo source fails catalog (1.0.35–1.0.38). Vault keeps full source.
 - Do **not** add `@eigenpal/*` to root `package.json`. Details: `src/docx/editor/README.md`.
 
 ### PPTX action logging

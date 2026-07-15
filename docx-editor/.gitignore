@@ -1,8 +1,15 @@
 # Dependencies
 node_modules/
 
-# Build outputs
+# Build outputs (default ignore). Catalog-facing public mirrors and CI must
+# commit runtime package dist — force-track the three Obsidian alias packages.
 dist/
+!packages/core/dist/
+!packages/core/dist/**
+!packages/react/dist/
+!packages/react/dist/**
+!packages/i18n/dist/
+!packages/i18n/dist/**
 
 # OS files
 .DS_Store

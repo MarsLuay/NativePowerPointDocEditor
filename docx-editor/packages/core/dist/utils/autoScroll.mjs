@@ -1,0 +1,1 @@
+import'../chunk-QYUPLKLP.mjs';var t=40,L=12;function o(_,E){if(E<_.top+40){let O=Math.max(0,_.top+40-E);return -Math.min(12,O/40*12)}if(E>_.bottom-40){let O=Math.max(0,E-(_.bottom-40));return Math.min(12,O/40*12)}return 0}export{t as AUTO_SCROLL_EDGE_ZONE,L as AUTO_SCROLL_MAX_SPEED,o as computeAutoScrollDelta};

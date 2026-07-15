@@ -1,0 +1,1 @@
+'use strict';function e(){return Math.floor(Math.random()*2147483647).toString(16).toUpperCase().padStart(8,"0")}var t=/^[0-9A-Fa-f]{8}$/;function r(n){return !n||!t.test(n)?false:parseInt(n,16)<2147483647}function f(n){if(n!=null)return r(n)?n:e()}exports.a=e;exports.b=r;exports.c=f;

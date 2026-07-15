@@ -548,7 +548,7 @@ async function runSmoke() {
 		plugin.registeredExtensions.some((entry) => entry.viewType === 'native-powerpoint-view' && entry.extensions.includes('pptx')),
 		'Plugin should register PowerPoint file extensions.'
 	);
-	const copyLogCommand = plugin.commands.find((command) => command.id === 'copy-native-powerpoint-doc-editor-debug-log');
+	const copyLogCommand = plugin.commands.find((command) => command.id === 'copy-debug-log');
 	assert.ok(copyLogCommand, 'Plugin should register the copy debug log command.');
 	assert.ok(plugin.commands.some((command) => command.id === 'search-docx-files'), 'Plugin should register the vault-wide DOCX search command.');
 	assert.ok(plugin.commands.some((command) => command.id === 'rebuild-docx-search-index'), 'Plugin should register the DOCX search rebuild command.');
@@ -603,7 +603,7 @@ async function runSmoke() {
 	assert.equal(disabledPlugin.registeredExtensions.length, 0, 'Disabled file handoff should not register DOCX or PowerPoint extensions.');
 	assert.ok(!disabledPlugin.commands.some((command) => command.id === 'save-current-docx'), 'Disabled DOCX handoff should skip DOCX commands.');
 	assert.ok(!disabledPlugin.commands.some((command) => command.id === 'save-current-powerpoint-file'), 'Disabled PPTX handoff should skip PowerPoint commands.');
-	assert.ok(disabledPlugin.commands.some((command) => command.id === 'copy-native-powerpoint-doc-editor-debug-log'), 'Disabled file handoff should keep diagnostics available.');
+	assert.ok(disabledPlugin.commands.some((command) => command.id === 'copy-debug-log'), 'Disabled file handoff should keep diagnostics available.');
 	pluginData = { ...DEFAULT_PLUGIN_DATA };
 
 	await copyLogCommand.callback();

@@ -18,6 +18,11 @@ npm run build               # or npm run dev
 
 Obsidian release artifacts remain `main.js` / `manifest.json` / `styles.css` — users do not download this tree.
 
+### Public GitHub mirror vs vault
+
+- **Vault (authoritative):** full monorepo `src` + rebuild tooling.
+- **NativePowerPointDocEditor (catalog):** dist-only `{core,react,i18n}` via `scripts/sync-obsidian-catalog-mirror.mjs`. Catalog ESLint fails if package TypeScript sources are committed.
+
 ## Former git remotes (nested .git removed so ObsidianNotes tracks this tree)
 mhur	https://github.com/mhurhangee/docx-editor.git (fetch) [blob:none]
 mhur	https://github.com/mhurhangee/docx-editor.git (push)

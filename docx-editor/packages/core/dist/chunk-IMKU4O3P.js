@@ -1,0 +1,1 @@
+'use strict';function o(e){return e/1440*96}function m(e,r,n){if(!n||r<=n)return {width:e,height:r};let u=n/r;return {width:Math.round(e*u),height:n}}var t=0;function i(){return `block-${++t}`}function s(){t=0;}exports.a=o;exports.b=m;exports.c=i;exports.d=s;

@@ -6,11 +6,15 @@
  * Requires: bun (docx-editor package scripts use bun/tsup). Install with:
  *   curl -fsSL https://bun.sh/install | bash
  * Or: npm install -g bun
+ *
+ * Catalog-safe public mirrors omit package `src/`. In that layout this script
+ * verifies committed `packages/{core,react,i18n}/dist` and exits 0 (no bun).
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CATALOG_DOCX_PACKAGES } from './lib/obsidian-catalog-mirror.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const monorepoRoot = path.join(projectRoot, 'docx-editor');
@@ -29,9 +33,28 @@ function which(bin) {
 	return result.status === 0 ? result.stdout.trim().split('\n')[0] : null;
 }
 
+function assertCommittedDist() {
+	for (const pkg of CATALOG_DOCX_PACKAGES) {
+		const distDir = path.join(monorepoRoot, 'packages', pkg, 'dist');
+		if (!existsSync(distDir) || readdirSync(distDir).length === 0) {
+			console.error(`[build:docx-editor] Missing committed dist: ${distDir}`);
+			process.exit(1);
+		}
+	}
+}
+
 if (!existsSync(path.join(monorepoRoot, 'package.json'))) {
 	console.error(`[build:docx-editor] Missing ${monorepoRoot}`);
 	process.exit(1);
+}
+
+const coreSrc = path.join(monorepoRoot, 'packages', 'core', 'src');
+const hasPackageSource = existsSync(coreSrc);
+if (!hasPackageSource) {
+	console.log('[build:docx-editor] No package source (catalog surface). Using committed dist.');
+	assertCommittedDist();
+	console.log('[build:docx-editor] Dist OK.');
+	process.exit(0);
 }
 
 const bun = which('bun');

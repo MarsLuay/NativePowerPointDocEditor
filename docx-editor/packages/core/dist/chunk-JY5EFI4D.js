@@ -1,0 +1,1 @@
+'use strict';function l(t){let e=t.parentElement;for(;e&&e!==document.documentElement;){let{overflowY:n}=getComputedStyle(e);if((n==="auto"||n==="scroll")&&e.scrollHeight>e.clientHeight+1)return e;e=e.parentElement;}return null}function r(t){return l(t)??document.documentElement}exports.a=l;exports.b=r;

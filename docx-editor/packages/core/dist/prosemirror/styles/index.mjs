@@ -1,0 +1,1 @@
+export{a as DEFAULT_NEW_TABLE_LOOK,b as resolvePreferredNewTableStyleId}from'../../chunk-TCNH27CF.mjs';export{a as StyleResolver,b as createStyleResolver}from'../../chunk-SDECDOHY.mjs';import'../../chunk-DI6CRWSW.mjs';import'../../chunk-QYUPLKLP.mjs';
