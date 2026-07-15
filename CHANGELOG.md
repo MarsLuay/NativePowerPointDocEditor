@@ -6,6 +6,17 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.42] - 2026-07-15
+
+### Changed
+
+- Catalog mirror Option A: public packages are **JS-only** (no package `.d.ts` / `types` fields). Sync drops decls; types stay in the vault. Code-analysis fails catalog-shaped trees that still ship package declarations (`catalog/dts-not-excluded`). Sanitized public `.d.ts` retired.
+- Catalog surface build skips `tsc` (`scripts/typecheck-for-surface.mjs`) so clean clones typecheck-free via esbuild against package JS.
+- Drop leftover Option A / agent hygiene: ambient-stub `rmSync`, `docs/AGENT-API.md` exclude/gitignore, hazard scanners + async catalog check wrapper, empty `dist/agent`, stale `./agent` docs.
+- Remove always-error MCP mutation stubs (`docx_insert_text` / replace / delete / format / apply_style, `docx_insert_variable`). Drop `@eigenpal/docx-editor-agents` package rows from local READMEs / changeset fixed set.
+
 ## [1.0.41] - 2026-07-15
 
 ### Changed

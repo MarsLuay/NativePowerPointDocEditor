@@ -1,6 +1,6 @@
 {
 	"name": "native-powerpoint-doc-editor",
-	"version": "1.0.41",
+	"version": "1.0.42",
 	"description": "Open, search, and edit DOCX and PPTX files directly in your vault.",
 	"main": "main.js",
 	"type": "module",
@@ -11,7 +11,7 @@
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
 		"build:docx-editor": "node scripts/build-docx-editor.mjs",
-		"build": "npm run i18n:generate && npm run ai:generate && npm run check:ai-capabilities && npm run i18n:validate && tsc -noEmit -skipLibCheck && node esbuild.config.mjs production && node scripts/check-no-dynamic-script.mjs && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs && node scripts/check-theme-architecture.mjs && node scripts/check-theme-css.mjs && node scripts/check-shared-ui-patterns.mjs",
+		"build": "npm run i18n:generate && npm run ai:generate && npm run check:ai-capabilities && npm run i18n:validate && node scripts/typecheck-for-surface.mjs && node esbuild.config.mjs production && node scripts/check-no-dynamic-script.mjs && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs && node scripts/check-theme-architecture.mjs && node scripts/check-theme-css.mjs && node scripts/check-shared-ui-patterns.mjs",
 		"i18n:generate": "node scripts/generate-i18n-types.mjs && node scripts/generate-pseudo-locales.mjs",
 		"ai:generate": "node scripts/generate-ai-capabilities.mjs",
 		"check:ai-capabilities": "node scripts/generate-ai-capabilities.mjs --check",

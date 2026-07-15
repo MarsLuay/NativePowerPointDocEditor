@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /**
  * Sync plugin tree → clean-clone / standalone NativePowerPointDocEditor mirror
- * with catalog-safe exclusions (dist-only docx-editor packages).
+ * with catalog-safe exclusions (JS-only dist for docx-editor packages).
  *
  * Usage:
  *   node scripts/sync-obsidian-catalog-mirror.mjs <dest-dir>
  *
  * Prefers `rsync -a --delete`. Falls back to a filtered recursive copy when
- * rsync is unavailable. Always writes committed package dist for core/react/i18n.
+ * rsync is unavailable. Always writes committed package dist for core/react/i18n,
+ * then strips package typings (declaration files + package.json types fields).
  */
 import { spawnSync } from 'node:child_process';
 import {
@@ -25,9 +26,10 @@ import { fileURLToPath } from 'node:url';
 import {
 	CATALOG_DOCX_PACKAGES,
 	CATALOG_MIRROR_RSYNC_EXCLUDES,
+	removePackageDeclarationFiles,
+	stripPackageTypingsFromPackageJson,
 	writeCatalogMirrorExcludeFile,
 } from './lib/obsidian-catalog-mirror.mjs';
-import { sanitizeCatalogDts } from './lib/sanitize-catalog-dts.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const destArg = process.argv[2];
@@ -93,22 +95,13 @@ function filteredCopy(srcRoot, outRoot) {
 	});
 }
 
-function sanitizePackageDts(pkgRoot) {
-	const stack = [pkgRoot];
-	while (stack.length) {
-		const dir = stack.pop();
-		for (const entry of readdirSync(dir, { withFileTypes: true })) {
-			const full = path.join(dir, entry.name);
-			if (entry.isDirectory()) {
-				stack.push(full);
-				continue;
-			}
-			if (!/\.d\.[cm]?ts$/i.test(entry.name)) continue;
-			const before = readFileSync(full, 'utf8');
-			const after = sanitizeCatalogDts(before);
-			if (after !== before) writeFileSync(full, after, 'utf8');
-		}
-	}
+function stripCatalogPackageTypings(pkgRoot) {
+	removePackageDeclarationFiles(pkgRoot);
+	const pkgJsonPath = path.join(pkgRoot, 'package.json');
+	if (!existsSync(pkgJsonPath)) return;
+	const raw = JSON.parse(readFileSync(pkgJsonPath, 'utf8'));
+	const stripped = stripPackageTypingsFromPackageJson(raw);
+	writeFileSync(pkgJsonPath, `${JSON.stringify(stripped, null, 2)}\n`, 'utf8');
 }
 
 const rsync = which('rsync');
@@ -142,11 +135,10 @@ for (const pkg of [...CATALOG_DOCX_PACKAGES, 'agents', 'vue', 'nuxt']) {
 	for (const name of ['src', 'tests', 'scripts', 'tsup.config.ts', 'tsconfig.json']) {
 		rmSync(path.join(pkgRoot, name), { recursive: true, force: true });
 	}
-	sanitizePackageDts(pkgRoot);
+	stripCatalogPackageTypings(pkgRoot);
+	// Stale empty dirs (e.g. dist/agent) can survive rsync --delete when not empty of junk.
+	rmSync(path.join(pkgRoot, 'dist', 'agent'), { recursive: true, force: true });
 }
-
-// Remove leftover ambient stub if an older sync wrote it.
-rmSync(path.join(destRoot, 'src', 'catalog-ambient-modules.d.ts'), { force: true });
 
 const marker = path.join(destRoot, 'docx-editor', 'CATALOG_SURFACE.md');
 writeFileSync(
@@ -154,11 +146,12 @@ writeFileSync(
 	[
 		'# Catalog surface (public mirror)',
 		'',
-		'This checkout ships **dist-only** `docx-editor/packages/{core,react,i18n}`.',
-		'Full TypeScript sources live in the ObsidianNotes vault authoritative tree.',
+		'This checkout ships **JS-only** `docx-editor/packages/{core,react,i18n}`',
+		'(`.js` / `.mjs` / `.cjs` / `.css`). No package `.d.ts` and no `types`',
+		'fields in those `package.json` files.',
 		'',
-		'Package `*.d.ts` are sanitized for Obsidian catalog ESLint (`globalThis`,',
-		'Identifier `document`, `#private` stubs, etc.). Runtime JS is unchanged.',
+		'Full TypeScript sources and package typings live in the ObsidianNotes vault',
+		'authoritative tree only. Runtime JS is unchanged by sync.',
 		'',
 		'Rebuild from vault: `npm run build:docx-editor` then re-sync.',
 		'',

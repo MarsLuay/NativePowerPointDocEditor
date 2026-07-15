@@ -1,9 +1,10 @@
 # Catalog surface (public mirror)
 
-This checkout ships **dist-only** `docx-editor/packages/{core,react,i18n}`.
-Full TypeScript sources live in the ObsidianNotes vault authoritative tree.
+This checkout ships **JS-only** `docx-editor/packages/{core,react,i18n}`
+(`.js` / `.mjs` / `.cjs` / `.css`). No package `.d.ts` and no `types`
+fields in those `package.json` files.
 
-Package `*.d.ts` are sanitized for Obsidian catalog ESLint (`globalThis`,
-Identifier `document`, `#private` stubs, etc.). Runtime JS is unchanged.
+Full TypeScript sources and package typings live in the ObsidianNotes vault
+authoritative tree only. Runtime JS is unchanged by sync.
 
 Rebuild from vault: `npm run build:docx-editor` then re-sync.

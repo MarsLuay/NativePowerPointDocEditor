@@ -1,1 +1,0 @@
-'use strict';var chunkNF6VFNYX_js=require('./chunk-NF6VFNYX.js');var t=new chunkNF6VFNYX_js.r(chunkNF6VFNYX_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;

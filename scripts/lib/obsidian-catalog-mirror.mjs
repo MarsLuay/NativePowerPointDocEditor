@@ -3,13 +3,14 @@
  * Shipping docx-editor package *source* (layout-painter, agents, vue, etc.) fails
  * catalog checks even when local eslint.config.mts ignores docx-editor/**.
  *
- * Vault / ObsidianNotes keeps full monorepo source for rebuilds.
- * The standalone NativePowerPointDocEditor mirror must be dist-only for packages
- * consumed at runtime: core, react, i18n. Declaration files ship, but
- * `sync-obsidian-catalog-mirror.mjs` sanitizes catalog ESLint hazards
- * (`globalThis`, bare `document` identifiers, `#private` stubs, etc.).
+ * Vault / ObsidianNotes keeps full monorepo source and package typings for rebuilds.
+ * The standalone NativePowerPointDocEditor catalog mirror ships JS runtime only for
+ * packages consumed at runtime: core, react, i18n (`.js` / `.mjs` / `.cjs` / `.css`).
+ * No package `.d.ts` / `.d.mts` / `.d.cts` and no `types` / `typesVersions` /
+ * `exports.*.types` pointers on the public surface — types live in the vault only.
  */
-import { writeFileSync } from 'node:fs';
+import { readdirSync, rmSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 
 export const CATALOG_DOCX_PACKAGES = ['core', 'react', 'i18n'];
 
@@ -33,7 +34,6 @@ export const CATALOG_MIRROR_RSYNC_EXCLUDES = [
 	'scripts/visual-output/',
 	'test-results/',
 	'test_files/',
-	'docs/AGENT-API.md',
 	'docx-editor/node_modules/',
 	'docx-editor/**/node_modules/',
 	'docx-editor/**/.turbo/',
@@ -56,6 +56,13 @@ export const CATALOG_MIRROR_RSYNC_EXCLUDES = [
 	'docx-editor/packages/*/tailwind*.{cjs,js,ts,mjs}',
 	'docx-editor/packages/*/postcss.config.*',
 	'docx-editor/packages/*/scripts/',
+	// Best-effort: exclude package declaration emit (post-sync delete is the guarantee).
+	'docx-editor/packages/*/**/*.d.ts',
+	'docx-editor/packages/*/**/*.d.mts',
+	'docx-editor/packages/*/**/*.d.cts',
+	'docx-editor/packages/*/*.d.ts',
+	'docx-editor/packages/*/*.d.mts',
+	'docx-editor/packages/*/*.d.cts',
 	'docx-editor/bun.lock',
 	'docx-editor/bun.lockb',
 	'docx-editor/turbo.json',
@@ -73,4 +80,53 @@ export const CATALOG_MIRROR_RSYNC_EXCLUDES = [
 
 export function writeCatalogMirrorExcludeFile(filePath) {
 	writeFileSync(filePath, `${CATALOG_MIRROR_RSYNC_EXCLUDES.join('\n')}\n`, 'utf8');
+}
+
+/**
+ * Strip typings surface from a package.json object (top-level + nested exports).
+ * Mutates a deep clone; returns the clone.
+ * @param {Record<string, unknown>} pkgJson
+ * @returns {Record<string, unknown>}
+ */
+export function stripPackageTypingsFromPackageJson(pkgJson) {
+	const out = structuredClone(pkgJson);
+	delete out.types;
+	delete out.typings;
+	delete out.typesVersions;
+
+	function stripNode(node) {
+		if (!node || typeof node !== 'object') return;
+		if (Array.isArray(node)) {
+			for (const item of node) stripNode(item);
+			return;
+		}
+		for (const key of Object.keys(node)) {
+			if (key === 'types' || key === 'typings') {
+				delete node[key];
+				continue;
+			}
+			stripNode(node[key]);
+		}
+	}
+
+	if (out.exports) stripNode(out.exports);
+	return out;
+}
+
+/** Recursively delete `*.d.ts` / `*.d.mts` / `*.d.cts` under a package root. */
+export function removePackageDeclarationFiles(pkgRoot) {
+	const stack = [pkgRoot];
+	while (stack.length) {
+		const dir = stack.pop();
+		for (const entry of readdirSync(dir, { withFileTypes: true })) {
+			const full = path.join(dir, entry.name);
+			if (entry.isDirectory()) {
+				stack.push(full);
+				continue;
+			}
+			if (/\.d\.[cm]?ts$/i.test(entry.name)) {
+				rmSync(full, { force: true });
+			}
+		}
+	}
 }

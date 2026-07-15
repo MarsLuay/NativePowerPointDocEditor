@@ -28,4 +28,4 @@ Until you run step 2, the plugin uses the committed/seeded `dist/` (same bytes a
 
 ## AI and save
 
-There is no `@eigenpal/docx-editor-agents` package in this tree. Plugin AI lives under `src/ai` only. React DOCX save uses `Document` + packers directly — not `DocumentAgent`.
+There is no `@eigenpal/docx-editor-agents` package and no core `DocumentAgent` tree. Plugin AI lives under `src/ai` only. React DOCX save uses `Document` + packers (`exportDocxBuffer`) directly.

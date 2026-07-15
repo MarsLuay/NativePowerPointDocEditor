@@ -5,40 +5,32 @@
   "sideEffects": true,
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
     },
     "./en": {
-      "types": "./dist/en.d.ts",
       "import": "./dist/en.mjs",
       "require": "./dist/en.js"
     },
     "./he": {
-      "types": "./dist/he.d.ts",
       "import": "./dist/he.mjs",
       "require": "./dist/he.js"
     },
     "./pl": {
-      "types": "./dist/pl.d.ts",
       "import": "./dist/pl.mjs",
       "require": "./dist/pl.js"
     },
     "./pt-BR": {
-      "types": "./dist/pt-BR.d.ts",
       "import": "./dist/pt-BR.mjs",
       "require": "./dist/pt-BR.js"
     },
     "./tr": {
-      "types": "./dist/tr.d.ts",
       "import": "./dist/tr.mjs",
       "require": "./dist/tr.js"
     },
     "./zh-CN": {
-      "types": "./dist/zh-CN.d.ts",
       "import": "./dist/zh-CN.mjs",
       "require": "./dist/zh-CN.js"
     },
