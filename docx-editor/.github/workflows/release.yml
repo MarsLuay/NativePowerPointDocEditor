@@ -174,7 +174,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: 'true'
 
-      # changesets/action creates per-package tags (e.g. `@eigenpal/docx-editor-react@1.0.1`);
+      # changesets/action creates per-package tags (e.g. `@npde/docx-editor-react@1.0.1`);
       # also create a single `vX.Y.Z` umbrella tag for Renovate/Dependabot/Releases.
       # The fixed group keeps every 1.x package in lockstep, so the umbrella
       # version = the version of any published package. The `published` gate
@@ -264,11 +264,11 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           # publishedPackages is JSON like:
-          # [{"name":"@eigenpal/docx-editor-react","version":"1.0.0"}, ...]
+          # [{"name":"@npde/docx-editor-react","version":"1.0.0"}, ...]
           version=$(echo "$PUBLISHED_PACKAGES" | jq -r '.[0].version')
           packages_md=$(echo "$PUBLISHED_PACKAGES" | jq -r '.[] | "• <https://www.npmjs.com/package/\(.name)/v/\(.version)|\(.name)@\(.version)>"')
           # changesets/action with a fixed group creates per-package tags (e.g.
-          # `@eigenpal/docx-editor-react@1.0.0`), not a single `vX.Y.Z`. URL-encode
+          # `@npde/docx-editor-react@1.0.0`), not a single `vX.Y.Z`. URL-encode
           # `@`/`/` so the link resolves on GitHub.
           release_tag=$(jq -rn --argjson pkgs "$PUBLISHED_PACKAGES" '$pkgs[0].name + "@" + $pkgs[0].version | @uri')
           release_url="${{ github.server_url }}/${{ github.repository }}/releases/tag/$release_tag"
