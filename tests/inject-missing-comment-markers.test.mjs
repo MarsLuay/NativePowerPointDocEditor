@@ -1,8 +1,5 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { build } from "esbuild";
-import { mkdtemp } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 
@@ -13,22 +10,11 @@ let cachedModule;
 
 async function loadInjectModule() {
   if (cachedModule) return cachedModule;
-  const outputDirectory = await mkdtemp(path.join(tmpdir(), "npde-comment-inject-"));
-  const outfile = path.join(outputDirectory, "inject-comment-markers.cjs");
-  await build({
-    entryPoints: [
-      path.join(
-        projectRoot,
-        "docx-editor/packages/core/src/docx/injectReplyRangeMarkers.ts",
-      ),
-    ],
-    bundle: true,
-    format: "cjs",
-    logLevel: "silent",
-    outfile,
-    platform: "node",
-    target: "node22",
-  });
+  // Catalog mirror ships JS package dist only (no monorepo src/). Load from dist.
+  const outfile = path.join(
+    projectRoot,
+    "docx-editor/packages/core/dist/docx/index.js",
+  );
   cachedModule = require(outfile);
   return cachedModule;
 }

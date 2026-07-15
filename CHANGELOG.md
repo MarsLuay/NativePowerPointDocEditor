@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.46] - 2026-07-15
+
+### Fixed
+
+- Catalog mirror verify: comment-marker tests load `docx-editor` package **dist** (no package `src/` in public tree).
+
 ## [1.0.45] - 2026-07-15
 
 ### Fixed
