@@ -115,7 +115,7 @@ export interface DocxEditorProps {
 	onDocumentNameChange?: (name: string) => void;
 	renderLogo?: () => ReactNode;
 	renderTitleBarRight?: () => ReactNode;
-	onChange?: (document: unknown) => void;
+	onChange?: (doc: unknown) => void;
 	onFontsLoaded?: () => void;
 	onSave?: (buffer: ArrayBuffer) => void | Promise<void>;
 	onError?: (error: Error) => void;

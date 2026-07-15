@@ -2,7 +2,7 @@
 	"schemaVersion": 1,
 	"sourceRepository": "MarsLuay/NativePowerPointDocEditor",
 	"sourceBranch": "docx-editor-source",
-	"sourceCommit": "9589446680d45262c8d98fd0bb551a92bbcc5ef8",
+	"sourceCommit": "8c2504c232e1be1cf2cfe988af3f65d28c8f6f8a",
 	"license": "Apache-2.0",
 	"packages": {
 		"core": "1.9.0",

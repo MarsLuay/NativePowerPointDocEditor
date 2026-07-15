@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.44] - 2026-07-15
+
 ### Changed
 
 - Split DOCX editor development into `docx-editor-source` (the full editable monorepo) and `main` (the independently type-checkable plugin). Main now vendors an allowlisted JavaScript/CSS snapshot at `vendor/docx-editor-runtime` behind `src/docx/runtime`.
@@ -388,7 +390,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.28...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.44...HEAD
+[1.0.44]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.43...1.0.44
 [1.0.28]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.27...1.0.28
 [1.0.27]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...1.0.27
 [1.0.26]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...1.0.26
