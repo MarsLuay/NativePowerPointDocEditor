@@ -6,6 +6,13 @@ this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.37] - 2026-07-14
+
+### Changed
+
+- Document intentional DOCX editor CSS guardrail exceptions (`@tailwind`, Word layout `:has`/page-break cues, selection and find-highlight `!important`, track-changes decoration color).
+- Point `package.json` `repository` at `MarsLuay/NativePowerPointDocEditor` so release tooling resolves the authoritative GitHub repo from the vault subtree.
+
 ## [1.0.36] - 2026-07-14
 
 ### Added

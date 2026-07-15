@@ -19,6 +19,7 @@
  * include @tailwind base (preflight) to avoid resetting the host application.
  */
 
+/* css: allow unknown-at-rule -- Tailwind CLI expands this in adapter builds */
 @tailwind utilities;
 
 /* ============================================================================
@@ -254,6 +255,7 @@
   /* Replace the painter's drop shadow (the filter would turn it into a weird
    * light glow) with a 1px ring. Pre-invert dark → post-invert a subtle light
    * border, matching Word's framed dark page. */
+  /* obsidian: allow css-important -- must beat dark-invert filter shadow */
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18) !important;
 }
 .ep-root.dark .layout-page img,
@@ -506,12 +508,14 @@
 
 /* Find/replace match highlighting */
 .docx-find-highlight {
+  /* obsidian: allow css-important -- must beat DOCX inline run backgrounds */
   background-color: rgba(255, 235, 59, 0.5) !important;
   border-radius: 2px;
 }
 
 /* Current find/replace match */
 .docx-find-highlight-current {
+  /* obsidian: allow css-important -- must beat DOCX inline run backgrounds */
   background-color: rgba(255, 152, 0, 0.6) !important;
   border-radius: 2px;
   outline: 2px solid rgba(255, 152, 0, 0.8);
@@ -687,6 +691,7 @@
 .paged-editor--readonly .layout-table-row-resize-handle,
 .paged-editor--readonly .layout-table-edge-handle-bottom,
 .paged-editor--readonly .layout-table-edge-handle-right {
+  /* obsidian: allow css-important -- hide interactive chrome in readonly mode */
   display: none !important;
 }
 

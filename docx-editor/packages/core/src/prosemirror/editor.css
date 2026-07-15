@@ -94,6 +94,7 @@
 
 /* Explicit page break (from DOCX pageBreakBefore) */
 .prosemirror-editor .ProseMirror [data-page-break-before='true'] {
+  /* css: allow compat-multicolumn -- DOCX pageBreakBefore fragmentation cue */
   break-before: page;
 }
 
@@ -315,12 +316,16 @@
 }
 
 /* Paragraphs containing only a block image: remove text-indent and center */
+/* css: allow no-has-selector -- Word block-image paragraph shape has no stable class hook yet */
 .prosemirror-editor .ProseMirror p:has(> img.docx-image-block:only-child) {
+  /* css: allow compat-text-indent -- zero indent against DOCX inline indent */
+  /* obsidian: allow css-important -- override DOCX paragraph text-indent inline styles */
   text-indent: 0 !important;
   text-align: center;
 }
 
 /* Clear floats after paragraphs containing floated images */
+/* css: allow no-has-selector -- Word float image clearfix; no parent class hook yet */
 .prosemirror-editor .ProseMirror p:has(img.docx-image-float)::after {
   content: '';
   display: table;
@@ -824,6 +829,7 @@
 .ep-revision-row:not(.layout-table-row).ep-revision-del > * {
   box-shadow: inset 3px 0 0 #c62828;
   text-decoration: line-through;
+  /* css: allow compat-text-decoration -- track-changes delete cue color */
   text-decoration-color: rgba(198, 40, 40, 0.6);
 }
 
@@ -836,6 +842,7 @@
   box-shadow: inset 0 3px 0 #c62828;
   background-color: rgba(198, 40, 40, 0.05);
   text-decoration: line-through;
+  /* css: allow compat-text-decoration -- track-changes delete cue color */
   text-decoration-color: rgba(198, 40, 40, 0.6);
 }
 .ep-revision-cell.ep-revision-merge {
