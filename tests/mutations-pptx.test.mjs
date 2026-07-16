@@ -169,6 +169,58 @@ test("PptxMutationService routes shape fill color commands", async () => {
   assert.deepEqual(calls, [["setShapeFillColor", 2, 3, "AABBCC"], "commit"]);
 });
 
+test("PptxMutationService routes text-box origins", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => new ArrayBuffer(4),
+    insertTextBox: async (slideIndex, origin) => {
+      calls.push(["insertTextBox", slideIndex, origin]);
+      return 7;
+    },
+    commitMutation: async () => calls.push("commit"),
+    restoreSnapshot: async () => {},
+  };
+
+  const result = await new PptxMutationService(engine).execute({
+    type: "insert-text-box",
+    slideIndex: 2,
+    origin: { x: 123, y: 456 },
+  });
+
+  assert.equal(result, 7);
+  assert.deepEqual(calls, [["insertTextBox", 2, { x: 123, y: 456 }], "commit"]);
+});
+
+test("PptxMutationService routes paragraph split commands", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => new ArrayBuffer(4),
+    splitParagraph: async (slideIndex, shapeIndex, paragraphIndex, splitOffset, text) => {
+      calls.push(["splitParagraph", slideIndex, shapeIndex, paragraphIndex, splitOffset, text]);
+      return { paragraphIndex: paragraphIndex + 1 };
+    },
+    commitMutation: async () => calls.push("commit"),
+    restoreSnapshot: async () => {},
+  };
+
+  const result = await new PptxMutationService(engine).execute({
+    type: "split-paragraph",
+    slideIndex: 2,
+    shapeIndex: 3,
+    paragraphIndex: 4,
+    splitOffset: 5,
+    text: "Edited paragraph",
+  });
+
+  assert.deepEqual(result, { paragraphIndex: 5 });
+  assert.deepEqual(calls, [
+    ["splitParagraph", 2, 3, 4, 5, "Edited paragraph"],
+    "commit",
+  ]);
+});
+
 test("PptxMutationService rejects commands before an engine is available", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const service = new PptxMutationService(() => null);

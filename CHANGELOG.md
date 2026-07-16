@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.47] - 2026-07-16
+
+### Added
+
+- AI: `docx.replaceBodyParagraphs` for writing multi-paragraph DOCX bodies without chaining paragraph breaks.
+- AI: `ai.createDocument({ path, kind, paragraphs?, overwrite? })` to create blank vault DOCX/PPTX packages (optional DOCX paragraphs).
+
+### Fixed
+
+- PowerPoint filmstrip thumbnails preserve nonstandard slide aspect ratios instead of forcing a standard format.
+- PowerPoint two-finger gestures pan horizontally and vertically; they no longer invert into pinch zoom, and zoomed canvases can reach the upper and left bounds.
+- PowerPoint rich-text editing: reliable caret/word/paragraph selection, `Ctrl+A` within a text box, and increment/decrement font-size synchronization for mixed-format text.
+- PowerPoint text editing preserves blank paragraphs and reflows content after inserting paragraph breaks instead of overflowing a text box.
+- New PowerPoint text boxes use the right-click position.
+- DOCX editors route a typed space through the active editor once, preventing duplicate spacing.
+
 ## [1.0.46] - 2026-07-15
 
 ### Fixed
@@ -402,7 +418,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.28...HEAD
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.47...HEAD
+[1.0.47]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.46...1.0.47
 [1.0.28]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.27...1.0.28
 [1.0.27]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...1.0.27
 [1.0.26]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...1.0.26

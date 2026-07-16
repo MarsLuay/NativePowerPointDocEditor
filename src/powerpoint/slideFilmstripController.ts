@@ -175,16 +175,30 @@ export class SlideFilmstripController {
     if (!this.host.engine || !this.host.thumbnailContainer) return;
 
     const thumbnailStarted = performance.now();
-    const slideCount = this.host.engine.slideCount;
+    const engine = this.host.engine;
+    const thumbnailContainer = this.host.thumbnailContainer;
+    const slideCount = engine.slideCount;
     const generation = ++this.thumbnailRenderGeneration;
     const lazy = shouldUseLazyThumbnails(slideCount);
     debugLog('render', 'PowerPoint renderThumbnails start', { slideCount, lazy });
+
+    const { cx, cy } = await engine.getSlideSizeEmu();
+    if (
+      generation !== this.thumbnailRenderGeneration
+      || engine !== this.host.engine
+      || thumbnailContainer !== this.host.thumbnailContainer
+    ) {
+      return;
+    }
+    const aspectRatio = `${cx} / ${cy}`;
+    thumbnailContainer.style.setProperty('--native-powerpoint-thumbnail-aspect-ratio', aspectRatio);
+    debugLog('render', 'PowerPoint thumbnail aspect ratio resolved', { cx, cy, aspectRatio });
 
     this.disconnectThumbnailObserver();
     this.cancelIdleThumbnailFill?.();
     this.cancelIdleThumbnailFill = null;
     this.renderedThumbnailIndices.clear();
-    this.host.thumbnailContainer.empty();
+    thumbnailContainer.empty();
 
     for (let index = 0; index < slideCount; index += 1) {
       this.appendThumbnailShell(index, !lazy);

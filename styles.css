@@ -2463,7 +2463,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-thumbnail-preview {
-	aspect-ratio: 16 / 9;
+	aspect-ratio: var(--native-powerpoint-thumbnail-aspect-ratio, 16 / 9);
 	background: var(--npde-document-bg);
 	border-radius: 3px;
 	overflow: hidden;
@@ -2882,11 +2882,11 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-canvas-pane {
-	align-items: center;
+	align-items: flex-start;
 	background: var(--nps-canvas);
 	display: flex;
 	flex: 1 1 auto;
-	justify-content: center;
+	justify-content: flex-start;
 	min-height: 0;
 	overflow: auto;
 	padding: 32px;
@@ -2898,6 +2898,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	box-shadow: var(--npde-document-shadow);
 	color: var(--npde-document-text);
 	flex: 0 0 auto;
+	/* Centers a fitting slide, but resolves to zero when it overflows so every edge remains scrollable. */
+	margin: auto;
 	min-height: 320px;
 	min-width: 560px;
 	position: relative;

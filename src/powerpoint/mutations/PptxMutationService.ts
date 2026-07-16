@@ -80,7 +80,7 @@ export class PptxMutationService implements MutationExecutor {
       case 'insert-shape':
         return engine.insertShapeGeometry(command.slideIndex, command.geometry);
       case 'insert-text-box':
-        return engine.insertTextBox(command.slideIndex);
+        return engine.insertTextBox(command.slideIndex, command.origin);
       case 'insert-table':
         return engine.addTable(command.slideIndex, command.rows, command.cols);
       case 'insert-chart':
@@ -106,6 +106,14 @@ export class PptxMutationService implements MutationExecutor {
           command.slideIndex,
           command.shapeIndex,
           command.paragraphIndex,
+          command.text,
+        );
+      case 'split-paragraph':
+        return engine.splitParagraph(
+          command.slideIndex,
+          command.shapeIndex,
+          command.paragraphIndex,
+          command.splitOffset,
           command.text,
         );
       case 'update-text-run':

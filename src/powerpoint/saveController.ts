@@ -54,6 +54,23 @@ interface PowerPointSaveContext {
   sourceBuffer: ArrayBuffer;
 }
 
+function getDeletionValidationAllowances(engine: PresentationEngine): {
+  allowedMarkerRemovals: Record<string, number>;
+  allowedUnknownElementRemovals: Record<string, number>;
+} {
+  const deletionAware = engine as Partial<Pick<PresentationEngine,
+    'getProtectedSlideMarkerRemovalAllowance' | 'getUnknownSlideElementRemovalAllowance'>>;
+  return {
+    allowedMarkerRemovals: deletionAware.getProtectedSlideMarkerRemovalAllowance?.() ?? {},
+    allowedUnknownElementRemovals: deletionAware.getUnknownSlideElementRemovalAllowance?.() ?? {},
+  };
+}
+
+function clearDeletionValidationAllowances(engine: PresentationEngine): void {
+  const deletionAware = engine as Partial<Pick<PresentationEngine, 'clearProtectedSlideMarkerRemovalAllowance'>>;
+  deletionAware.clearProtectedSlideMarkerRemovalAllowance?.();
+}
+
 /** Owns save serialization, autosave, validation, and recovery copies. */
 export class SaveController {
   private readonly notice: TranslateNoticeFn;
@@ -95,6 +112,7 @@ export class SaveController {
         persist: async (output, exportedPackage, { file, engine }) => {
           await this.host.app.vault.modifyBinary(file, output);
           debugLog('save', 'PowerPoint vault write completed', { file: file.path, bytes: output.byteLength });
+          clearDeletionValidationAllowances(engine);
           if (this.host.isCurrentPresentation(engine, file)) this.host.setSource(exportedPackage, output);
         }
       },
@@ -305,7 +323,11 @@ export class SaveController {
     const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount);
     if (!validation.ok) throw new Error(`Export validation failed: ${summarizePackageMessages(validation.errors)}`);
 
-    const contentValidation = await validatePowerPointExportContents(sourceBuffer, output);
+    const contentValidation = await validatePowerPointExportContents(
+      sourceBuffer,
+      output,
+      getDeletionValidationAllowances(engine),
+    );
     if (!contentValidation.ok) throw new Error(`Export validation failed: ${summarizePackageMessages(contentValidation.errors)}`);
     if (!options.skipRoundTrip) await PresentationEngine.validateRoundTrip(output, engine.slideCount);
 

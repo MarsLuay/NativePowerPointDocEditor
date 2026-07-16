@@ -15,6 +15,10 @@ import {
   parseXml,
   serializeXml,
 } from './powerpoint/ooxmlXml';
+import {
+  applyDrawingParagraphListStyle,
+  type ParagraphListStyle,
+} from './powerpoint/paragraphListStyle';
 
 const DRAWINGML_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const PACKAGE_RELATIONSHIP_NAMESPACE =
@@ -24,16 +28,13 @@ const CONTENT_TYPES_NAMESPACE =
 const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
 
-export type ParagraphListStyle = 'none' | 'bullet' | 'number';
+export type { ParagraphListStyle } from './powerpoint/paragraphListStyle';
 
 export interface SlideInsertionResult {
   buffer: ArrayBuffer;
   shapeIndex: number;
 }
 
-const DEFAULT_LIST_MARGIN_LEFT_EMU = 285750;
-const DEFAULT_LIST_HANGING_INDENT_EMU = -285750;
-const DEFAULT_BULLET_FONT = 'Arial';
 
 function getSlidePath(slideIndex: number): string {
   return `ppt/slides/slide${slideIndex + 1}.xml`;
@@ -615,96 +616,6 @@ function getDrawingParagraphs(container: Element): Element[] {
   );
 }
 
-function ensureParagraphProperties(paragraph: Element): Element {
-  let properties = getElementChildren(paragraph).find(
-    (element) => element.localName === 'pPr' && element.namespaceURI === DRAWINGML_NAMESPACE
-  );
-  if (!properties) {
-    properties = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:pPr');
-    paragraph.insertBefore(properties, paragraph.firstChild);
-  }
-  return properties;
-}
-
-function clearListMarkers(properties: Element): void {
-  for (const child of getElementChildren(properties)) {
-    if (child.localName === 'buChar' || child.localName === 'buAutoNum' || child.localName === 'buNone') {
-      properties.removeChild(child);
-    }
-  }
-}
-
-function insertParagraphPropertyChild(properties: Element, child: Element): void {
-  const tail = getElementChildren(properties).find((element) =>
-    element.localName === 'tabLst' || element.localName === 'defRPr' || element.localName === 'extLst'
-  );
-  properties.insertBefore(child, tail ?? null);
-}
-
-function ensureDefaultListIndent(properties: Element): void {
-  if (!properties.hasAttribute('marL')) {
-    properties.setAttribute('marL', String(DEFAULT_LIST_MARGIN_LEFT_EMU));
-  }
-  if (!properties.hasAttribute('indent')) {
-    properties.setAttribute('indent', String(DEFAULT_LIST_HANGING_INDENT_EMU));
-  }
-}
-
-function clearDefaultListIndent(properties: Element): void {
-  if (properties.getAttribute('marL') === String(DEFAULT_LIST_MARGIN_LEFT_EMU)) {
-    properties.removeAttribute('marL');
-  }
-  if (properties.getAttribute('indent') === String(DEFAULT_LIST_HANGING_INDENT_EMU)) {
-    properties.removeAttribute('indent');
-  }
-}
-
-function ensureBulletFont(properties: Element): void {
-  const hasBulletFont = getElementChildren(properties).some(
-    (child) => child.localName === 'buFont' || child.localName === 'buFontTx'
-  );
-  if (hasBulletFont) return;
-
-  const font = properties.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buFont');
-  font.setAttribute('typeface', DEFAULT_BULLET_FONT);
-  insertParagraphPropertyChild(properties, font);
-}
-
-function clearDefaultBulletFont(properties: Element): void {
-  for (const child of getElementChildren(properties)) {
-    if (child.localName === 'buFont' && child.getAttribute('typeface') === DEFAULT_BULLET_FONT) {
-      properties.removeChild(child);
-    }
-  }
-}
-
-function applyListStyleToParagraph(paragraph: Element, style: ParagraphListStyle): void {
-  const properties = ensureParagraphProperties(paragraph);
-  clearListMarkers(properties);
-
-  if (style === 'none') {
-    clearDefaultListIndent(properties);
-    clearDefaultBulletFont(properties);
-    const marker = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buNone');
-    insertParagraphPropertyChild(properties, marker);
-    return;
-  }
-
-  ensureDefaultListIndent(properties);
-
-  if (style === 'bullet') {
-    ensureBulletFont(properties);
-    const marker = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buChar');
-    marker.setAttribute('char', '•');
-    insertParagraphPropertyChild(properties, marker);
-    return;
-  }
-
-  const marker = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buAutoNum');
-  marker.setAttribute('type', 'arabicPeriod');
-  insertParagraphPropertyChild(properties, marker);
-}
-
 export async function applyParagraphListStyle(
   buffer: ArrayBuffer,
   slideIndex: number,
@@ -722,6 +633,6 @@ export async function applyParagraphListStyle(
     throw new Error('Could not find the selected text paragraph.');
   }
 
-  applyListStyleToParagraph(paragraph, style);
+  applyDrawingParagraphListStyle(paragraph, style);
   return buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));
 }

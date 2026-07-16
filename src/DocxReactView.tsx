@@ -377,6 +377,43 @@ function createParagraphLayoutRelayoutPlugin(scheduleRelayout: () => void) {
 	});
 }
 
+type DocxTextInputRoute = 'beforeinput' | 'keydown' | 'text-input';
+
+let lastDocxSpaceInputLogAt = 0;
+
+function logDocxSpaceInputRoute(
+	route: DocxTextInputRoute,
+	details: {
+		from: number;
+		to: number;
+		inputType?: string;
+		key?: string;
+		code?: string;
+		isComposing: boolean;
+		defaultPreventedBefore?: boolean;
+		defaultPreventedAfter?: boolean;
+	},
+) {
+	const now = Date.now();
+	if (now - lastDocxSpaceInputLogAt < 250) {
+		return;
+	}
+	lastDocxSpaceInputLogAt = now;
+	debugLog('text-input', 'DOCX space input routed', {
+		route,
+		isSpace: true,
+		selectionStart: details.from,
+		selectionEnd: details.to,
+		selectedCharacters: details.to - details.from,
+		inputType: details.inputType ?? null,
+		key: details.key ?? null,
+		code: details.code ?? null,
+		isComposing: details.isComposing,
+		defaultPreventedBefore: details.defaultPreventedBefore ?? null,
+		defaultPreventedAfter: details.defaultPreventedAfter ?? null,
+	});
+}
+
 function insertPlainTypedText(view: EditorView, text: string, from = view.state.selection.from, to = view.state.selection.to) {
 	view.dispatch(view.state.tr.insertText(text, from, to).scrollIntoView());
 	return true;
@@ -1197,8 +1234,21 @@ const preserveTypedSpacePlugin = new Plugin({
 					return false;
 				}
 
+				const defaultPreventedBefore = event.defaultPrevented;
+				const { from, to } = view.state.selection;
 				event.preventDefault();
-				return insertPlainTypedText(view, text);
+				const handled = insertPlainTypedText(view, text, from, to);
+				if (text === ' ') {
+					logDocxSpaceInputRoute('beforeinput', {
+						from,
+						to,
+						inputType: event.inputType,
+						isComposing: event.isComposing,
+						defaultPreventedBefore,
+						defaultPreventedAfter: event.defaultPrevented,
+					});
+				}
+				return handled;
 			},
 			paste(view, event) {
 				if (!isClipboardEvent(event)) {
@@ -1224,15 +1274,37 @@ const preserveTypedSpacePlugin = new Plugin({
 				return false;
 			}
 
+			const defaultPreventedBefore = event.defaultPrevented;
+			const { from, to } = view.state.selection;
 			event.preventDefault();
-			return insertPlainTypedText(view, text);
+			const handled = insertPlainTypedText(view, text, from, to);
+			if (text === ' ') {
+				logDocxSpaceInputRoute('keydown', {
+					from,
+					to,
+					key: event.key,
+					code: event.code,
+					isComposing: event.isComposing,
+					defaultPreventedBefore,
+					defaultPreventedAfter: event.defaultPrevented,
+				});
+			}
+			return handled;
 		},
 		handleTextInput(view, from, to, text) {
 			if (!text || /[\r\n]/.test(text)) {
 				return false;
 			}
 
-			return insertPlainTypedText(view, text, from, to);
+			const handled = insertPlainTypedText(view, text, from, to);
+			if (text === ' ') {
+				logDocxSpaceInputRoute('text-input', {
+					from,
+					to,
+					isComposing: view.composing,
+				});
+			}
+			return handled;
 		},
 	},
 });

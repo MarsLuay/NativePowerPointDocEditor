@@ -10,6 +10,7 @@ import type {
 } from '../PresentationEngine';
 import type { ShapeTransform } from 'pptx-svg';
 import type { ParagraphListStyle } from '../SlideInsertions';
+import type { DrawingParagraphText } from '../powerpoint/drawingmlText';
 import { isEditableShapeIndex } from '../powerpoint/svgUtils';
 import { AI_ERROR_CODES, createAiError } from './errors';
 import { describePptxFromEngine } from './pptxDescribe';
@@ -58,6 +59,42 @@ function requireString(value: unknown, field: string): string {
 		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `${field} must be a string.`, { field });
 	}
 	return value;
+}
+
+function requireReplacementParagraphs(value: unknown): DrawingParagraphText[] {
+	if (!Array.isArray(value) || value.length === 0) {
+		throw createAiError(
+			AI_ERROR_CODES.SCHEMA_INVALID,
+			'paragraphs must be a non-empty array of native PowerPoint paragraphs.',
+			{ field: 'paragraphs' },
+		);
+	}
+
+	return value.map((item, index) => {
+		if (!item || typeof item !== 'object' || Array.isArray(item)) {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'Each paragraph must be an object.', {
+				field: `paragraphs[${index}]`,
+			});
+		}
+		const paragraph = item as Record<string, unknown>;
+		const text = requireString(paragraph.text, `paragraphs[${index}].text`);
+		if (/[\r\n]/.test(text)) {
+			throw createAiError(
+				AI_ERROR_CODES.SCHEMA_INVALID,
+				'Paragraph text cannot contain line breaks; use one paragraphs[] entry per PowerPoint paragraph.',
+				{ field: `paragraphs[${index}].text` },
+			);
+		}
+		const listStyle = requireString(paragraph.listStyle, `paragraphs[${index}].listStyle`);
+		if (listStyle !== 'none' && listStyle !== 'bullet' && listStyle !== 'number') {
+			throw createAiError(
+				AI_ERROR_CODES.SCHEMA_INVALID,
+				'listStyle must be none, bullet, or number.',
+				{ field: `paragraphs[${index}].listStyle` },
+			);
+		}
+		return { text, listStyle };
+	});
 }
 
 function requireTransform(value: unknown): ShapeTransform {
@@ -147,6 +184,13 @@ export async function executePptxOp(
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const text = requireString(payload.text, 'text');
+			if (/[\r\n]/.test(text)) {
+				throw createAiError(
+					AI_ERROR_CODES.SCHEMA_INVALID,
+					'pptx.updateShapeText is single-paragraph. Use pptx.replaceShapeParagraphs for multiple paragraphs or lists.',
+					{ op: opId, field: 'text' },
+				);
+			}
 			assertSlideInRange(context.engine, slideIndex);
 			assertEditableShape(slideIndex, shapeIndex);
 			const before = tryFindShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
@@ -154,6 +198,42 @@ export async function executePptxOp(
 			result.preview.push({ id: changedId, field: 'text', before: before?.text ?? null, after: text });
 			if (!context.dryRun) {
 				await context.engine.updateShapeText(slideIndex, shapeIndex, text);
+			}
+			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
+		case 'pptx.replaceShapeParagraphs': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			const paragraphs = requireReplacementParagraphs(payload.paragraphs);
+			assertSlideInRange(context.engine, slideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			const before = tryFindShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			result.preview.push({
+				id: changedId,
+				field: 'paragraphs',
+				before: before?.paragraphs ?? null,
+				after: paragraphs,
+			});
+			if (!context.dryRun) {
+				await context.engine.replaceShapeParagraphs(slideIndex, shapeIndex, paragraphs);
+			}
+			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
+		case 'pptx.deleteShape': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			result.preview.push({ id: changedId, field: 'shape', before, after: null });
+			if (!context.dryRun) {
+				await context.engine.deleteShape(slideIndex, shapeIndex);
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
@@ -299,6 +379,34 @@ export async function executePptxOp(
 			}
 			if (!context.dryRun) {
 				await context.engine.updateShapeTransform(slideIndex, shapeIndex, transform);
+			}
+			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
+		case 'pptx.setShapeFillColor': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			const hex = requireString(payload.hex, 'hex').trim();
+			if (!/^#?[0-9A-Fa-f]{6}$/.test(hex)) {
+				throw createAiError(
+					AI_ERROR_CODES.SCHEMA_INVALID,
+					'hex must be a six-digit RGB color, with or without #.',
+					{ field: 'hex' },
+				);
+			}
+			assertSlideInRange(context.engine, slideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			const normalizedHex = hex.replace(/^#/, '').toUpperCase();
+			result.preview.push({
+				id: changedId,
+				field: 'fill',
+				before: context.engine.getShapeVisualStyle(slideIndex, shapeIndex)?.fill ?? null,
+				after: normalizedHex,
+			});
+			if (!context.dryRun) {
+				await context.engine.setShapeFillColor(slideIndex, shapeIndex, normalizedHex);
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);

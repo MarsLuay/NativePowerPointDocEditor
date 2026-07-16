@@ -5,6 +5,15 @@ const TRANSFORM = { x: 914_400, y: 685_800, cx: 2_743_200, cy: 2_057_400, rot: 0
 /** Minimal schema-valid example payload per operation id (for agents and tests). */
 export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'pptx.updateShapeText': { op: 'pptx.updateShapeText', slideIndex: 0, shapeIndex: 0, text: 'Example title' },
+	'pptx.replaceShapeParagraphs': {
+		op: 'pptx.replaceShapeParagraphs',
+		slideIndex: 0,
+		shapeIndex: 0,
+		paragraphs: [
+			{ text: 'Example list heading', listStyle: 'none' },
+			{ text: 'A native PowerPoint bullet', listStyle: 'bullet' },
+		],
+	},
 	'pptx.updateParagraphText': { op: 'pptx.updateParagraphText', slideIndex: 0, shapeIndex: 0, paragraphIndex: 0, text: 'Paragraph' },
 	'pptx.updateTextRun': { op: 'pptx.updateTextRun', slideIndex: 0, shapeIndex: 0, paragraphIndex: 0, runIndex: 0, text: 'Run' },
 	'pptx.replaceText': { op: 'pptx.replaceText', query: 'old', replacement: 'new', matchCase: false },
@@ -12,10 +21,12 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'pptx.setParagraphAlignment': { op: 'pptx.setParagraphAlignment', slideIndex: 0, shapeIndex: 0, paragraphIndex: 0, align: 'ctr' },
 	'pptx.applyListStyle': { op: 'pptx.applyListStyle', slideIndex: 0, shapeIndex: 0, paragraphIndex: 0, style: 'bullet' },
 	'pptx.updateTransform': { op: 'pptx.updateTransform', slideIndex: 0, shapeIndex: 0, transform: TRANSFORM },
+	'pptx.setShapeFillColor': { op: 'pptx.setShapeFillColor', slideIndex: 0, shapeIndex: 0, hex: '1B75BB' },
 	'pptx.reorderShapes': { op: 'pptx.reorderShapes', slideIndex: 0, shapeIndex: 0, mode: 'forward' },
 	'pptx.groupShapes': { op: 'pptx.groupShapes', slideIndex: 0, shapeIndices: [0, 1] },
 	'pptx.ungroupShapes': { op: 'pptx.ungroupShapes', slideIndex: 0, shapeIndex: 0 },
 	'pptx.flipShape': { op: 'pptx.flipShape', slideIndex: 0, shapeIndex: 0, axis: 'horizontal' },
+	'pptx.deleteShape': { op: 'pptx.deleteShape', slideIndex: 0, shapeIndex: 0 },
 	'pptx.addImage': { op: 'pptx.addImage', slideIndex: 0, vaultImagePath: 'assets/example.png', transform: TRANSFORM },
 	'pptx.addShape': { op: 'pptx.addShape', slideIndex: 0, geometry: 'rect', transform: TRANSFORM },
 	'pptx.addTextBox': { op: 'pptx.addTextBox', slideIndex: 0, transform: TRANSFORM },
@@ -72,6 +83,14 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		},
 	},
 	'docx.insertParagraphBreak': { op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', offset: 5 },
+	'docx.replaceBodyParagraphs': {
+		op: 'docx.replaceBodyParagraphs',
+		paragraphs: [
+			'Marwan Luay',
+			'',
+			'Thank you for the scholarship.',
+		],
+	},
 };
 
 export function getOpExample(opId: string): DocumentOp | undefined {

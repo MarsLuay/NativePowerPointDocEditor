@@ -20,6 +20,8 @@ export interface PptxDescribedRun {
 export interface PptxDescribedParagraph {
 	id: string;
 	text: string;
+	/** Explicit native list marker, or null when the paragraph has none. */
+	listStyle: 'none' | 'bullet' | 'number' | null;
 	align?: string | null;
 	runs?: PptxDescribedRun[];
 }
@@ -135,6 +137,7 @@ function describeShapeParagraphs(
 		paragraphs.push({
 			id: pptxParagraphId(slideIndex, shapeIndex, paragraphIndex),
 			text,
+			listStyle: engine.getParagraphListStyle(slideIndex, shapeIndex, paragraphIndex),
 			align,
 			runs: runs.length > 0 ? runs : undefined,
 		});

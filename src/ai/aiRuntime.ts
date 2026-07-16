@@ -22,6 +22,7 @@ export interface PptxViewAgentBridge {
 		mutate: (engine: PresentationEngine) => Promise<number[]>,
 	): Promise<void>;
 	saveCurrentPresentation(): Promise<boolean>;
+	getAgentSaveError(): string | null;
 	canUndoAgentEdit(): boolean;
 	canRedoAgentEdit(): boolean;
 	undoAgentEdit(): Promise<boolean>;

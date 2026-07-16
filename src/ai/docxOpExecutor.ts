@@ -22,6 +22,7 @@ import {
 	replacePartText,
 	type DocxRunStylePatch,
 } from './docxOoxmlWrite';
+import { applyReplaceBodyParagraphs } from './docxBodyParagraphs';
 import { registerExternalHyperlink } from './docxHyperlink';
 import {
 	applyDeleteRangeInPart,
@@ -522,6 +523,33 @@ export async function executeDocxOp(
 			}
 			changedIds.push(blockId);
 			preview.push({ id: blockId, field: 'insertParagraphBreak', before: null, after: { offset } });
+			break;
+		}
+		case 'docx.replaceBodyParagraphs': {
+			const paragraphsValue = record.paragraphs;
+			if (!Array.isArray(paragraphsValue)) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must be an array of strings.', {
+					field: 'paragraphs',
+				});
+			}
+			const paragraphs = paragraphsValue.map((entry, index) => {
+				if (typeof entry !== 'string') {
+					throw createAiError(
+						AI_ERROR_CODES.SCHEMA_INVALID,
+						`paragraphs[${index}] must be a string.`,
+						{ field: 'paragraphs' },
+					);
+				}
+				return entry;
+			});
+			documentXml = applyReplaceBodyParagraphs(documentXml, paragraphs);
+			changedIds.push('body');
+			preview.push({
+				id: 'body',
+				field: 'replaceBodyParagraphs',
+				before: null,
+				after: { paragraphCount: paragraphs.length > 0 ? paragraphs.length : 1 },
+			});
 			break;
 		}
 		default:

@@ -12,6 +12,7 @@ import type {
   RunTarget,
   ShapeReorderMode,
   SlideLayoutKind,
+  TextBoxInsertOrigin,
 } from '../../PresentationEngine';
 
 /** Intent-level commands accepted by the presentation mutation boundary. */
@@ -42,7 +43,7 @@ export type PptxCommand =
       readonly heightPx?: number;
     }
   | { readonly type: 'insert-shape'; readonly slideIndex: number; readonly geometry: InsertableShapeGeometry }
-  | { readonly type: 'insert-text-box'; readonly slideIndex: number }
+  | { readonly type: 'insert-text-box'; readonly slideIndex: number; readonly origin?: TextBoxInsertOrigin }
   | { readonly type: 'insert-table'; readonly slideIndex: number; readonly rows: number; readonly cols: number }
   | { readonly type: 'insert-chart'; readonly slideIndex: number }
   | {
@@ -78,6 +79,14 @@ export type PptxCommand =
       readonly shapeIndex: number;
       readonly paragraphIndex: number;
       readonly text: string;
+    }
+  | {
+      readonly type: 'split-paragraph';
+      readonly slideIndex: number;
+      readonly shapeIndex: number;
+      readonly paragraphIndex: number;
+      readonly splitOffset: number;
+      readonly text?: string;
     }
   | {
       readonly type: 'update-text-run';

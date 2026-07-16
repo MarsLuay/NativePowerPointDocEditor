@@ -4,15 +4,37 @@ import {
   getDescendants,
   getElementChildren,
 } from './ooxmlXml';
+import {
+  applyDrawingParagraphListStyle,
+  type ParagraphListStyle,
+} from './paragraphListStyle';
 
 const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
+
+export interface DrawingParagraphText {
+  text: string;
+  listStyle: ParagraphListStyle;
+}
 
 export function setDrawingText(container: Element, text: string): void {
   const textElements = getDescendants(container, 't')
     .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
   const firstText = textElements[0];
   if (!firstText) {
-    throw new Error('This PowerPoint label has no editable text node.');
+    const firstParagraph = getDrawingParagraphs(container)[0];
+    if (!firstParagraph) {
+      throw new Error('This PowerPoint label has no editable text paragraph.');
+    }
+
+    const activeDocument = firstParagraph.ownerDocument;
+    const run = activeDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:r');
+    const textElement = activeDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
+    textElement.textContent = text;
+    run.appendChild(textElement);
+    const endParagraphProperties = getElementChildren(firstParagraph)
+      .find((element) => element.localName === 'endParaRPr' && element.namespaceURI === DRAWINGML_NAMESPACE);
+    firstParagraph.insertBefore(run, endParagraphProperties ?? null);
+    return;
   }
 
   firstText.textContent = text;
@@ -27,6 +49,80 @@ export function getDrawingParagraphs(container: Element): Element[] {
   const scope = textBody ?? container;
   return getElementChildren(scope)
     .filter((element) => element.localName === 'p' && element.namespaceURI === DRAWINGML_NAMESPACE);
+}
+
+/** Remove soft breaks whose layout is confined to a single DrawingML paragraph. */
+export function removeDrawingParagraphSoftBreaks(paragraph: Element): number {
+  let removed = 0;
+  for (const child of getElementChildren(paragraph)) {
+    if (child.localName === 'br' && child.namespaceURI === DRAWINGML_NAMESPACE) {
+      paragraph.removeChild(child);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+/**
+ * Replace a text body's direct paragraphs while retaining the first paragraph's
+ * run and end-paragraph styling. Each entry becomes a real `<a:p>` so list
+ * markers belong to PowerPoint paragraphs rather than literal glyph text.
+ */
+export function replaceDrawingParagraphs(container: Element, paragraphs: readonly DrawingParagraphText[]): void {
+  if (paragraphs.length === 0) {
+    throw new Error('A PowerPoint text body needs at least one paragraph.');
+  }
+  if (paragraphs.some(({ text }) => /[\r\n]/.test(text))) {
+    throw new Error('Paragraph text cannot contain line breaks; use separate paragraph entries instead.');
+  }
+
+  const existing = getDrawingParagraphs(container);
+  const template = existing[0];
+  if (!template) {
+    throw new Error('This PowerPoint label has no editable text paragraph.');
+  }
+  const parent = template.parentNode;
+  if (!parent) {
+    throw new Error('Could not find the PowerPoint text body.');
+  }
+
+  const replacements = paragraphs.map(({ text, listStyle }) => {
+    const paragraph = template.cloneNode(true) as Element;
+    setDrawingParagraphContents(paragraph, text);
+    applyDrawingParagraphListStyle(paragraph, listStyle);
+    return paragraph;
+  });
+
+  for (const paragraph of replacements) {
+    parent.insertBefore(paragraph, template);
+  }
+  for (const paragraph of existing) {
+    parent.removeChild(paragraph);
+  }
+}
+
+function setDrawingParagraphContents(paragraph: Element, text: string): void {
+  const templateRun = getDrawingRuns(paragraph)[0] ?? null;
+  const endParagraphProperties = getElementChildren(paragraph).find(
+    (element) => element.localName === 'endParaRPr' && element.namespaceURI === DRAWINGML_NAMESPACE,
+  ) ?? null;
+  for (const child of getElementChildren(paragraph)) {
+    if (child.localName === 'pPr' || child === endParagraphProperties) continue;
+    paragraph.removeChild(child);
+  }
+
+  const run = templateRun
+    ? cloneDrawingRun(templateRun, paragraph.ownerDocument)
+    : paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:r');
+  let textElement = getElementChildren(run)
+    .find((element) => element.localName === 't' && element.namespaceURI === DRAWINGML_NAMESPACE)
+    ?? getDescendants(run, 't').find((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+  if (!textElement) {
+    textElement = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
+    run.appendChild(textElement);
+  }
+  textElement.textContent = text;
+  paragraph.insertBefore(run, endParagraphProperties);
 }
 
 function clearDrawingParagraphContent(paragraph: Element): Element | null {
@@ -56,9 +152,14 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
   }
 
   if (!text.includes('\n')) {
-    const runs = getDrawingRuns(paragraph);
+    removeDrawingParagraphSoftBreaks(paragraph);
+    let runs = getDrawingRuns(paragraph);
     if (runs.length === 0) {
-      throw new Error('Could not find the selected text paragraph runs.');
+      // Empty template paragraphs can contain only <a:endParaRPr>. Keep that
+      // paragraph and its list properties, but create the run needed to write
+      // the requested text instead of rejecting an otherwise valid edit.
+      ensureDrawingParagraphRun(paragraph, null);
+      runs = getDrawingRuns(paragraph);
     }
 
     runs.forEach((run, runIndex) => {
@@ -76,6 +177,110 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
     }
     appendDrawingParagraphRun(paragraph, templateRun, line);
   });
+}
+
+function findEndParagraphProperties(paragraph: Element): Element | null {
+  return getElementChildren(paragraph).find(
+    (element) => element.localName === 'endParaRPr' && element.namespaceURI === DRAWINGML_NAMESPACE,
+  ) ?? null;
+}
+
+function insertDrawingRunBeforeEndParagraphProperties(paragraph: Element, run: Element): void {
+  paragraph.insertBefore(run, findEndParagraphProperties(paragraph));
+}
+
+function findNearestDrawingParagraphRun(paragraph: Element): Element | null {
+  const parent = paragraph.parentNode;
+  if (!parent || parent.nodeType !== 1) return null;
+  const paragraphs = getElementChildren(parent as Element).filter(
+    (child) => child.localName === 'p' && child.namespaceURI === DRAWINGML_NAMESPACE,
+  );
+  const paragraphIndex = paragraphs.indexOf(paragraph);
+  if (paragraphIndex === -1) return null;
+
+  for (let index = paragraphIndex - 1; index >= 0; index--) {
+    const candidate = paragraphs[index];
+    const run = candidate ? getDrawingRuns(candidate)[0] : null;
+    if (run) return run;
+  }
+  for (let index = paragraphIndex + 1; index < paragraphs.length; index++) {
+    const candidate = paragraphs[index];
+    const run = candidate ? getDrawingRuns(candidate)[0] : null;
+    if (run) return run;
+  }
+  return null;
+}
+
+function ensureDrawingParagraphRun(paragraph: Element, templateRun: Element | null): void {
+  if (getDrawingRuns(paragraph).length > 0) return;
+  const doc = paragraph.ownerDocument;
+  const styleTemplate = templateRun ?? findNearestDrawingParagraphRun(paragraph);
+  const run = styleTemplate ? cloneDrawingRun(styleTemplate, doc) : doc.createElementNS(DRAWINGML_NAMESPACE, 'a:r');
+  let textElement = getElementChildren(run)
+    .find((element) => element.localName === 't' && element.namespaceURI === DRAWINGML_NAMESPACE)
+    ?? getDescendants(run, 't').find((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+  if (!textElement) {
+    textElement = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
+    run.appendChild(textElement);
+  }
+  textElement.textContent = '';
+  insertDrawingRunBeforeEndParagraphProperties(paragraph, run);
+}
+
+/**
+ * Split one real DrawingML paragraph at its run-text offset. The sibling keeps
+ * the source paragraph's pPr (including native list style), while the suffix
+ * retains each run's direct formatting. This is the normal PowerPoint Enter
+ * behavior; soft breaks belong to `setDrawingParagraphText` instead.
+ */
+export function splitDrawingParagraphAtOffset(
+  container: Element,
+  paragraphIndex: number,
+  offset: number,
+): number {
+  const paragraphs = getDrawingParagraphs(container);
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) {
+    throw new Error('Could not find the selected text paragraph.');
+  }
+  const parent = paragraph.parentNode;
+  if (!parent) {
+    throw new Error('Could not find the PowerPoint text body.');
+  }
+
+  const doc = paragraph.ownerDocument;
+  const templateRun = getDrawingRuns(paragraph)[0] ?? null;
+  const segments = getDrawingRunSegments(paragraph);
+  const total = segments.at(-1)?.end ?? 0;
+  const splitOffset = Math.max(0, Math.min(total, offset));
+  splitParagraphAtOffset(paragraph, splitOffset, doc);
+
+  const splitSegments = getDrawingRunSegments(paragraph);
+  const firstSuffixRunIndex = splitSegments.findIndex((segment) => segment.start >= splitOffset);
+  const suffixRuns = firstSuffixRunIndex === -1
+    ? []
+    : getDrawingRuns(paragraph).slice(firstSuffixRunIndex);
+
+  const suffixParagraph = paragraph.cloneNode(true) as Element;
+  for (const child of getElementChildren(suffixParagraph)) {
+    if (
+      child.localName === 'pPr'
+      || (child.localName === 'endParaRPr' && child.namespaceURI === DRAWINGML_NAMESPACE)
+    ) {
+      continue;
+    }
+    suffixParagraph.removeChild(child);
+  }
+
+  for (const run of suffixRuns) {
+    insertDrawingRunBeforeEndParagraphProperties(suffixParagraph, cloneDrawingRun(run, doc));
+    paragraph.removeChild(run);
+  }
+
+  ensureDrawingParagraphRun(paragraph, templateRun);
+  ensureDrawingParagraphRun(suffixParagraph, templateRun);
+  parent.insertBefore(suffixParagraph, paragraph.nextSibling);
+  return paragraphIndex + 1;
 }
 
 export function setDrawingTextRun(container: Element, paragraphIndex: number, runIndex: number, text: string): void {

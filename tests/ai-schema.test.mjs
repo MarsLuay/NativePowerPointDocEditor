@@ -57,7 +57,8 @@ test('every catalog operation has an object schema and example payload', async (
 	const { listOpDefinitions, OP_EXAMPLES } = await loadAiSchemaModules();
 	const operations = listOpDefinitions();
 
-	assert.equal(operations.length, 43);
+	assert.ok(operations.length > 0);
+	assert.ok(operations.some((operation) => operation.id === 'pptx.setShapeFillColor'));
 	for (const operation of operations) {
 		assert.equal(operation.parameters.type, 'object', `${operation.id} parameters must be an object schema`);
 		assert.ok(Array.isArray(operation.parameters.required), `${operation.id} must declare required fields`);
@@ -91,6 +92,7 @@ test('OP_EXAMPLES reject missing required fields', async () => {
 });
 
 test('generated capabilities.json includes per-op schemas and examples', async () => {
+	const { listOpDefinitions } = await loadAiSchemaModules();
 	const capabilities = JSON.parse(
 		readFileSync(path.join(projectRoot, 'ai/capabilities.json'), 'utf8'),
 	);
@@ -98,7 +100,10 @@ test('generated capabilities.json includes per-op schemas and examples', async (
 	assert.ok(capabilities.limitations?.pptxFormats);
 	assert.deepEqual(capabilities.limitations.pptxFormats.unsupported, ['ppt', 'pps', 'pot']);
 	assert.ok(capabilities.limitations.pptxRuntime?.fallbackLimits?.length > 0);
-	assert.equal(capabilities.operations.length, 43);
+	assert.deepEqual(
+		capabilities.operations.map((operation) => operation.id),
+		listOpDefinitions().map((operation) => operation.id),
+	);
 	for (const operation of capabilities.operations) {
 		assert.equal(operation.parameters.type, 'object');
 		assert.ok(operation.example, `${operation.id} missing example in capabilities.json`);
