@@ -38,6 +38,7 @@ let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
 let parseRenderedSlideSvgModulePromise;
 let textToolbarControllerModulePromise;
+let arrangeControllerModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -86,6 +87,7 @@ const stubObsidianPlugin = {
         export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };
         export const normalizePath = (value) => value.replace(/\\\\/g, "/").replace(/\\/{2,}/g, "/");
         export const setIcon = () => {};
+        export class Notice { constructor() {} }
         export class Component {
           constructor() { this.cleanups = []; }
           register(cleanup) { this.cleanups.push(cleanup); }
@@ -149,6 +151,16 @@ export function loadTextToolbarControllerModule() {
     [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
   return textToolbarControllerModulePromise;
+}
+
+export function loadArrangeControllerModule() {
+  arrangeControllerModulePromise ??= bundleSource(
+    "src/powerpoint/arrangeController.ts",
+    "arrange-controller.cjs",
+    [],
+    [stubObsidianPlugin],
+  ).then((outfile) => require(outfile));
+  return arrangeControllerModulePromise;
 }
 
 let inlineTextGeometryModulePromise;

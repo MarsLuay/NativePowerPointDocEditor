@@ -58,7 +58,7 @@ function elementChildren(element) {
 // Identity-preserving order of a slide's top-level shapes, keyed by each
 // shape's first cNvPr id. Index position alone can't prove a reorder (indices
 // are just slots), so we track stable ids.
-async function topLevelShapeIds(zip, slideNumber) {
+async function topLevelShapes(zip, slideNumber) {
   const file = zip.files[`ppt/slides/slide${slideNumber}.xml`];
   assert.ok(file, `missing ppt/slides/slide${slideNumber}.xml`);
   const xml = await file.async("string");
@@ -69,8 +69,15 @@ async function topLevelShapeIds(zip, slideNumber) {
     .filter((child) => SHAPE_ELEMENT_NAMES.has(child.localName))
     .map((shape) => {
       const cNvPr = firstByLocalName(shape, "cNvPr");
-      return cNvPr ? cNvPr.getAttribute("id") : null;
+      return {
+        id: cNvPr ? cNvPr.getAttribute("id") : null,
+        kind: shape.localName,
+      };
     });
+}
+
+async function topLevelShapeIds(zip, slideNumber) {
+  return (await topLevelShapes(zip, slideNumber)).map((shape) => shape.id);
 }
 
 async function loadFixtureEngine(PresentationEngine) {
@@ -87,6 +94,21 @@ async function findMultiShapeSlide(engine) {
   for (let slideIndex = 0; slideIndex < engine.slideCount; slideIndex++) {
     const ids = await topLevelShapeIds(zip, slideIndex + 1);
     if (ids.length >= 2) return { slideIndex, ids };
+  }
+  return null;
+}
+
+async function findPictureWithFollowingShape(engine) {
+  const exported = await engine.export();
+  const zip = await JSZip.loadAsync(exported);
+  for (let slideIndex = 0; slideIndex < engine.slideCount; slideIndex++) {
+    const shapes = await topLevelShapes(zip, slideIndex + 1);
+    const pictureIndex = shapes.findIndex(
+      (shape, index) => shape.kind === "pic" && index + 1 < shapes.length,
+    );
+    if (pictureIndex >= 0) {
+      return { slideIndex, pictureIndex, followingShapeIndex: pictureIndex + 1, shapes };
+    }
   }
   return null;
 }
@@ -119,6 +141,72 @@ test("reorderShapes('front') moves the first shape to the top of the z-order", a
     assert.notDeepEqual(after, before, "shape order did not change");
     assert.equal(after[after.length - 1], before[0], "first shape did not move to front");
     assert.deepEqual(after.slice(0, count - 1), before.slice(1), "other shapes did not keep order");
+  } finally {
+    resetForceJsBackendOverride();
+  }
+});
+
+test("reorderShapes('backward') moves a slide shape behind its preceding picture", async () => {
+  const { PresentationEngine, setForceJsBackendOverride, resetForceJsBackendOverride } =
+    await loadPresentationEngineModule();
+  setForceJsBackendOverride(true);
+  try {
+    const engine = await loadFixtureEngine(PresentationEngine);
+    const target = await findPictureWithFollowingShape(engine);
+    assert.ok(target, "no slide has a picture followed by another top-level shape");
+    const { slideIndex, pictureIndex, followingShapeIndex, shapes: before } = target;
+    const selectedType = engine.renderShape(slideIndex, followingShapeIndex)
+      .match(/data-ooxml-shape-type="([^"]+)"/)?.[1];
+
+    const newIndices = await engine.reorderShapes(slideIndex, [followingShapeIndex], "backward");
+    assert.deepEqual(newIndices, [pictureIndex]);
+
+    const exported = await engine.export();
+    const after = await topLevelShapes(await JSZip.loadAsync(exported), slideIndex + 1);
+    const expected = [...before];
+    [expected[pictureIndex], expected[followingShapeIndex]] = [
+      expected[followingShapeIndex],
+      expected[pictureIndex],
+    ];
+    assert.deepEqual(after, expected, "shape did not move behind the picture in slide XML");
+
+    const reloaded = await PresentationEngine.load(exported);
+    const selectedAfterReload = reloaded.renderShape(slideIndex, pictureIndex);
+    assert.match(selectedAfterReload, new RegExp(`data-ooxml-shape-type="${selectedType}"`));
+    assert.match(reloaded.renderShape(slideIndex, followingShapeIndex), /data-ooxml-shape-type="picture"/);
+  } finally {
+    resetForceJsBackendOverride();
+  }
+});
+
+test("reorderShapes('forward') moves a picture ahead of its following shape", async () => {
+  const { PresentationEngine, setForceJsBackendOverride, resetForceJsBackendOverride } =
+    await loadPresentationEngineModule();
+  setForceJsBackendOverride(true);
+  try {
+    const engine = await loadFixtureEngine(PresentationEngine);
+    const target = await findPictureWithFollowingShape(engine);
+    assert.ok(target, "no slide has a picture followed by another top-level shape");
+    const { slideIndex, pictureIndex, followingShapeIndex, shapes: before } = target;
+    const selectedType = engine.renderShape(slideIndex, pictureIndex)
+      .match(/data-ooxml-shape-type=\"([^\"]+)\"/)?.[1];
+
+    const newIndices = await engine.reorderShapes(slideIndex, [pictureIndex], "forward");
+    assert.deepEqual(newIndices, [followingShapeIndex]);
+
+    const exported = await engine.export();
+    const after = await topLevelShapes(await JSZip.loadAsync(exported), slideIndex + 1);
+    const expected = [...before];
+    [expected[pictureIndex], expected[followingShapeIndex]] = [
+      expected[followingShapeIndex],
+      expected[pictureIndex],
+    ];
+    assert.deepEqual(after, expected, "picture did not move ahead of the following shape in slide XML");
+
+    const reloaded = await PresentationEngine.load(exported);
+    const selectedAfterReload = reloaded.renderShape(slideIndex, followingShapeIndex);
+    assert.match(selectedAfterReload, new RegExp(`data-ooxml-shape-type=\"${selectedType}\"`));
+    assert.match(reloaded.renderShape(slideIndex, pictureIndex), /data-ooxml-shape-type=\"[^\"]+\"/);
   } finally {
     resetForceJsBackendOverride();
   }

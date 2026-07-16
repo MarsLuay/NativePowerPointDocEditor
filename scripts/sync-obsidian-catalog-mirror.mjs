@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 import {
 	CATALOG_DOCX_PACKAGES,
 	CATALOG_MIRROR_RSYNC_EXCLUDES,
+	assertCatalogMirrorSurface,
+	pruneCatalogMirrorDocxTree,
 	removePackageDeclarationFiles,
 	stripPackageTypingsFromPackageJson,
 	writeCatalogMirrorExcludeFile,
@@ -124,20 +126,17 @@ if (rsync) {
 	filteredCopy(projectRoot, destRoot);
 }
 
-// Guarantee no package TypeScript sources remain (rsync exclude bugs / stale paths).
-for (const pkg of [...CATALOG_DOCX_PACKAGES, 'agents', 'vue', 'nuxt']) {
+// rsync must retain the destination .git metadata, so excluded paths are pruned
+// explicitly rather than using --delete-excluded. This also removes stale files
+// left by earlier catalog syncs before the surface assertion runs.
+rmSync(path.join(destRoot, '.code-analysis'), { recursive: true, force: true });
+pruneCatalogMirrorDocxTree(destRoot);
+
+// Strip declarations and type pointers from the retained runtime packages.
+for (const pkg of CATALOG_DOCX_PACKAGES) {
 	const pkgRoot = path.join(destRoot, 'docx-editor', 'packages', pkg);
 	if (!existsSync(pkgRoot)) continue;
-	if (!CATALOG_DOCX_PACKAGES.includes(pkg)) {
-		rmSync(pkgRoot, { recursive: true, force: true });
-		continue;
-	}
-	for (const name of ['src', 'tests', 'scripts', 'tsup.config.ts', 'tsconfig.json']) {
-		rmSync(path.join(pkgRoot, name), { recursive: true, force: true });
-	}
 	stripCatalogPackageTypings(pkgRoot);
-	// Stale empty dirs (e.g. dist/agent) can survive rsync --delete when not empty of junk.
-	rmSync(path.join(pkgRoot, 'dist', 'agent'), { recursive: true, force: true });
 }
 
 const marker = path.join(destRoot, 'docx-editor', 'CATALOG_SURFACE.md');
@@ -158,5 +157,7 @@ writeFileSync(
 	].join('\n'),
 	'utf8',
 );
+
+assertCatalogMirrorSurface(destRoot);
 
 console.log(`[sync-catalog-mirror] Synced catalog-safe tree → ${destRoot}`);

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { test } from "node:test";
 import { loadNativePowerPointViewModule } from "./helpers/load-plugin-modules.mjs";
 
@@ -68,6 +70,48 @@ test("text boxes keep rendered text unchanged during resize preview", async () =
   view.handleDragMove({ pointerId: 7, clientX: 25, clientY: 15 });
   assert.equal(outlineUpdates, 1, "outline and resize handles must continue to track the drag");
   assert.deepEqual(appliedTransforms, [], "the text box itself must remain unchanged until commit");
+});
+
+test("every rendered text shape freezes during resize preview", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = createView(NativePowerPointView);
+  const textShape = { querySelector: (selector) => selector === "text" ? {} : null };
+  const nonTextShape = { querySelector: () => null };
+
+  assert.equal(view.shouldFreezeTextDuringResize("resize", textShape), true);
+  assert.equal(view.shouldFreezeTextDuringResize("resize", nonTextShape), false);
+  assert.equal(view.shouldFreezeTextDuringResize("move", textShape), false);
+});
+
+test("selected PowerPoint shapes use an outline without a glow", async () => {
+  const css = await readFile(resolve("styles.css"), "utf8");
+  const selectedShapeRule = css.match(/\.native-powerpoint-slide-svg \.native-powerpoint-shape-selected\s*\{([\s\S]*?)\}/);
+
+  assert.ok(selectedShapeRule, "the selected-shape rule must remain explicit for the selection state");
+  assert.match(selectedShapeRule[1], /filter:\s*none/);
+  assert.doesNotMatch(selectedShapeRule[1], /drop-shadow/);
+});
+
+test("inline text edits restore a canvas position changed by native caret reveal", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = createView(NativePowerPointView);
+  const restored = [];
+  view.canvasPane = { scrollLeft: 12, scrollTop: 34 };
+  view.restoreCanvasScrollSoon = (position) => restored.push(position);
+
+  view.canvasPane.scrollLeft = 2;
+  view.canvasPane.scrollTop = 3;
+  view.preserveCanvasScrollAfterInlineTextEdit({ left: 12, top: 34 }, "deleteContentBackward");
+
+  assert.deepEqual(restored, [{ left: 12, top: 34 }]);
+});
+
+test("PowerPoint canvas disables browser scroll anchoring during text preview updates", async () => {
+  const css = await readFile(resolve("styles.css"), "utf8");
+  const canvasPaneRule = css.match(/\.native-powerpoint-canvas-pane\s*\{([\s\S]*?)\}/);
+
+  assert.ok(canvasPaneRule, "the canvas pane must remain an explicit scroll owner");
+  assert.match(canvasPaneRule[1], /overflow-anchor:\s*none/);
 });
 
 test("shape fill menu uses the shared color popover and excludes unsupported objects", async () => {

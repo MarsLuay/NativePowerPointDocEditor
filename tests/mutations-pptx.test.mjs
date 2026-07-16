@@ -147,6 +147,47 @@ test("PptxMutationService commits successful mutations and restores failed ones"
   ]);
 });
 
+test("PptxMutationService serializes overlapping engine transactions", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  let releaseFirst;
+  let signalFirstStarted;
+  const firstStarted = new Promise((resolve) => { signalFirstStarted = resolve; });
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    updateShapeText: async (_slideIndex, _shapeIndex, text) => {
+      calls.push(["updateShapeText", text]);
+      if (text === "first") {
+        signalFirstStarted();
+        await new Promise((resolve) => { releaseFirst = resolve; });
+      }
+    },
+    commitMutation: async () => calls.push("commit"),
+    restoreSnapshot: async () => {},
+  };
+  const service = new PptxMutationService(engine);
+
+  const first = service.execute({ type: "update-shape-text", slideIndex: 0, shapeIndex: 0, text: "first" });
+  await firstStarted;
+  const second = service.execute({ type: "update-shape-text", slideIndex: 0, shapeIndex: 0, text: "second" });
+  await Promise.resolve();
+  assert.deepEqual(calls, ["export", ["updateShapeText", "first"]]);
+
+  releaseFirst();
+  await Promise.all([first, second]);
+  assert.deepEqual(calls, [
+    "export",
+    ["updateShapeText", "first"],
+    "commit",
+    "export",
+    ["updateShapeText", "second"],
+    "commit",
+  ]);
+});
+
 test("PptxMutationService routes shape fill color commands", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const calls = [];

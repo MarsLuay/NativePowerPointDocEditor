@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.48] - 2026-07-16
+
+### Fixed
+
+- Catalog export now removes stale analyzer caches, DOCX test fixtures, source tooling, and TypeScript from the public runtime mirror; its strict surface guard prevents them from returning.
+- PowerPoint **Send forward** and **Send backward** now move a shape exactly one z-order position, including around pictures.
+- PowerPoint selection, inline text previews, shape-fill swatches, and text-box resize behavior stay visually stable while editing.
+
 ## [1.0.47] - 2026-07-16
 
 ### Added

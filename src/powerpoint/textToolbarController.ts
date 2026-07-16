@@ -654,6 +654,8 @@ export class TextToolbarController {
           attr: { 'aria-label': `#${swatch}` }
         });
         cell.style.setProperty('--np-swatch-color', `#${swatch}`);
+        const fill = cell.createSpan({ cls: 'native-powerpoint-color-popover-swatch-fill' });
+        fill.style.setProperty('--np-swatch-color', `#${swatch}`);
         if (swatch.toUpperCase() === currentColor.toUpperCase()) {
           cell.addClass('is-active');
         }

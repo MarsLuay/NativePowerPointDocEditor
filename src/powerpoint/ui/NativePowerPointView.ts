@@ -110,6 +110,7 @@ import {
   mapFlatOffsetToRunLine,
   mapFlatRangeToRunLineSegments,
   parsePrimaryFontFamily,
+  redistributeTextAcrossVisualRuns,
   type RunTspanOffset
 } from '../textUtils';
 import {
@@ -4706,6 +4707,11 @@ export class NativePowerPointView extends FileView {
     if (!anchor) return;
 
     const currentColor = this.engine.getShapeVisualStyle(this.currentSlide, shapeIndex)?.fill ?? 'FFFFFF';
+    logPptxAction('inspector', 'open-shape-color-picker', {
+      slide: this.currentSlide,
+      shapeIndexes: [shapeIndex],
+      color: currentColor,
+    });
     this.openColorPopover(anchor, currentColor, false, (color) => {
       if (color) void this.applyShapeFillColor(shapeIndex, color);
     });
@@ -4946,13 +4952,25 @@ export class NativePowerPointView extends FileView {
     this.activeEditor = editor;
     this.inlineUndoStack = [];
     this.inlineRedoStack = [];
+    let pendingInlineEditScroll: CanvasScrollPosition | null = null;
+    let pendingInlineInputType: string | null = null;
+
+    const captureInlineEditScroll = (inputType: string | null): void => {
+      // Native textarea edits can make Chromium scroll the nearest overflow
+      // ancestor to reveal its invisible 1px caret. The on-slide SVG caret is
+      // the visible caret, so preserve the canvas rather than accepting that
+      // browser-driven pan.
+      pendingInlineEditScroll ??= this.captureCanvasScroll();
+      pendingInlineInputType = inputType ?? pendingInlineInputType;
+    };
 
     // Capture the pre-edit state (value + selection) before each native edit so
     // an in-place undo can restore the text *and* re-select whatever was just
     // deleted. Programmatic edits (e.g. handleInlineDeleteKey) snapshot
     // themselves since they don't fire beforeinput.
-    editor.addEventListener('beforeinput', () => {
+    editor.addEventListener('beforeinput', (event) => {
       if (this.activeEditor === editor) {
+        captureInlineEditScroll(event.inputType || null);
         this.recordInlineEditSnapshot(editor);
       }
     });
@@ -4998,6 +5016,9 @@ export class NativePowerPointView extends FileView {
           this.positionTextRunEditor(editor, nextBox);
         }
         updateCaret();
+        this.preserveCanvasScrollAfterInlineTextEdit(pendingInlineEditScroll, pendingInlineInputType);
+        pendingInlineEditScroll = null;
+        pendingInlineInputType = null;
       }
     });
     editor.addEventListener('copy', (event) => {
@@ -5011,6 +5032,9 @@ export class NativePowerPointView extends FileView {
     editor.addEventListener('mouseup', updateCaret);
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        captureInlineEditScroll(event.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward');
+      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
         event.preventDefault();
         this.selectAllInlineText(editor, target.element);
@@ -5048,7 +5072,11 @@ export class NativePowerPointView extends FileView {
       ) {
         this.clearWholeShapeInlineSelection();
       }
-      if (this.handleInlineDeleteKey(event, editor, target.element)) return;
+      if (this.handleInlineDeleteKey(event, editor, target.element)) {
+        pendingInlineEditScroll = null;
+        pendingInlineInputType = null;
+        return;
+      }
       queueCaretUpdate();
     });
 
@@ -6039,6 +6067,8 @@ export class NativePowerPointView extends FileView {
           attr: { 'aria-label': this.t('powerpoint:accessibility.swatchColor', { color: swatch }) }
         });
         cell.style.setProperty('--np-swatch-color', `#${swatch}`);
+        const fill = cell.createSpan({ cls: 'native-powerpoint-color-popover-swatch-fill' });
+        fill.style.setProperty('--np-swatch-color', `#${swatch}`);
         if (swatch.toUpperCase() === currentColor.toUpperCase()) {
           cell.addClass('is-active');
         }
@@ -6118,6 +6148,34 @@ export class NativePowerPointView extends FileView {
     const scrollPosition = this.captureCanvasScroll();
     editor.focus({ preventScroll: true });
     this.restoreCanvasScrollSoon(scrollPosition);
+  }
+
+  /**
+   * The canvas is the user's viewport. Native edits occur in an invisible,
+   * 1px textarea layered over the slide, so browser caret reveal must not pan
+   * that viewport away from the text the user is editing.
+   */
+  private preserveCanvasScrollAfterInlineTextEdit(
+    position: CanvasScrollPosition | null,
+    inputType: string | null
+  ): void {
+    if (!position || !this.canvasPane) return;
+
+    const observed = this.captureCanvasScroll();
+    const moved = observed !== null
+      && (observed.left !== position.left || observed.top !== position.top);
+    this.restoreCanvasScrollSoon(position);
+
+    if (observed && moved) {
+      debugLog('text-edit', 'Restored canvas position after inline text edit', {
+        slide: this.currentSlide,
+        inputType,
+        expectedScrollLeft: position.left,
+        expectedScrollTop: position.top,
+        observedScrollLeft: observed.left,
+        observedScrollTop: observed.top
+      });
+    }
   }
 
   private selectEditorWithoutCanvasScroll(editor: HTMLTextAreaElement): void {
@@ -6223,6 +6281,7 @@ export class NativePowerPointView extends FileView {
       return true;
     }
 
+    const scrollPosition = this.captureCanvasScroll();
     this.recordInlineEditSnapshot(editor);
     const nextText = text.slice(0, deleteStart) + text.slice(deleteEnd);
     editor.value = nextText;
@@ -6240,6 +6299,10 @@ export class NativePowerPointView extends FileView {
       this.positionTextRunEditor(editor, nextBox);
     }
     this.updateInlineCaret(editor, element);
+    this.preserveCanvasScrollAfterInlineTextEdit(
+      scrollPosition,
+      event.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward'
+    );
     return true;
   }
 
@@ -7508,10 +7571,22 @@ export class NativePowerPointView extends FileView {
     if (target.kind === 'shape-paragraph') {
       const firstRun = target.runElements[0];
       if (firstRun) {
-        firstRun.textContent = text;
-        for (let index = 1; index < target.runElements.length; index++) {
+        const previousRunTexts = target.runElements.map((run) => run.textContent || '');
+        const previewRunTexts = redistributeTextAcrossVisualRuns(previousRunTexts, text);
+        for (let index = 0; index < target.runElements.length; index++) {
           const run = target.runElements[index];
-          if (run) run.textContent = '';
+          if (run) run.textContent = previewRunTexts[index] ?? '';
+        }
+        if (target.runElements.length > 1) {
+          debugLog('text-edit', 'Updated wrapped inline text preview', {
+            slide: this.currentSlide,
+            shapeIndex: target.shapeIndex,
+            paragraphIndex: target.paragraphIndex,
+            runCount: target.runElements.length,
+            previousLength: previousRunTexts.join('').length,
+            nextLength: text.length,
+            lineCount: this.getRunLineContainers(target.shapeIndex, target.paragraphIndex).length
+          });
         }
         return;
       }
@@ -8148,9 +8223,7 @@ export class NativePowerPointView extends FileView {
     if (!startPoint || !startBox) return;
 
     const previewElement = this.getSelectedShapeElement();
-    const freezeShapeDuringResize = mode === 'resize'
-      && this.selectedShapeIndex !== null
-      && this.engine.isTextBoxShape(this.currentSlide, this.selectedShapeIndex);
+    const freezeShapeDuringResize = this.shouldFreezeTextDuringResize(mode, previewElement);
     const paneEmuScale = this.getPaneEmuScale();
     const previewImageElement = previewElement ? this.getPictureImageElement(previewElement) : null;
     const previewImageAttrs = previewImageElement
@@ -8189,6 +8262,24 @@ export class NativePowerPointView extends FileView {
       previewImageElement,
       previewImageAttrs,
     };
+    logPptxAction('selection', 'drag', {
+      slide: this.currentSlide,
+      shapeIndexes: this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex],
+      mode,
+      handle,
+      freezeTextDuringResize: freezeShapeDuringResize,
+    });
+  }
+
+  /**
+   * A live SVG scale stretches glyphs. Freeze every shape that visibly renders
+   * text during a resize so only the selection outline moves until commit.
+   */
+  private shouldFreezeTextDuringResize(
+    mode: DragState['mode'],
+    previewElement: SVGGElement | null,
+  ): boolean {
+    return mode === 'resize' && previewElement?.querySelector('text') !== null;
   }
 
   /**
@@ -8587,6 +8678,9 @@ export class NativePowerPointView extends FileView {
     const transform = cloneTransform(this.dragState.latestTransform);
     const startTransform = cloneTransform(this.dragState.startTransform);
     const moved = !transformsMatch(startTransform, transform);
+    const mode = this.dragState.mode;
+    const handle = this.dragState.handle;
+    const freezeTextDuringResize = this.dragState.freezeShapeDuringResize === true;
     const previewElement = this.dragState.previewElement ?? null;
     const previewOriginalTransform = this.dragState.previewOriginalTransform ?? null;
     const previewImageElement = this.dragState.previewImageElement;
@@ -8601,6 +8695,15 @@ export class NativePowerPointView extends FileView {
     if (moved) {
       this.suppressNextClick = true;
     }
+    debugLog('selection', 'PowerPoint selection drag preview ended', {
+      op: 'drag-preview-end',
+      slide: this.currentSlide,
+      shapeIndexes: this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex],
+      mode,
+      handle,
+      freezeTextDuringResize,
+      moved,
+    });
     this.updateInspectorValues();
     void this.commitTransform(transform).finally(() => {
       this.restoreShapeDragPreview(previewElement, previewOriginalTransform);

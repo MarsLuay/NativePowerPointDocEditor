@@ -125,10 +125,22 @@ export function adjacentUnselectedShape(
   selected: Set<Element>,
   direction: 1 | -1
 ): Element | null {
-  let current = direction === 1 ? element.nextElementSibling : element.previousElementSibling;
-  while (current) {
-    if (SHAPE_ELEMENT_NAMES.has(current.localName) && !selected.has(current)) return current;
-    current = direction === 1 ? current.nextElementSibling : current.previousElementSibling;
+  const parent = element.parentNode;
+  if (!parent || parent.nodeType !== 1) return null;
+
+  // The OOXML model is parsed by both the browser DOM and @xmldom in the
+  // headless engine. The latter has no previousElementSibling / nextElementSibling,
+  // so navigate the parent tree through the shared element-child helper instead.
+  const siblings = getElementChildren(parent as Element)
+    .filter((sibling) => SHAPE_ELEMENT_NAMES.has(sibling.localName));
+  const startIndex = siblings.indexOf(element);
+  for (
+    let index = startIndex + direction;
+    index >= 0 && index < siblings.length;
+    index += direction
+  ) {
+    const sibling = siblings[index];
+    if (sibling && !selected.has(sibling)) return sibling;
   }
   return null;
 }
