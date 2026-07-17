@@ -20,6 +20,9 @@ export interface HistoryHost {
   readonly engine: PresentationEngine | null;
   currentSlide: number;
   readonly activeEditor: HTMLTextAreaElement | null;
+  /** Active in-place text edits keep a short, separate undo stack. */
+  canUndoInlineEdit?(): boolean;
+  canRedoInlineEdit?(): boolean;
   ensureEditable(action: string): boolean;
   canEdit(): boolean;
   clearAutosave(): void;
@@ -240,9 +243,29 @@ export class HistoryController {
     destination: HistoryEntry[],
     action: 'undo' | 'redo'
   ): Promise<void> {
-    if (!this.host.engine || this.isRestoringHistory || source.length === 0) return;
-    if (!this.host.ensureEditable(action)) return;
+    if (!this.host.engine) {
+      debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'no-engine' });
+      return;
+    }
+    if (this.isRestoringHistory) {
+      debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'restoring' });
+      return;
+    }
+    if (source.length === 0) {
+      debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'empty-stack' });
+      return;
+    }
+    if (!this.host.ensureEditable(action)) {
+      debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'not-editable' });
+      return;
+    }
     if (this.host.activeEditor) {
+      debugLog('history', `PowerPoint ${action} skipped`, {
+        op: action,
+        reason: 'active-inline-editor',
+        sourceDepth: source.length,
+        destinationDepth: destination.length,
+      });
       this.host.activeEditor.blur();
       return;
     }
@@ -331,19 +354,34 @@ export class HistoryController {
   updateAvailability(): void {
     const canUseHistory = this.host.canEdit() && !this.isRestoringHistory;
     const modifier = Platform?.isMacOS === true ? 'Cmd' : 'Ctrl';
-    this.updateHistoryButton(this.undoButton, 'Undo', `${modifier}+Z`, canUseHistory && this.undoStack.length > 0);
-    this.updateHistoryButton(this.redoButton, 'Redo', `${modifier}+Shift+Z`, canUseHistory && this.redoStack.length > 0);
+    const hasInlineUndo = this.host.canUndoInlineEdit?.() === true;
+    const hasInlineRedo = this.host.canRedoInlineEdit?.() === true;
+    this.updateHistoryButton(
+      this.undoButton,
+      'Undo',
+      `${modifier}+Z`,
+      canUseHistory && (hasInlineUndo || this.undoStack.length > 0),
+      hasInlineUndo,
+    );
+    this.updateHistoryButton(
+      this.redoButton,
+      'Redo',
+      `${modifier}+Shift+Z`,
+      canUseHistory && (hasInlineRedo || this.redoStack.length > 0),
+      hasInlineRedo,
+    );
   }
 
   private updateHistoryButton(
     button: HTMLButtonElement | null,
     label: string,
     shortcut: string,
-    enabled: boolean
+    enabled: boolean,
+    usesInlineHistory = false,
   ): void {
     if (!button) return;
 
-    const nextEntry = label === 'Undo'
+    const nextEntry = usesInlineHistory ? null : label === 'Undo'
       ? this.undoStack[this.undoStack.length - 1]
       : this.redoStack[this.redoStack.length - 1];
     button.disabled = !enabled;

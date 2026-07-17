@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.49] - 2026-07-17
+
+### Fixed
+
+- PowerPoint whole-shape text commits no longer skip OOXML writes after a live SVG preview update (authoritative baseline text).
+- Inline text preview measurement uses a detached `Window.createEl('canvas')` so pop-out / XML slide documents do not throw during reflow.
+
 ## [1.0.48] - 2026-07-16
 
 ### Fixed

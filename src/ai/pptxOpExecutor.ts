@@ -93,7 +93,15 @@ function requireReplacementParagraphs(value: unknown): DrawingParagraphText[] {
 				{ field: `paragraphs[${index}].listStyle` },
 			);
 		}
-		return { text, listStyle };
+		const bold = paragraph.bold;
+		if (bold !== undefined && typeof bold !== 'boolean') {
+			throw createAiError(
+				AI_ERROR_CODES.SCHEMA_INVALID,
+				'bold must be a boolean when provided.',
+				{ field: `paragraphs[${index}].bold` },
+			);
+		}
+		return bold === undefined ? { text, listStyle } : { text, listStyle, bold };
 	});
 }
 

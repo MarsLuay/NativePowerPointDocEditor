@@ -127,6 +127,25 @@ test('PresentationSession commits mutations through its executor before marking 
   }
 });
 
+test('PresentationSession does not dirty an overlap-aware reorder with no structural target', async () => {
+  const { PresentationSession } = await loadPresentationSessionModule();
+  const session = new PresentationSession(createSaveHost(), {
+    mutationExecutor: { execute: async () => null },
+  });
+
+  const result = await session.applyCommand({
+    type: 'reorder-shapes',
+    slideIndex: 0,
+    shapeIndexes: [4],
+    mode: 'forward',
+    intersectingOnly: true,
+  });
+
+  assert.equal(result, null);
+  assert.equal(session.dirty, false);
+  assert.equal(session.editVersion, 0);
+});
+
 test('PresentationSession leaves state unchanged when a mutation fails', async () => {
   const { PresentationSession } = await loadPresentationSessionModule();
   const failure = new Error('mutation failed');

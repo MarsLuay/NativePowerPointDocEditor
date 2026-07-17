@@ -31,6 +31,7 @@ import {
 } from './settings';
 import type { DocxReactMount } from './DocxReactMount';
 import type { DocxReactViewHandle, DocxReactViewProps } from './DocxReactView';
+import type { DocumentWordCount } from './documentWordCount';
 import {
 	bindPopoverDismissHandlers,
 	configureMenuItemButton,
@@ -994,6 +995,8 @@ export class DocxView extends FileView {
 		private getAutosave: () => boolean,
 		private getCreateBackupsBeforeSave: () => boolean,
 		private getDefaultZoom: () => number,
+		private onWordCountChange: (wordCount: DocumentWordCount) => void,
+		private onWordCountClear: () => void,
 	) {
 		super(leaf);
 	}
@@ -1314,6 +1317,7 @@ export class DocxView extends FileView {
 		this.beginDocumentSession();
 		this.agentReloadGuard.clear(new Error('DOCX view closed before the agent reload completed.'));
 		this.reactMount?.unmount();
+		this.onWordCountClear();
 		this.reactMount = null;
 		this.reactMountLoading = false;
 		this.hostResizeObserver?.disconnect();
@@ -1356,6 +1360,7 @@ export class DocxView extends FileView {
 		};
 		this.agentReloadGuard.clear(new Error('A different DOCX file began loading.'));
 		this.isLoading = true;
+		this.onWordCountClear();
 		this.error = null;
 		this.buffer = null;
 		this.isDirty = false;
@@ -3735,6 +3740,7 @@ export class DocxView extends FileView {
 			},
 			onSave: (buffer) => this.saveFile(buffer, origin ?? this.createSaveOrigin()),
 			onDocumentNameChange: (name, expectedPath) => this.renameFile(name, expectedPath),
+			onWordCountChange: this.onWordCountChange,
 			onLoadPhase: (phase, data) => this.handleEditorLoadPhase(phase, data, origin ?? undefined),
 		};
 	}

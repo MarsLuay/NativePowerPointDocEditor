@@ -262,6 +262,61 @@ test("PptxMutationService routes paragraph split commands", async () => {
   ]);
 });
 
+test("PptxMutationService routes empty preceding paragraph removal commands", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => new ArrayBuffer(4),
+    removeEmptyPrecedingParagraph: async (slideIndex, shapeIndex, paragraphIndex) => {
+      calls.push(["removeEmptyPrecedingParagraph", slideIndex, shapeIndex, paragraphIndex]);
+      return { removed: true, paragraphIndex: paragraphIndex - 1 };
+    },
+    commitMutation: async () => calls.push("commit"),
+    restoreSnapshot: async () => {},
+  };
+
+  const result = await new PptxMutationService(engine).execute({
+    type: "remove-empty-preceding-paragraph",
+    slideIndex: 2,
+    shapeIndex: 3,
+    paragraphIndex: 4,
+  });
+
+  assert.deepEqual(result, { removed: true, paragraphIndex: 3 });
+  assert.deepEqual(calls, [
+    ["removeEmptyPrecedingParagraph", 2, 3, 4],
+    "commit",
+  ]);
+});
+
+test("PptxMutationService routes preceding paragraph merge commands", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => new ArrayBuffer(4),
+    mergePrecedingParagraph: async (slideIndex, shapeIndex, paragraphIndex, text) => {
+      calls.push(["mergePrecedingParagraph", slideIndex, shapeIndex, paragraphIndex, text]);
+      return { merged: true, paragraphIndex: paragraphIndex - 1, caretOffset: 7 };
+    },
+    commitMutation: async () => calls.push("commit"),
+    restoreSnapshot: async () => {},
+  };
+
+  const result = await new PptxMutationService(engine).execute({
+    type: "merge-preceding-paragraph",
+    slideIndex: 2,
+    shapeIndex: 3,
+    paragraphIndex: 4,
+    text: "Edited paragraph",
+  });
+
+  assert.deepEqual(result, { merged: true, paragraphIndex: 3, caretOffset: 7 });
+  assert.deepEqual(calls, [
+    ["mergePrecedingParagraph", 2, 3, 4, "Edited paragraph"],
+    "commit",
+  ]);
+});
+
 test("PptxMutationService rejects commands before an engine is available", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const service = new PptxMutationService(() => null);

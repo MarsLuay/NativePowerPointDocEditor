@@ -58,6 +58,8 @@ export type PptxCommand =
       readonly slideIndex: number;
       readonly shapeIndexes: number[];
       readonly mode: ShapeReorderMode;
+      /** UI reorders stop at the nearest overlapping object. */
+      readonly intersectingOnly?: boolean;
     }
   | { readonly type: 'group-shapes'; readonly slideIndex: number; readonly shapeIndexes: number[] }
   | { readonly type: 'ungroup-shapes'; readonly slideIndex: number; readonly shapeIndex: number }
@@ -86,6 +88,19 @@ export type PptxCommand =
       readonly shapeIndex: number;
       readonly paragraphIndex: number;
       readonly splitOffset: number;
+      readonly text?: string;
+    }
+  | {
+      readonly type: 'remove-empty-preceding-paragraph';
+      readonly slideIndex: number;
+      readonly shapeIndex: number;
+      readonly paragraphIndex: number;
+    }
+  | {
+      readonly type: 'merge-preceding-paragraph';
+      readonly slideIndex: number;
+      readonly shapeIndex: number;
+      readonly paragraphIndex: number;
       readonly text?: string;
     }
   | {

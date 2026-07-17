@@ -16,6 +16,29 @@ export function normalizeSearchText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Resolve the pre-edit text used by applyTextValue's unchanged check.
+ * Session baseline (captured before live SVG preview mutation) always wins over
+ * target.text and over live SVG — otherwise whole-shape preview recovery makes
+ * the commit think nothing changed and skip the OOXML write.
+ */
+export function previousTextForInlineApply(args: {
+  sessionBaseline?: string | null;
+  targetText?: string | null;
+  liveSvgText?: string | null;
+}): { previousText: string; source: 'session-baseline' | 'target' | 'live-svg' | 'empty' } {
+  if (args.sessionBaseline !== undefined && args.sessionBaseline !== null) {
+    return { previousText: args.sessionBaseline, source: 'session-baseline' };
+  }
+  if (args.targetText !== undefined && args.targetText !== null) {
+    return { previousText: args.targetText, source: 'target' };
+  }
+  if (args.liveSvgText !== undefined && args.liveSvgText !== null) {
+    return { previousText: args.liveSvgText, source: 'live-svg' };
+  }
+  return { previousText: '', source: 'empty' };
+}
+
 /** Resolve the word a text caret sits in, using browser-native Unicode segmentation. */
 export function getInlineWordRange(text: string, caretOffset: number): { start: number; end: number } {
   const offset = Math.max(0, Math.min(caretOffset, text.length));
@@ -43,14 +66,72 @@ export function joinParagraphVisualLines(lineTexts: string[]): string {
 }
 
 /**
- * Keep an inline edit inside the renderer's existing visual-line tspans.
+ * Split text into visual lines without changing its characters. The caller
+ * provides a screen-pixel measurement function so this stays pure and can be
+ * shared by the SVG inline-preview path and its tests.
+ */
+export function wrapTextForPreview(
+  text: string,
+  maxWidth: number,
+  measure: (value: string) => number
+): string[] {
+  if (!text || !Number.isFinite(maxWidth) || maxWidth <= 0) return [text];
+
+  const lines: string[] = [];
+  let lineStart = 0;
+  let index = 0;
+  let lastBreak = -1;
+
+  while (index < text.length) {
+    const character = text.charAt(index);
+    if (character === '\n') return [text];
+
+    const candidate = text.slice(lineStart, index + 1);
+    if (measure(candidate) <= maxWidth || index === lineStart) {
+      if (/\s/.test(character)) lastBreak = index + 1;
+      index += 1;
+      continue;
+    }
+
+    // Prefer an existing word boundary. Keeping its whitespace in the prior
+    // line preserves the editor string exactly while the SVG renders it as a
+    // normal soft wrap.
+    if (lastBreak > lineStart) {
+      lines.push(text.slice(lineStart, lastBreak));
+      lineStart = lastBreak;
+      index = lineStart;
+      lastBreak = -1;
+      continue;
+    }
+
+    // A space that just crosses the limit belongs to the previous line; do
+    // not make the next line begin with a visible leading gap.
+    if (/\s/.test(character)) {
+      lines.push(candidate);
+      lineStart = index + 1;
+      index = lineStart;
+      lastBreak = -1;
+      continue;
+    }
+
+    // Long unbroken words still need to stay inside the text box.
+    lines.push(text.slice(lineStart, index));
+    lineStart = index;
+    lastBreak = -1;
+  }
+
+  lines.push(text.slice(lineStart));
+  return lines;
+}
+
+/**
+ * Keep an inline edit's run styling while it is redistributed across visual
+ * line tspans.
  *
  * PowerPoint's renderer emits a separate run tspan for every soft-wrapped
- * fragment. While an inline editor is open we do not re-run the layout engine
- * on each keystroke, so assigning the whole paragraph to the first tspan would
- * make it overflow horizontally. This maps the changed range from the previous
- * flat text to the new flat text and retains every existing tspan boundary. A
- * final engine render on commit performs the authoritative reflow.
+ * fragment. This maps the changed range from the previous flat text to the new
+ * flat text, allowing the view to retain run styling while it live-reflows the
+ * preview. A final engine render on commit remains authoritative.
  */
 export function redistributeTextAcrossVisualRuns(previousRunTexts: string[], nextText: string): string[] {
   if (previousRunTexts.length === 0) return [];

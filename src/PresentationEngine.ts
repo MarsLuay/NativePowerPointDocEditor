@@ -27,7 +27,9 @@ import {
 import { PptxPackageDocument } from './powerpoint/document/PptxPackageDocument';
 import {
   createSlideObjectClipboard,
+  createSlideObjectsClipboard,
   pasteSlideObject,
+  pasteSlideObjects,
   type SlideObjectClipboard
 } from './ShapeClipboard';
 import {
@@ -68,14 +70,18 @@ import {
   applyRunPropertyChange,
   applyRunStyleToParagraphRange,
   disableShrinkAutofit,
+  deleteDrawingTextRanges,
   getDrawingParagraphs,
   getDrawingRunText,
   getDrawingRuns,
+  hasEmptyDrawingParagraphBefore,
   getParagraphProperties,
   getRunProperties,
   getShapeRunPositions,
   isParagraphRangeStyled,
+  mergeDrawingParagraphWithPrevious,
   normalizeHexColor,
+  removeEmptyDrawingParagraphBefore,
   removeDrawingParagraphSoftBreaks,
   replaceDrawingParagraphs,
   replaceTextInParagraph,
@@ -85,6 +91,7 @@ import {
   setDrawingTextRun,
   splitDrawingParagraphAtOffset,
   type DrawingParagraphText,
+  type DrawingTextRangeDeletionResult,
 } from './powerpoint/drawingmlText';
 import { getDrawingParagraphListStyle } from './powerpoint/paragraphListStyle';
 
@@ -121,6 +128,7 @@ import {
   type ProtectedSlideMarkerRemovalAllowance,
 } from './PowerPointPackage';
 import {
+  adjacentIntersectingUnselectedShape,
   adjacentUnselectedShape,
   applyTransformToShape,
   getShapeBox,
@@ -146,6 +154,28 @@ export interface ParagraphSplitResult {
   listStyle: ParagraphListStyle | 'inherited';
   removedSoftBreaks: number;
 }
+
+/** Result metadata for Backspace removing a preceding empty DrawingML paragraph. */
+export interface EmptyPrecedingParagraphRemovalResult {
+  removed: boolean;
+  paragraphIndex: number;
+  beforeParagraphCount: number;
+  afterParagraphCount: number;
+  reason: 'removed' | 'no-previous-paragraph' | 'previous-paragraph-not-empty';
+}
+
+/** Result metadata for Backspace joining a paragraph with its predecessor. */
+export interface PrecedingParagraphMergeResult {
+  merged: boolean;
+  paragraphIndex: number;
+  caretOffset: number;
+  beforeParagraphCount: number;
+  afterParagraphCount: number;
+  reason: 'merged' | 'no-previous-paragraph';
+}
+
+/** Result metadata for deleting one inline text selection, including paragraph joins. */
+export type TextRangeDeletionResult = DrawingTextRangeDeletionResult;
 
 /** Top-left insertion point in slide DrawingML EMUs. */
 export interface TextBoxInsertOrigin {
@@ -867,6 +897,170 @@ export class PresentationEngine {
     return result;
   }
 
+  /**
+   * Implements Backspace at the start of a PowerPoint paragraph without
+   * flattening structural paragraphs into literal newlines. Only an empty
+   * predecessor is removed; non-empty paragraphs intentionally remain for a
+   * future merge behavior.
+   */
+  async removeEmptyPrecedingParagraph(
+    slideIndex: number,
+    shapeIndex: number,
+    paragraphIndex: number,
+  ): Promise<EmptyPrecedingParagraphRemovalResult> {
+    let result: EmptyPrecedingParagraphRemovalResult = {
+      removed: false,
+      paragraphIndex,
+      beforeParagraphCount: 0,
+      afterParagraphCount: 0,
+      reason: 'no-previous-paragraph',
+    };
+
+    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+      const paragraphs = getDrawingParagraphs(shape);
+      const beforeParagraphCount = paragraphs.length;
+      if (!paragraphs[paragraphIndex]) {
+        throw new Error('Could not find the selected text paragraph.');
+      }
+
+      if (paragraphIndex === 0) {
+        result = {
+          removed: false,
+          paragraphIndex,
+          beforeParagraphCount,
+          afterParagraphCount: beforeParagraphCount,
+          reason: 'no-previous-paragraph',
+        };
+        return false;
+      }
+
+      const removed = removeEmptyDrawingParagraphBefore(shape, paragraphIndex);
+      const afterParagraphCount = getDrawingParagraphs(shape).length;
+      result = {
+        removed,
+        paragraphIndex: removed ? paragraphIndex - 1 : paragraphIndex,
+        beforeParagraphCount,
+        afterParagraphCount,
+        reason: removed ? 'removed' : 'previous-paragraph-not-empty',
+      };
+      return removed;
+    });
+
+    if (result.removed) {
+      debugLog('text-edit', 'Removed empty preceding PowerPoint paragraph through OOXML', {
+        slideIndex,
+        shapeIndex,
+        sourceParagraphIndex: paragraphIndex,
+        paragraphIndex: result.paragraphIndex,
+        beforeParagraphCount: result.beforeParagraphCount,
+        afterParagraphCount: result.afterParagraphCount,
+      });
+    } else {
+      debugLog('text-edit', 'Skipped empty preceding PowerPoint paragraph removal', {
+        slideIndex,
+        shapeIndex,
+        paragraphIndex,
+        reason: result.reason,
+        paragraphCount: result.beforeParagraphCount,
+      });
+    }
+    return result;
+  }
+
+  /** Join a paragraph with its predecessor while preserving each run's formatting. */
+  async mergePrecedingParagraph(
+    slideIndex: number,
+    shapeIndex: number,
+    paragraphIndex: number,
+    text?: string,
+  ): Promise<PrecedingParagraphMergeResult> {
+    let result: PrecedingParagraphMergeResult = {
+      merged: false,
+      paragraphIndex,
+      caretOffset: 0,
+      beforeParagraphCount: 0,
+      afterParagraphCount: 0,
+      reason: 'no-previous-paragraph',
+    };
+
+    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+      const paragraphs = getDrawingParagraphs(shape);
+      const beforeParagraphCount = paragraphs.length;
+      if (!paragraphs[paragraphIndex]) {
+        throw new Error('Could not find the selected text paragraph.');
+      }
+      if (paragraphIndex === 0) {
+        result = {
+          ...result,
+          beforeParagraphCount,
+          afterParagraphCount: beforeParagraphCount,
+        };
+        return false;
+      }
+
+      if (text !== undefined) {
+        setDrawingParagraphText(shape, paragraphIndex, text);
+      }
+      const merged = mergeDrawingParagraphWithPrevious(shape, paragraphIndex);
+      const afterParagraphCount = getDrawingParagraphs(shape).length;
+      result = {
+        merged: merged.merged,
+        paragraphIndex: merged.merged ? paragraphIndex - 1 : paragraphIndex,
+        caretOffset: merged.caretOffset,
+        beforeParagraphCount,
+        afterParagraphCount,
+        reason: merged.merged ? 'merged' : 'no-previous-paragraph',
+      };
+      return merged.merged;
+    });
+
+    debugLog('text-edit', 'Merged preceding PowerPoint paragraph through OOXML', {
+      slideIndex,
+      shapeIndex,
+      sourceParagraphIndex: paragraphIndex,
+      paragraphIndex: result.paragraphIndex,
+      caretOffset: result.caretOffset,
+      beforeParagraphCount: result.beforeParagraphCount,
+      afterParagraphCount: result.afterParagraphCount,
+      usedPendingEditorText: text !== undefined,
+      merged: result.merged,
+      reason: result.reason,
+    });
+    return result;
+  }
+
+  /** Delete one or more selected text ranges from a shape in one OOXML mutation. */
+  async deleteTextRanges(
+    slideIndex: number,
+    shapeIndex: number,
+    ranges: readonly ParagraphTextRange[],
+  ): Promise<TextRangeDeletionResult> {
+    let result: TextRangeDeletionResult = {
+      changed: false,
+      paragraphIndex: 0,
+      caretOffset: 0,
+      deletedRangeCount: 0,
+      removedParagraphCount: 0,
+      mergedParagraphs: false,
+    };
+    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+      result = deleteDrawingTextRanges(shape, ranges);
+      return result.changed;
+    });
+    debugLog('text-edit', 'Deleted PowerPoint text ranges through OOXML', {
+      slideIndex,
+      shapeIndex,
+      requestedRangeCount: ranges.length,
+      deletedRangeCount: result.deletedRangeCount,
+      paragraphIndex: result.paragraphIndex,
+      caretOffset: result.caretOffset,
+      removedParagraphCount: result.removedParagraphCount,
+      mergedParagraphs: result.mergedParagraphs,
+      changed: result.changed,
+    });
+    return result;
+  }
+
   async updateTextRun(
     slideIndex: number,
     shapeIndex: number,
@@ -1125,6 +1319,17 @@ export class PresentationEngine {
     if (!paragraph) return null;
 
     return getDrawingRuns(paragraph).map((run) => getDrawingRunText(run)).join('');
+  }
+
+  /** Whether Backspace may safely remove the direct predecessor of a paragraph. */
+  hasEmptyPrecedingParagraph(slideIndex: number, shapeIndex: number, paragraphIndex: number): boolean {
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
+      return hasEmptyDrawingParagraphBefore(shape, paragraphIndex);
+    } catch {
+      return false;
+    }
   }
 
   /** Return the explicit native list marker on a paragraph, when present. */
@@ -1883,42 +2088,92 @@ export class PresentationEngine {
   }
 
   async deleteShape(slideIndex: number, shapeIndex: number): Promise<void> {
+    await this.deleteShapes(slideIndex, [shapeIndex]);
+  }
+
+  /**
+   * Delete several selected objects from one slide in a single package
+   * transaction. Resolving every target before removing one preserves the
+   * renderer's original shape indices, including composite group-child indices.
+   */
+  async deleteShapes(slideIndex: number, shapeIndexes: readonly number[]): Promise<void> {
+    const indexes = [...new Set(shapeIndexes)].sort((left, right) => right - left);
+    if (indexes.length === 0) return;
+
     this.ensureSlideRunCacheSeeded(slideIndex);
-    let deletedImage = false;
-    let deletedUnknownElementCounts: Record<string, number> = {};
+    const startedAt = Date.now();
+    let deletedImageCount = 0;
+    const deletedUnknownElementCounts = new Map<string, number>();
+    let removedIndexes: number[] = [];
     await this.mutateSlideTree(slideIndex, (slideDoc) => {
-      const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
-      deletedImage = shape.localName === 'pic';
-      const shapeXml = new XMLSerializer().serializeToString(shape);
-      deletedUnknownElementCounts = Object.fromEntries(
-        collectUnknownElementNames(shapeXml).map((elementName) => [elementName, countElementName(shapeXml, elementName)]),
-      );
-      const parent = shape.parentNode;
-      if (!parent) throw new Error('Could not delete shape without a parent element.');
-      parent.removeChild(shape);
+      const targets = indexes.map((shapeIndex) => ({
+        shapeIndex,
+        shape: getShapeElementByRendererIndex(slideDoc, shapeIndex),
+      }));
+      const selectedShapes = new Set(targets.map(({ shape }) => shape));
+      const topLevelTargets = targets.filter(({ shape }) => {
+        for (let parent = shape.parentNode; parent; parent = parent.parentNode) {
+          if (parent.nodeType === 1 && selectedShapes.has(parent as Element)) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      removedIndexes = topLevelTargets.map(({ shapeIndex }) => shapeIndex);
+      for (const { shape } of topLevelTargets) {
+        if (shape.localName === 'pic') deletedImageCount += 1;
+        const shapeXml = new XMLSerializer().serializeToString(shape);
+        for (const elementName of collectUnknownElementNames(shapeXml)) {
+          const count = countElementName(shapeXml, elementName);
+          deletedUnknownElementCounts.set(
+            elementName,
+            (deletedUnknownElementCounts.get(elementName) ?? 0) + count,
+          );
+        }
+        const parent = shape.parentNode;
+        if (!parent) throw new Error('Could not delete shape without a parent element.');
+        parent.removeChild(shape);
+      }
     });
-    if (deletedImage) {
+    if (deletedImageCount > 0) {
       this.protectedSlideMarkerRemovalAllowance.image =
-        (this.protectedSlideMarkerRemovalAllowance.image ?? 0) + 1;
+        (this.protectedSlideMarkerRemovalAllowance.image ?? 0) + deletedImageCount;
     }
-    for (const [elementName, count] of Object.entries(deletedUnknownElementCounts)) {
+    for (const [elementName, count] of deletedUnknownElementCounts) {
       this.unknownSlideElementRemovalAllowance.set(
         elementName,
         (this.unknownSlideElementRemovalAllowance.get(elementName) ?? 0) + count,
       );
     }
-    this.remapSlideRunCacheAfterDeletedShape(slideIndex, shapeIndex);
-    debugLog('arrange', 'Deleted PowerPoint shape through OOXML', {
+    debugLog('arrange', 'Deleted PowerPoint shapes through OOXML', {
       slide: slideIndex,
-      shapeIndex,
-      deletedImage,
-      deletedUnknownElementCounts,
+      count: removedIndexes.length,
+      shapeIndexes: indexes,
+      removedShapeIndexes: removedIndexes,
+      deletedImageCount,
+      deletedUnknownElementCounts: Object.fromEntries(deletedUnknownElementCounts),
       allowedImageRemovals: this.protectedSlideMarkerRemovalAllowance.image ?? 0,
+      ms: Date.now() - startedAt,
     });
   }
 
   async copyShape(slideIndex: number, shapeIndex: number): Promise<SlideObjectClipboard> {
     return createSlideObjectClipboard(await this.exportRendererState(), slideIndex, shapeIndex);
+  }
+
+  async copyShapes(slideIndex: number, shapeIndexes: readonly number[]): Promise<SlideObjectClipboard> {
+    const clipboard = createSlideObjectsClipboard(
+      await this.exportRendererState(),
+      slideIndex,
+      shapeIndexes,
+    );
+    debugLog('clipboard', 'Created PowerPoint multi-object clipboard', {
+      slide: slideIndex,
+      count: clipboard.shapeIndexes.length,
+      shapeIndexes: clipboard.shapeIndexes,
+    });
+    return clipboard;
   }
 
   async pasteShape(
@@ -1929,6 +2184,21 @@ export class PresentationEngine {
     const result = await pasteSlideObject(rawExport, clipboard, destinationSlideIndex);
     await this.reloadFromBuffer(result.buffer, this.slideCountValue);
     return result.shapeIndex;
+  }
+
+  async pasteShapes(
+    clipboard: SlideObjectClipboard,
+    destinationSlideIndex: number,
+  ): Promise<number[]> {
+    const rawExport = await this.exportRendererState();
+    const result = await pasteSlideObjects(rawExport, clipboard, destinationSlideIndex);
+    await this.reloadFromBuffer(result.buffer, this.slideCountValue);
+    debugLog('clipboard', 'Pasted PowerPoint multi-object clipboard', {
+      slide: destinationSlideIndex,
+      count: result.shapeIndexes.length,
+      shapeIndexes: result.shapeIndexes,
+    });
+    return result.shapeIndexes;
   }
 
   async duplicateShape(slideIndex: number, shapeIndex: number): Promise<number> {
@@ -1969,6 +2239,16 @@ export class PresentationEngine {
       }
 
       const result = mutate(slideDoc, shapeTree);
+      if (result === null) {
+        debugLog('mutate', 'Slide tree mutation skipped', {
+          op: 'mutate-slide-tree',
+          slide: slideIndex,
+          path: slidePath,
+          reason: 'no-structural-change',
+          ms: Date.now() - startedAt,
+        });
+        return result;
+      }
       const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
       await this.reloadFromBuffer(patchedExport, this.slideCountValue);
       debugLog('mutate', 'Slide tree mutation committed', {
@@ -1996,8 +2276,9 @@ export class PresentationEngine {
   async reorderShapes(
     slideIndex: number,
     shapeIndexes: number[],
-    mode: ShapeReorderMode
-  ): Promise<number[]> {
+    mode: ShapeReorderMode,
+    options: { intersectingOnly?: boolean } = {}
+  ): Promise<number[] | null> {
     return this.mutateSlideTree(slideIndex, (_slideDoc, shapeTree) => {
       const shapes = getSpTreeShapes(shapeTree);
       const selected = new Set(
@@ -2010,6 +2291,8 @@ export class PresentationEngine {
       }
 
       const ordered = shapes.filter((element) => selected.has(element));
+      const sourceIndexes = ordered.map((element) => shapes.indexOf(element));
+      let intersectionTargetCount = 0;
       if (mode === 'front') {
         for (const element of ordered) shapeTree.appendChild(element);
       } else if (mode === 'back') {
@@ -2021,18 +2304,36 @@ export class PresentationEngine {
         for (let index = ordered.length - 1; index >= 0; index--) {
           const element = ordered[index];
           if (!element) continue;
-          const next = adjacentUnselectedShape(element, selected, 1);
+          const next = options.intersectingOnly
+            ? adjacentIntersectingUnselectedShape(element, selected, 1)
+            : adjacentUnselectedShape(element, selected, 1);
+          if (options.intersectingOnly && next) intersectionTargetCount += 1;
           if (next) shapeTree.insertBefore(element, next.nextSibling);
         }
       } else {
         for (const element of ordered) {
-          const previous = adjacentUnselectedShape(element, selected, -1);
+          const previous = options.intersectingOnly
+            ? adjacentIntersectingUnselectedShape(element, selected, -1)
+            : adjacentUnselectedShape(element, selected, -1);
+          if (options.intersectingOnly && previous) intersectionTargetCount += 1;
           if (previous) shapeTree.insertBefore(element, previous);
         }
       }
 
       const finalShapes = getSpTreeShapes(shapeTree);
-      return ordered.map((element) => finalShapes.indexOf(element));
+      const finalIndexes = ordered.map((element) => finalShapes.indexOf(element));
+      const changed = finalIndexes.some((index, position) => index !== sourceIndexes[position]);
+      if (options.intersectingOnly && (mode === 'forward' || mode === 'backward')) {
+        debugLog('arrange', 'Resolved overlap-aware PowerPoint reorder', {
+          slide: slideIndex,
+          mode,
+          shapeIndexes,
+          intersectionTargetCount,
+          changed,
+          finalShapeIndexes: finalIndexes,
+        });
+      }
+      return options.intersectingOnly && !changed ? null : finalIndexes;
     });
   }
 

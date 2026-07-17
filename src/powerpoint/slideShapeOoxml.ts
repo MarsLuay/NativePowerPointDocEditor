@@ -144,3 +144,41 @@ export function adjacentUnselectedShape(
   }
   return null;
 }
+
+/** True when two top-level shape frames visibly overlap in slide coordinates. */
+export function shapeBoxesIntersect(first: ShapeBox | null, second: ShapeBox | null): boolean {
+  if (!first || !second || first.cx <= 0 || first.cy <= 0 || second.cx <= 0 || second.cy <= 0) {
+    return false;
+  }
+  return first.x < second.x + second.cx
+    && second.x < first.x + first.cx
+    && first.y < second.y + second.cy
+    && second.y < first.y + first.cy;
+}
+
+/** Find the nearest unselected sibling that overlaps the source shape's frame. */
+export function adjacentIntersectingUnselectedShape(
+  element: Element,
+  selected: Set<Element>,
+  direction: 1 | -1
+): Element | null {
+  const sourceBox = getShapeBox(element);
+  if (!sourceBox) return null;
+
+  const parent = element.parentNode;
+  if (!parent || parent.nodeType !== 1) return null;
+  const siblings = getElementChildren(parent as Element)
+    .filter((sibling) => SHAPE_ELEMENT_NAMES.has(sibling.localName));
+  const startIndex = siblings.indexOf(element);
+  for (
+    let index = startIndex + direction;
+    index >= 0 && index < siblings.length;
+    index += direction
+  ) {
+    const sibling = siblings[index];
+    if (sibling && !selected.has(sibling) && shapeBoxesIntersect(sourceBox, getShapeBox(sibling))) {
+      return sibling;
+    }
+  }
+  return null;
+}

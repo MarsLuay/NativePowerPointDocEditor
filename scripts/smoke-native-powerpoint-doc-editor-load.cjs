@@ -48,6 +48,7 @@ let pluginData = { ...DEFAULT_PLUGIN_DATA };
 function createElementStub(tagName = 'div') {
 	const attributes = new Map();
 	return {
+		addClass() {},
 		append() {},
 		appendChild(child) {
 			return child;
@@ -93,6 +94,7 @@ function createElementStub(tagName = 'div') {
 			return [];
 		},
 		remove() {},
+		removeClass() {},
 		removeAttribute(name) {
 			attributes.delete(name);
 		},
@@ -103,6 +105,7 @@ function createElementStub(tagName = 'div') {
 		setCssProps() {},
 		setText() {},
 		show() {},
+		toggleClass() {},
 		style: {
 			removeProperty() {},
 			setProperty() {},
@@ -207,6 +210,10 @@ function createObsidianStub() {
 
 		addSettingTab(settingTab) {
 			this.settingTab = settingTab;
+		}
+
+		addStatusBarItem() {
+			return createElementStub('span');
 		}
 
 		loadData() {
@@ -333,6 +340,9 @@ function createAppStub() {
 				ownerDocument: globalThis.activeDocument,
 			},
 			getActiveViewOfType() {
+				return null;
+			},
+			getMostRecentLeaf() {
 				return null;
 			},
 			getLeavesOfType() {

@@ -200,14 +200,25 @@ export class ArrangeController {
         slide: this.host.currentSlide,
         shapeIndexes: indices,
         mode,
+        intersectingOnly: true,
       });
       const history = await this.host.captureHistoryEntry('Reorder objects');
       const newIndices = await this.host.session.applyCommand({
         type: 'reorder-shapes',
         slideIndex: this.host.currentSlide,
         shapeIndexes: indices,
-        mode
-      }) as number[];
+        mode,
+        intersectingOnly: true,
+      }) as number[] | null;
+      if (newIndices === null) {
+        debugLog('arrange', 'Skipped overlap-aware PowerPoint reorder without an intersecting object', {
+          op: 'reorder',
+          slide: this.host.currentSlide,
+          shapeIndexes: indices,
+          mode,
+        });
+        return;
+      }
       this.host.recordHistoryEntry(history);
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) {

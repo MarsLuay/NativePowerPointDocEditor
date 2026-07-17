@@ -31,3 +31,19 @@ test("inline paragraph preview keeps an end insertion inside the final visual li
 
   assert.deepEqual(previewLines, ["first ", "second!"]);
 });
+
+test("inline paragraph preview creates new word-wrapped lines without losing text", async () => {
+  const { wrapTextForPreview } = await loadTextUtilsModule();
+  const lines = wrapTextForPreview("alpha beta gamma", 10, (value) => value.length);
+
+  assert.deepEqual(lines, ["alpha ", "beta gamma"]);
+  assert.equal(lines.join(""), "alpha beta gamma");
+});
+
+test("inline paragraph preview breaks an overlong unspaced word", async () => {
+  const { wrapTextForPreview } = await loadTextUtilsModule();
+  const lines = wrapTextForPreview("abcdefgh", 3, (value) => value.length);
+
+  assert.deepEqual(lines, ["abc", "def", "gh"]);
+  assert.equal(lines.join(""), "abcdefgh");
+});

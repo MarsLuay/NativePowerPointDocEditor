@@ -10,8 +10,8 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		slideIndex: 0,
 		shapeIndex: 0,
 		paragraphs: [
-			{ text: 'Example list heading', listStyle: 'none' },
-			{ text: 'A native PowerPoint bullet', listStyle: 'bullet' },
+			{ text: 'Example list heading', listStyle: 'none', bold: true },
+			{ text: 'A native PowerPoint bullet', listStyle: 'bullet', bold: false },
 		],
 	},
 	'pptx.updateParagraphText': { op: 'pptx.updateParagraphText', slideIndex: 0, shapeIndex: 0, paragraphIndex: 0, text: 'Paragraph' },

@@ -28,6 +28,40 @@ test("clipboard matrix: engine copy, paste, and duplicate preserve a usable deck
   await assertExportRoundTrips("clipboard matrix", engine);
 });
 
+test("clipboard matrix: engine copies and pastes a multi-selection atomically", async () => {
+  const engine = await loadEngine("features.pptx");
+  const baselineCount = renderedShapeCount(engine);
+  assert.ok(baselineCount >= 2, "fixture must provide two independently selectable objects");
+
+  const clipboard = await engine.copyShapes(0, [2, 0, 2]);
+  assert.deepEqual(clipboard.shapeIndexes, [0, 2]);
+
+  const pastedIndexes = await engine.pasteShapes(clipboard, 0);
+  assert.equal(pastedIndexes.length, 2, "engine must return both pasted renderer indexes");
+  assert.equal(renderedShapeCount(engine), baselineCount + 2, "paste must add every copied object");
+
+  await assertExportRoundTrips("multi-object clipboard matrix", engine);
+});
+
+test("object matrix: engine deletes a multi-selection in one package reload", async () => {
+  const engine = await loadEngine("features.pptx");
+  const baselineCount = renderedShapeCount(engine);
+  assert.ok(baselineCount >= 3, "fixture must provide three independently selectable objects");
+
+  const originalReload = engine.reloadFromBuffer;
+  let reloadCount = 0;
+  engine.reloadFromBuffer = async (...args) => {
+    reloadCount += 1;
+    return originalReload.apply(engine, args);
+  };
+
+  await engine.deleteShapes(0, [2, 0, 2]);
+
+  assert.equal(reloadCount, 1, "multi-delete must reload the package once");
+  assert.equal(renderedShapeCount(engine), baselineCount - 2, "every selected object must be deleted");
+  await assertExportRoundTrips("multi-object delete matrix", engine);
+});
+
 test("find/replace matrix: scoped and deck-wide engine replacement", async () => {
   const engine = await loadEngine("simple-edit.pptx");
   await engine.updateParagraphText(0, 0, 0, "First first FIRST");

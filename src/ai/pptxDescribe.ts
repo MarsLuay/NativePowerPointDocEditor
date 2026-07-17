@@ -45,7 +45,12 @@ export interface PptxDescribedShape {
 	editable: boolean;
 	text: string | null;
 	paragraphs?: PptxDescribedParagraph[];
-	transform: ShapeTransform;
+	transform: ShapeTransform & {
+		/** Alias of `cx` for agent-facing layout sizing. */
+		width: number;
+		/** Alias of `cy` for agent-facing layout sizing. */
+		height: number;
+	};
 	style: PptxDescribedShapeStyle | null;
 	crop?: ImageCrop | null;
 	chartData?: ChartDataGrid;
@@ -188,7 +193,11 @@ function describeShape(
 		editable,
 		text,
 		paragraphs: paragraphs.length > 0 ? paragraphs : undefined,
-		transform,
+		transform: {
+			...transform,
+			width: transform.cx,
+			height: transform.cy,
+		},
 		style,
 		...(crop !== undefined ? { crop } : {}),
 		...(chartData ? { chartData } : {}),

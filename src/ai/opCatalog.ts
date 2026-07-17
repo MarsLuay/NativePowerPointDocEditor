@@ -115,6 +115,10 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 				properties: {
 					text: { type: 'string' },
 					listStyle: { type: 'string', enum: ['none', 'bullet', 'number'] },
+					bold: {
+						type: 'boolean',
+						description: 'Optional run bold. Heading-first shapes: set true on the title paragraph; omit/false on body so bold does not leak from the template.',
+					},
 				},
 				additionalProperties: false,
 			},

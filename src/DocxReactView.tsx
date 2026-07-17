@@ -22,6 +22,7 @@ import { Platform } from './obsidianRuntime';
 import { configureToolbarIconButton, createMenuItem, createMenuSection, hardenInjectedMenuOption } from './menuControls';
 import { DOCX_SAVE_STATUS_TO_STATE, getSaveStatusFlags, type DocxSaveStatus } from './save/saveStatus';
 import { formatFindResultStatus, wrapMatchIndex, type FindReplaceMode } from './find/findReplaceShell';
+import { countDocumentWords, type DocumentWordCount } from './documentWordCount';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { exportRenderedPagesToPdf } from './renderedPdfExport';
 import { didListLayoutChange, didParagraphLayoutChange } from './docxParagraphLayoutRelayout';
@@ -1970,6 +1971,7 @@ export interface DocxReactViewProps {
 	onDirtyChange: (isDirty: boolean) => void;
 	onSave: (buffer: ArrayBuffer) => Promise<void>;
 	onDocumentNameChange: (name: string, expectedPath?: string | null) => Promise<void>;
+	onWordCountChange: (wordCount: DocumentWordCount) => void;
 	onLoadPhase?: (phase: string, data?: Record<string, unknown>) => void;
 }
 
@@ -1991,7 +1993,7 @@ export interface DocxReactViewHandle {
 }
 
 export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>(function DocxReactView(
-	{ file, buffer, documentKey, editorAdapter, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, onDirtyChange, onSave, onDocumentNameChange, onLoadPhase },
+	{ file, buffer, documentKey, editorAdapter, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, onDirtyChange, onSave, onDocumentNameChange, onWordCountChange, onLoadPhase },
 	ref,
 ) {
 	const editorRef = useRef<DocxEditorRef>(null);
@@ -2038,6 +2040,19 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const [findDialogMode, setFindDialogMode] = useState<FindReplaceMode | null>(null);
 	const [findSearchText, setFindSearchText] = useState('');
 	const [findReplaceText, setFindReplaceText] = useState('');
+	const publishWordCount = useCallback((view: EditorView | null | undefined) => {
+		if (!view) {
+			return;
+		}
+
+		const { doc, selection } = view.state;
+		onWordCountChange({
+		totalWords: countDocumentWords(doc.textBetween(0, doc.content.size, ' ')),
+			selectedWords: selection.empty
+				? null
+				: countDocumentWords(doc.textBetween(selection.from, selection.to, ' ')),
+		});
+	}, [onWordCountChange]);
 	const [findMatchCase, setFindMatchCase] = useState(false);
 	const [findWholeWord, setFindWholeWord] = useState(false);
 	const [findMatches, setFindMatches] = useState<FindMatch[]>([]);
@@ -4122,12 +4137,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				onRenderedDomContextReady={handleRenderedDomContextReady}
 				onEditorViewReady={() => {
 					onLoadPhase?.('editor-view-ready');
+					publishWordCount(editorRef.current?.getEditorRef()?.getView());
 					scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
 					schedulePaginationDiagnostics('editor-view-ready');
 				}}
 					onSelectionChange={() => {
 						const view = editorRef.current?.getEditorRef()?.getView();
+						publishWordCount(view);
 						const remembered = view ? rememberTextSelectionFromView(view) : null;
 						if (remembered) {
 							preservedTextSelectionRef.current = remembered;
@@ -4156,7 +4173,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				renderTitleBarRight={() => (
 					<SaveStatusIndicator status={saveStatus} />
 				)}
-				onChange={() => {
+					onChange={() => {
 					if (
 						dirtyTrackingEnabledRef.current
 						&& !externalReloadBlockedRef.current
@@ -4164,8 +4181,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					) {
 						session.markDirty();
 					}
-					scheduleVerticalRulerMarkerSync(editorRef.current?.getDocument());
-					scheduleListMarkerSelectionHighlightSync();
+						scheduleVerticalRulerMarkerSync(editorRef.current?.getDocument());
+						publishWordCount(editorRef.current?.getEditorRef()?.getView());
+						scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
 					schedulePaginationDiagnostics('document-change');
 				}}

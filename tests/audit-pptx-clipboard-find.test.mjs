@@ -95,6 +95,46 @@ test("pasting one clipboard twice yields independent, round-trippable decks", as
   assert.deepEqual(secondParts, firstParts, "independent pastes must produce identical part layouts");
 });
 
+test("a multi-object clipboard pastes every selected object in one round trip", async () => {
+  const { createSlideObjectsClipboard, pasteSlideObjects } = await loadShapeClipboardModule();
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const source = toArrayBuffer(await readDeck("features.pptx"));
+  const sourceEngine = await PresentationEngine.load(source.slice(0));
+  const baselineShapeCount = countRenderedShapes(sourceEngine.renderSlide(0).svg);
+  assert.ok(baselineShapeCount >= 2, "fixture must provide two independently selectable objects");
+
+  const clipboard = createSlideObjectsClipboard(source, 0, [2, 0, 2]);
+  assert.deepEqual(
+    clipboard.shapeIndexes,
+    [0, 2],
+    "clipboard must deduplicate selection and preserve source z-order",
+  );
+
+  const pasted = await pasteSlideObjects(source, clipboard, 0);
+  assert.equal(pasted.shapeIndexes.length, 2, "paste must return one renderer index per copied object");
+  assert.deepEqual(
+    pasted.shapeIndexes,
+    [...pasted.shapeIndexes].sort((left, right) => left - right),
+    "pasted objects must retain their source stacking order",
+  );
+
+  const pastedEngine = await PresentationEngine.load(pasted.buffer);
+  assert.equal(
+    countRenderedShapes(pastedEngine.renderSlide(0).svg),
+    baselineShapeCount + 2,
+    "pasting a two-object clipboard must add both objects",
+  );
+  assert.ok((await pastedEngine.export()).byteLength > 0, "multi-object paste must remain exportable");
+
+  const slideXml = (await extractZip(pasted.buffer)).textFiles.get("ppt/slides/slide1.xml") ?? "";
+  const nonVisualIds = [...slideXml.matchAll(/<p:cNvPr\b[^>]*\bid="(\d+)"/g)].map((match) => match[1]);
+  assert.equal(
+    new Set(nonVisualIds).size,
+    nonVisualIds.length,
+    "every pasted object must receive fresh non-visual ids",
+  );
+});
+
 // PART 2(b) — The FindReplaceController's search (collectFindMatches), match
 // navigation (moveFindMatch), and highlighting (applyFindHighlight) are all
 // `private` and bound to a live DOM: they read `this.findInputEl.value`, parse

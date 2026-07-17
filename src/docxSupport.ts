@@ -43,6 +43,8 @@ export async function registerDocxSupport(
 			() => plugin.pluginSettings.autosave,
 			() => plugin.pluginSettings.createBackupsBeforeSave,
 			() => plugin.pluginSettings.defaultZoom,
+			(wordCount) => plugin.updateDocumentWordCount(leaf, wordCount),
+			() => plugin.clearDocumentWordCount(leaf),
 		),
 	);
 	plugin.registerExtensions(DOCX_EXTENSIONS, VIEW_TYPE_DOCX);

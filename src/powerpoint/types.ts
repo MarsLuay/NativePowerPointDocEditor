@@ -32,11 +32,23 @@ export interface DragState {
   centerClientX?: number;
   centerClientY?: number;
   startAngle?: number;
+  /** Most recent pointer angle, used to unwrap rotation across the ±180° seam. */
+  lastAngle?: number;
+  /** Unwrapped pointer rotation, preserving complete clockwise/counterclockwise turns. */
+  accumulatedRotationDegrees?: number;
+  /** Cardinal angle chosen for the live rotation preview, if any. */
+  rotationSnapTarget?: number | null;
   /** Live-preview element (the dragged shape group) and its original transform. */
   previewElement?: SVGGElement | null;
   previewOriginalTransform?: string | null;
-  /** Text boxes keep their rendered contents unchanged until resize commit. */
+  /** Text glyphs stay unscaled while the temporary resize preview reflows them. */
   freezeShapeDuringResize?: boolean;
+  /** Original text subtree restored when the temporary resize preview ends. */
+  previewOriginalText?: SVGTextElement | null;
+  /** The resize handle has crossed the opposite horizontal edge. */
+  crossedHorizontal?: boolean;
+  /** The resize handle has crossed the opposite vertical edge. */
+  crossedVertical?: boolean;
   /** Pane pixels per EMU; cached at drag start for overlay positioning. */
   paneEmuScaleX?: number;
   paneEmuScaleY?: number;
@@ -61,10 +73,41 @@ export interface MarqueeState {
 }
 
 export interface GroupDragState {
+  mode: DragState['mode'];
+  handle?: HandleName;
   pointerId: number;
   startPoint: PointerPoint;
   startClientX: number;
   startClientY: number;
+  /** Rendered union box used to position the shared group outline. */
+  startBox: { left: number; top: number; width: number; height: number };
+  /** Union of the selected OOXML frames at drag start. */
+  startBounds: ShapeTransform;
+  /** Current group frame used to keep the shared outline in sync. */
+  latestBounds: ShapeTransform;
+  centerClientX?: number;
+  centerClientY?: number;
+  startAngle?: number;
+  /** Most recent pointer angle, used to unwrap rotation across the ±180° seam. */
+  lastAngle?: number;
+  /** Unwrapped pointer rotation, preserving complete clockwise/counterclockwise turns. */
+  accumulatedRotationDegrees?: number;
+  /** The group resize handle has crossed the opposite horizontal edge. */
+  crossedHorizontal?: boolean;
+  /** The group resize handle has crossed the opposite vertical edge. */
+  crossedVertical?: boolean;
+  /** Original SVG transforms for every live group-resize preview shape. */
+  previewOriginalTransforms?: Map<number, string | null>;
+  /** Original text subtrees restored after each reflow pass and when the drag ends. */
+  previewOriginalText?: Map<number, SVGTextElement>;
+  /** Current preview totals, emitted once when the group drag ends. */
+  previewObjectCount?: number;
+  /** Text frames that received the non-stretching position compensation. */
+  previewTextTransformCount?: number;
+  previewTextReflowCount?: number;
+  /** First temporary reflow failure, emitted once instead of per pointermove. */
+  previewTextReflowError?: string | null;
+  rotationSnapTarget?: number | null;
   start: Map<number, ShapeTransform>;
   latest: Map<number, ShapeTransform>;
   moved: boolean;

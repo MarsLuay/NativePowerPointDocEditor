@@ -335,6 +335,13 @@ export class SelectionDragController {
     }
 
   cancelMarquee(): void {
+      if (this.marquee) {
+        debugLog('selection', 'PowerPoint selection marquee cancelled', {
+          op: 'marquee-cancel',
+          slide: this.host.currentSlide,
+          shapeIndexes: [...this.host.selectedShapeIndices]
+        });
+      }
       this.marquee = null;
       this.marqueeEl?.remove();
       this.marqueeEl = null;
@@ -355,11 +362,47 @@ export class SelectionDragController {
       }
       if (start.size === 0) return;
 
+      let left = Infinity;
+      let top = Infinity;
+      let right = -Infinity;
+      let bottom = -Infinity;
+      start.forEach((transform) => {
+        left = Math.min(left, transform.x);
+        top = Math.min(top, transform.y);
+        right = Math.max(right, transform.x + transform.cx);
+        bottom = Math.max(bottom, transform.y + transform.cy);
+      });
+      if (!Number.isFinite(left)) return;
+      const startBounds: ShapeTransform = {
+        x: left,
+        y: top,
+        cx: Math.max(1, right - left),
+        cy: Math.max(1, bottom - top),
+        rot: 0,
+      };
+      const topLeft = this.host.emuPointToPane(startBounds.x, startBounds.y);
+      const bottomRight = this.host.emuPointToPane(
+        startBounds.x + startBounds.cx,
+        startBounds.y + startBounds.cy,
+      );
+      const startBox = topLeft && bottomRight
+        ? {
+            left: topLeft.x,
+            top: topLeft.y,
+            width: Math.max(0, bottomRight.x - topLeft.x),
+            height: Math.max(0, bottomRight.y - topLeft.y),
+          }
+        : { left: event.clientX, top: event.clientY, width: 0, height: 0 };
+
       this.groupDrag = {
+        mode: 'move',
         pointerId: event.pointerId,
         startPoint,
         startClientX: event.clientX,
         startClientY: event.clientY,
+        startBox,
+        startBounds,
+        latestBounds: cloneTransform(startBounds),
         start,
         latest: new Map(start),
         moved: false

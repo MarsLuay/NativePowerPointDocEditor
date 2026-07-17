@@ -274,6 +274,30 @@ test("undo is blocked (and bails out) while a text editor is focused", async () 
   assert.equal(controller.canRedo, false);
 });
 
+test("history toolbar enables an active inline undo entry", async () => {
+  const { HistoryController } = await loadHistoryControllerModule();
+  const { host } = createFakeHost();
+  host.canUndoInlineEdit = () => true;
+  host.canRedoInlineEdit = () => false;
+  const controller = new HistoryController(host);
+  const undoButton = {
+    disabled: true,
+    toggleClass() {},
+    setAttribute() {},
+  };
+  const redoButton = {
+    disabled: true,
+    toggleClass() {},
+    setAttribute() {},
+  };
+
+  controller.attachButtons(undoButton, redoButton);
+  controller.updateAvailability();
+
+  assert.equal(undoButton.disabled, false);
+  assert.equal(redoButton.disabled, true);
+});
+
 test("undo/redo no-op when the host is not editable", async () => {
   const { HistoryController } = await loadHistoryControllerModule();
   const { host, engine } = createFakeHost();

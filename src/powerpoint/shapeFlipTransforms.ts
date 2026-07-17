@@ -2,6 +2,10 @@ import { isSVGGElement } from '../domGuards';
 
 const FLIP_WRAPPER_CLASS = 'native-powerpoint-flip-wrapper';
 
+interface SvgFactoryWindow {
+  createSvg(tagName: 'g'): SVGGElement;
+}
+
 function intDataAttr(element: Element, name: string): number {
   const raw = element.getAttribute(name);
   if (!raw) return 0;
@@ -49,7 +53,11 @@ function syncFlipWrapper(shape: SVGGElement, scale: number): void {
 
   let wrapper = existing as SVGGElement | null;
   if (!wrapper) {
-    wrapper = shape.ownerDocument.createSvg('g');
+    // Obsidian enhances `Document#createSvg` for HTML helpers. On the live SVG
+    // document that helper can try to append a second root node, so use the
+    // document window's unattached SVG factory instead.
+    const svgWindow = shape.ownerDocument.win as unknown as SvgFactoryWindow;
+    wrapper = svgWindow.createSvg('g');
     wrapper.classList.add(FLIP_WRAPPER_CLASS);
     while (shape.firstChild) {
       wrapper.appendChild(shape.firstChild);

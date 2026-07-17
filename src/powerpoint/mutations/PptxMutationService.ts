@@ -124,7 +124,9 @@ export class PptxMutationService implements MutationExecutor {
       case 'delete-shape':
         return engine.deleteShape(command.slideIndex, command.shapeIndex);
       case 'reorder-shapes':
-        return engine.reorderShapes(command.slideIndex, command.shapeIndexes, command.mode);
+        return engine.reorderShapes(command.slideIndex, command.shapeIndexes, command.mode, {
+          intersectingOnly: command.intersectingOnly,
+        });
       case 'group-shapes':
         return engine.groupShapes(command.slideIndex, command.shapeIndexes);
       case 'ungroup-shapes':
@@ -148,6 +150,19 @@ export class PptxMutationService implements MutationExecutor {
           command.shapeIndex,
           command.paragraphIndex,
           command.splitOffset,
+          command.text,
+        );
+      case 'remove-empty-preceding-paragraph':
+        return engine.removeEmptyPrecedingParagraph(
+          command.slideIndex,
+          command.shapeIndex,
+          command.paragraphIndex,
+        );
+      case 'merge-preceding-paragraph':
+        return engine.mergePrecedingParagraph(
+          command.slideIndex,
+          command.shapeIndex,
+          command.paragraphIndex,
           command.text,
         );
       case 'update-text-run':
