@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-07-17
+
+### Fixed
+
+- Embed the release version in built `main.js` / `styles.css` so artifact digests are unique per tag (fixes Obsidian attestation verification when bytes previously collided with 1.0.44).
+
 ## [1.1.1] - 2026-07-17
 
 ### Fixed
