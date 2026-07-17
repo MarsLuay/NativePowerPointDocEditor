@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.51] - 2026-07-17
+
+### Fixed
+
+- PowerPoint empty/centered text boxes wrap typed characters horizontally instead of stacking one glyph per line.
+- PowerPoint text color/highlight/font popovers keep formatting context after selection clears.
+- PowerPoint Backspace on an empty first paragraph no longer drops the text box out of edit.
+- PowerPoint color-picker swatches stay filled in dark chrome (not blank until hover).
+
 ## [1.0.50] - 2026-07-17
 
 ### Fixed

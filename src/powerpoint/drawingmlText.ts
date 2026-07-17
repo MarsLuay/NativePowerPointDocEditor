@@ -11,6 +11,34 @@ import {
 
 const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
 
+/**
+ * Zero-width space stored in otherwise-empty `<a:t>` nodes.
+ *
+ * pptx-svg drops empty runs at parse time (`text === ""`) and then skips
+ * paragraphs with `runs.length === 0` during SVG emit. Enter at the end of a
+ * line creates a native empty sibling `<a:p>`; without this anchor the new
+ * paragraph never appears in SVG, so the inline editor cannot rebind to it.
+ */
+export const EMPTY_PARAGRAPH_RENDER_ANCHOR = '\u200B';
+
+export function isEmptyParagraphRenderAnchorText(text: string): boolean {
+  if (text.length === 0) return true;
+  for (let index = 0; index < text.length; index++) {
+    if (text.charAt(index) !== EMPTY_PARAGRAPH_RENDER_ANCHOR) return false;
+  }
+  return true;
+}
+
+/** Strip render anchors for editor display / logical emptiness checks. */
+export function stripEmptyParagraphRenderAnchors(text: string): string {
+  return text.split(EMPTY_PARAGRAPH_RENDER_ANCHOR).join('');
+}
+
+/** Persist empty paragraph text in a form the renderer will still emit. */
+export function toStoredParagraphRunText(text: string): string {
+  return text.length === 0 ? EMPTY_PARAGRAPH_RENDER_ANCHOR : text;
+}
+
 export interface DrawingParagraphText {
   text: string;
   listStyle: ParagraphListStyle;
@@ -70,7 +98,9 @@ export function hasEmptyDrawingParagraphBefore(container: Element, paragraphInde
       && child.localName !== 'endParaRPr'
   );
   if (contentChildren.some((child) => child.localName !== 'r')) return false;
-  if (getDrawingRuns(previous).some((run) => getDrawingRunText(run).length > 0)) return false;
+  if (getDrawingRuns(previous).some((run) => !isEmptyParagraphRenderAnchorText(getDrawingRunText(run)))) {
+    return false;
+  }
 
   return true;
 }
@@ -254,7 +284,7 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
     }
 
     runs.forEach((run, runIndex) => {
-      setDrawingRunText(run, runIndex === 0 ? text : '');
+      setDrawingRunText(run, runIndex === 0 ? toStoredParagraphRunText(text) : '');
     });
     return;
   }
@@ -266,7 +296,7 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
     if (lineIndex > 0) {
       paragraph.appendChild(doc.createElementNS(DRAWINGML_NAMESPACE, 'a:br'));
     }
-    appendDrawingParagraphRun(paragraph, templateRun, line);
+    appendDrawingParagraphRun(paragraph, templateRun, toStoredParagraphRunText(line));
   });
 }
 
@@ -314,7 +344,7 @@ function ensureDrawingParagraphRun(paragraph: Element, templateRun: Element | nu
     textElement = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
     run.appendChild(textElement);
   }
-  textElement.textContent = '';
+  textElement.textContent = EMPTY_PARAGRAPH_RENDER_ANCHOR;
   insertDrawingRunBeforeEndParagraphProperties(paragraph, run);
 }
 

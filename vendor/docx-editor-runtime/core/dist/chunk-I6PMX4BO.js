@@ -1,0 +1,1 @@
+'use strict';function l(u,r){if(!r||!r.trim())return null;let e=null;return u.descendants((t,n)=>e!==null?false:t.attrs?.paraId===r&&t.isTextblock?(e=n,false):true),e}function i(u,r){if(!r||!r.trim())return null;let e=null;return u.descendants((t,n)=>e!==null?false:t.isTextblock&&t.attrs?.paraId===r?(e={node:t,from:n,to:n+t.nodeSize},false):true),e}exports.a=l;exports.b=i;

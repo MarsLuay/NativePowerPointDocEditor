@@ -65,6 +65,74 @@ export function joinParagraphVisualLines(lineTexts: string[]): string {
   return lineTexts.join('');
 }
 
+export type PreviewFrameBox = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+/**
+ * Convert a candidate frame + first-line left edge into the usable wrap width.
+ * Returns null when the frame is too narrow to host horizontal preview text.
+ *
+ * `firstLineLeft` is only a valid body inset for start-aligned glyphs. Middle /
+ * end `text-anchor` (common on empty .potx placeholders) places the glyph box
+ * near the center or right edge; treating that as inset collapses wrap width to
+ * ~the current glyph width and stacks each typed character on its own line.
+ * Pass `firstLineWidth` so that collapse can fall back to the full frame.
+ */
+export function previewWrapMaxWidth(
+  frame: Pick<PreviewFrameBox, 'left' | 'width'>,
+  firstLineLeft: number,
+  firstLineWidth?: number,
+): number | null {
+  if (!Number.isFinite(frame.width) || frame.width < 4) return null;
+
+  const inset = Math.max(0, firstLineLeft - frame.left);
+  const insetDerived = frame.width - inset * 2;
+  if (!Number.isFinite(insetDerived) || insetDerived < 4) {
+    // Empty / ZWSP / center-end glyph geometry drove inset past the frame.
+    return frame.width;
+  }
+
+  const lineWidth = typeof firstLineWidth === 'number' && Number.isFinite(firstLineWidth)
+    ? Math.max(0, firstLineWidth)
+    : null;
+  if (lineWidth !== null) {
+    // Live repro (center-aligned empty .potx box): frameBoxWidth≈148, inset≈71,
+    // firstLineWidth≈4 → insetDerived≈6. Strict `<= width+1` missed by 1–2px and
+    // still wrapped one glyph per line. Treat large inset + short glyphs, or a
+    // wrap width that only barely exceeds the glyph box, as anchor collapse.
+    const looksCenteredOrEnd =
+      inset > lineWidth + 2
+      && inset > frame.width * 0.2;
+    const collapsedToGlyph =
+      insetDerived <= Math.max(lineWidth + 8, lineWidth * 1.5 + 2);
+    if (looksCenteredOrEnd || collapsedToGlyph) {
+      return frame.width;
+    }
+  }
+
+  return insetDerived;
+}
+
+/**
+ * Pick the first usable preview frame in priority order.
+ * Callers must pass OOXML/transform before decorative `:scope > rect` candidates —
+ * a thin accent rect (~10px) otherwise wraps each glyph onto its own line.
+ */
+export function pickInlinePreviewFrameBox(
+  candidates: ReadonlyArray<{ source: string; box: PreviewFrameBox | null | undefined }>,
+): { source: string; box: PreviewFrameBox } | null {
+  for (const candidate of candidates) {
+    const box = candidate.box;
+    if (!box || !Number.isFinite(box.width) || box.width < 4) continue;
+    return { source: candidate.source, box };
+  }
+  return null;
+}
+
 /**
  * Split text into visual lines without changing its characters. The caller
  * provides a screen-pixel measurement function so this stays pure and can be

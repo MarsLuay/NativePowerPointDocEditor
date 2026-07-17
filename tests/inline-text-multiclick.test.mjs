@@ -722,6 +722,67 @@ test("Backspace clears the final inline character through the owning SVG text fr
   });
 });
 
+test("Backspace on an already-empty first paragraph keeps the text box in the edit session", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  const element = {};
+  const editor = {
+    value: "",
+    selectionStart: 0,
+    selectionEnd: 0,
+    setSelectionRange() {},
+  };
+  const target = { element, shapeIndex: 37, paragraphIndex: 0 };
+  let prevented = false;
+  let stopped = false;
+  let deletedShape = false;
+
+  view.activeEditor = editor;
+  view.activeShapeTextTarget = target;
+  view.selectedShapeIndex = 37;
+  view.deleteSelectedShape = async () => {
+    deletedShape = true;
+  };
+
+  const handled = view.handleInlineDeleteKey({
+    key: "Backspace",
+    metaKey: false,
+    ctrlKey: false,
+    altKey: false,
+    isComposing: false,
+    preventDefault() {
+      prevented = true;
+    },
+    stopPropagation() {
+      stopped = true;
+    },
+  }, editor, element);
+
+  assert.equal(handled, true);
+  assert.equal(prevented, true);
+  assert.equal(stopped, true);
+  assert.equal(editor.value, "");
+  assert.equal(view.activeEditor, editor);
+  assert.equal(deletedShape, false);
+});
+
+test("empty inline preview keeps a render anchor so the SVG text frame stays alive", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  view.activeEditor = { value: "" };
+
+  assert.equal(view.resolveInlinePreviewDomText(""), "\u200B");
+  assert.equal(view.resolveInlinePreviewDomText("hi"), "hi");
+  view.activeEditor = null;
+  assert.equal(view.resolveInlinePreviewDomText(""), "");
+});
+
 test("Backspace repaints a partial inline deletion through the owning SVG text frame", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
   const view = new NativePowerPointView({ app: { vault: {} } }, () => ({

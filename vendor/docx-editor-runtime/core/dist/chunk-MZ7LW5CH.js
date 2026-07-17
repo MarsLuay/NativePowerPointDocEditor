@@ -1,0 +1,1 @@
+'use strict';function f(l){let r=[];return l.descendants((n,a)=>{if(n.type.name==="paragraph"){let o=n.attrs.outlineLevel,i=n.attrs.styleId,e=o;if(e==null&&i){let t=i.match(/^[Hh]eading(\d)$/);t&&(e=parseInt(t[1],10)-1);}if(e!=null&&e>=0&&e<=8){let t="";n.forEach(s=>{s.isText&&(t+=s.text||"");}),t.trim()&&r.push({text:t.trim(),level:e,pmPos:a});}}}),r}exports.a=f;

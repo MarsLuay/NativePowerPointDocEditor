@@ -47,3 +47,71 @@ test("inline paragraph preview breaks an overlong unspaced word", async () => {
   assert.deepEqual(lines, ["abc", "def", "gh"]);
   assert.equal(lines.join(""), "abcdefgh");
 });
+
+test("preview wrap width subtracts symmetric text insets from the frame", async () => {
+  const { previewWrapMaxWidth } = await loadTextUtilsModule();
+  assert.equal(previewWrapMaxWidth({ left: 100, width: 220 }, 112), 196);
+  assert.equal(previewWrapMaxWidth({ left: 100, width: 12 }, 100), 12);
+  // Collapsed inset (center/end empty glyph) falls back to the full frame.
+  assert.equal(previewWrapMaxWidth({ left: 100, width: 10 }, 108), 10);
+  assert.equal(previewWrapMaxWidth({ left: 100, width: 3 }, 100), null);
+});
+
+test("preview wrap width ignores center-anchored glyph left so typing stays horizontal", async () => {
+  const { previewWrapMaxWidth, wrapTextForPreview } = await loadTextUtilsModule();
+  // Empty / short centered line: glyph box sits mid-frame with ~current text width.
+  // Old inset math made maxWidth ≈ glyph width → one character per visual line.
+  const frame = { left: 100, width: 400 };
+  const centeredGlyphLeft = 290;
+  const centeredGlyphWidth = 20;
+  const maxWidth = previewWrapMaxWidth(frame, centeredGlyphLeft, centeredGlyphWidth);
+  assert.equal(maxWidth, 400);
+
+  const lines = wrapTextForPreview("abc", maxWidth, (value) => value.length * 10);
+  assert.deepEqual(lines, ["abc"]);
+  assert.equal(lines.length, 1);
+});
+
+test("preview wrap width falls back when inset-derived width is only a few px above the glyph", async () => {
+  const { previewWrapMaxWidth, wrapTextForPreview } = await loadTextUtilsModule();
+  // Exact live-log shape from shapeIndex 37: frame 148, inset 71, glyph 4 →
+  // insetDerived 6, which failed the old `<= width+1` check.
+  const maxWidth = previewWrapMaxWidth({ left: 0, width: 148 }, 71, 4);
+  assert.equal(maxWidth, 148);
+  assert.deepEqual(
+    wrapTextForPreview("dfof", maxWidth, (value) => value.length * 10),
+    ["dfof"],
+  );
+});
+
+test("preview wrap width still uses start-aligned insets when the line is shorter than the frame", async () => {
+  const { previewWrapMaxWidth } = await loadTextUtilsModule();
+  assert.equal(
+    previewWrapMaxWidth({ left: 100, width: 220 }, 112, 40),
+    196,
+  );
+});
+
+test("preview frame picker prefers OOXML transform over a thin decorative rect", async () => {
+  const { pickInlinePreviewFrameBox } = await loadTextUtilsModule();
+  const picked = pickInlinePreviewFrameBox([
+    { source: "ooxml-transform", box: { left: 40, top: 10, width: 320, height: 48 } },
+    { source: "shape-bounds", box: { left: 40, top: 10, width: 318, height: 50 } },
+    { source: "direct-rect", box: { left: 40, top: 10, width: 10, height: 48 } },
+  ]);
+
+  assert.equal(picked?.source, "ooxml-transform");
+  assert.equal(picked?.box.width, 320);
+});
+
+test("preview frame picker skips unusable frames then accepts the next candidate", async () => {
+  const { pickInlinePreviewFrameBox } = await loadTextUtilsModule();
+  const picked = pickInlinePreviewFrameBox([
+    { source: "ooxml-transform", box: null },
+    { source: "shape-bounds", box: { left: 0, top: 0, width: 3, height: 10 } },
+    { source: "direct-rect", box: { left: 0, top: 0, width: 180, height: 40 } },
+  ]);
+
+  assert.equal(picked?.source, "direct-rect");
+  assert.equal(picked?.box.width, 180);
+});

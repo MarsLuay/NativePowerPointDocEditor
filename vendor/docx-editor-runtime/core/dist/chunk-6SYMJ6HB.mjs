@@ -1,0 +1,1 @@
+import {a}from'./chunk-JR557W27.mjs';var o=class{constructor(t){a(this,"listeners",new Set);a(this,"snapshot");a(this,"subscribe",t=>(this.listeners.add(t),()=>{this.listeners.delete(t);}));a(this,"getSnapshot",()=>this.snapshot);this.snapshot=t;}setSnapshot(t){this.snapshot=t,this.notify();}notify(){for(let t of this.listeners)t();}};export{o as a};

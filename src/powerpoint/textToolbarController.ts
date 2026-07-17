@@ -87,6 +87,27 @@ export class TextToolbarController {
     return this.toolbarFormattingSnapshot !== null;
   }
 
+  hasActivePopover(): boolean {
+    return this.activeToolbarPopover !== null;
+  }
+
+  getToolbarShapeIndex(): number | null {
+    return this.textToolbarShapeIndex;
+  }
+
+  /** Keep shape/selection context across toolbar popovers even if the inline editor closes. */
+  preserveFormattingContext(): void {
+    const snapshot = this.captureToolbarFormattingSnapshot();
+    if (snapshot) {
+      this.toolbarFormattingSnapshot = snapshot;
+      debugLog('text-format', 'Preserved toolbar formatting context', {
+        shapeIndex: snapshot.shapeIndex,
+        rangeCount: snapshot.ranges?.length ?? 0,
+        run: snapshot.run,
+      });
+    }
+  }
+
   reset(): void {
     this.textToolbarEl = null;
     this.textToolbarControls = null;
@@ -397,19 +418,23 @@ export class TextToolbarController {
     const colorGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
     const textColorButton = this.createTextToolbarSwatchButton(colorGroup, 'baseline', 'Text color');
     const textColorBar = textColorButton.createDiv({ cls: 'native-powerpoint-text-toolbar-swatch-bar' });
-    this.bindToolbarButton(textColorButton, () =>
+    this.bindToolbarButton(textColorButton, () => {
+      this.preserveFormattingContext();
       this.openColorPopover(textColorButton, this.textColorValue, false, (color) => {
         debugLog('text-format', 'setTextColor', { color });
         this.host.applyRunStyle({ color });
-      }));
+      });
+    });
 
     const highlightButton = this.createTextToolbarSwatchButton(colorGroup, 'highlighter', 'Highlight color');
     const highlightBar = highlightButton.createDiv({ cls: 'native-powerpoint-text-toolbar-swatch-bar' });
-    this.bindToolbarButton(highlightButton, () =>
+    this.bindToolbarButton(highlightButton, () => {
+      this.preserveFormattingContext();
       this.openColorPopover(highlightButton, this.textHighlightValue, true, (color) => {
         debugLog('text-format', 'setHighlight', { color });
         this.host.applyRunStyle({ highlight: color });
-      }));
+      });
+    });
 
     const alignGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
     const alignButtons: Record<ParagraphAlignment, HTMLButtonElement> = {
@@ -599,6 +624,7 @@ export class TextToolbarController {
   }
 
   private openFontMenu(anchor: HTMLElement): void {
+    this.preserveFormattingContext();
     const fonts = [...TEXT_TOOLBAR_FONTS];
     const context = this.host.getTextStyleContext();
     const current = this.host.currentRunStyle?.fontFamily

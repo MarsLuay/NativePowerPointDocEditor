@@ -1,0 +1,1 @@
+'use strict';var chunkMZ7LW5CH_js=require('../chunk-MZ7LW5CH.js');require('../chunk-O2XFH626.js');Object.defineProperty(exports,"collectHeadings",{enumerable:true,get:function(){return chunkMZ7LW5CH_js.a}});
