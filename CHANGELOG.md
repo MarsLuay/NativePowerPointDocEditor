@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-17
+
+### Changed
+
+- Version bump to 1.1.0 on main (stable 1.0.44 line). Nightly work remains on `nightly-releases` only.
+
+
 ## [1.0.44] - 2026-07-15
 
 ### Changed
