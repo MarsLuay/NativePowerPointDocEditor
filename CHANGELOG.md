@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-17
+
+### Fixed
+
+- Re-issue the stable release with CI-built, uniquely attested `main.js` / `styles.css` (avoids digest collision with 1.0.44 and manual release-upload races).
+
+
 ## [1.1.0] - 2026-07-17
 
 ### Changed

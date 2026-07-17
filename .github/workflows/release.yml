@@ -32,28 +32,36 @@ jobs:
       - name: Validate release version
         run: node scripts/check-release-version.mjs
 
-      - name: Verify plugin
+      - name: Verify and build plugin
         run: npm run verify:review
 
-      - name: Generate artifact attestation for main.js
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: 'main.js'
+      - name: Confirm release artifacts exist
+        run: |
+          test -f main.js
+          test -f styles.css
+          test -f manifest.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          man = json.loads(Path('manifest.json').read_text())
+          pkg = json.loads(Path('package.json').read_text())
+          assert man['version'] == pkg['version'], (man['version'], pkg['version'])
+          print('release artifacts ready', man['version'])
+          PY
 
-      - name: Generate artifact attestation for styles.css
+      - name: Generate artifact attestations
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: 'styles.css'
-
-      - name: Generate artifact attestation for manifest.json
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: 'manifest.json'
+          subject-path: |
+            main.js
+            styles.css
+            manifest.json
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             main.js
             styles.css
