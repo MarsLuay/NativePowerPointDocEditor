@@ -334,35 +334,12 @@ export interface ParsedDocxComment {
 	id: number;
 	author: string | null;
 	date: string | null;
-	/** Reply parent comment id from `commentsExtended.xml` (`w15:paraIdParent`). */
-	parentId: number | null;
 	paragraphs: ParsedDocxParagraph[];
 	text: string;
 }
 
-/** Map comment body `w14:paraId` → parent paraId from `w15:commentEx`. */
-export function parseCommentsExtendedParentParaIds(commentsExtendedXml: string): Map<string, string> {
-	const parentByParaId = new Map<string, string>();
-	const commentExPattern = /<w15:commentEx\b([^>]*)\/?>/g;
-	let match: RegExpExecArray | null;
-	while ((match = commentExPattern.exec(commentsExtendedXml)) !== null) {
-		const attributes = match[1] ?? '';
-		const paraId = /w15:paraId="([^"]+)"/.exec(attributes)?.[1];
-		const parentParaId = /w15:paraIdParent="([^"]+)"/.exec(attributes)?.[1];
-		if (paraId && parentParaId) {
-			parentByParaId.set(paraId, parentParaId);
-		}
-	}
-	return parentByParaId;
-}
-
-export function parseCommentsXml(
-	xml: string,
-	commentsExtendedXml?: string | null,
-): ParsedDocxComment[] {
+export function parseCommentsXml(xml: string): ParsedDocxComment[] {
 	const comments: ParsedDocxComment[] = [];
-	const paraIdByCommentId = new Map<number, string>();
-	const commentIdByParaId = new Map<string, number>();
 	const commentPattern = /<w:comment\b([^>]*)>([\s\S]*?)<\/w:comment>/g;
 	let match: RegExpExecArray | null;
 
@@ -371,49 +348,24 @@ export function parseCommentsXml(
 		const inner = match[2] ?? '';
 		const idMatch = /w:id="(\d+)"/.exec(attributes);
 		if (!idMatch) continue;
-		const id = Number(idMatch[1]);
 		const paragraphs: ParsedDocxParagraph[] = [];
-		const paragraphPattern = /<w:p\b([^>]*)(?:\/>|>([\s\S]*?)<\/w:p>)/g;
+		const paragraphPattern = /<w:p\b[^>]*?(?:\/>|>([\s\S]*?)<\/w:p>)/g;
 		let paragraphMatch: RegExpExecArray | null;
 		paragraphPattern.lastIndex = 0;
 		while ((paragraphMatch = paragraphPattern.exec(inner)) !== null) {
-			const paragraphAttrs = paragraphMatch[1] ?? '';
-			const paragraphInner = paragraphMatch[2];
+			const paragraphInner = paragraphMatch[1];
 			const paragraphXml = paragraphInner === undefined
 				? paragraphMatch[0]
 				: `<w:p>${paragraphInner}</w:p>`;
 			paragraphs.push(parseParagraph(paragraphXml));
-			if (!paraIdByCommentId.has(id)) {
-				const paraId = /w14:paraId="([^"]+)"/.exec(paragraphAttrs)?.[1]
-					?? /w14:paraId="([^"]+)"/.exec(paragraphMatch[0])?.[1];
-				if (paraId) {
-					paraIdByCommentId.set(id, paraId);
-					commentIdByParaId.set(paraId, id);
-				}
-			}
 		}
 		comments.push({
-			id,
+			id: Number(idMatch[1]),
 			author: /w:author="([^"]*)"/.exec(attributes)?.[1] ?? null,
 			date: /w:date="([^"]*)"/.exec(attributes)?.[1] ?? null,
-			parentId: null,
 			paragraphs,
 			text: paragraphs.map((paragraph) => paragraph.text).join('\n'),
 		});
-	}
-
-	if (commentsExtendedXml) {
-		const parentParaByParaId = parseCommentsExtendedParentParaIds(commentsExtendedXml);
-		for (const comment of comments) {
-			const paraId = paraIdByCommentId.get(comment.id);
-			if (!paraId) continue;
-			const parentParaId = parentParaByParaId.get(paraId);
-			if (!parentParaId) continue;
-			const parentId = commentIdByParaId.get(parentParaId);
-			if (parentId != null) {
-				comment.parentId = parentId;
-			}
-		}
 	}
 
 	return comments;

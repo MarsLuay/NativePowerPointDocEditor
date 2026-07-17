@@ -2,7 +2,6 @@ import type JSZip from 'jszip';
 import type { DocxPartKind, DocxStableLocation } from './docxStableIds';
 
 export const DOCX_DOCUMENT_PATH = 'word/document.xml';
-export const DOCX_CORE_PROPERTIES_PATH = 'docProps/core.xml';
 export const DOCX_FOOTNOTES_PATH = 'word/footnotes.xml';
 export const DOCX_ENDNOTES_PATH = 'word/endnotes.xml';
 export const DOCX_COMMENTS_PATH = 'word/comments.xml';

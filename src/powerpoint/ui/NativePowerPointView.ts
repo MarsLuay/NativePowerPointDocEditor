@@ -9,13 +9,11 @@ import {
   type ImageCrop,
   type InsertableShapeGeometry,
   type ParagraphAlignment,
-  type ParagraphSplitResult,
   type ParagraphTextRange,
   type RunHighlightInfo,
   type RunStyleChange,
   type RunStyleInfo,
   type RunTarget,
-  type TextBoxInsertOrigin,
 } from '../../PresentationEngine';
 import {
   getImageMimeType,
@@ -110,7 +108,6 @@ import {
   mapFlatOffsetToRunLine,
   mapFlatRangeToRunLineSegments,
   parsePrimaryFontFamily,
-  redistributeTextAcrossVisualRuns,
   type RunTspanOffset
 } from '../textUtils';
 import {
@@ -172,11 +169,6 @@ interface InlineEditSnapshot {
   selectionEnd: number;
 }
 
-interface SvgFactoryWindow {
-  createSvg(tagName: 'line'): SVGLineElement;
-  createSvg(tagName: 'rect'): SVGRectElement;
-}
-
 const INLINE_EDIT_HISTORY_LIMIT = 200;
 
 export class NativePowerPointView extends FileView {
@@ -222,12 +214,8 @@ export class NativePowerPointView extends FileView {
   private isTearingDownEditor = false;
   private slideRenderGeneration = 0;
   private textCommitPromise: Promise<void> | null = null;
-  /** Prevent repeated Enter presses from racing a structural text mutation. */
-  private paragraphSplitPromise: Promise<void> | null = null;
   private dragState: DragState | null = null;
   private activeEditor: HTMLTextAreaElement | null = null;
-  /** True only after a user text mutation, never after a formatting re-render. */
-  private activeEditorTextDirty = false;
   private activeEditorCommit: (() => Promise<void>) | null = null;
   private activeInlineCaret: SVGLineElement | null = null;
   private activeInlineSelectionRects: SVGRectElement[] = [];
@@ -426,7 +414,6 @@ export class NativePowerPointView extends FileView {
       getElementBox: (element) => getView().getElementBox(element),
       getSelectedBox: () => getView().getSelectedBox(),
       getStoredInlineSelectionRanges: (shapeIndex) => getView().getStoredInlineSelectionRanges(shapeIndex),
-      getSelectedRangeFontSizePt: (shapeIndex, ranges) => getView().getSelectedRangeFontSizePt(shapeIndex, ranges),
       applyRunStyle: (change) => getView().applyRunStyle(change),
       applyAlignment: (align) => getView().applyAlignment(align),
       flushActiveEditor: () => getView().flushActiveEditor()
@@ -738,10 +725,6 @@ export class NativePowerPointView extends FileView {
 
   async saveCurrentPresentation(source: 'manual' | 'autosave' = 'manual'): Promise<boolean> {
     return this.session.save(source);
-  }
-
-  getAgentSaveError(): string | null {
-    return this.saveController.lastSaveError;
   }
 
   /**
@@ -1296,16 +1279,14 @@ export class NativePowerPointView extends FileView {
       return;
     }
 
-    // Print iframe needs ephemeral @page CSS; styles.css cannot target this document.
-    const printSheet = new CSSStyleSheet();
-    printSheet.replaceSync(
+    const style = doc.createElement('style');
+    style.textContent =
       '@page { size: landscape; margin: 12mm; }' +
       'html, body { margin: 0; padding: 0; background: #ffffff; }' +
       '.native-powerpoint-print-slide { page-break-after: always; text-align: center; }' +
       '.native-powerpoint-print-slide:last-child { page-break-after: auto; }' +
-      '.native-powerpoint-print-slide img { width: 100%; height: auto; display: block; }',
-    );
-    doc.adoptedStyleSheets = [...doc.adoptedStyleSheets, printSheet];
+      '.native-powerpoint-print-slide img { width: 100%; height: auto; display: block; }';
+    doc.head.appendChild(style);
 
     let remaining = urls.length;
     const onReady = () => {
@@ -1319,9 +1300,9 @@ export class NativePowerPointView extends FileView {
     window.setTimeout(cleanup, 60000);
 
     for (const url of urls) {
-      const wrap = doc.createDiv();
+      const wrap = doc.createElement('div');
       wrap.className = 'native-powerpoint-print-slide';
-      const img = doc.createEl('img');
+      const img = doc.createElement('img');
       img.addEventListener('load', onReady, { once: true });
       img.addEventListener('error', onReady, { once: true });
       img.src = url;
@@ -2097,14 +2078,12 @@ export class NativePowerPointView extends FileView {
     ) {
       savedStart = Math.min(editor.selectionStart ?? 0, editor.selectionEnd ?? 0);
       savedEnd = Math.max(editor.selectionStart ?? 0, editor.selectionEnd ?? 0);
-      if (this.activeEditorTextDirty) {
-        const normalizedEditorText = this.paragraphEditorTextFromDom(
-          shapeIndex,
-          paragraphIndex,
-          editor.value
-        );
-        pendingText = normalizedEditorText !== shapeTextTarget.text ? normalizedEditorText : null;
-      }
+      const normalizedEditorText = this.paragraphEditorTextFromDom(
+        shapeIndex,
+        paragraphIndex,
+        editor.value
+      );
+      pendingText = normalizedEditorText !== shapeTextTarget.text ? normalizedEditorText : null;
     }
 
     try {
@@ -2114,7 +2093,6 @@ export class NativePowerPointView extends FileView {
       const scrollPosition = this.captureCanvasScroll();
       if (pendingText !== null) {
         await this.engine.updateParagraphText(this.currentSlide, shapeIndex, paragraphIndex, pendingText);
-        this.activeEditorTextDirty = false;
       }
       await this.engine.applyListStyle(this.currentSlide, shapeIndex, paragraphIndex, style);
       this.recordHistoryEntry(history);
@@ -2947,14 +2925,6 @@ export class NativePowerPointView extends FileView {
         event.preventDefault();
         event.stopPropagation();
         this.suppressNextTextClick = false;
-        if (event.detail >= 2) {
-          const textTarget = target.closest(GENERATED_GRID_SELECTOR)
-            ? this.getGeneratedTextEditTarget(target)
-            : this.getTextEditTarget(target);
-          if (textTarget) {
-            this.applyInlineMultiClickSelectionAtPoint(textTarget, event.clientX, event.clientY, event.detail);
-          }
-        }
         return;
       }
       this.suppressNextTextClick = false;
@@ -3111,7 +3081,7 @@ export class NativePowerPointView extends FileView {
     debugLog('selection', 'Deleting PowerPoint object', { slide: this.currentSlide, shapeIndex });
     try {
       const history = await this.captureHistoryEntry('Delete object');
-      await this.engine.deleteShape(this.currentSlide, shapeIndex);
+      this.engine.deleteShape(this.currentSlide, shapeIndex);
       this.clearSelection();
       this.recordHistoryEntry(history);
       this.markDirty();
@@ -3137,7 +3107,7 @@ export class NativePowerPointView extends FileView {
     try {
       const history = await this.captureHistoryEntry('Delete objects');
       for (const index of indices) {
-        await this.engine.deleteShape(this.currentSlide, index);
+        this.engine.deleteShape(this.currentSlide, index);
       }
       this.clearSelection();
       this.recordHistoryEntry(history);
@@ -3864,164 +3834,6 @@ export class NativePowerPointView extends FileView {
     }
   }
 
-  /**
-   * Turn bare Enter into a native DrawingML paragraph split. Shift+Enter stays
-   * in the textarea's normal path and is intentionally persisted as `<a:br/>`.
-   */
-  private startInlineParagraphSplit(editor: HTMLTextAreaElement, target: ShapeTextEditTarget): void {
-    if (this.paragraphSplitPromise) {
-      debugLog('text-edit', 'Ignored repeated paragraph split while one is pending', {
-        slide: this.currentSlide,
-        shapeIndex: target.shapeIndex,
-        paragraphIndex: target.paragraphIndex,
-      });
-      return;
-    }
-
-    const operation = this.splitInlineParagraph(editor, target);
-    this.paragraphSplitPromise = operation;
-    void operation.finally(() => {
-      if (this.paragraphSplitPromise === operation) {
-        this.paragraphSplitPromise = null;
-      }
-    });
-  }
-
-  private async splitInlineParagraph(editor: HTMLTextAreaElement, target: ShapeTextEditTarget): Promise<void> {
-    const engine = this.engine;
-    if (!engine || this.activeEditor !== editor || !this.ensureEditable('split paragraph')) return;
-
-    const rawText = editor.value;
-    const rawStart = Math.max(0, Math.min(editor.selectionStart ?? rawText.length, rawText.length));
-    const rawEnd = Math.max(rawStart, Math.min(editor.selectionEnd ?? rawStart, rawText.length));
-    const textAfterSelection = rawText.slice(0, rawStart) + rawText.slice(rawEnd);
-    const normalizedText = this.paragraphEditorTextFromDom(
-      target.shapeIndex,
-      target.paragraphIndex,
-      textAfterSelection,
-    );
-    const hasPendingText = this.activeEditorTextDirty || rawStart !== rawEnd;
-    const ooxmlText = engine.getParagraphRunText(
-      this.currentSlide,
-      target.shapeIndex,
-      target.paragraphIndex,
-    ) ?? target.text;
-    const splitOffset = hasPendingText
-      ? mapEditorOffsetToOoxmlOffset(textAfterSelection, normalizedText, rawStart, false)
-      : mapEditorOffsetToOoxmlOffset(rawText, ooxmlText, rawStart, false);
-    const slideIndex = this.currentSlide;
-    const scrollPosition = this.captureCanvasScroll();
-
-    logPptxAction('text-edit', 'split-paragraph', {
-      slide: slideIndex,
-      shapeIndex: target.shapeIndex,
-      paragraphIndex: target.paragraphIndex,
-      selectionStart: rawStart,
-      selectionEnd: rawEnd,
-      splitOffset,
-      textLength: rawText.length,
-      normalizedTextLength: normalizedText.length,
-      hasPendingText,
-    });
-
-    try {
-      const history = await this.captureHistoryEntry('Split paragraph');
-      const response = await this.session.applyCommand({
-        type: 'split-paragraph',
-        slideIndex,
-        shapeIndex: target.shapeIndex,
-        paragraphIndex: target.paragraphIndex,
-        splitOffset,
-        text: hasPendingText ? normalizedText : undefined,
-      });
-      const result = response as ParagraphSplitResult;
-      this.recordHistoryEntry(history);
-
-      if (slideIndex !== this.currentSlide || this.activeEditor !== editor) {
-        debugLog('text-edit', 'Paragraph split committed after editor or slide changed', {
-          slide: slideIndex,
-          currentSlide: this.currentSlide,
-          shapeIndex: target.shapeIndex,
-          paragraphIndex: target.paragraphIndex,
-          insertedParagraphIndex: result.paragraphIndex,
-        });
-        return;
-      }
-
-      const rendered = await this.renderEditedShape(target.shapeIndex);
-      if (!rendered) {
-        throw new Error('Could not re-render the split PowerPoint paragraph.');
-      }
-      this.restoreCanvasScrollSoon(scrollPosition);
-      await this.renderThumbnails();
-
-      target.paragraphIndex = result.paragraphIndex;
-      if (!this.refreshActiveShapeEditorAfterRender()) {
-        throw new Error('Could not restore the inline editor for the new paragraph.');
-      }
-      editor.value = target.text;
-      editor.setSelectionRange(0, 0);
-      this.activeEditorTextDirty = false;
-      this.clearWholeShapeInlineSelection();
-      this.resetInlineEditorScroll(editor);
-      this.rememberInlineCaretPlacement(editor, target.element, 0);
-      this.refreshInlineEditorGeometry();
-      this.logParagraphSplitLayout(slideIndex, target.shapeIndex, result.paragraphIndex, result);
-      this.updateTextToolbar();
-    } catch (error) {
-      errorLog('text-edit', 'PowerPoint paragraph split failed', {
-        slide: slideIndex,
-        shapeIndex: target.shapeIndex,
-        paragraphIndex: target.paragraphIndex,
-        error: cleanError(error),
-      });
-      pptNotice('powerpoint:notice.couldNotUpdateText', { message: cleanError(error) });
-    }
-  }
-
-  /** Durable geometry breadcrumb for paragraph-split regressions. */
-  private logParagraphSplitLayout(
-    slideIndex: number,
-    shapeIndex: number,
-    paragraphIndex: number,
-    result: ParagraphSplitResult,
-  ): void {
-    const shape = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
-    const text = shape?.querySelector('text');
-    const frameBox = isSVGGElement(shape) && this.engine
-      ? this.getTransformSelectionBox(this.engine.getShapeTransform(shape))
-      : null;
-    const textBox = isSVGTextElement(text) ? this.getElementBox(text) : null;
-    const paragraphTarget = this.buildParagraphEditTarget(shapeIndex, paragraphIndex);
-    const paragraphBox = paragraphTarget ? this.getElementBox(paragraphTarget.element) : null;
-    const visualLineCount = this.getRunLineContainers(shapeIndex, paragraphIndex).length;
-    const overflowRight = frameBox && textBox
-      ? textBox.left + textBox.width > frameBox.left + frameBox.width + 0.5
-      : null;
-    const overflowBottom = frameBox && textBox
-      ? textBox.top + textBox.height > frameBox.top + frameBox.height + 0.5
-      : null;
-    const data = {
-      slide: slideIndex,
-      shapeIndex,
-      paragraphIndex,
-      paragraphCount: result.afterParagraphCount,
-      visualLineCount,
-      frameBox,
-      textBox,
-      paragraphBox,
-      overflowRight,
-      overflowBottom,
-      removedSoftBreaks: result.removedSoftBreaks,
-    };
-
-    if (!frameBox || !textBox || !paragraphBox || overflowRight || overflowBottom) {
-      warnLog('text-edit', 'Paragraph split layout needs attention', data);
-      return;
-    }
-    debugLog('text-edit', 'Paragraph split layout verified', data);
-  }
-
   private async applyInspectorTransform(): Promise<void> {
     if (!this.engine || this.selectedShapeIndex === null || !this.selectedTransform) return;
     if (!this.ensureEditable('edit layout')) return;
@@ -4065,6 +3877,10 @@ export class NativePowerPointView extends FileView {
     this.activeInlineCaretRow = this.getInlineCaretRowFromClientY(textTarget.element, event.clientY, box);
     const offset = this.getInlineTextOffsetAtClientPoint(textTarget.element, editor, event.clientX, event.clientY, box);
     this.focusEditorWithoutCanvasScroll(editor);
+    if (this.applyInlineMultiClickSelection(editor, textTarget.element, offset, event.detail)) {
+      this.resetInlineEditorScroll(editor);
+      return;
+    }
 
     const paragraphIndex = this.getParagraphIndexFromInlineElement(textTarget.element);
     const runContainers = paragraphIndex !== null
@@ -4124,20 +3940,12 @@ export class NativePowerPointView extends FileView {
         shapeIndex: this.activeShapeTextTarget?.shapeIndex ?? this.selectedShapeIndex
       });
       this.selectAllInlineText(editor, element);
-      this.updateTextToolbar();
       return true;
     }
 
     this.clearWholeShapeInlineSelection();
     const range = getInlineWordRange(editor.value, offset);
     editor.setSelectionRange(range.start, range.end);
-    const target = this.activeShapeTextTarget;
-    if (target) {
-      this.inlineRangeSelection = {
-        shapeIndex: target.shapeIndex,
-        ranges: [{ paragraphIndex: target.paragraphIndex, start: range.start, end: range.end }]
-      };
-    }
     this.lastInlineCaretPlacement = null;
     this.updateInlineCaret(editor, element);
     debugLog('text-select', 'double-click select word', {
@@ -4146,7 +3954,6 @@ export class NativePowerPointView extends FileView {
       start: range.start,
       end: range.end
     });
-    this.updateTextToolbar();
     return true;
   }
 
@@ -4521,9 +4328,6 @@ export class NativePowerPointView extends FileView {
 
   private showCanvasContextMenu(event: MouseEvent): void {
     const menu = this.createNativeMenu();
-    // Capture the slide coordinate now. The menu item's click event occurs on
-    // the floating menu, not where the user opened it on the canvas.
-    const textBoxOrigin = this.getTextBoxInsertOrigin(event);
 
     menu.addItem((item) => {
       item
@@ -4547,28 +4351,11 @@ export class NativePowerPointView extends FileView {
         .setTitle(this.t('powerpoint:contextMenu.newTextBox'))
         .setIcon('type')
         .onClick(() => {
-          if (!this.ensureEditable('add text box')) return;
-          logPptxAction('insert', 'insert-text-box-context-menu', {
-            slide: this.currentSlide,
-            requestedOrigin: textBoxOrigin ?? null,
-          });
-          void this.insertController.insertTextBox(true, textBoxOrigin ?? undefined);
+          if (this.ensureEditable('add text box')) void this.insertController.insertTextBox(true);
         });
     });
 
     menu.showAtMouseEvent(event);
-  }
-
-  /** Convert the original canvas right-click into a slide-space text-box origin. */
-  private getTextBoxInsertOrigin(event: MouseEvent): TextBoxInsertOrigin | null {
-    if (!this.engine || !this.svgEl) return null;
-    const point = this.getSvgPoint(event);
-    const slideScale = this.engine.getSlideScale(this.svgEl);
-    if (!point || !Number.isFinite(slideScale) || slideScale <= 0) return null;
-    return {
-      x: Math.round(point.x * slideScale),
-      y: Math.round(point.y * slideScale),
-    };
   }
 
   /**
@@ -4707,11 +4494,6 @@ export class NativePowerPointView extends FileView {
     if (!anchor) return;
 
     const currentColor = this.engine.getShapeVisualStyle(this.currentSlide, shapeIndex)?.fill ?? 'FFFFFF';
-    logPptxAction('inspector', 'open-shape-color-picker', {
-      slide: this.currentSlide,
-      shapeIndexes: [shapeIndex],
-      color: currentColor,
-    });
     this.openColorPopover(anchor, currentColor, false, (color) => {
       if (color) void this.applyShapeFillColor(shapeIndex, color);
     });
@@ -4926,7 +4708,6 @@ export class NativePowerPointView extends FileView {
       ? target.runElements.map((run) => run.textContent || '')
       : [];
     editor.value = initialText;
-    this.activeEditorTextDirty = false;
 
     const styleElement = target.kind === 'shape-paragraph' && target.runElements[0]
       ? target.runElements[0]
@@ -4952,37 +4733,22 @@ export class NativePowerPointView extends FileView {
     this.activeEditor = editor;
     this.inlineUndoStack = [];
     this.inlineRedoStack = [];
-    let pendingInlineEditScroll: CanvasScrollPosition | null = null;
-    let pendingInlineInputType: string | null = null;
-
-    const captureInlineEditScroll = (inputType: string | null): void => {
-      // Native textarea edits can make Chromium scroll the nearest overflow
-      // ancestor to reveal its invisible 1px caret. The on-slide SVG caret is
-      // the visible caret, so preserve the canvas rather than accepting that
-      // browser-driven pan.
-      pendingInlineEditScroll ??= this.captureCanvasScroll();
-      pendingInlineInputType = inputType ?? pendingInlineInputType;
-    };
 
     // Capture the pre-edit state (value + selection) before each native edit so
     // an in-place undo can restore the text *and* re-select whatever was just
     // deleted. Programmatic edits (e.g. handleInlineDeleteKey) snapshot
     // themselves since they don't fire beforeinput.
-    editor.addEventListener('beforeinput', (event) => {
+    editor.addEventListener('beforeinput', () => {
       if (this.activeEditor === editor) {
-        captureInlineEditScroll(event.inputType || null);
         this.recordInlineEditSnapshot(editor);
       }
     });
 
     this.updateSelectionOverlay();
-    this.activeInlineCaret = this.createInlineCaret();
-    debugLog('text-edit', 'Inline text editor opened', {
-      slide: this.currentSlide,
-      shapeIndex: target.shapeIndex,
-      paragraphIndex: target.kind === 'shape-paragraph' ? target.paragraphIndex : null,
-      hasCaret: this.activeInlineCaret !== null
-    });
+    this.activeInlineCaret = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'line');
+    this.activeInlineCaret.classList.add('native-powerpoint-svg-caret');
+    this.activeInlineCaret.setAttribute('aria-hidden', 'true');
+    this.svgEl?.appendChild(this.activeInlineCaret);
     const updateCaret = () => {
       this.rememberCollapsedInlineCaretPlacement(editor, target.element);
       this.updateInlineCaret(editor, target.element);
@@ -5008,7 +4774,6 @@ export class NativePowerPointView extends FileView {
     });
     editor.addEventListener('input', () => {
       if (this.activeEditor === editor) {
-        this.activeEditorTextDirty = true;
         this.clearWholeShapeInlineSelection();
         this.syncShapeParagraphPreview(target, editor.value);
         const nextBox = this.getElementBox(target.element);
@@ -5016,9 +4781,6 @@ export class NativePowerPointView extends FileView {
           this.positionTextRunEditor(editor, nextBox);
         }
         updateCaret();
-        this.preserveCanvasScrollAfterInlineTextEdit(pendingInlineEditScroll, pendingInlineInputType);
-        pendingInlineEditScroll = null;
-        pendingInlineInputType = null;
       }
     });
     editor.addEventListener('copy', (event) => {
@@ -5032,29 +4794,9 @@ export class NativePowerPointView extends FileView {
     editor.addEventListener('mouseup', updateCaret);
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
-      if (event.key === 'Delete' || event.key === 'Backspace') {
-        captureInlineEditScroll(event.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward');
-      }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
         event.preventDefault();
         this.selectAllInlineText(editor, target.element);
-        return;
-      }
-      if (
-        target.kind === 'shape-paragraph'
-        && event.key === 'Enter'
-        && !event.isComposing
-        && !event.shiftKey
-        && !event.metaKey
-        && !event.ctrlKey
-        && !event.altKey
-      ) {
-        // Native Enter means a new PowerPoint paragraph. Leaving this to the
-        // textarea would write a raw newline into the SVG preview and later
-        // serialize it as a soft break in the same `<a:p>`.
-        event.preventDefault();
-        this.clearWholeShapeInlineSelection();
-        this.startInlineParagraphSplit(editor, target);
         return;
       }
       if (
@@ -5072,34 +4814,19 @@ export class NativePowerPointView extends FileView {
       ) {
         this.clearWholeShapeInlineSelection();
       }
-      if (this.handleInlineDeleteKey(event, editor, target.element)) {
-        pendingInlineEditScroll = null;
-        pendingInlineInputType = null;
-        return;
-      }
+      if (this.handleInlineDeleteKey(event, editor, target.element)) return;
       queueCaretUpdate();
     });
 
     const commitSlideIndex = this.currentSlide;
     const commitTarget = target;
     const commit = async () => {
-      if (this.paragraphSplitPromise) {
-        await this.paragraphSplitPromise;
-      }
       if (this.activeEditor !== editor) return;
       const text = editor.value;
-      const textWasEdited = this.activeEditorTextDirty;
       const normalizedText = commitTarget.kind === 'shape-paragraph'
         ? this.paragraphEditorTextFromDom(commitTarget.shapeIndex, commitTarget.paragraphIndex, text)
         : text;
       this.removeActiveEditor(editor);
-      if (!textWasEdited) {
-        debugLog('text-edit', 'Skipped inline text commit (unchanged)', {
-          slideIndex: commitSlideIndex,
-          shapeIndex: commitTarget.shapeIndex
-        });
-        return;
-      }
       await this.applyTextValue(normalizedText, commitTarget, commitSlideIndex);
     };
     this.activeEditorCommit = commit;
@@ -5150,22 +4877,6 @@ export class NativePowerPointView extends FileView {
     this.updateTextToolbar();
   }
 
-  private createInlineCaret(): SVGLineElement | null {
-    const svg = this.svgEl;
-    if (!svg) return null;
-
-    const caret = this.getSvgFactory(svg).createSvg('line');
-    caret.classList.add('native-powerpoint-svg-caret');
-    caret.setAttribute('aria-hidden', 'true');
-    svg.appendChild(caret);
-    return caret;
-  }
-
-  private getSvgFactory(owner: SVGElement): SvgFactoryWindow {
-    const ownerDocument = owner.ownerDocument as Document & { win: SvgFactoryWindow };
-    return ownerDocument.win;
-  }
-
   private renderFontFidelity(container: HTMLElement): void {
     if (!this.engine) return;
 
@@ -5206,7 +4917,6 @@ export class NativePowerPointView extends FileView {
     this.activeInlineCaret?.remove();
     this.removeInlineSelection();
     this.activeEditor = null;
-    this.activeEditorTextDirty = false;
     this.activeEditorCommit = null;
     this.inlineUndoStack = [];
     this.inlineRedoStack = [];
@@ -5347,19 +5057,6 @@ export class NativePowerPointView extends FileView {
         : this.toolbarFormattingSnapshot?.shapeIndex === shapeIndex
           ? this.toolbarFormattingSnapshot.ranges
           : null);
-  }
-
-  private getSelectedRangeFontSizePt(
-    shapeIndex: number,
-    ranges: ParagraphTextRange[]
-  ): number | null {
-    const engine = this.engine;
-    if (!engine) return null;
-    return engine.getRangesFontSizePt(
-      this.currentSlide,
-      shapeIndex,
-      this.mapRangesToOoxmlOffsets(shapeIndex, ranges)
-    );
   }
 
   private captureToolbarFormattingSnapshot(): ToolbarFormattingSnapshot | null {
@@ -5735,9 +5432,8 @@ export class NativePowerPointView extends FileView {
     const target = this.activeTextStyleTarget;
     if (!editor) return;
 
-    const textWasEdited = this.activeEditorTextDirty;
     this.removeActiveEditor(editor);
-    if (target && textWasEdited && editor.value !== target.text) {
+    if (target && editor.value !== target.text) {
       void this.applyTextValue(editor.value, target);
     }
   }
@@ -5881,22 +5577,12 @@ export class NativePowerPointView extends FileView {
       if (!selectionRanges) {
         selectionRanges = [{ paragraphIndex: styleTarget.paragraphIndex, start: savedStart, end: savedEnd }];
       }
-      if (this.activeEditorTextDirty) {
-        const normalizedEditorText = this.paragraphEditorTextFromDom(
-          context.shapeIndex,
-          styleTarget.paragraphIndex,
-          editor.value
-        );
-        pendingText = normalizedEditorText !== styleTarget.text ? normalizedEditorText : null;
-      } else if (editor.value !== styleTarget.text) {
-        debugLog('text-format', 'Skipped inline text sync before formatting', {
-          shapeIndex: context.shapeIndex,
-          paragraphIndex: styleTarget.paragraphIndex,
-          editorTextLength: editor.value.length,
-          renderedTextLength: styleTarget.text.length,
-          reason: 'editor-unmodified'
-        });
-      }
+      const normalizedEditorText = this.paragraphEditorTextFromDom(
+        context.shapeIndex,
+        styleTarget.paragraphIndex,
+        editor.value
+      );
+      pendingText = normalizedEditorText !== styleTarget.text ? normalizedEditorText : null;
     }
 
     const restoreInlineRangeSelection = selectedRanges !== null;
@@ -5911,9 +5597,6 @@ export class NativePowerPointView extends FileView {
           paragraphIndex: styleTarget.paragraphIndex,
           text: pendingText
         });
-        if (this.activeEditor === editor) {
-          this.activeEditorTextDirty = false;
-        }
       }
       // The engine styles in OOXML run-offset space; the editor/SVG ranges drop
       // wrap-boundary whitespace, so map them across before applying. The UI
@@ -5993,7 +5676,10 @@ export class NativePowerPointView extends FileView {
     // must be removed explicitly to avoid leaving an orphaned stray caret.
     this.activeInlineCaret?.remove();
     this.removeInlineSelection();
-    this.activeInlineCaret = this.createInlineCaret();
+    this.activeInlineCaret = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'line');
+    this.activeInlineCaret.classList.add('native-powerpoint-svg-caret');
+    this.activeInlineCaret.setAttribute('aria-hidden', 'true');
+    this.svgEl?.appendChild(this.activeInlineCaret);
     this.removeSelectionOverlay();
     return true;
   }
@@ -6067,8 +5753,6 @@ export class NativePowerPointView extends FileView {
           attr: { 'aria-label': this.t('powerpoint:accessibility.swatchColor', { color: swatch }) }
         });
         cell.style.setProperty('--np-swatch-color', `#${swatch}`);
-        const fill = cell.createSpan({ cls: 'native-powerpoint-color-popover-swatch-fill' });
-        fill.style.setProperty('--np-swatch-color', `#${swatch}`);
         if (swatch.toUpperCase() === currentColor.toUpperCase()) {
           cell.addClass('is-active');
         }
@@ -6148,34 +5832,6 @@ export class NativePowerPointView extends FileView {
     const scrollPosition = this.captureCanvasScroll();
     editor.focus({ preventScroll: true });
     this.restoreCanvasScrollSoon(scrollPosition);
-  }
-
-  /**
-   * The canvas is the user's viewport. Native edits occur in an invisible,
-   * 1px textarea layered over the slide, so browser caret reveal must not pan
-   * that viewport away from the text the user is editing.
-   */
-  private preserveCanvasScrollAfterInlineTextEdit(
-    position: CanvasScrollPosition | null,
-    inputType: string | null
-  ): void {
-    if (!position || !this.canvasPane) return;
-
-    const observed = this.captureCanvasScroll();
-    const moved = observed !== null
-      && (observed.left !== position.left || observed.top !== position.top);
-    this.restoreCanvasScrollSoon(position);
-
-    if (observed && moved) {
-      debugLog('text-edit', 'Restored canvas position after inline text edit', {
-        slide: this.currentSlide,
-        inputType,
-        expectedScrollLeft: position.left,
-        expectedScrollTop: position.top,
-        observedScrollLeft: observed.left,
-        observedScrollTop: observed.top
-      });
-    }
   }
 
   private selectEditorWithoutCanvasScroll(editor: HTMLTextAreaElement): void {
@@ -6281,11 +5937,9 @@ export class NativePowerPointView extends FileView {
       return true;
     }
 
-    const scrollPosition = this.captureCanvasScroll();
     this.recordInlineEditSnapshot(editor);
     const nextText = text.slice(0, deleteStart) + text.slice(deleteEnd);
     editor.value = nextText;
-    this.activeEditorTextDirty = true;
     if (this.activeShapeTextTarget) {
       this.syncShapeParagraphPreview(this.activeShapeTextTarget, nextText);
     } else if (isSVGTextElement(element)) {
@@ -6299,10 +5953,6 @@ export class NativePowerPointView extends FileView {
       this.positionTextRunEditor(editor, nextBox);
     }
     this.updateInlineCaret(editor, element);
-    this.preserveCanvasScrollAfterInlineTextEdit(
-      scrollPosition,
-      event.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward'
-    );
     return true;
   }
 
@@ -6507,7 +6157,7 @@ export class NativePowerPointView extends FileView {
     if (!isSVGTextElement(textElement) || !parent) return;
 
     for (const box of boxes) {
-      const rect = this.getSvgFactory(textElement).createSvg('rect');
+      const rect = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
       rect.classList.add('native-powerpoint-svg-selection');
       rect.setAttribute('x', this.formatSvgNumber(box.x));
       rect.setAttribute('y', this.formatSvgNumber(box.y));
@@ -6910,7 +6560,7 @@ export class NativePowerPointView extends FileView {
         if (!isSVGTextElement(textElement) || !parent) continue;
 
         for (const box of this.getSvgInlineSelectionBoxes(span, 0, total)) {
-          const rect = this.getSvgFactory(textElement).createSvg('rect');
+          const rect = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
           rect.classList.add('native-powerpoint-run-highlight');
           rect.setAttribute('x', this.formatSvgNumber(box.x));
           rect.setAttribute('y', this.formatSvgNumber(box.y));
@@ -7290,7 +6940,7 @@ export class NativePowerPointView extends FileView {
     if (text.length === 0) return { left: box.left, ...row };
 
     const style = window.getComputedStyle(editor);
-    const canvas = activeDocument.createEl('canvas');
+    const canvas = activeDocument.createElement('canvas');
     const context = canvas.getContext('2d');
     if (!context) {
       return { left: box.left + box.width * (offset / text.length), ...row };
@@ -7422,7 +7072,7 @@ export class NativePowerPointView extends FileView {
     const text = editor.value;
     const clickOffset = Math.max(0, Math.min(box.width, localClientX - box.left));
     const style = window.getComputedStyle(editor);
-    const canvas = activeDocument.createEl('canvas');
+    const canvas = activeDocument.createElement('canvas');
     const context = canvas.getContext('2d');
     if (!context) {
       return Math.round(text.length * (clickOffset / box.width));
@@ -7571,22 +7221,10 @@ export class NativePowerPointView extends FileView {
     if (target.kind === 'shape-paragraph') {
       const firstRun = target.runElements[0];
       if (firstRun) {
-        const previousRunTexts = target.runElements.map((run) => run.textContent || '');
-        const previewRunTexts = redistributeTextAcrossVisualRuns(previousRunTexts, text);
-        for (let index = 0; index < target.runElements.length; index++) {
+        firstRun.textContent = text;
+        for (let index = 1; index < target.runElements.length; index++) {
           const run = target.runElements[index];
-          if (run) run.textContent = previewRunTexts[index] ?? '';
-        }
-        if (target.runElements.length > 1) {
-          debugLog('text-edit', 'Updated wrapped inline text preview', {
-            slide: this.currentSlide,
-            shapeIndex: target.shapeIndex,
-            paragraphIndex: target.paragraphIndex,
-            runCount: target.runElements.length,
-            previousLength: previousRunTexts.join('').length,
-            nextLength: text.length,
-            lineCount: this.getRunLineContainers(target.shapeIndex, target.paragraphIndex).length
-          });
+          if (run) run.textContent = '';
         }
         return;
       }
@@ -8223,7 +7861,9 @@ export class NativePowerPointView extends FileView {
     if (!startPoint || !startBox) return;
 
     const previewElement = this.getSelectedShapeElement();
-    const freezeShapeDuringResize = this.shouldFreezeTextDuringResize(mode, previewElement);
+    const freezeShapeDuringResize = mode === 'resize'
+      && this.selectedShapeIndex !== null
+      && this.engine.isTextBoxShape(this.currentSlide, this.selectedShapeIndex);
     const paneEmuScale = this.getPaneEmuScale();
     const previewImageElement = previewElement ? this.getPictureImageElement(previewElement) : null;
     const previewImageAttrs = previewImageElement
@@ -8262,24 +7902,6 @@ export class NativePowerPointView extends FileView {
       previewImageElement,
       previewImageAttrs,
     };
-    logPptxAction('selection', 'drag', {
-      slide: this.currentSlide,
-      shapeIndexes: this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex],
-      mode,
-      handle,
-      freezeTextDuringResize: freezeShapeDuringResize,
-    });
-  }
-
-  /**
-   * A live SVG scale stretches glyphs. Freeze every shape that visibly renders
-   * text during a resize so only the selection outline moves until commit.
-   */
-  private shouldFreezeTextDuringResize(
-    mode: DragState['mode'],
-    previewElement: SVGGElement | null,
-  ): boolean {
-    return mode === 'resize' && previewElement?.querySelector('text') !== null;
   }
 
   /**
@@ -8678,9 +8300,6 @@ export class NativePowerPointView extends FileView {
     const transform = cloneTransform(this.dragState.latestTransform);
     const startTransform = cloneTransform(this.dragState.startTransform);
     const moved = !transformsMatch(startTransform, transform);
-    const mode = this.dragState.mode;
-    const handle = this.dragState.handle;
-    const freezeTextDuringResize = this.dragState.freezeShapeDuringResize === true;
     const previewElement = this.dragState.previewElement ?? null;
     const previewOriginalTransform = this.dragState.previewOriginalTransform ?? null;
     const previewImageElement = this.dragState.previewImageElement;
@@ -8695,15 +8314,6 @@ export class NativePowerPointView extends FileView {
     if (moved) {
       this.suppressNextClick = true;
     }
-    debugLog('selection', 'PowerPoint selection drag preview ended', {
-      op: 'drag-preview-end',
-      slide: this.currentSlide,
-      shapeIndexes: this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex],
-      mode,
-      handle,
-      freezeTextDuringResize,
-      moved,
-    });
     this.updateInspectorValues();
     void this.commitTransform(transform).finally(() => {
       this.restoreShapeDragPreview(previewElement, previewOriginalTransform);
@@ -8768,7 +8378,7 @@ export class NativePowerPointView extends FileView {
     }
   }
 
-  private getSvgPoint(event: MouseEvent | PointerEvent): PointerPoint | null {
+  private getSvgPoint(event: PointerEvent): PointerPoint | null {
     if (!this.svgEl) return null;
 
     const matrix = this.svgEl.getScreenCTM();
@@ -8834,46 +8444,23 @@ export class NativePowerPointView extends FileView {
     event.preventDefault();
     event.stopPropagation();
 
-    // Browsers synthesize Ctrl+wheel for trackpad pinch gestures. All other
-    // wheel input, including two-finger trackpad scrolling, pans the canvas.
-    if (!event.ctrlKey) {
-      const deltaX = this.normalizeWheelDelta(event, event.deltaX);
-      const deltaY = this.normalizeWheelDelta(event, event.deltaY);
-      if (deltaX === 0 && deltaY === 0) return;
-
-      this.canvasPane.scrollLeft += deltaX;
-      this.canvasPane.scrollTop += deltaY;
-      debugLog('view', 'Panned PowerPoint canvas', {
-        deltaX,
-        deltaY,
-        scrollLeft: this.canvasPane.scrollLeft,
-        scrollTop: this.canvasPane.scrollTop,
-        scrollWidth: this.canvasPane.scrollWidth,
-        scrollHeight: this.canvasPane.scrollHeight,
-        clientWidth: this.canvasPane.clientWidth,
-        clientHeight: this.canvasPane.clientHeight,
-        source: 'wheel'
-      });
-      return;
-    }
-
     const delta = this.normalizeWheelDelta(event);
     if (delta === 0) return;
 
-    const nextZoom = this.zoomLevel * Math.pow(2, -delta / 600);
+    const nextZoom = this.zoomLevel * Math.pow(2, delta / 600);
     this.setZoom(nextZoom, { clientX: event.clientX, clientY: event.clientY });
   }
 
-  private normalizeWheelDelta(event: WheelEvent, value = event.deltaY): number {
+  private normalizeWheelDelta(event: WheelEvent): number {
     if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
-      return value * 16;
+      return event.deltaY * 16;
     }
 
     if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-      return value * Math.max(1, this.canvasPane?.clientHeight ?? 800);
+      return event.deltaY * Math.max(1, this.canvasPane?.clientHeight ?? 800);
     }
 
-    return value;
+    return event.deltaY;
   }
 
   private setZoom(value: number, anchor?: { clientX: number; clientY: number }): void {

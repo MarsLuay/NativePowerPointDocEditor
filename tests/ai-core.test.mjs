@@ -9,17 +9,6 @@ import { createRequire } from 'node:module';
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const require = createRequire(import.meta.url);
 
-const stubObsidianPlugin = {
-	name: 'stub-obsidian',
-	setup(buildContext) {
-		buildContext.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'stub-obsidian' }));
-		buildContext.onLoad({ filter: /.*/, namespace: 'stub-obsidian' }, () => ({
-			contents: `export const normalizePath = (value) => value.replace(/\\\\/g, '/').replace(/\\/{2,}/g, '/');`,
-			loader: 'js',
-		}));
-	},
-};
-
 let cachedErrorsModule;
 let cachedOpRegistryModule;
 let cachedAiCoreModule;
@@ -72,7 +61,6 @@ async function loadAiTestModule() {
 		platform: 'node',
 		target: 'node22',
 		external: ['./pptxDocumentService', './docxDocumentService', '../PresentationEngine', '../PowerPointPackage'],
-		plugins: [stubObsidianPlugin],
 	});
 	cachedAiCoreModule = require(outfile);
 	return cachedAiCoreModule;
@@ -144,18 +132,6 @@ test('AI op catalog validates known pptx.updateShapeText payload', async () => {
 	assert.equal(result.length, 0);
 
 	const bad = validateDocumentOps([{ op: 'pptx.updateShapeText', slideIndex: 2 }]);
-	assert.ok(bad.some((issue) => issue.code === AI_ERROR_CODES.SCHEMA_INVALID));
-});
-
-test('AI op catalog validates pptx.deleteShape payload', async () => {
-	const { validateDocumentOps } = await loadOpRegistryModule();
-	const { AI_ERROR_CODES } = await loadErrorsModule();
-
-	assert.equal(validateDocumentOps([
-		{ op: 'pptx.deleteShape', slideIndex: 0, shapeIndex: 2 },
-	]).length, 0);
-
-	const bad = validateDocumentOps([{ op: 'pptx.deleteShape', slideIndex: 0 }]);
 	assert.ok(bad.some((issue) => issue.code === AI_ERROR_CODES.SCHEMA_INVALID));
 });
 

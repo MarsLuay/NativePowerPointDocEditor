@@ -37,8 +37,6 @@ let tooltipControllerModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
 let parseRenderedSlideSvgModulePromise;
-let textToolbarControllerModulePromise;
-let arrangeControllerModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -86,8 +84,6 @@ const stubObsidianPlugin = {
       contents: `
         export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };
         export const normalizePath = (value) => value.replace(/\\\\/g, "/").replace(/\\/{2,}/g, "/");
-        export const setIcon = () => {};
-        export class Notice { constructor() {} }
         export class Component {
           constructor() { this.cleanups = []; }
           register(cleanup) { this.cleanups.push(cleanup); }
@@ -141,26 +137,6 @@ export function loadTextUtilsModule() {
     return require(outfile);
   })();
   return textUtilsModulePromise;
-}
-
-export function loadTextToolbarControllerModule() {
-  textToolbarControllerModulePromise ??= bundleSource(
-    "src/powerpoint/textToolbarController.ts",
-    "text-toolbar-controller.cjs",
-    [],
-    [stubObsidianPlugin],
-  ).then((outfile) => require(outfile));
-  return textToolbarControllerModulePromise;
-}
-
-export function loadArrangeControllerModule() {
-  arrangeControllerModulePromise ??= bundleSource(
-    "src/powerpoint/arrangeController.ts",
-    "arrange-controller.cjs",
-    [],
-    [stubObsidianPlugin],
-  ).then((outfile) => require(outfile));
-  return arrangeControllerModulePromise;
 }
 
 let inlineTextGeometryModulePromise;

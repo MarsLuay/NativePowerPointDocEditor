@@ -49,7 +49,7 @@ function syncFlipWrapper(shape: SVGGElement, scale: number): void {
 
   let wrapper = existing as SVGGElement | null;
   if (!wrapper) {
-    wrapper = shape.ownerDocument.createSvg('g');
+    wrapper = shape.ownerDocument.createElementNS('http://www.w3.org/2000/svg', 'g');
     wrapper.classList.add(FLIP_WRAPPER_CLASS);
     while (shape.firstChild) {
       wrapper.appendChild(shape.firstChild);

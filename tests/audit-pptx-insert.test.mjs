@@ -69,20 +69,6 @@ test("insert text box round-trips to a valid, loadable deck", async () => {
   await assertExportRoundTrips("text box", engine);
 });
 
-test("insert text box honors a requested slide-space origin and clamps it to the slide", async () => {
-  const engine = await loadFreshEngine();
-  const slideSize = await engine.getSlideSizeEmu();
-  const shapeIndex = await engine.addTextBox(SLIDE_INDEX, { x: -50, y: slideSize.cy + 50 });
-  assertShapeIndex("positioned text box", shapeIndex);
-
-  const slideXml = engine.getSlideXml(SLIDE_INDEX);
-  const textBox = slideXml.match(/<p:sp>[\s\S]*?<p:cNvPr\b[^>]*\bname="TextBox"[\s\S]*?<\/p:sp>/)?.[0];
-  assert.ok(textBox, "expected the inserted text box shape in slide XML");
-  const maxY = slideSize.cy - 685800;
-  assert.match(textBox, new RegExp(`<a:off\\b[^>]*\\bx="0"[^>]*\\by="${maxY}"`));
-  await assertExportRoundTrips("positioned text box", engine);
-});
-
 test("insert shape geometries round-trip to a valid, loadable deck", async (t) => {
   const geometries = ["rect", "ellipse", "roundRect", "line", "rightArrow", "leftArrow", "upArrow", "downArrow"];
   for (const geometry of geometries) {

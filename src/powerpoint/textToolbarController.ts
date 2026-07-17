@@ -44,15 +44,9 @@ export interface TextToolbarHost {
   getElementBox(element: Element): { left: number; top: number; width: number; height: number } | null;
   getSelectedBox(): { left: number; top: number; width: number; height: number } | null;
   getStoredInlineSelectionRanges(shapeIndex: number): ParagraphTextRange[] | null;
-  getSelectedRangeFontSizePt(shapeIndex: number, ranges: ParagraphTextRange[]): number | null;
   applyRunStyle(change: RunStyleChange): void;
   applyAlignment(align: ParagraphAlignment): void;
   flushActiveEditor(): void;
-}
-
-interface FontSizeOverride {
-  contextKey: string;
-  fontSizePt: number;
 }
 
 /**
@@ -71,7 +65,6 @@ export class TextToolbarController {
   private activeToolbarPopover: HTMLElement | null = null;
   private toolbarPopoverCleanup: (() => void) | null = null;
   private toolbarFormattingSnapshot: ToolbarFormattingSnapshot | null = null;
-  private fontSizeOverride: FontSizeOverride | null = null;
 
   constructor(private readonly host: TextToolbarHost) {}
 
@@ -93,7 +86,6 @@ export class TextToolbarController {
     this.textToolbarShapeIndex = null;
     this.topFontButton = null;
     this.topFontLabel = null;
-    this.fontSizeOverride = null;
   }
 
   wireFontFamilyButton(button: HTMLButtonElement, label: HTMLElement): void {
@@ -167,7 +159,6 @@ export class TextToolbarController {
     this.textToolbarShapeIndex = null;
     this.closeToolbarPopover();
     this.host.currentRunStyle = null;
-    this.fontSizeOverride = null;
     this.setTopFontControl('Font', false);
   }
 
@@ -205,11 +196,7 @@ export class TextToolbarController {
       ? this.host.engine.getRunStyle(this.host.currentSlide, context.shapeIndex, runTarget.paragraphIndex, runTarget.runIndex)
       : null;
     const selectedRanges = this.getActiveInlineSelectionRanges(context.shapeIndex);
-    const hasSelectedText = selectedRanges?.some((range) => range.start !== range.end) ?? false;
-    const selectedRangeFontSizePt = hasSelectedText
-      ? this.host.getSelectedRangeFontSizePt(context.shapeIndex, selectedRanges ?? [])
-      : null;
-    let reflectedStyle = selectedRanges?.length && style
+    const reflectedStyle = selectedRanges?.length && style
       ? {
           ...style,
           bold: this.host.engine.areRangesStyled(this.host.currentSlide, context.shapeIndex, selectedRanges, 'bold'),
@@ -217,12 +204,6 @@ export class TextToolbarController {
           underline: this.host.engine.areRangesStyled(this.host.currentSlide, context.shapeIndex, selectedRanges, 'underline')
         }
       : style;
-    const optimisticFontSize = this.getFontSizeOverride(context, selectedRanges);
-    if (optimisticFontSize !== null && reflectedStyle) {
-      reflectedStyle = { ...reflectedStyle, fontSizePt: optimisticFontSize };
-    } else if (hasSelectedText && selectedRangeFontSizePt !== null && reflectedStyle) {
-      reflectedStyle = { ...reflectedStyle, fontSizePt: selectedRangeFontSizePt };
-    }
     this.host.currentRunStyle = reflectedStyle;
 
     controls.bold.toggleClass('is-active', Boolean(reflectedStyle?.bold));
@@ -231,28 +212,8 @@ export class TextToolbarController {
     this.setTopFontControl(reflectedStyle?.fontFamily ?? this.getEffectiveFontFamily(context) ?? 'Font', true);
 
     if (activeDocument.activeElement !== controls.fontSizeInput) {
-      const sizePt = optimisticFontSize
-        ?? (hasSelectedText
-          ? selectedRangeFontSizePt
-          : (reflectedStyle?.fontSizePt ?? this.getEffectiveFontSizePt(context)));
-      const nextValue = sizePt ? String(Math.round(sizePt)) : '';
-      if (controls.fontSizeInput.value !== nextValue) {
-        debugLog('text-format', 'Reflected font size in toolbar', {
-          shapeIndex: context.shapeIndex,
-          selectionRangeCount: selectedRanges?.length ?? 0,
-          source: optimisticFontSize !== null
-            ? 'selection-override'
-            : hasSelectedText
-              ? 'selected-ranges'
-              : 'rendered-style',
-          previous: controls.fontSizeInput.value,
-          next: nextValue,
-          runStyleFontSizePt: style?.fontSizePt ?? null,
-          selectedRangeFontSizePt,
-          optimisticFontSizePt: optimisticFontSize
-        });
-        controls.fontSizeInput.value = nextValue;
-      }
+      const sizePt = reflectedStyle?.fontSizePt ?? this.getEffectiveFontSizePt(context);
+      controls.fontSizeInput.value = sizePt ? String(Math.round(sizePt)) : '';
     }
 
     if (reflectedStyle?.color) {
@@ -507,19 +468,11 @@ export class TextToolbarController {
   }
 
   private stepFontSize(delta: number): void {
-    const input = this.textToolbarControls?.fontSizeInput;
-    const inputValue = Number(input?.value);
-    const context = this.host.getTextStyleContext();
-    const selectedRanges = context ? this.getActiveInlineSelectionRanges(context.shapeIndex) : null;
-    const optimisticFontSize = context ? this.getFontSizeOverride(context, selectedRanges) : null;
-    const current = optimisticFontSize
-      ?? (Number.isFinite(inputValue) && inputValue > 0
-        ? inputValue
-        : (this.host.currentRunStyle?.fontSizePt ?? 18));
+    const inputValue = Number(this.textToolbarControls?.fontSizeInput?.value);
+    const current = this.host.currentRunStyle?.fontSizePt
+      ?? (Number.isFinite(inputValue) && inputValue > 0 ? inputValue : 18);
     const next = Math.min(TEXT_TOOLBAR_MAX_FONT_SIZE, Math.max(TEXT_TOOLBAR_MIN_FONT_SIZE, Math.round(current) + delta));
-    this.reflectOptimisticFontSize(next);
-    debugLog('text-format', 'stepFontSize', { delta, current, next, inputValue, optimisticFontSize });
-    if (next === current) return;
+    debugLog('text-format', 'stepFontSize', { delta, current, next });
     this.host.applyRunStyle({ fontSizePt: next });
   }
 
@@ -534,43 +487,8 @@ export class TextToolbarController {
       TEXT_TOOLBAR_MAX_FONT_SIZE,
       Math.max(TEXT_TOOLBAR_MIN_FONT_SIZE, Math.round(value))
     );
-    this.reflectOptimisticFontSize(clamped);
     debugLog('text-format', 'commitFontSizeInput', { value, clamped });
     this.host.applyRunStyle({ fontSizePt: clamped });
-  }
-
-  private reflectOptimisticFontSize(fontSizePt: number): void {
-    const input = this.textToolbarControls?.fontSizeInput;
-    if (input) input.value = String(fontSizePt);
-    const context = this.host.getTextStyleContext();
-    if (context) {
-      this.fontSizeOverride = {
-        contextKey: this.getFontSizeContextKey(context, this.getActiveInlineSelectionRanges(context.shapeIndex)),
-        fontSizePt
-      };
-    }
-    if (this.host.currentRunStyle) {
-      this.host.currentRunStyle = { ...this.host.currentRunStyle, fontSizePt };
-    }
-  }
-
-  private getFontSizeOverride(
-    context: TextStyleContext,
-    selectedRanges: ParagraphTextRange[] | null
-  ): number | null {
-    const override = this.fontSizeOverride;
-    if (!override) return null;
-    if (override.contextKey === this.getFontSizeContextKey(context, selectedRanges)) {
-      return override.fontSizePt;
-    }
-    this.fontSizeOverride = null;
-    return null;
-  }
-
-  private getFontSizeContextKey(context: TextStyleContext, selectedRanges: ParagraphTextRange[] | null): string {
-    const runKey = context.run ? `${context.run.paragraphIndex}:${context.run.runIndex}` : 'shape';
-    const rangeKey = selectedRanges?.map((range) => `${range.paragraphIndex}:${range.start}-${range.end}`).join(',') ?? 'none';
-    return `${context.shapeIndex}|${runKey}|${rangeKey}`;
   }
 
   private captureToolbarFormattingSnapshot(): ToolbarFormattingSnapshot | null {
@@ -654,8 +572,6 @@ export class TextToolbarController {
           attr: { 'aria-label': `#${swatch}` }
         });
         cell.style.setProperty('--np-swatch-color', `#${swatch}`);
-        const fill = cell.createSpan({ cls: 'native-powerpoint-color-popover-swatch-fill' });
-        fill.style.setProperty('--np-swatch-color', `#${swatch}`);
         if (swatch.toUpperCase() === currentColor.toUpperCase()) {
           cell.addClass('is-active');
         }

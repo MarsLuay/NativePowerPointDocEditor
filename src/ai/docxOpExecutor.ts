@@ -7,9 +7,7 @@ import {
 	replaceParagraphXml,
 	replaceTableCellXmlInPart,
 } from './docxBlockResolver';
-import { DOCX_CORE_PROPERTIES_PATH, listReplaceTextPartPaths, resolvePartPath } from './docxParts';
-import { removeAllDocxComments } from './docxComments';
-import { patchDocxCoreProperties } from './docxCoreProperties';
+import { listReplaceTextPartPaths, resolvePartPath } from './docxParts';
 import { addInlineImage, replaceInlineImage } from './docxMedia';
 import type { DocxPatchSession } from './docxPatchSession';
 import {
@@ -22,7 +20,6 @@ import {
 	replacePartText,
 	type DocxRunStylePatch,
 } from './docxOoxmlWrite';
-import { applyReplaceBodyParagraphs } from './docxBodyParagraphs';
 import { registerExternalHyperlink } from './docxHyperlink';
 import {
 	applyDeleteRangeInPart,
@@ -61,14 +58,6 @@ function requireString(value: unknown, field: string): string {
 		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `${field} must be a string.`, { field });
 	}
 	return value;
-}
-
-function requireNonEmptyString(value: unknown, field: string): string {
-	const text = requireString(value, field).trim();
-	if (!text) {
-		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `${field} must not be empty.`, { field });
-	}
-	return text;
 }
 
 function requireNumber(value: unknown, field: string): number {
@@ -131,7 +120,7 @@ function rejectWriteOnlyExcludedId(id: string, field: string): void {
 	if (id.startsWith('comments/')) {
 		throw createAiError(
 			AI_ERROR_CODES.VALIDATION_FAILED,
-			'Individual comments are describe-only. Use docx.removeComments to delete all comments; trackChanges markup is not writable via AI ops.',
+			'Comments are describe-only. trackChanges markup is not writable via AI ops.',
 			{ field },
 		);
 	}
@@ -165,47 +154,6 @@ export async function executeDocxOp(
 	const warnings: string[] = [];
 
 	switch (opId) {
-		case 'docx.removeComments': {
-			const removal = await removeAllDocxComments(context.session);
-			documentXml = removal.documentXml;
-			changedIds.push(...removal.changedPartPaths);
-			if (removal.changedPartPaths.length > 0) {
-				preview.push({
-					id: 'comments',
-					field: 'removeAll',
-					before: removal.commentCount,
-					after: 0,
-				});
-			}
-			break;
-		}
-		case 'docx.setCoreProperties': {
-			const creator = requireNonEmptyString(record.creator, 'creator');
-			const lastModifiedBy = requireNonEmptyString(record.lastModifiedBy, 'lastModifiedBy');
-			const existingCoreXml = context.session.hasPart(DOCX_CORE_PROPERTIES_PATH)
-				? context.session.getPartXml(DOCX_CORE_PROPERTIES_PATH)
-				: [
-					'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',
-					'<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties"',
-					' xmlns:dc="http://purl.org/dc/elements/1.1/"',
-					' xmlns:dcterms="http://purl.org/dc/terms/"',
-					' xmlns:dcmitype="http://purl.org/dc/dcmitype/"',
-					' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">',
-					'</cp:coreProperties>',
-				].join('');
-			const beforeCreator = /<dc:creator\b[^>]*>([^<]*)<\/dc:creator>/.exec(existingCoreXml)?.[1] ?? null;
-			const beforeLastModifiedBy = /<cp:lastModifiedBy\b[^>]*>([^<]*)<\/cp:lastModifiedBy>/.exec(existingCoreXml)?.[1] ?? null;
-			context.session.setPartXml(
-				DOCX_CORE_PROPERTIES_PATH,
-				patchDocxCoreProperties(existingCoreXml, { creator, lastModifiedBy }),
-			);
-			changedIds.push(DOCX_CORE_PROPERTIES_PATH);
-			preview.push(
-				{ id: DOCX_CORE_PROPERTIES_PATH, field: 'creator', before: beforeCreator, after: creator },
-				{ id: DOCX_CORE_PROPERTIES_PATH, field: 'lastModifiedBy', before: beforeLastModifiedBy, after: lastModifiedBy },
-			);
-			break;
-		}
 		case 'docx.setRunText': {
 			const blockId = requireString(record.blockId, 'blockId');
 			const runId = requireString(record.runId, 'runId');
@@ -356,7 +304,7 @@ export async function executeDocxOp(
 			if (!anchor || anchor.part !== 'body') {
 				throw createAiError(
 					AI_ERROR_CODES.VALIDATION_FAILED,
-					'insertImage is only supported on body blocks in the main DOCX part.',
+					'insertImage is only supported in word/document.xml body blocks.',
 					{ field: 'afterBlockId' },
 				);
 			}
@@ -381,7 +329,7 @@ export async function executeDocxOp(
 			if (!parsed || parsed.part !== 'body') {
 				throw createAiError(
 					AI_ERROR_CODES.VALIDATION_FAILED,
-					'replaceImage is only supported on body blocks in the main DOCX part.',
+					'replaceImage is only supported in word/document.xml body blocks.',
 					{ field: 'blockId' },
 				);
 			}
@@ -523,33 +471,6 @@ export async function executeDocxOp(
 			}
 			changedIds.push(blockId);
 			preview.push({ id: blockId, field: 'insertParagraphBreak', before: null, after: { offset } });
-			break;
-		}
-		case 'docx.replaceBodyParagraphs': {
-			const paragraphsValue = record.paragraphs;
-			if (!Array.isArray(paragraphsValue)) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must be an array of strings.', {
-					field: 'paragraphs',
-				});
-			}
-			const paragraphs = paragraphsValue.map((entry, index) => {
-				if (typeof entry !== 'string') {
-					throw createAiError(
-						AI_ERROR_CODES.SCHEMA_INVALID,
-						`paragraphs[${index}] must be a string.`,
-						{ field: 'paragraphs' },
-					);
-				}
-				return entry;
-			});
-			documentXml = applyReplaceBodyParagraphs(documentXml, paragraphs);
-			changedIds.push('body');
-			preview.push({
-				id: 'body',
-				field: 'replaceBodyParagraphs',
-				before: null,
-				after: { paragraphCount: paragraphs.length > 0 ? paragraphs.length : 1 },
-			});
 			break;
 		}
 		default:

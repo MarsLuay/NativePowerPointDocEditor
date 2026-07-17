@@ -77,18 +77,17 @@ export class DocxDocumentService {
 		try {
 			const lease = await this.sessions.acquire(path);
 			const beforeBuffer = lease.sourceBuffer.slice(0);
-			const patch = dryRun ? await lease.patch.clone() : lease.patch;
-			const originalXml = patch.getDocumentXml();
+			const originalXml = lease.patch.getDocumentXml();
 			let documentXml = originalXml;
 			const changed = new Set<string>();
 			const preview: ApplyResult['preview'] = [];
 			const warnings: string[] = [];
 
 			for (const op of ops) {
-				patch.setDocumentXml(documentXml);
+				lease.patch.setDocumentXml(documentXml);
 				const result = await executeDocxOp(
 					{
-						session: patch,
+						session: lease.patch,
 						vault: this.runtime.vault,
 						filePath: lease.file.path,
 						dryRun,
@@ -103,7 +102,9 @@ export class DocxDocumentService {
 
 			validateDocxDocumentXmlLight(documentXml);
 
-			if (!dryRun) {
+			if (dryRun) {
+				lease.patch.setDocumentXml(originalXml);
+			} else {
 				lease.patch.setDocumentXml(documentXml);
 				aiUndoStore.record(lease.file.path, {
 					label: AI_EDIT_UNDO_LABEL,

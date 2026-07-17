@@ -2,11 +2,6 @@ import { debugLog } from '../logger';
 import { isPowerPointExtension } from '../powerpoint/extensions';
 import type { AiRuntime } from './aiRuntime';
 import { buildCapabilityManifest } from './capabilities';
-import {
-	createOfficeDocument,
-	type CreateOfficeDocumentOptions,
-	type CreateOfficeDocumentResult,
-} from './createOfficeDocument';
 import { createAiError, AI_ERROR_CODES } from './errors';
 import type { AiErrorDetail } from './errors';
 import { getOpDefinition, validateDocumentOps } from './opRegistry';
@@ -109,19 +104,6 @@ export class AiCore {
 		return { ok: errors.length === 0, errors };
 	}
 
-	async createDocument(options: CreateOfficeDocumentOptions): Promise<CreateOfficeDocumentResult> {
-		if (!this.isEnabled()) {
-			return { ok: false, errors: [this.disabledError()] };
-		}
-		if (!this.options.runtime) {
-			return { ok: false, errors: [this.missingRuntimeError()] };
-		}
-		return createOfficeDocument(this.options.runtime.vault, {
-			...options,
-			path: this.options.runtime.normalizePath(options.path),
-		});
-	}
-
 	async describe(path: string): Promise<DescribeResult> {
 		if (!this.isEnabled()) {
 			return { ok: false, errors: [this.disabledError()] };
@@ -163,11 +145,6 @@ export class AiCore {
 			debugLog('agent', 'AI apply rejected by schema validation', {
 				path,
 				dryRun: options.dryRun === true,
-				opIds: ops.slice(0, 12).map((op) => String(op?.op ?? '')),
-				opIdsTruncated: ops.length > 12,
-				failedOpIds: validation.errors
-					.map((error) => error.op)
-					.filter((op): op is string => typeof op === 'string'),
 				errorCount: validation.errors.length,
 				ms: Math.round(performance.now() - startedAt),
 			});

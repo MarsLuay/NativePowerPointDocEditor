@@ -151,7 +151,7 @@ export class TooltipController {
 		this.removeTooltipElement();
 		this.removeExistingTooltipElements();
 
-		const tooltip = this.ownerDocument.createDiv();
+		const tooltip = this.ownerDocument.createElement('div');
 		tooltip.className = this.className;
 		tooltip.id = `${TOOLTIP_ID_PREFIX}-${++tooltipIdCounter}`;
 		tooltip.setAttribute('role', 'tooltip');

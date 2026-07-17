@@ -14,46 +14,12 @@ type EngineProvider = PresentationEngine | (() => PresentationEngine | null);
  * authoritative package. Failed work restores that snapshot.
  */
 export class PptxMutationService implements MutationExecutor {
-  /** Engine export/reload transactions must not overlap. */
-  private mutationQueue: Promise<void> = Promise.resolve();
-  private queuedMutationCount = 0;
-
   constructor(private readonly engineProvider: EngineProvider) {}
 
   async execute(command: MutationCommand): Promise<unknown> {
     const engine = this.resolveEngine();
-    const queuedAt = Date.now();
-    const queueDepth = this.queuedMutationCount;
-    this.queuedMutationCount += 1;
-    if (queueDepth > 0) {
-      debugLog('mutate', 'PowerPoint mutation queued', { op: command.type, queueDepth });
-    }
-
-    const executeTransaction = async (): Promise<unknown> => {
-      try {
-        return await this.executeTransaction(engine, command, Date.now() - queuedAt, queueDepth);
-      } finally {
-        this.queuedMutationCount -= 1;
-      }
-    };
-    const transaction = this.mutationQueue.then(executeTransaction, executeTransaction);
-    // A failed transaction must not prevent the next independent user action.
-    this.mutationQueue = transaction.then(() => undefined, () => undefined);
-    return transaction;
-  }
-
-  private async executeTransaction(
-    engine: PresentationEngine,
-    command: MutationCommand,
-    queueMs: number,
-    queueDepth: number,
-  ): Promise<unknown> {
     const startedAt = Date.now();
-    debugLog('mutate', 'PowerPoint mutation started', {
-      op: command.type,
-      queueMs,
-      queueDepth,
-    });
+    debugLog('mutate', 'PowerPoint mutation started', { op: command.type });
     const snapshot = await engine.export();
 
     try {
@@ -114,7 +80,7 @@ export class PptxMutationService implements MutationExecutor {
       case 'insert-shape':
         return engine.insertShapeGeometry(command.slideIndex, command.geometry);
       case 'insert-text-box':
-        return engine.insertTextBox(command.slideIndex, command.origin);
+        return engine.insertTextBox(command.slideIndex);
       case 'insert-table':
         return engine.addTable(command.slideIndex, command.rows, command.cols);
       case 'insert-chart':
@@ -140,14 +106,6 @@ export class PptxMutationService implements MutationExecutor {
           command.slideIndex,
           command.shapeIndex,
           command.paragraphIndex,
-          command.text,
-        );
-      case 'split-paragraph':
-        return engine.splitParagraph(
-          command.slideIndex,
-          command.shapeIndex,
-          command.paragraphIndex,
-          command.splitOffset,
           command.text,
         );
       case 'update-text-run':

@@ -434,7 +434,7 @@ test("highlight fidelity: deleting a lower shape remaps the surviving highlight 
 
   // Delete the bullet (index 0); the renderer renumbers every higher shape down
   // by one, so the cached highlight must follow the text box to boxIndex-1.
-  await engine.deleteShape(slide, 0);
+  engine.deleteShape(slide, 0);
 
   const after = liveHighlights(engine, slide);
   assert.ok(!after.some((h) => h.color === "FFFF00"), "the deleted shape's highlight is gone");

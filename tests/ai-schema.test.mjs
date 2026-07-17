@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFile } from 'node:child_process';
 import { test } from 'node:test';
 import { build } from 'esbuild';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { promisify } from 'node:util';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const require = createRequire(import.meta.url);
+const execFileAsync = promisify(execFile);
 
 let cachedModules;
 
@@ -57,8 +59,7 @@ test('every catalog operation has an object schema and example payload', async (
 	const { listOpDefinitions, OP_EXAMPLES } = await loadAiSchemaModules();
 	const operations = listOpDefinitions();
 
-	assert.ok(operations.length > 0);
-	assert.ok(operations.some((operation) => operation.id === 'pptx.setShapeFillColor'));
+	assert.equal(operations.length, 41);
 	for (const operation of operations) {
 		assert.equal(operation.parameters.type, 'object', `${operation.id} parameters must be an object schema`);
 		assert.ok(Array.isArray(operation.parameters.required), `${operation.id} must declare required fields`);
@@ -92,18 +93,15 @@ test('OP_EXAMPLES reject missing required fields', async () => {
 });
 
 test('generated capabilities.json includes per-op schemas and examples', async () => {
-	const { listOpDefinitions } = await loadAiSchemaModules();
+	await execFileAsync(process.execPath, ['scripts/generate-ai-capabilities.mjs'], { cwd: projectRoot });
 	const capabilities = JSON.parse(
-		readFileSync(path.join(projectRoot, 'ai/capabilities.json'), 'utf8'),
+		await readFile(path.join(projectRoot, 'ai/capabilities.json'), 'utf8'),
 	);
 	assert.equal(capabilities.schemaVersion, 2);
 	assert.ok(capabilities.limitations?.pptxFormats);
 	assert.deepEqual(capabilities.limitations.pptxFormats.unsupported, ['ppt', 'pps', 'pot']);
 	assert.ok(capabilities.limitations.pptxRuntime?.fallbackLimits?.length > 0);
-	assert.deepEqual(
-		capabilities.operations.map((operation) => operation.id),
-		listOpDefinitions().map((operation) => operation.id),
-	);
+	assert.equal(capabilities.operations.length, 41);
 	for (const operation of capabilities.operations) {
 		assert.equal(operation.parameters.type, 'object');
 		assert.ok(operation.example, `${operation.id} missing example in capabilities.json`);

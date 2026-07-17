@@ -1,5 +1,5 @@
 import { App, Component, FileView, Modal, Platform, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
-import type { Translations } from '@npde/docx-editor-i18n';
+import type { Translations } from './docx/runtime';
 import type { I18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { loadDocxEditorChunk } from './docxEditorLoader';
@@ -59,7 +59,6 @@ import {
 	type Disposable,
 	type DocxEditorAdapterController,
 } from './docx/adapter/DocxEditorAdapter';
-import { DocxAgentReloadGuard, type DocxReloadIdentity } from './docx/DocxAgentReloadGuard';
 
 export { VIEW_TYPE_DOCX };
 
@@ -69,7 +68,6 @@ type DocxExportFormatId = 'pdf' | 'docx' | 'html' | 'txt' | 'md' | 'rtf';
 type DocxExportChoice = { name: string; format: DocxExportFormatId } | null;
 type DocxConflictChoice = 'overwrite' | 'cancel';
 type ExistingFileChoice = 'replace' | 'copy';
-const AGENT_RELOAD_READY_TIMEOUT_MS = 15_000;
 type EditorOptionSearchActionId =
 	| 'save'
 	| 'save-as'
@@ -105,8 +103,6 @@ interface DocxFileSignature {
 	mtime: number;
 	size: number;
 }
-
-type DocxSaveOrigin = DocxReloadIdentity;
 
 interface DocxExportFormat {
 	id: DocxExportFormatId;
@@ -966,7 +962,6 @@ export class DocxView extends FileView {
 	private isLoading = false;
 	private isDirty = false;
 	private documentSession = 0;
-	private readonly agentReloadGuard = new DocxAgentReloadGuard();
 	private lastKnownFileSignature: DocxFileSignature | null = null;
 	private backupCreatedForOpenFile = false;
 	private reserveReviewSidebar = false;
@@ -1028,45 +1023,6 @@ export class DocxView extends FileView {
 
 	canAcceptExtension(extension: string) {
 		return extension.toLowerCase() === 'docx';
-	}
-
-	private beginDocumentSession(): number {
-		this.documentSession += 1;
-		return this.documentSession;
-	}
-
-	private createSaveOrigin(file = this.file): DocxSaveOrigin {
-		if (!file) {
-			throw new Error('No docx file is open.');
-		}
-		return { documentSession: this.documentSession, filePath: file.path };
-	}
-
-	private isCurrentSaveOrigin(origin: DocxSaveOrigin): boolean {
-		return this.documentSession === origin.documentSession && this.file?.path === origin.filePath;
-	}
-
-	private assertCurrentSaveOrigin(origin: DocxSaveOrigin): void {
-		if (!this.isCurrentSaveOrigin(origin)) {
-			throw new Error('Discarded save from a stale DOCX editor session.');
-		}
-	}
-
-	private failAgentReload(origin: DocxSaveOrigin, error: unknown): void {
-		if (!this.isCurrentSaveOrigin(origin)) {
-			return;
-		}
-		const message = error instanceof Error ? error.message : String(error);
-		this.agentReloadGuard.fail(origin, error instanceof Error ? error : new Error(message));
-		this.error = `Could not safely reload ${this.file?.name ?? 'the DOCX'} after the AI edit: ${message}`;
-		this.isLoading = false;
-		this.isDirty = false;
-		this.reactMount?.unmount();
-		this.reactMount = null;
-		this.reactMountLoading = false;
-		this.hostEl?.empty();
-		this.hostEl?.createDiv({ cls: 'native-powerpoint-doc-editor-editor-load-error', text: this.error });
-		errorLog('agent', this.error, error);
 	}
 
 	private beginOpenLoadTrace(phase: string, data?: Record<string, unknown>) {
@@ -1311,8 +1267,6 @@ export class DocxView extends FileView {
 			warnLog('view', 'Canceled DOCX view close because unsaved changes were kept', { file: this.file?.path });
 			return;
 		}
-		this.beginDocumentSession();
-		this.agentReloadGuard.clear(new Error('DOCX view closed before the agent reload completed.'));
 		this.reactMount?.unmount();
 		this.reactMount = null;
 		this.reactMountLoading = false;
@@ -1329,6 +1283,7 @@ export class DocxView extends FileView {
 		this.buffer = null;
 		this.error = null;
 		this.isDirty = false;
+		this.documentSession += 1;
 		this.lastKnownFileSignature = null;
 		this.backupCreatedForOpenFile = false;
 		this.reserveReviewSidebar = false;
@@ -1350,11 +1305,6 @@ export class DocxView extends FileView {
 			warnLog('file', `Canceled loading ${file.path} because the current DOCX has unsaved changes`);
 			return;
 		}
-		const origin: DocxSaveOrigin = {
-			documentSession: this.beginDocumentSession(),
-			filePath: file.path,
-		};
-		this.agentReloadGuard.clear(new Error('A different DOCX file began loading.'));
 		this.isLoading = true;
 		this.error = null;
 		this.buffer = null;
@@ -1367,9 +1317,6 @@ export class DocxView extends FileView {
 		try {
 			const readStartedAt = monotonicNow();
 			const sourceBuffer = await this.app.vault.readBinary(file);
-			if (!this.isCurrentSaveOrigin(origin)) {
-				return;
-			}
 			this.markOpenLoadPhase('vault-readBinary-complete', {
 				bytes: sourceBuffer.byteLength,
 				durationMs: Math.round((monotonicNow() - readStartedAt) * 10) / 10,
@@ -1377,9 +1324,6 @@ export class DocxView extends FileView {
 
 			const styleStartedAt = monotonicNow();
 			const styledDocument = await ensureDocxDefaultStyles(sourceBuffer);
-			if (!this.isCurrentSaveOrigin(origin)) {
-				return;
-			}
 			this.markOpenLoadPhase('ensure-default-styles-complete', {
 				addedDefaultStyles: styledDocument.addedDefaultStyles,
 				durationMs: Math.round((monotonicNow() - styleStartedAt) * 10) / 10,
@@ -1389,9 +1333,6 @@ export class DocxView extends FileView {
 
 			const signatureStartedAt = monotonicNow();
 			this.lastKnownFileSignature = await this.readFileSignature(file);
-			if (!this.isCurrentSaveOrigin(origin)) {
-				return;
-			}
 			this.markOpenLoadPhase('read-file-signature-complete', {
 				durationMs: Math.round((monotonicNow() - signatureStartedAt) * 10) / 10,
 				signature: this.lastKnownFileSignature,
@@ -1408,37 +1349,20 @@ export class DocxView extends FileView {
 			});
 			this.markOpenLoadPhase('file-load-complete');
 		} catch (readError) {
-			if (!this.isCurrentSaveOrigin(origin)) {
-				return;
-			}
 			const message = readError instanceof Error ? readError.message : 'Unknown read error';
 			this.error = `Could not load ${file.name}: ${message}`;
 			errorLog('file', this.error, readError);
 			showI18nNotice(this.getPluginI18n(), this.error);
 		} finally {
-			if (this.isCurrentSaveOrigin(origin)) {
-				this.isLoading = false;
-				this.render();
-			}
+			this.isLoading = false;
+			this.render();
 		}
 
-		if (this.isCurrentSaveOrigin(origin)) {
-			void this.updateReviewSidebarReservation();
-		}
+		void this.updateReviewSidebarReservation();
 	}
 
-	private handleEditorLoadPhase = (
-		phase: string,
-		data?: Record<string, unknown>,
-		origin?: DocxSaveOrigin,
-	) => {
+	private handleEditorLoadPhase = (phase: string, data?: Record<string, unknown>) => {
 		this.markOpenLoadPhase(phase, data);
-		if (phase === 'editor-view-ready' && origin && this.agentReloadGuard.complete(origin)) {
-			debugLog('agent', 'Open DOCX editor is ready for the reloaded agent buffer', {
-				file: origin.filePath,
-				documentSession: origin.documentSession,
-			});
-		}
 		if (phase === 'editor-fonts-loaded') {
 			this.finishOpenLoadTrace('editor-ready', {
 				file: this.file?.path,
@@ -1453,8 +1377,6 @@ export class DocxView extends FileView {
 			warnLog('file', `Canceled unloading ${_file.path} because unsaved changes were kept`);
 			return;
 		}
-		this.beginDocumentSession();
-		this.agentReloadGuard.clear(new Error('DOCX file unloaded before the agent reload completed.'));
 		this.buffer = null;
 		this.error = null;
 		this.isDirty = false;
@@ -1465,13 +1387,8 @@ export class DocxView extends FileView {
 	}
 
 	async onRename(file: TFile) {
-		const documentSession = this.beginDocumentSession();
-		this.agentReloadGuard.clear(new Error('DOCX file was renamed while the agent reload was pending.'));
 		await super.onRename(file);
 		this.lastKnownFileSignature = await this.readFileSignature(file);
-		if (this.documentSession !== documentSession || this.file?.path !== file.path) {
-			return;
-		}
 		infoLog('file', `File renamed or moved to ${file.path}`, {
 			signature: this.lastKnownFileSignature,
 		});
@@ -1490,18 +1407,7 @@ export class DocxView extends FileView {
 			return false;
 		}
 
-		const origin = this.createSaveOrigin(this.file);
-		const agentReloadBuffer = this.agentReloadGuard.getPendingBuffer(origin);
-		let saved = false;
-		if (agentReloadBuffer) {
-			await this.saveFile(agentReloadBuffer, origin);
-			saved = true;
-		} else {
-			saved = await this.getReactHandle()?.save() ?? false;
-		}
-		if (!this.isCurrentSaveOrigin(origin)) {
-			return false;
-		}
+		const saved = await this.getReactHandle()?.save() ?? false;
 		if (saved) {
 			this.isDirty = false;
 			infoLog('save', `Save completed for ${this.file.path}`);
@@ -1510,36 +1416,6 @@ export class DocxView extends FileView {
 		}
 
 		return saved;
-	}
-
-	/**
-	 * Persist dirty DOCX state before the development hot-reloader disables the
-	 * plugin. Returns false when the source file could not be updated so the
-	 * caller can abort reload and keep in-memory edits alive.
-	 */
-	async saveBeforePluginReload(): Promise<boolean> {
-		const handle = this.getReactHandle();
-		const comments = handle?.getComments?.() ?? null;
-		const commentCount = Array.isArray(comments) ? comments.length : null;
-		debugLog('save', 'DOCX save-before-reload check', {
-			file: this.file?.path ?? null,
-			isDirty: this.isDirty,
-			commentCount,
-			hasHandle: Boolean(handle),
-		});
-		if (!this.isDirty && commentCount === 0) {
-			return true;
-		}
-		if (!this.isDirty && commentCount == null && !handle) {
-			return true;
-		}
-
-		debugLog('save', 'Saving DOCX before plugin reload', {
-			file: this.file?.path ?? null,
-			isDirty: this.isDirty,
-			commentCount,
-		});
-		return this.saveCurrentDocument();
 	}
 
 	getLoadedDocumentPath(): string | null {
@@ -1554,17 +1430,8 @@ export class DocxView extends FileView {
 		if (!this.canAgentEdit()) {
 			return null;
 		}
-		const origin = this.createSaveOrigin();
-
-		const agentReloadBuffer = this.agentReloadGuard.getPendingBuffer(origin);
-		if (agentReloadBuffer) {
-			return agentReloadBuffer;
-		}
 
 		const exported = await this.getReactHandle()?.exportBuffer({ preserveAutosave: true }) ?? null;
-		if (!this.isCurrentSaveOrigin(origin)) {
-			return null;
-		}
 		if (exported) {
 			return exported;
 		}
@@ -1573,52 +1440,22 @@ export class DocxView extends FileView {
 	}
 
 	async reloadFromAgentBuffer(buffer: ArrayBuffer): Promise<void> {
-		const file = this.file;
-		if (!file) throw new Error('No docx file is open.');
-		const previousEditor = this.getReactHandle();
-		const origin: DocxSaveOrigin = {
-			documentSession: this.beginDocumentSession(),
-			filePath: file.path,
-		};
-		this.agentReloadGuard.begin(origin, buffer);
+		if (!this.file) {
+			return;
+		}
 
 		debugLog('agent', 'Reloading open DOCX view from agent buffer', {
-			file: origin.filePath,
+			file: this.file.path,
 			bytes: buffer.byteLength,
-			documentSession: origin.documentSession,
 		});
 
-		try {
-			await previousEditor?.prepareForExternalReload();
-			this.assertCurrentSaveOrigin(origin);
-
-			const styledDocument = await ensureDocxDefaultStyles(buffer);
-			this.assertCurrentSaveOrigin(origin);
-			if (!this.agentReloadGuard.stage(origin, styledDocument.buffer)) {
-				throw new Error('DOCX agent reload was superseded before preprocessing completed.');
-			}
-
-			this.buffer = styledDocument.buffer;
-			this.isDirty = false;
-			this.error = null;
-			this.lastKnownFileSignature = await this.readFileSignature(file);
-			this.assertCurrentSaveOrigin(origin);
-
-			const needsReadyBarrier = Boolean(previousEditor && this.isLeafActive());
-			if (!needsReadyBarrier) {
-				this.agentReloadGuard.complete(origin);
-				this.render();
-				return;
-			}
-
-			const ready = this.agentReloadGuard.waitForReady(origin, AGENT_RELOAD_READY_TIMEOUT_MS);
-			this.render();
-			await ready;
-			this.assertCurrentSaveOrigin(origin);
-		} catch (error) {
-			this.failAgentReload(origin, error);
-			throw error;
-		}
+		const styledDocument = await ensureDocxDefaultStyles(buffer);
+		this.buffer = styledDocument.buffer;
+		this.isDirty = false;
+		this.error = null;
+		this.documentSession += 1;
+		this.lastKnownFileSignature = await this.readFileSignature(this.file);
+		this.render();
 	}
 
 	canUndoAgentEdit(): boolean {
@@ -2198,33 +2035,16 @@ export class DocxView extends FileView {
 		}
 	}
 
-	private async saveFile(buffer: ArrayBuffer, requestedOrigin?: DocxSaveOrigin) {
+	private async saveFile(buffer: ArrayBuffer) {
 		const file = this.file;
 		if (!file) {
 			throw new Error('No docx file is open.');
 		}
-		const origin = requestedOrigin ?? this.createSaveOrigin(file);
-		this.assertCurrentSaveOrigin(origin);
 
-		const agentReloadVersion = this.agentReloadGuard.getVersion();
-		const resolveOutputBuffer = (): { version: number; buffer: ArrayBuffer } => {
-			this.assertCurrentSaveOrigin(origin);
-			const pending = this.agentReloadGuard.getPendingBuffer(origin);
-			if (pending) {
-				return { version: this.agentReloadGuard.getVersion(), buffer: pending };
-			}
-			return this.agentReloadGuard.getLatestBufferAfter(agentReloadVersion, origin)
-				?? { version: this.agentReloadGuard.getVersion(), buffer };
-		};
-
-		let output = resolveOutputBuffer();
-		infoLog('save', `Writing ${file.path}`, { bytes: output.buffer.byteLength });
-		const changedOnDisk = await this.hasFileChangedOnDisk(file);
-		this.assertCurrentSaveOrigin(origin);
-		if (changedOnDisk) {
+		infoLog('save', `Writing ${file.path}`, { bytes: buffer.byteLength });
+		if (await this.hasFileChangedOnDisk(file)) {
 			warnLog('save', `Detected external change before saving ${file.path}`);
 			const choice = await this.promptForExternalChange(file.name);
-			this.assertCurrentSaveOrigin(origin);
 			if (choice !== 'overwrite') {
 				warnLog('save', `Save canceled after external change warning for ${file.path}`);
 				throw new Error('Save canceled because the file changed on disk.');
@@ -2234,27 +2054,11 @@ export class DocxView extends FileView {
 
 		if (this.getCreateBackupsBeforeSave()) {
 			await this.createBackupBeforeOverwrite(file);
-			this.assertCurrentSaveOrigin(origin);
 		}
 
-		output = resolveOutputBuffer();
-		await this.app.vault.modifyBinary(file, output.buffer);
-		this.assertCurrentSaveOrigin(origin);
-		while (true) {
-			const newerAgentBuffer = this.agentReloadGuard.getLatestBufferAfter(output.version, origin);
-			if (!newerAgentBuffer) {
-				break;
-			}
-			this.assertCurrentSaveOrigin(origin);
-			output = newerAgentBuffer;
-			await this.app.vault.modifyBinary(file, output.buffer);
-			this.assertCurrentSaveOrigin(origin);
-		}
-
-		this.buffer = output.buffer;
-		const signature = await this.readFileSignature(file);
-		this.assertCurrentSaveOrigin(origin);
-		this.lastKnownFileSignature = signature;
+		await this.app.vault.modifyBinary(file, buffer);
+		this.buffer = buffer;
+		this.lastKnownFileSignature = await this.readFileSignature(file);
 		this.isDirty = false;
 		infoLog('save', `Wrote ${file.path}`, {
 			signature: this.lastKnownFileSignature,
@@ -2847,7 +2651,7 @@ export class DocxView extends FileView {
 					&& Boolean(child.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR))
 				));
 			const wrapper = existingEditWrapper
-				?? (sourceWrapper ? sourceWrapper.cloneNode(true) as HTMLElement : activeDocument.createDiv());
+				?? (sourceWrapper ? sourceWrapper.cloneNode(true) as HTMLElement : activeDocument.createElement('div'));
 			markEditorChromeMenuItem(wrapper, 'edit');
 			wrapper.addClass('native-powerpoint-doc-editor-edit-menu-item');
 			wrapper.setCssProps({ position: 'relative' });
@@ -2860,7 +2664,7 @@ export class DocxView extends FileView {
 				}
 			});
 			if (!button) {
-				button = activeDocument.createEl('button');
+				button = activeDocument.createElement('button');
 				wrapper.appendChild(button);
 			}
 
@@ -2975,7 +2779,7 @@ export class DocxView extends FileView {
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
-					: activeDocument.createDiv();
+					: activeDocument.createElement('div');
 				markEditorChromeMenuItem(wrapper, 'search');
 				wrapper.addClass('native-powerpoint-doc-editor-search-menu-item');
 				wrapper.setCssProps({ position: 'relative' });
@@ -2988,7 +2792,7 @@ export class DocxView extends FileView {
 					}
 				});
 				if (!button) {
-					button = activeDocument.createEl('button');
+					button = activeDocument.createElement('button');
 					wrapper.appendChild(button);
 				}
 				button.type = 'button';
@@ -3171,7 +2975,7 @@ export class DocxView extends FileView {
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
-					: activeDocument.createDiv();
+					: activeDocument.createElement('div');
 				markEditorChromeMenuItem(wrapper, 'settings');
 				wrapper.addClass('native-powerpoint-doc-editor-settings-menu-item');
 				wrapper.setCssProps({ position: 'relative' });
@@ -3184,7 +2988,7 @@ export class DocxView extends FileView {
 					}
 				});
 				if (!button) {
-					button = activeDocument.createEl('button');
+					button = activeDocument.createElement('button');
 					wrapper.appendChild(button);
 				}
 
@@ -3267,7 +3071,7 @@ export class DocxView extends FileView {
 				'[data-native-powerpoint-doc-editor-export-chevron], [data-native-power-point-doc-editor-export-chevron]',
 			).forEach(chevron => chevron.remove());
 				if (options.showChevron) {
-					const chevron = activeDocument.createSpan();
+					const chevron = activeDocument.createElement('span');
 					setDocxEditorDataAttr(chevron, 'export-chevron');
 					chevron.textContent = '›';
 					chevron.addClass('native-powerpoint-doc-editor-export-chevron');
@@ -3308,7 +3112,7 @@ export class DocxView extends FileView {
 				if (!duplicateWrapper) {
 					duplicateWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: activeDocument.createElement('div');
 					setDocxEditorDataAttr(duplicateWrapper, 'duplicate-menu-item');
 					duplicateWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-duplicate-menu-item']);
 
@@ -3343,12 +3147,12 @@ export class DocxView extends FileView {
 				if (!exportWrapper) {
 					exportWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: activeDocument.createElement('div');
 					setDocxEditorDataAttr(exportWrapper, 'export-as-menu-item');
 
 					let exportButton = exportWrapper.querySelector('button');
 					if (!exportButton) {
-						exportButton = activeDocument.createEl('button');
+						exportButton = activeDocument.createElement('button');
 						exportWrapper.appendChild(exportButton);
 					}
 					exportWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-export-menu-item']);
@@ -3371,7 +3175,7 @@ export class DocxView extends FileView {
 					for (const format of DOCX_EXPORT_FORMATS) {
 						const optionWrapper = sourceWrapper
 							? sourceWrapper.cloneNode(true) as HTMLElement
-							: activeDocument.createDiv();
+							: activeDocument.createElement('div');
 						optionWrapper.removeAttribute('data-native-powerpoint-doc-editor-export-as-menu-item');
 						optionWrapper.removeAttribute('data-native-power-point-doc-editor-export-as-menu-item');
 						const optionButton = optionWrapper.querySelector('button') ?? optionWrapper.createEl('button');
@@ -3409,7 +3213,7 @@ export class DocxView extends FileView {
 				if (!hiddenTextWrapper) {
 					hiddenTextWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: activeDocument.createElement('div');
 					setDocxEditorDataAttr(hiddenTextWrapper, 'find-hidden-text-menu-item');
 					hiddenTextWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-find-hidden-text-menu-item']);
 					const hiddenTextButton = hiddenTextWrapper.querySelector('button') ?? hiddenTextWrapper.createEl('button');
@@ -3474,7 +3278,7 @@ export class DocxView extends FileView {
 					const sourceWrapper = itemWrappers.find((itemWrapper) => itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR));
 					const insertImageWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: activeDocument.createElement('div');
 					setDocxEditorDataAttr(insertImageWrapper, 'insert-image-menu-item');
 					insertImageWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-insert-image-menu-item']);
 
@@ -3710,12 +3514,11 @@ export class DocxView extends FileView {
 		if (!this.editorAdapter) {
 			throw new Error('DOCX editor adapter is not initialized');
 		}
-		const origin = this.file ? this.createSaveOrigin(this.file) : null;
 
 		return {
 			file: this.file,
 			buffer: this.buffer,
-			documentKey: origin ? `${origin.filePath}:${origin.documentSession}` : 'native-powerpoint-doc-editor-empty',
+			documentKey: this.file ? `${this.file.path}:${this.documentSession}` : 'native-powerpoint-doc-editor-empty',
 			editorAdapter: this.editorAdapter,
 			error: this.error,
 			isLoading: this.isLoading,
@@ -3729,13 +3532,11 @@ export class DocxView extends FileView {
 			defaultZoom: this.getDefaultZoom(),
 			reserveReviewSidebar: this.reserveReviewSidebar,
 			onDirtyChange: (isDirty) => {
-				if (origin && this.isCurrentSaveOrigin(origin)) {
-					this.isDirty = isDirty;
-				}
+				this.isDirty = isDirty;
 			},
-			onSave: (buffer) => this.saveFile(buffer, origin ?? this.createSaveOrigin()),
+			onSave: (buffer) => this.saveFile(buffer),
 			onDocumentNameChange: (name, expectedPath) => this.renameFile(name, expectedPath),
-			onLoadPhase: (phase, data) => this.handleEditorLoadPhase(phase, data, origin ?? undefined),
+			onLoadPhase: this.handleEditorLoadPhase,
 		};
 	}
 

@@ -296,18 +296,6 @@ class FakeDocument {
     });
   }
 
-  createEl(tagName) {
-    return this.createElement(tagName);
-  }
-
-  createDiv() {
-    return this.createElement("div");
-  }
-
-  createSpan() {
-    return this.createElement("span");
-  }
-
   querySelectorAll(selector) {
     return this.body.querySelectorAll(selector);
   }

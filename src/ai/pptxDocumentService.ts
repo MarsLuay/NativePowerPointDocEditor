@@ -204,19 +204,11 @@ export class PptxDocumentService {
 			const lease = await this.sessions.acquire(path);
 			if (lease.mode === 'view') {
 				const saved = await lease.view.saveCurrentPresentation();
-				const saveError = lease.view.getAgentSaveError();
-				if (!saved) {
-					debugLog('agent', 'AI view session save failed', {
-						path: lease.file.path,
-						mode: 'view',
-						error: saveError,
-					});
-				}
 				return saved
 					? { ok: true, errors: [] }
 					: {
 						ok: false,
-						errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, saveError ?? 'Save failed in the open PowerPoint view.', {
+						errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Save failed in the open PowerPoint view.', {
 							path: lease.file.path,
 						})],
 					};

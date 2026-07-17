@@ -76,17 +76,12 @@ import {
   getShapeRunPositions,
   isParagraphRangeStyled,
   normalizeHexColor,
-  removeDrawingParagraphSoftBreaks,
-  replaceDrawingParagraphs,
   replaceTextInParagraph,
   resolvePptxRunAlignment,
   setDrawingParagraphText,
   setDrawingText,
   setDrawingTextRun,
-  splitDrawingParagraphAtOffset,
-  type DrawingParagraphText,
 } from './powerpoint/drawingmlText';
-import { getDrawingParagraphListStyle } from './powerpoint/paragraphListStyle';
 
 import {
   findChartPartPath,
@@ -116,11 +111,6 @@ import {
   preserveSlideExtensionLists,
 } from './powerpoint/slideExtensionPreserve';
 import {
-  collectUnknownElementNames,
-  countElementName,
-  type ProtectedSlideMarkerRemovalAllowance,
-} from './PowerPointPackage';
-import {
   adjacentUnselectedShape,
   applyTransformToShape,
   getShapeBox,
@@ -137,21 +127,6 @@ const SLIDE_MASTER_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const OOXML_PCT_MAX = 100000;
-
-/** Result metadata for a native DrawingML paragraph split. */
-export interface ParagraphSplitResult {
-  paragraphIndex: number;
-  beforeParagraphCount: number;
-  afterParagraphCount: number;
-  listStyle: ParagraphListStyle | 'inherited';
-  removedSoftBreaks: number;
-}
-
-/** Top-left insertion point in slide DrawingML EMUs. */
-export interface TextBoxInsertOrigin {
-  x: number;
-  y: number;
-}
 
 interface SlideBackgroundImage {
   href: string;
@@ -425,8 +400,6 @@ export class PresentationEngine {
   private chartAxisFormats = new Map<string, ChartAxisFormat[]>();
   private chartDataDescriptors = new Map<string, ChartDataDescriptor>();
   private slideBackgroundImages = new Map<number, SlideBackgroundImage>();
-  private protectedSlideMarkerRemovalAllowance: ProtectedSlideMarkerRemovalAllowance = {};
-  private unknownSlideElementRemovalAllowance = new Map<string, number>();
   // Invariant: the lossless package buffer is authoritative; renderer state is derived.
   // Authoritative per-slide run formatting. The renderer's SlideData model drops
   // authored run properties it doesn't model whenever a Wasm-primitive edit
@@ -727,44 +700,16 @@ export class PresentationEngine {
     const shape = getShapeElement(slideDoc, shapeIndex);
     const textElements = getDescendants(shape, 't')
       .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
-    setDrawingText(shape, text);
-    const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
-    await this.reloadFromBuffer(patchedExport, this.slideCountValue);
-    debugLog('text-edit', 'Updated PowerPoint shape text through OOXML', {
-      slideIndex,
-      shapeIndex,
-      hadTextNode: textElements.length > 0,
-      characterCount: text.length,
-    });
-  }
-
-  /**
-   * Atomically replace the paragraphs in a text shape. This is the structured
-   * path for lists: every input entry becomes one native DrawingML paragraph.
-   */
-  async replaceShapeParagraphs(
-    slideIndex: number,
-    shapeIndex: number,
-    paragraphs: readonly DrawingParagraphText[],
-  ): Promise<void> {
-    let beforeParagraphCount = 0;
-    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
-      beforeParagraphCount = getDrawingParagraphs(shape).length;
-      replaceDrawingParagraphs(shape, paragraphs);
-      return true;
-    });
-
-    const listParagraphCounts = { bullet: 0, number: 0, none: 0 };
-    for (const paragraph of paragraphs) {
-      listParagraphCounts[paragraph.listStyle]++;
+    if (textElements.length > 0) {
+      setDrawingText(shape, text);
+      const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
+      await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+      return;
     }
-    debugLog('text-edit', 'Replaced PowerPoint shape paragraphs through OOXML', {
-      slideIndex,
-      shapeIndex,
-      beforeParagraphCount,
-      afterParagraphCount: paragraphs.length,
-      listParagraphCounts,
-    });
+
+    this.ensureSlideRunCacheSeeded(slideIndex);
+    const addResult = this.renderer.addShapeText(slideIndex, shapeIndex, text, 1800, 0, 0, 0);
+    assertOk(addResult, 'Could not update shape text.');
   }
 
   async updateParagraphText(
@@ -773,98 +718,10 @@ export class PresentationEngine {
     paragraphIndex: number,
     text: string
   ): Promise<void> {
-    let hadRuns: boolean | null = null;
-    try {
-      await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
-        const paragraph = getDrawingParagraphs(shape)[paragraphIndex];
-        hadRuns = paragraph ? getDrawingRuns(paragraph).length > 0 : null;
-        setDrawingParagraphText(shape, paragraphIndex, text);
-        return true;
-      });
-      debugLog('text-edit', 'Updated PowerPoint paragraph text through OOXML', {
-        slideIndex,
-        shapeIndex,
-        paragraphIndex,
-        hadRuns,
-        characterCount: text.length,
-      });
-    } catch (error) {
-      errorLog('text-edit', 'Failed to update PowerPoint paragraph text through OOXML', {
-        slideIndex,
-        shapeIndex,
-        paragraphIndex,
-        hadRuns,
-        characterCount: text.length,
-        error,
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Insert a real sibling `<a:p>` at a paragraph text offset. This is the
-   * structural counterpart to `updateParagraphText`, whose newlines remain
-   * intentional soft breaks inside one paragraph.
-   *
-   * When `text` is supplied, it is first written through the normal paragraph
-   * editing path (for an editor with pending changes). Omitting it preserves the
-   * original rich run structure on both sides of the split.
-   */
-  async splitParagraph(
-    slideIndex: number,
-    shapeIndex: number,
-    paragraphIndex: number,
-    splitOffset: number,
-    text?: string,
-  ): Promise<ParagraphSplitResult> {
-    let result: ParagraphSplitResult = {
-      paragraphIndex: paragraphIndex + 1,
-      beforeParagraphCount: 0,
-      afterParagraphCount: 0,
-      listStyle: 'inherited',
-      removedSoftBreaks: 0,
-    };
-
     await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
-      const paragraphs = getDrawingParagraphs(shape);
-      const paragraph = paragraphs[paragraphIndex];
-      if (!paragraph) {
-        throw new Error('Could not find the selected text paragraph.');
-      }
-
-      const beforeParagraphCount = paragraphs.length;
-      const listStyle = getDrawingParagraphListStyle(paragraph) ?? 'inherited';
-      // Older bare-Enter edits were serialized as <a:br/> and can leave an
-      // empty trailing run. Normalize that legacy state before the true split.
-      const removedSoftBreaks = removeDrawingParagraphSoftBreaks(paragraph);
-      if (text !== undefined) {
-        setDrawingParagraphText(shape, paragraphIndex, text);
-      }
-
-      const insertedParagraphIndex = splitDrawingParagraphAtOffset(shape, paragraphIndex, splitOffset);
-      result = {
-        paragraphIndex: insertedParagraphIndex,
-        beforeParagraphCount,
-        afterParagraphCount: getDrawingParagraphs(shape).length,
-        listStyle,
-        removedSoftBreaks,
-      };
+      setDrawingParagraphText(shape, paragraphIndex, text);
       return true;
     });
-
-    debugLog('text-edit', 'Split PowerPoint paragraph through OOXML', {
-      slideIndex,
-      shapeIndex,
-      sourceParagraphIndex: paragraphIndex,
-      insertedParagraphIndex: result.paragraphIndex,
-      splitOffset,
-      beforeParagraphCount: result.beforeParagraphCount,
-      afterParagraphCount: result.afterParagraphCount,
-      listStyle: result.listStyle,
-      removedSoftBreaks: result.removedSoftBreaks,
-      usedPendingEditorText: text !== undefined,
-    });
-    return result;
   }
 
   async updateTextRun(
@@ -1127,22 +984,6 @@ export class PresentationEngine {
     return getDrawingRuns(paragraph).map((run) => getDrawingRunText(run)).join('');
   }
 
-  /** Return the explicit native list marker on a paragraph, when present. */
-  getParagraphListStyle(
-    slideIndex: number,
-    shapeIndex: number,
-    paragraphIndex: number,
-  ): ParagraphListStyle | null {
-    try {
-      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
-      const shape = getShapeElement(slideDoc, shapeIndex);
-      const paragraph = getDrawingParagraphs(shape)[paragraphIndex];
-      return paragraph ? getDrawingParagraphListStyle(paragraph) : null;
-    } catch {
-      return null;
-    }
-  }
-
   getTextRunText(
     slideIndex: number,
     shapeIndex: number,
@@ -1226,62 +1067,6 @@ export class PresentationEngine {
       highlight: this.readColorValue(highlightColor),
       alignment: resolvePptxRunAlignment(paragraphProperties?.getAttribute('algn') ?? null)
     };
-  }
-
-  /**
-   * Resolves a uniform direct font size across the selected text ranges.
-   * Returns null for mixed, inherited, or unreadable values so the toolbar
-   * never substitutes the surrounding run's size for a selection.
-   */
-  getRangesFontSizePt(
-    slideIndex: number,
-    shapeIndex: number,
-    ranges: ParagraphTextRange[]
-  ): number | null {
-    const selectedRanges = ranges.filter((range) => (
-      Number.isFinite(range.paragraphIndex)
-      && Number.isFinite(range.start)
-      && Number.isFinite(range.end)
-      && range.start !== range.end
-    ));
-    if (selectedRanges.length === 0) return null;
-
-    try {
-      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
-      const shape = getShapeElement(slideDoc, shapeIndex);
-      const paragraphs = getDrawingParagraphs(shape);
-      let resolved: number | null = null;
-
-      for (const range of selectedRanges) {
-        const paragraph = paragraphs[range.paragraphIndex];
-        if (!paragraph) return null;
-
-        let offset = 0;
-        let matched = false;
-        for (const run of getDrawingRuns(paragraph)) {
-          const text = getDrawingRunText(run);
-          const end = offset + text.length;
-          const overlaps = text.length > 0 && range.start < end && range.end > offset;
-          if (overlaps) {
-            matched = true;
-            const runProperties = getElementChildren(run)
-              .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE) ?? null;
-            const fontSize = runProperties?.getAttribute('sz');
-            const size = fontSize ? Number(fontSize) : Number.NaN;
-            if (!Number.isFinite(size)) return null;
-            const fontSizePt = size / 100;
-            if (resolved !== null && resolved !== fontSizePt) return null;
-            resolved = fontSizePt;
-          }
-          offset = end;
-        }
-        if (!matched) return null;
-      }
-
-      return resolved;
-    } catch {
-      return null;
-    }
   }
 
   private readColorValue(colorElement: Element | undefined): string | null {
@@ -1804,14 +1589,14 @@ export class PresentationEngine {
     return inserted.shapeIndex;
   }
 
-  addTextBox(slideIndex: number, origin?: TextBoxInsertOrigin): Promise<number> {
-    return this.insertTextBox(slideIndex, origin);
+  addTextBox(slideIndex: number): Promise<number> {
+    return this.insertTextBox(slideIndex);
   }
 
-  async insertTextBox(slideIndex: number, origin?: TextBoxInsertOrigin): Promise<number> {
+  async insertTextBox(slideIndex: number): Promise<number> {
     await this.syncCurrentBuffer();
     this.ensureSlideRunCacheSeeded(slideIndex);
-    const { x, y, cx, cy } = await this.getDefaultInsertExtents('textBox', 320, 240, origin);
+    const { x, y, cx, cy } = await this.getDefaultInsertExtents('textBox');
     const inserted = await insertTextBoxIntoPresentation(
       this.currentBuffer,
       slideIndex,
@@ -1822,14 +1607,6 @@ export class PresentationEngine {
       cy,
     );
     await this.reloadFromBuffer(inserted.buffer, this.slideCountValue);
-    debugLog('insert', 'Inserted PowerPoint text box through OOXML', {
-      slide: slideIndex,
-      shapeIndex: inserted.shapeIndex,
-      requestedOrigin: origin ?? null,
-      resolvedOrigin: { x, y },
-      size: { cx, cy },
-      originClamped: origin !== undefined && (x !== Math.round(origin.x) || y !== Math.round(origin.y)),
-    });
     return inserted.shapeIndex;
   }
 
@@ -1867,54 +1644,14 @@ export class PresentationEngine {
     await this.reloadFromBuffer(reconciled, this.slideCountValue);
   }
 
-  /** Intentional protected-markup removals that the next save may retain. */
-  getProtectedSlideMarkerRemovalAllowance(): ProtectedSlideMarkerRemovalAllowance {
-    return { ...this.protectedSlideMarkerRemovalAllowance };
-  }
-
-  /** Clear the one-save deletion allowance after a successful write or restore. */
-  clearProtectedSlideMarkerRemovalAllowance(): void {
-    this.protectedSlideMarkerRemovalAllowance = {};
-    this.unknownSlideElementRemovalAllowance.clear();
-  }
-
-  getUnknownSlideElementRemovalAllowance(): Record<string, number> {
-    return Object.fromEntries(this.unknownSlideElementRemovalAllowance);
-  }
-
-  async deleteShape(slideIndex: number, shapeIndex: number): Promise<void> {
+  deleteShape(slideIndex: number, shapeIndex: number): void {
     this.ensureSlideRunCacheSeeded(slideIndex);
-    let deletedImage = false;
-    let deletedUnknownElementCounts: Record<string, number> = {};
-    await this.mutateSlideTree(slideIndex, (slideDoc) => {
-      const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
-      deletedImage = shape.localName === 'pic';
-      const shapeXml = new XMLSerializer().serializeToString(shape);
-      deletedUnknownElementCounts = Object.fromEntries(
-        collectUnknownElementNames(shapeXml).map((elementName) => [elementName, countElementName(shapeXml, elementName)]),
-      );
-      const parent = shape.parentNode;
-      if (!parent) throw new Error('Could not delete shape without a parent element.');
-      parent.removeChild(shape);
-    });
-    if (deletedImage) {
-      this.protectedSlideMarkerRemovalAllowance.image =
-        (this.protectedSlideMarkerRemovalAllowance.image ?? 0) + 1;
-    }
-    for (const [elementName, count] of Object.entries(deletedUnknownElementCounts)) {
-      this.unknownSlideElementRemovalAllowance.set(
-        elementName,
-        (this.unknownSlideElementRemovalAllowance.get(elementName) ?? 0) + count,
-      );
-    }
+    const result = this.renderer.deleteShape(slideIndex, shapeIndex);
+    assertOk(result, 'Could not delete shape.');
+    // The renderer renumbers the surviving shapes, so realign the cached
+    // highlights (drop this shape, shift higher indices down, then re-resolve
+    // against the live model) to keep overlays and export reconciliation aligned.
     this.remapSlideRunCacheAfterDeletedShape(slideIndex, shapeIndex);
-    debugLog('arrange', 'Deleted PowerPoint shape through OOXML', {
-      slide: slideIndex,
-      shapeIndex,
-      deletedImage,
-      deletedUnknownElementCounts,
-      allowedImageRemovals: this.protectedSlideMarkerRemovalAllowance.image ?? 0,
-    });
   }
 
   async copyShape(slideIndex: number, shapeIndex: number): Promise<SlideObjectClipboard> {
@@ -2268,8 +2005,7 @@ export class PresentationEngine {
   private async getDefaultInsertExtents(
     kind: InsertableShapeGeometry | 'textBox' | 'image',
     widthPx = 320,
-    heightPx = 240,
-    origin?: TextBoxInsertOrigin,
+    heightPx = 240
   ): Promise<{ x: number; y: number; cx: number; cy: number }> {
     const slideSize = await this.getSlideSizeEmu();
     let cx: number;
@@ -2292,12 +2028,8 @@ export class PresentationEngine {
       cy = Math.round(1.5 * PresentationEngine.EMU_PER_INCH);
     }
 
-    const centeredX = Math.round((slideSize.cx - cx) / 2);
-    const centeredY = Math.round((slideSize.cy - cy) / 2);
-    const requestedX = origin && Number.isFinite(origin.x) ? Math.round(origin.x) : centeredX;
-    const requestedY = origin && Number.isFinite(origin.y) ? Math.round(origin.y) : centeredY;
-    const x = Math.max(0, Math.min(Math.max(0, slideSize.cx - cx), requestedX));
-    const y = Math.max(0, Math.min(Math.max(0, slideSize.cy - cy), requestedY));
+    const x = Math.round((slideSize.cx - cx) / 2);
+    const y = Math.round((slideSize.cy - cy) / 2);
     return { x, y, cx, cy };
   }
 
@@ -2731,7 +2463,6 @@ export class PresentationEngine {
   async restoreSnapshot(buffer: ArrayBuffer): Promise<void> {
     await this.pptxDocument.restore(buffer);
     this.resetSlideRunCache();
-    this.clearProtectedSlideMarkerRemovalAllowance();
   }
 
   private async reloadAfterSlideManagement(expectedSlideCount: number): Promise<void> {

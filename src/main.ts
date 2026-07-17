@@ -44,7 +44,6 @@ const DOCX_LOG_AREAS = new Set([
 	'backup',
 	'chunk',
 	'clipboard',
-	'comments',
 	'copy',
 	'diagnostics',
 	'editor',
@@ -108,7 +107,7 @@ function loadPptxSupportModule(): Promise<PptxSupportModule> {
 }
 
 export default class NativePowerPointDocEditorPlugin extends Plugin {
-	pluginSettings: NativePowerPointDocEditorSettings;
+	pluginSettings!: NativePowerPointDocEditorSettings;
 	i18n: PluginI18nService | null = null;
 	private docxSearchIndex: DocxSearchIndex | null = null;
 	private forceJsBackendDevOverride = false;
@@ -226,19 +225,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	}
 
 	onunload() {
-		infoLog('plugin', 'Plugin unloaded — flushing open DOCX views if dirty');
-		if (docxSupportModule) {
-			void docxSupportModule.saveDocxViewsBeforePluginReload(this).then((ok) => {
-				infoLog('plugin', 'DOCX unload flush settled', { ok });
-			}).catch((error) => {
-				errorLog('plugin', 'DOCX unload flush failed', error);
-			});
-		}
-		if (pptxSupportModule) {
-			void pptxSupportModule.savePowerPointViewsBeforePluginReload(this).catch((error) => {
-				errorLog('plugin', 'PPTX unload flush failed', error);
-			});
-		}
+		infoLog('plugin', 'Plugin unloaded');
 		this.editorThemeObserver?.disconnect();
 		this.editorThemeObserver = null;
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
@@ -348,13 +335,6 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				if (pptxSupportModule && !await pptxSupportModule.savePowerPointViewsBeforePluginReload(this)) {
 					reloading = false;
 					errorLog('plugin', 'Hot reload aborted because an open PowerPoint file could not be saved', {
-						pluginId,
-					});
-					return;
-				}
-				if (docxSupportModule && !await docxSupportModule.saveDocxViewsBeforePluginReload(this)) {
-					reloading = false;
-					errorLog('plugin', 'Hot reload aborted because an open DOCX file could not be saved', {
 						pluginId,
 					});
 					return;

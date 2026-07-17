@@ -14,7 +14,6 @@ export interface JsonSchema {
 	items?: JsonSchema;
 	enum?: Array<string | number | boolean | null>;
 	minimum?: number;
-	minLength?: number;
 	description?: string;
 	additionalProperties?: boolean;
 }
@@ -83,8 +82,6 @@ export interface CapabilitySurfaces {
 	commands: string[];
 	legacyCommands?: string[];
 	clipboardCommands: Record<string, ClipboardCommandSpec>;
-	/** Top-level methods on `app.plugins.plugins[...].ai` beyond describe/apply. */
-	pluginApiMethods?: Record<string, ClipboardCommandSpec>;
 }
 
 export interface PptxFormatSupport {

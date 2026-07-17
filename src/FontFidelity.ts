@@ -145,20 +145,9 @@ function getCategoryFallbacks(fontFamily: string): string[] {
 }
 
 function createCanvasContext(): CanvasRenderingContext2D | null {
-  // Obsidian injects createEl; Node/unit bundles may lack window/DOM helpers.
   if (typeof window === 'undefined') return null;
-  const scopedWindow = window as Window & {
-    activeDocument?: Document;
-    createEl?: (tag: 'canvas') => HTMLCanvasElement;
-  };
-  if (typeof scopedWindow.createEl === 'function') {
-    return scopedWindow.createEl('canvas').getContext('2d');
-  }
-  const doc = typeof activeDocument !== 'undefined' ? activeDocument : scopedWindow.activeDocument;
-  if (doc && typeof doc.createEl === 'function') {
-    return doc.createEl('canvas').getContext('2d');
-  }
-  return null;
+  const browserDocument = window['document'];
+  return browserDocument.createElement('canvas').getContext('2d');
 }
 
 function createBrowserFontAvailabilityDetector(): (fontFamily: string) => boolean {

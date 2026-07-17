@@ -92,14 +92,6 @@ export interface BuildCapabilityManifestOptions {
 	enabled: boolean;
 }
 
-const PLUGIN_API_METHODS: Record<string, ClipboardCommandSpec> = {
-	createDocument: {
-		input: '{ "path": "folder/file.docx", "kind": "docx"|"pptx", "paragraphs"?: string[], "overwrite"?: boolean }',
-		output: '{ ok: boolean, path?: string, errors: AiErrorDetail[] }',
-		notes: 'Creates a blank DOCX/PPTX in the vault (same packages as New DOCX/PPTX). For DOCX, optional paragraphs fills the body via docx.replaceBodyParagraphs semantics. Does not open a leaf.',
-	},
-};
-
 export function buildCapabilityManifest(options: BuildCapabilityManifestOptions): CapabilityManifest {
 	return {
 		schemaVersion: CAPABILITY_SCHEMA_VERSION,
@@ -128,7 +120,6 @@ export function buildCapabilityManifest(options: BuildCapabilityManifestOptions)
 				AI_LEGACY_COMMAND_IDS.apply,
 			],
 			clipboardCommands: CLIPBOARD_COMMANDS,
-			pluginApiMethods: PLUGIN_API_METHODS,
 		},
 		operations: listOpDefinitions().map((operation) => ({
 			...operation,

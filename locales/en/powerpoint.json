@@ -265,7 +265,7 @@
 	},
 	"contextMenu": {
 		"newTextBox": "New text box",
-		"shapeFillColor": "Change color",
+		"shapeFillColor": "Shape fill color…",
 		"cropImage": "Crop image…",
 		"resetImage": "Reset image",
 		"setAsBackground": "Set as background",

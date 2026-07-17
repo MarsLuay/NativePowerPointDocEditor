@@ -1,30 +1,30 @@
-# Local DOCX editor packages
+# DOCX runtime and source worktree
 
-The editable vendored DOCX editor **source monorepo** lives at `docx-editor/` (branch `npde-mirror-1.9.0`, commit `66d74702…`, Apache-2.0). Package **dist** under `docx-editor/packages/{core,react,i18n}/dist` is what esbuild bundles into `main.js`.
+`main` contains a generated, allowlisted DOCX runtime snapshot at `vendor/docx-editor-runtime/` (Apache-2.0). It contains only package JavaScript, CSS, required JSON, license material, and `provenance.json`; it never contains DOCX editor TypeScript or declarations.
 
-Obsidian users only download release `main.js` (+ manifest/css) — **not** this monorepo. Size/performance of that bundle is unchanged as long as you ship the same dist inputs.
+The full editable editor monorepo is preserved on branch `docx-editor-source` in the adjacent worktree `/Users/mars/NPDE-docx-editor-source`. Obsidian users download only the bundled plugin assets, not either worktree's source tree.
 
 ## Layout
 
 | Path | Role |
 |------|------|
-| `docx-editor/` | Full clone (TypeScript source + seeded/generated `dist`) |
-| `docx-editor/packages/{core,react,i18n}/` | Wired into the plugin via `scripts/lib/docx-editor-aliases.mjs` |
-| `Projects/docx-editor-mirror-1.9.0/` (vault) | Optional npm `.tgz` insurance outside this plugin |
+| `src/docx/runtime/` | Plugin-owned TypeScript contract, bridge declaration, runtime bridge, and CSS boundary |
+| `vendor/docx-editor-runtime/` | Generated JS/CSS runtime snapshot used by this branch |
+| `/Users/mars/NPDE-docx-editor-source/` | Full editable DOCX monorepo on `docx-editor-source` |
 
-Plugin and package imports use `@npde/docx-editor-*` (esbuild path aliases).
+Plugin TypeScript imports the local `src/docx/runtime` facade. Only `src/docx/runtime/bridge.mjs` imports `@npde/docx-editor-*`; `scripts/lib/docx-editor-aliases.mjs` resolves those runtime imports to `vendor/docx-editor-runtime/` and keeps one root React/ReactDOM copy.
 
-**Do not** add `@npde/docx-editor-*` to the plugin root `package.json` — resolve via `scripts/lib/docx-editor-aliases.mjs`.
+**Do not** add `@npde/docx-editor-*` to the plugin root `package.json`, import package paths directly from plugin TypeScript, or hand-edit the generated snapshot.
 
-## Edit → reflect in Obsidian
+## Editing plugin code
 
-1. Edit TypeScript under `docx-editor/packages/*/src/`.
-2. Rebuild package dist: `npm run build:docx-editor` (requires [bun](https://bun.sh)).
-3. Rebuild / reload the plugin: `npm run dev` or `npm run build`.
+Run `npm run verify:review`, then `npm run dev` or `npm run build`. This branch is independently type-checkable and does not require Bun.
 
-Until you run step 2, the plugin uses the committed/seeded `dist/` (same bytes as the previous standalone packages).
+## Editing the DOCX editor runtime
 
-**Publish:** the publish skill always runs `npm run build:docx-editor` then `npm run build` for this project before release assets — never ship stale dist when that script exists.
+1. In `/Users/mars/NPDE-docx-editor-source`, edit the monorepo and run its Bun build, typecheck, and tests.
+2. In this worktree, run `npm run vendor:docx` (or set `DOCX_EDITOR_SOURCE_DIR` for a different source location).
+3. Run `npm run verify:review` and commit the resulting runtime snapshot with its updated provenance.
 
 ## AI and save
 

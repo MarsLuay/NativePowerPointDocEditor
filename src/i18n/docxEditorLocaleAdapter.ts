@@ -1,4 +1,4 @@
-import type { Translations } from '@npde/docx-editor-i18n';
+import { loadDocxEditorLocale, type Translations } from '../docx/runtime';
 
 import type { PluginMessages } from './localeLoader';
 import { localeCandidates } from './localeResolver';
@@ -10,24 +10,13 @@ export interface LoadedLocale {
 	docxEditorMessages: Translations | undefined;
 }
 
-const docxEditorLocaleLoaders: Record<string, () => Promise<Translations>> = {
-	en: async () => (await import('../../docx-editor/packages/i18n/dist/en.mjs')).default,
-	pl: async () => (await import('../../docx-editor/packages/i18n/dist/pl.mjs')).default,
-	'pt-BR': async () => (await import('../../docx-editor/packages/i18n/dist/pt-BR.mjs')).default,
-	tr: async () => (await import('../../docx-editor/packages/i18n/dist/tr.mjs')).default,
-	he: async () => (await import('../../docx-editor/packages/i18n/dist/he.mjs')).default,
-	'zh-CN': async () => (await import('../../docx-editor/packages/i18n/dist/zh-CN.mjs')).default,
-};
-
 export async function loadDocxEditorMessages(locale: string): Promise<Translations | undefined> {
 	for (const candidate of localeCandidates(locale)) {
-		const loader = docxEditorLocaleLoaders[candidate];
-		if (!loader) {
-			continue;
-		}
-
 		try {
-			return await loader();
+			const messages = await loadDocxEditorLocale(candidate);
+			if (messages) {
+				return messages;
+			}
 		} catch {
 			continue;
 		}

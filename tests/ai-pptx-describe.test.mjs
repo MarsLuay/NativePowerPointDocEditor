@@ -80,7 +80,6 @@ test('describePptxFromEngine includes runs, style, chart data, crop, and slide b
 	const textTarget = findTextShape(snapshot);
 	assert.ok(textTarget, 'expected an editable textbox with paragraphs');
 	const paragraph = textTarget.shape.paragraphs[0];
-	assert.ok('listStyle' in paragraph, 'expected native list state on textbox paragraphs');
 	assert.ok(paragraph.runs?.length, 'expected per-run IDs on textbox paragraphs');
 	assert.match(paragraph.runs[0].id, /\/r:\d+$/);
 	assert.ok(textTarget.shape.style, 'expected shape fill/stroke style snapshot');

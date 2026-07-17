@@ -2463,7 +2463,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-thumbnail-preview {
-	aspect-ratio: var(--native-powerpoint-thumbnail-aspect-ratio, 16 / 9);
+	aspect-ratio: 16 / 9;
 	background: var(--npde-document-bg);
 	border-radius: 3px;
 	overflow: hidden;
@@ -2882,15 +2882,13 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-canvas-pane {
-	align-items: flex-start;
+	align-items: center;
 	background: var(--nps-canvas);
 	display: flex;
 	flex: 1 1 auto;
-	justify-content: flex-start;
+	justify-content: center;
 	min-height: 0;
 	overflow: auto;
-	/* Text-preview DOM changes must not make the browser pan the slide viewport. */
-	overflow-anchor: none;
 	padding: 32px;
 	position: relative;
 }
@@ -2900,8 +2898,6 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	box-shadow: var(--npde-document-shadow);
 	color: var(--npde-document-text);
 	flex: 0 0 auto;
-	/* Centers a fitting slide, but resolves to zero when it overflows so every edge remains scrollable. */
-	margin: auto;
 	min-height: 320px;
 	min-width: 560px;
 	position: relative;
@@ -2964,15 +2960,15 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	filter: none;
 }
 
-.native-powerpoint-slide-svg .native-powerpoint-shape-selected {
-	filter: none;
-}
-
 .native-powerpoint-grid-label {
 	paint-order: stroke fill;
 	stroke: var(--native-powerpoint-text-halo, var(--npde-document-text-halo));
 	stroke-linejoin: round;
 	stroke-width: 1.35px;
+}
+
+.native-powerpoint-slide-svg .native-powerpoint-shape-selected {
+	filter: drop-shadow(0 0 2px var(--interactive-accent));
 }
 
 .native-powerpoint-slide-svg .native-powerpoint-find-highlight {
@@ -3328,19 +3324,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	border-radius: 3px;
 	cursor: pointer;
 	height: 18px;
-	overflow: hidden;
 	padding: 0;
-	position: relative;
 	width: 18px;
-}
-
-.native-powerpoint-color-popover-swatch-fill {
-	background-color: var(--np-swatch-color, transparent);
-	border-radius: inherit;
-	display: block;
-	height: 100%;
-	pointer-events: none;
-	width: 100%;
 }
 
 .native-powerpoint-color-popover-swatch.is-active {
