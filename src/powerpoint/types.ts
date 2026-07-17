@@ -96,7 +96,7 @@ export interface GroupDragState {
   crossedHorizontal?: boolean;
   /** The group resize handle has crossed the opposite vertical edge. */
   crossedVertical?: boolean;
-  /** Original SVG transforms for every live group-resize preview shape. */
+  /** Original SVG transforms for every live group move/resize preview shape. */
   previewOriginalTransforms?: Map<number, string | null>;
   /** Original text subtrees restored after each reflow pass and when the drag ends. */
   previewOriginalText?: Map<number, SVGTextElement>;

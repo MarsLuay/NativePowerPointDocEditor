@@ -9805,6 +9805,7 @@ export class NativePowerPointView extends FileView {
       width: this.groupDrag.startBox.width,
       height: this.groupDrag.startBox.height,
     }, paneScale === null ? { x: deltaClientX, y: deltaClientY } : undefined);
+    this.applyGroupMovePreview(this.groupDrag, nextBounds);
   }
 
   private getGroupResizeBounds(groupDrag: GroupDragState, dx: number, dy: number): ShapeTransform {
@@ -9951,7 +9952,49 @@ export class NativePowerPointView extends FileView {
     });
   }
 
-  /** Build the affine transform shared by all live group-resize previews. */
+  /**
+   * Live-translate every selected shape during a multi-object move so the
+   * shapes follow the shared group outline (not just the selection chrome).
+   */
+  private applyGroupMovePreview(
+    groupDrag: GroupDragState,
+    nextBounds: ShapeTransform,
+  ): void {
+    if (!this.svgEl || !this.engine) return;
+    const slideScale = this.engine.getSlideScale(this.svgEl);
+    if (!slideScale) return;
+
+    const dxUser = (nextBounds.x - groupDrag.startBounds.x) / slideScale;
+    const dyUser = (nextBounds.y - groupDrag.startBounds.y) / slideScale;
+    const transform = `translate(${this.formatSvgNumber(dxUser)} ${this.formatSvgNumber(dyUser)})`;
+    let objectCount = 0;
+    for (const index of groupDrag.start.keys()) {
+      const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
+      if (!isSVGGElement(shape)) continue;
+
+      if (!groupDrag.previewOriginalTransforms?.has(index)) {
+        groupDrag.previewOriginalTransforms?.set(index, shape.getAttribute('transform'));
+      }
+      const original = groupDrag.previewOriginalTransforms?.get(index)?.trim() ?? '';
+      shape.classList.add('native-powerpoint-shape-drag-preview');
+      shape.setAttribute('transform', original ? `${transform} ${original}` : transform);
+      objectCount += 1;
+    }
+    const firstPreview = groupDrag.previewObjectCount === undefined;
+    groupDrag.previewObjectCount = objectCount;
+    if (firstPreview && objectCount > 0) {
+      debugLog('selection', 'PowerPoint group move preview applied', {
+        op: 'group-move-preview',
+        slide: this.currentSlide,
+        shapeIndexes: [...groupDrag.start.keys()],
+        objectPreviewCount: objectCount,
+        dxUser,
+        dyUser,
+      });
+    }
+  }
+
+    /** Build the affine transform shared by all live group-resize previews. */
   private getGroupResizePreviewTransform(
     groupDrag: GroupDragState,
     nextBounds: ShapeTransform,
