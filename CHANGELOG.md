@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.52] - 2026-07-17
+
+### Fixed
+
+- PowerPoint selection outline edge strips move the shape; only corner and mid-edge resize dots stretch it.
+- Multi-select south (and pure vertical) group resize stretches all rows instead of translating the bottom via text preview inverse-compensation.
+- Shift/Ctrl/Meta while a multi-select union outline is active hit-tests shapes underneath instead of forcing group drag.
+- Per-shape dashed outlines appear again as multi-select grows (including marquee preview).
+
 ## [1.0.51] - 2026-07-17
 
 ### Fixed

@@ -128,17 +128,17 @@ export class SelectionDragController {
         this.selectionOverlay = this.host.canvasPane.createDiv({ cls: 'native-powerpoint-selection-box' });
         if (this.host.canEdit()) {
           // Edge hit-zones first so the corner dots stack above them at overlaps.
-          // Each edge stretches the object along a single axis.
-          for (const handle of ['n', 'e', 's', 'w'] as HandleName[]) {
-            const edgeEl = this.selectionOverlay.createDiv({ cls: `native-powerpoint-resize-edge native-powerpoint-resize-${handle}` });
+        // Outline edges MOVE; only the handle dots stretch.
+        for (const handle of ['n', 'e', 's', 'w'] as HandleName[]) {
+            const edgeEl = this.selectionOverlay.createDiv({ cls: `native-powerpoint-move-border native-powerpoint-move-border-${handle}` });
             edgeEl.addEventListener('pointerdown', (event) => {
               event.preventDefault();
               event.stopPropagation();
-              this.startDrag(event, 'resize', handle);
+              this.startDrag(event, 'move');
             });
           }
 
-          for (const handle of ['nw', 'ne', 'sw', 'se'] as HandleName[]) {
+          for (const handle of ['n', 'e', 's', 'w', 'nw', 'ne', 'sw', 'se'] as HandleName[]) {
             const handleEl = this.selectionOverlay.createDiv({ cls: `native-powerpoint-resize-handle native-powerpoint-resize-${handle}` });
             handleEl.addEventListener('pointerdown', (event) => {
               event.preventDefault();

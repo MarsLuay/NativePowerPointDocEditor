@@ -3043,6 +3043,35 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	z-index: 5;
 }
 
+/* Multi-select only: opaque drag fill so chrome near-misses cannot fall through
+   to SVG shapes (which would start a group move instead of resize). */
+.native-powerpoint-selection-move-surface {
+	bottom: 0;
+	cursor: move;
+	left: 0;
+	pointer-events: none;
+	position: absolute;
+	right: 0;
+	top: 0;
+	z-index: 2;
+}
+
+.native-powerpoint-selection-box.native-powerpoint-multi-selection-outline .native-powerpoint-selection-move-surface {
+	/* Keep the outer edge band free for resize strips + mid-edge dots. */
+	bottom: 12px;
+	left: 12px;
+	pointer-events: auto;
+	right: 12px;
+	top: 12px;
+}
+
+/* Shift/Ctrl/Meta: let clicks reach shapes under the union outline. Drag resumes
+   when the additive modifier is released. Resize/rotate grips stay interactive. */
+.native-powerpoint-selection-box.native-powerpoint-additive-hit-through.native-powerpoint-multi-selection-outline .native-powerpoint-selection-move-surface,
+.native-powerpoint-selection-box.native-powerpoint-additive-hit-through .native-powerpoint-move-border {
+	pointer-events: none;
+}
+
 .native-powerpoint-shape-drag-preview {
 	will-change: transform;
 }
@@ -3050,6 +3079,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 .native-powerpoint-multi-selection-box {
 	border-style: dashed;
 	border-width: 1.5px;
+	pointer-events: none;
+	z-index: 4;
 }
 
 .native-powerpoint-marquee-box {
@@ -3079,7 +3110,16 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	pointer-events: auto;
 	position: absolute;
 	width: 10px;
-	z-index: 5;
+	/* Above move-border segments so mid-edge / corner dots stretch, not translate. */
+	z-index: 8;
+}
+
+/* Invisible hit pad: mid-edge dots sit on the outline move strips; a near-miss
+   must still resize (especially multi-select group stretch). */
+.native-powerpoint-resize-handle::before {
+	content: "";
+	inset: -10px;
+	position: absolute;
 }
 
 .native-powerpoint-resize-nw {
@@ -3164,6 +3204,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-move-border {
+	cursor: move;
 	pointer-events: auto;
 	position: absolute;
 	z-index: 3;
@@ -3171,10 +3212,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 
 .native-powerpoint-move-border-n,
 .native-powerpoint-move-border-s {
-	cursor: move;
 	height: 6px;
-	left: 14px;
-	right: 14px;
+	left: 0;
+	right: 0;
 }
 
 .native-powerpoint-move-border-n {
@@ -3187,9 +3227,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 
 .native-powerpoint-move-border-e,
 .native-powerpoint-move-border-w {
-	bottom: 14px;
-	cursor: move;
-	top: 14px;
+	bottom: 0;
+	top: 0;
 	width: 6px;
 }
 
@@ -3199,6 +3238,31 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 
 .native-powerpoint-move-border-e {
 	right: -3px;
+}
+
+/* Leave a center gap on each edge for the mid-edge resize dot (+ hit pad). */
+.native-powerpoint-move-border-n.native-powerpoint-move-border-seg-a,
+.native-powerpoint-move-border-s.native-powerpoint-move-border-seg-a {
+	left: 14px;
+	right: calc(50% + 16px);
+}
+
+.native-powerpoint-move-border-n.native-powerpoint-move-border-seg-b,
+.native-powerpoint-move-border-s.native-powerpoint-move-border-seg-b {
+	left: calc(50% + 16px);
+	right: 14px;
+}
+
+.native-powerpoint-move-border-e.native-powerpoint-move-border-seg-a,
+.native-powerpoint-move-border-w.native-powerpoint-move-border-seg-a {
+	bottom: calc(50% + 16px);
+	top: 14px;
+}
+
+.native-powerpoint-move-border-e.native-powerpoint-move-border-seg-b,
+.native-powerpoint-move-border-w.native-powerpoint-move-border-seg-b {
+	bottom: 14px;
+	top: calc(50% + 16px);
 }
 
 .native-powerpoint-rotate-stem {

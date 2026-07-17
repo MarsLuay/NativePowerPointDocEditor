@@ -114,3 +114,67 @@ test("closing the inline editor does not wipe a preserved formatting snapshot", 
   view.clearWholeShapeInlineSelection();
   assert.equal(view.toolbarFormattingSnapshot?.shapeIndex, 9);
 });
+
+test("clicking off a text box hides formatting context when no popover is open", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+
+  const shape = {
+    querySelector(selector) {
+      if (selector === "tspan[data-ooxml-run-idx]") {
+        return {
+          getAttribute: () => "0",
+          closest: () => ({ getAttribute: () => "0" }),
+        };
+      }
+      return null;
+    },
+    closest() {
+      return null;
+    },
+  };
+  view.engine = {};
+  view.canEdit = () => true;
+  view.svgEl = {
+    querySelector(selector) {
+      if (selector === 'g[data-ooxml-shape-idx="11"]') return shape;
+      return null;
+    },
+    querySelectorAll() {
+      return [];
+    },
+  };
+  view.session = { clearSelection() {} };
+  view.getElementBox = () => ({ left: 10, top: 20, width: 100, height: 40 });
+  view.getSelectedBox = () => null;
+  view.shapeHasEditableText = () => true;
+  view.removeSelectionOverlay = () => {};
+  view.removeMultiSelectionBoxes = () => {};
+  view.removeMarqueeSelectionPreview = () => {};
+  view.snapController = { clearSnapGuides() {} };
+  view.renderInspector = () => {};
+  view.updateObjectClipboardAvailability = () => {};
+  view.updateTextToolbar = () => {};
+
+  view.selectedShapeIndex = 11;
+  view.selectedShapeIndices = new Set([11]);
+  view.textToolbarShapeIndex = 11;
+  view.textToolbarController.textToolbarShapeIndex = 11;
+  view.textToolbarController.toolbarFormattingSnapshot = {
+    shapeIndex: 11,
+    run: { paragraphIndex: 0, runIndex: 0 },
+    anchor: { left: 10, top: 20, width: 100, height: 40 },
+    ranges: null,
+  };
+  // No active popover — click-off must drop context so the floating toolbar hides.
+  view.textToolbarController.activeToolbarPopover = null;
+
+  view.clearSelection({ skipTextCommit: true });
+
+  assert.equal(view.selectedShapeIndex, null);
+  assert.equal(view.textToolbarController.getFormattingSnapshot(), null);
+  assert.equal(view.getTextStyleContext(), null);
+});

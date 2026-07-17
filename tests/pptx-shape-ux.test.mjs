@@ -255,9 +255,152 @@ test("multi-selection uses one interactive outline with the single-selection con
   assert.ok(overlayStart >= 0 && overlayEnd > overlayStart);
   assert.match(source.slice(overlayStart, overlayEnd), /const isMultiSelection = this\.selectedShapeIndices\.size > 1;/);
   assert.match(source.slice(overlayStart, overlayEnd), /this\.applyMultiSelectionOverlayLayout\(\)/);
+  assert.match(source.slice(overlayStart, overlayEnd), /native-powerpoint-move-border-seg-/);
+  assert.match(source.slice(overlayStart, overlayEnd), /for \(const segment of \['a', 'b'\]/);
+  assert.match(source.slice(overlayStart, overlayEnd), /native-powerpoint-selection-move-surface/);
   assert.match(source, /this\.startGroupDrag\(event, mode, handle\);/);
   assert.ok(multiBoxStart >= 0 && multiBoxEnd > multiBoxStart);
-  assert.doesNotMatch(source.slice(multiBoxStart, multiBoxEnd), /createDiv/);
+  assert.match(
+    source.slice(multiBoxStart, multiBoxEnd),
+    /native-powerpoint-multi-selection-box/,
+    "each selected object must get its own dashed outline while multi-selecting",
+  );
+});
+
+test("multi-select union outline passes through additive clicks until modifier release", async () => {
+  const source = await readFile(resolve("src/powerpoint/ui/NativePowerPointView.ts"), "utf8");
+  const css = await readFile(resolve("styles.css"), "utf8");
+
+  assert.match(source, /syncSelectionChromeHitThrough/);
+  assert.match(source, /handleAdditiveSelectThroughSelectionChrome/);
+  assert.match(source, /native-powerpoint-additive-hit-through/);
+  assert.match(source, /isAdditiveSelectionModifier\(event\)/);
+  assert.match(
+    css,
+    /\.native-powerpoint-selection-box\.native-powerpoint-additive-hit-through\.native-powerpoint-multi-selection-outline \.native-powerpoint-selection-move-surface/,
+  );
+  assert.match(
+    css,
+    /\.native-powerpoint-selection-box\.native-powerpoint-additive-hit-through \.native-powerpoint-move-border/,
+  );
+});
+
+test("outline edge strips leave a center gap so mid-edge resize dots stay reachable", async () => {
+  const css = await readFile(resolve("styles.css"), "utf8");
+  assert.match(css, /native-powerpoint-move-border-seg-a/);
+  assert.match(css, /native-powerpoint-move-border-seg-b/);
+  assert.match(css, /calc\(50% \+ 16px\)/);
+  assert.match(css, /\.native-powerpoint-resize-handle::before/);
+  assert.match(css, /\.native-powerpoint-resize-handle\s*\{[^}]*z-index:\s*8/s);
+  assert.match(css, /native-powerpoint-selection-move-surface/);
+  assert.match(
+    css,
+    /\.native-powerpoint-selection-box\.native-powerpoint-multi-selection-outline \.native-powerpoint-selection-move-surface\s*\{[^}]*pointer-events:\s*auto/s,
+  );
+  assert.match(css, /\.native-powerpoint-move-border-n,\s*\.native-powerpoint-move-border-s\s*\{[^}]*height:\s*6px/s);
+  assert.match(css, /\.native-powerpoint-move-border\s*\{[^}]*cursor:\s*move/s);
+});
+
+test("multi-selection edge strips move the group instead of stretching it", async () => {
+  const source = await readFile(resolve("src/powerpoint/ui/NativePowerPointView.ts"), "utf8");
+  const overlayStart = source.indexOf("private updateSelectionOverlay(): void");
+  const overlayEnd = source.indexOf("private startCurrentSelectionDrag", overlayStart);
+  const overlay = source.slice(overlayStart, overlayEnd);
+
+  assert.match(overlay, /native-powerpoint-move-border/);
+  assert.match(overlay, /source: 'outline-edge'/);
+  assert.match(overlay, /startCurrentSelectionDrag\(event, 'move'\)/);
+  assert.doesNotMatch(
+    overlay,
+    /move-border[\s\S]*?startCurrentSelectionDrag\(event, 'resize', side\)/,
+    "outline edges must move; only resize-handle dots stretch",
+  );
+});
+
+test("south group resize grows height from the fixed north edge", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = createView(NativePowerPointView);
+  view.engine = { pxToEmu: (value) => value };
+  const top = { x: 0, y: 0, cx: 50, cy: 40, rot: 0 };
+  const bottom = { x: 0, y: 100, cx: 50, cy: 40, rot: 0 };
+  const start = new Map([[1, top], [2, bottom]]);
+  const startBounds = view.getGroupTransformBounds(start.values());
+  assert.deepEqual(startBounds, { x: 0, y: 0, cx: 50, cy: 140, rot: 0 });
+
+  const resizedBounds = view.getGroupResizeBounds({
+    handle: "s",
+    start,
+    startBounds,
+  }, 0, 70);
+  assert.deepEqual(resizedBounds, { x: 0, y: 0, cx: 50, cy: 210, rot: 0 });
+  const scaleY = resizedBounds.cy / startBounds.cy;
+  assert.deepEqual(
+    [...view.scaleGroupTransforms(start, startBounds, resizedBounds, 1, scaleY).entries()],
+    [
+      [1, { x: 0, y: 0, cx: 50, cy: 60, rot: 0 }],
+      [2, { x: 0, y: 150, cx: 50, cy: 60, rot: 0 }],
+    ],
+    "bottom row must move down and grow when the south handle stretches the group",
+  );
+});
+
+test("pure vertical group resize skips text inverse compensation", async () => {
+  const source = await readFile(resolve("src/powerpoint/ui/NativePowerPointView.ts"), "utf8");
+  const start = source.indexOf("private applyGroupResizePreview(");
+  const end = source.indexOf("private restoreGroupShapePreviews", start);
+  assert.ok(start >= 0 && end > start);
+  const body = source.slice(start, end);
+  assert.match(body, /Pure vertical group stretch/);
+  assert.match(body, /Math\.abs\(Math\.abs\(scaleX\) - 1\) <= 0\.001/);
+  assert.match(body, /Math\.abs\(Math\.abs\(scaleY\) - 1\) > 0\.001/);
+});
+
+test("text preview anchors normalize nested body-local coordinates into slide space", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = createView(NativePowerPointView);
+  const shape = { parentElement: null };
+  const inner = {
+    getAttribute: (name) => (name === "transform" ? "translate(0 100)" : null),
+    parentElement: shape,
+  };
+  const text = {
+    parentElement: inner,
+    getAttribute: () => null,
+    querySelector: () => ({
+      getAttribute: (name) => (name === "y" ? "25" : name === "x" ? "0" : null),
+    }),
+  };
+
+  const anchor = view.resolveTextPreviewAnchorInSlideSpace(
+    shape,
+    text,
+    { x: 0, y: 100, cx: 50, cy: 40, rot: 0 },
+    1,
+  );
+  assert.deepEqual(
+    anchor,
+    { x: 0, y: 125 },
+    "body-local tspan y under nested translate must become slide-space for group resize",
+  );
+
+  assert.deepEqual(
+    view.getRelativeTextPreviewTranslation(anchor, 1, 1.5, 0, 0),
+    { x: 0, y: 62.5 },
+    "lower-frame text translation must use slide-space distance from group north",
+  );
+});
+
+test("multi-select SVG pointer near a resize dot redirects to stretch, not move", async () => {
+  const source = await readFile(resolve("src/powerpoint/ui/NativePowerPointView.ts"), "utf8");
+  assert.match(source, /findSelectionResizeHandleAtPoint\(/);
+  assert.match(source, /PowerPoint shape pointer redirected to resize chrome/);
+  assert.match(source, /PowerPoint text pointer redirected to resize chrome/);
+  assert.match(source, /this\.startCurrentSelectionDrag\(event, 'resize', resizeHandle\)/);
+  assert.match(source, /source: 'move-surface-grip'/);
+  assert.match(
+    await readFile(resolve("styles.css"), "utf8"),
+    /\.native-powerpoint-selection-box\.native-powerpoint-multi-selection-outline \.native-powerpoint-selection-move-surface\s*\{[^}]*bottom:\s*12px/s,
+  );
 });
 
 test("marquee selection previews a passive union outline before pointer-up", async () => {

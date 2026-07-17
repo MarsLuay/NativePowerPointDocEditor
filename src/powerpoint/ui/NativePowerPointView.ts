@@ -1601,6 +1601,40 @@ export class NativePowerPointView extends FileView {
       && this.selectedShapeIndices.has(shapeIndex);
   }
 
+  /**
+   * While Shift/Ctrl/Meta is held, hollow out the multi-select move chrome so
+   * clicks can toggle shapes inside the union outline. Outline drag returns
+   * when the modifier is released.
+   */
+  private additiveSelectModifiersDown = false;
+
+  private isAdditiveSelectionModifier(event: Pick<PointerEvent | KeyboardEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>): boolean {
+    return event.shiftKey || event.ctrlKey || event.metaKey;
+  }
+
+  private syncSelectionChromeHitThrough(additive = this.additiveSelectModifiersDown): void {
+    this.additiveSelectModifiersDown = additive;
+    this.selectionOverlay?.classList.toggle(
+      'native-powerpoint-additive-hit-through',
+      additive && this.selectedShapeIndices.size > 1,
+    );
+  }
+
+  /**
+   * Fallback when move chrome still receives an additive pointerdown (modifier
+   * pressed after hover, or key sync missed). Hit-test through and toggle.
+   */
+  private handleAdditiveSelectThroughSelectionChrome(event: PointerEvent): void {
+    if (!this.selectionOverlay) return;
+    this.syncSelectionChromeHitThrough(true);
+    const under = activeDocument.elementFromPoint(event.clientX, event.clientY);
+    const shape = under instanceof Element ? under.closest('g[data-ooxml-shape-idx]') : null;
+    const shapeIndex = getShapeIndex(shape);
+    if (!isSelectableShapeIndex(shapeIndex)) return;
+    this.suppressNextClick = true;
+    this.toggleShapeInSelection(shapeIndex);
+  }
+
   private toggleShapeInSelection(shapeIndex: number): void {
     if (!isSelectableShapeIndex(shapeIndex)) return;
     const next = new Set(this.getSelectedIndices());
@@ -2578,6 +2612,15 @@ export class NativePowerPointView extends FileView {
     this.registerDomEvent(window, 'keydown', handleKeyDown, true);
     this.registerDomEvent(activeDocument, 'keydown', handleKeyDown, true);
 
+    const syncAdditiveChrome = (event: KeyboardEvent) => {
+      this.syncSelectionChromeHitThrough(this.isAdditiveSelectionModifier(event));
+    };
+    this.registerDomEvent(window, 'keydown', syncAdditiveChrome, true);
+    this.registerDomEvent(window, 'keyup', syncAdditiveChrome, true);
+    this.registerDomEvent(activeDocument, 'keydown', syncAdditiveChrome, true);
+    this.registerDomEvent(activeDocument, 'keyup', syncAdditiveChrome, true);
+    this.registerDomEvent(window, 'blur', () => this.syncSelectionChromeHitThrough(false));
+
     this.registerDomEvent(window, 'resize', () => this.updateSlideScale());
     this.registerDomEvent(activeDocument, 'pointermove', this.handleDragMove, true);
     this.registerDomEvent(activeDocument, 'pointerup', this.handleDragEnd, true);
@@ -3223,6 +3266,17 @@ export class NativePowerPointView extends FileView {
           event.preventDefault();
           event.stopPropagation();
           this.suppressNextClick = true;
+          const resizeHandle = this.findSelectionResizeHandleAtPoint(event.clientX, event.clientY);
+          if (resizeHandle) {
+            debugLog('selection', 'PowerPoint text pointer redirected to resize chrome', {
+              slide: this.currentSlide,
+              shapeIndex,
+              handle: resizeHandle,
+              shapeIndexes: [...this.selectedShapeIndices],
+            });
+            this.startCurrentSelectionDrag(event, 'resize', resizeHandle);
+            return;
+          }
           debugLog('selection', 'Starting multi-object drag from PowerPoint text', {
             slide: this.currentSlide,
             shapeIndex,
@@ -3266,6 +3320,17 @@ export class NativePowerPointView extends FileView {
 
       if (this.selectedShapeIndices.size > 1 && this.selectedShapeIndices.has(shapeIndex)) {
         event.preventDefault();
+        const resizeHandle = this.findSelectionResizeHandleAtPoint(event.clientX, event.clientY);
+        if (resizeHandle) {
+          debugLog('selection', 'PowerPoint shape pointer redirected to resize chrome', {
+            slide: this.currentSlide,
+            shapeIndex,
+            handle: resizeHandle,
+            shapeIndexes: [...this.selectedShapeIndices],
+          });
+          this.startCurrentSelectionDrag(event, 'resize', resizeHandle);
+          return;
+        }
         if (this.ensureEditable('move objects')) {
           this.startGroupDrag(event);
         }
@@ -3826,6 +3891,7 @@ export class NativePowerPointView extends FileView {
     if (!this.textToolbarController.hasActivePopover()) {
       this.toolbarFormattingSnapshot = null;
       this.textToolbarController.clearFormattingSnapshot();
+      this.textToolbarShapeIndex = null;
     }
     this.session.clearSelection();
     this.selectedShapeIndex = null;
@@ -6189,26 +6255,29 @@ export class NativePowerPointView extends FileView {
       }
     }
 
-    // Toolbar still points at a shape after selection was cleared during a
-    // color/font popover interaction (marquee leak). Prefer that over aborting.
-    const toolbarShapeIndex = this.textToolbarController.getFormattingSnapshot()?.shapeIndex
-      ?? this.textToolbarController.getToolbarShapeIndex()
-      ?? this.textToolbarShapeIndex;
-    if (toolbarShapeIndex !== null) {
-      const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${toolbarShapeIndex}"]`);
-      if (shape && this.shapeHasEditableText(shape)) {
-        const anchor = this.getElementBox(shape);
-        if (anchor) {
-          debugLog('text-format', 'Text style context recovered from toolbar shape', {
-            shapeIndex: toolbarShapeIndex,
-            selectedShapeIndex: this.selectedShapeIndex,
-            hasSnapshot: this.textToolbarController.hasFormattingSnapshot(),
-          });
-          return {
-            shapeIndex: toolbarShapeIndex,
-            run: this.getFirstRunTarget(toolbarShapeIndex),
-            anchor,
-          };
+    // While a color/font popover is open, marquee/clear can wipe selection before
+    // apply. Recover from the last toolbar shape only in that case — otherwise
+    // click-off would leave the formatting chrome stuck on screen.
+    if (this.textToolbarController.hasActivePopover()) {
+      const toolbarShapeIndex = this.textToolbarController.getFormattingSnapshot()?.shapeIndex
+        ?? this.textToolbarController.getToolbarShapeIndex()
+        ?? this.textToolbarShapeIndex;
+      if (toolbarShapeIndex !== null) {
+        const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${toolbarShapeIndex}"]`);
+        if (shape && this.shapeHasEditableText(shape)) {
+          const anchor = this.getElementBox(shape);
+          if (anchor) {
+            debugLog('text-format', 'Text style context recovered from toolbar shape', {
+              shapeIndex: toolbarShapeIndex,
+              selectedShapeIndex: this.selectedShapeIndex,
+              hasSnapshot: this.textToolbarController.hasFormattingSnapshot(),
+            });
+            return {
+              shapeIndex: toolbarShapeIndex,
+              run: this.getFirstRunTarget(toolbarShapeIndex),
+              anchor,
+            };
+          }
         }
       }
     }
@@ -9541,15 +9610,67 @@ export class NativePowerPointView extends FileView {
     if (!this.selectionOverlay) {
       this.selectionOverlay = this.canvasPane.createDiv({ cls: 'native-powerpoint-selection-box' });
       if (this.canEdit()) {
+        // Multi-select only: fill the hollow union box so near-dot clicks cannot
+        // fall through to SVG shapes (which default to group move).
+        const moveSurface = this.selectionOverlay.createDiv({
+          cls: 'native-powerpoint-selection-move-surface',
+        });
+        moveSurface.addEventListener('pointerdown', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (this.isAdditiveSelectionModifier(event)) {
+            this.handleAdditiveSelectThroughSelectionChrome(event);
+            return;
+          }
+          // Near a resize grip only — outline edges move, they must not stretch.
+          const edgeHandle = this.findSelectionResizeHandleAtPoint(event.clientX, event.clientY);
+          if (edgeHandle) {
+            debugLog('selection', 'PowerPoint selection chrome drag started', {
+              op: 'chrome-drag-start',
+              slide: this.currentSlide,
+              shapeIndexes: [...this.selectedShapeIndices],
+              mode: 'resize',
+              handle: edgeHandle,
+              multi: true,
+              source: 'move-surface-grip',
+            });
+            this.startCurrentSelectionDrag(event, 'resize', edgeHandle);
+            return;
+          }
+          this.startCurrentSelectionDrag(event, 'move');
+        });
+
+        // Outline edge strips (split around each mid-edge resize dot) MOVE the
+        // selection. Only the corner/mid-edge dots stretch. Near-miss on a grip
+        // still hits the padded resize handle above these strips.
         for (const side of ['n', 'e', 's', 'w'] as const) {
-          const moveEl = this.selectionOverlay.createDiv({
-            cls: `native-powerpoint-move-border native-powerpoint-move-border-${side}`
-          });
-          moveEl.addEventListener('pointerdown', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.startCurrentSelectionDrag(event, 'move');
-          });
+          for (const segment of ['a', 'b'] as const) {
+            const edgeEl = this.selectionOverlay.createDiv({
+              cls: [
+                'native-powerpoint-move-border',
+                `native-powerpoint-move-border-${side}`,
+                `native-powerpoint-move-border-seg-${segment}`,
+              ].join(' '),
+            });
+            edgeEl.addEventListener('pointerdown', (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (this.isAdditiveSelectionModifier(event)) {
+                this.handleAdditiveSelectThroughSelectionChrome(event);
+                return;
+              }
+              debugLog('selection', 'PowerPoint selection chrome drag started', {
+                op: 'chrome-drag-start',
+                slide: this.currentSlide,
+                shapeIndexes: [...this.selectedShapeIndices],
+                mode: 'move',
+                handle: null,
+                multi: this.selectedShapeIndices.size > 1,
+                source: 'outline-edge',
+              });
+              this.startCurrentSelectionDrag(event, 'move');
+            });
+          }
         }
 
         for (const handle of ['n', 'e', 's', 'w', 'nw', 'ne', 'sw', 'se'] as HandleName[]) {
@@ -9577,6 +9698,7 @@ export class NativePowerPointView extends FileView {
     }
 
     this.selectionOverlay.classList.toggle('native-powerpoint-multi-selection-outline', isMultiSelection);
+    this.syncSelectionChromeHitThrough();
     const laidOut = isMultiSelection
       ? this.applyMultiSelectionOverlayLayout()
       : this.applySelectionOverlayLayout();
@@ -9593,6 +9715,14 @@ export class NativePowerPointView extends FileView {
     mode: DragState['mode'],
     handle?: HandleName,
   ): void {
+    debugLog('selection', 'PowerPoint selection chrome drag started', {
+      op: 'chrome-drag-start',
+      slide: this.currentSlide,
+      shapeIndexes: [...this.selectedShapeIndices],
+      mode,
+      handle: handle ?? null,
+      multi: this.selectedShapeIndices.size > 1,
+    });
     if (this.selectedShapeIndices.size > 1) {
       this.startGroupDrag(event, mode, handle);
       return;
@@ -9605,13 +9735,101 @@ export class NativePowerPointView extends FileView {
     this.startDrag(event, mode, handle);
   }
 
-  private removeSelectionOverlay(): void {
-    this.selectionOverlay?.remove();
-    this.selectionOverlay = null;
+  /**
+   * When the selection overlay is hollow (`pointer-events: none` on the box),
+   * a near-miss on a resize dot can hit the SVG shape underneath and start a
+   * group move. Map that pointer back to the overlapping resize grip or edge.
+   */
+  private findSelectionResizeHandleAtPoint(clientX: number, clientY: number): HandleName | null {
+    if (!this.selectionOverlay) return null;
+    const pad = 14;
+    const handles = this.selectionOverlay.querySelectorAll('.native-powerpoint-resize-handle');
+    for (const handleEl of Array.from(handles)) {
+      if (!(handleEl.instanceOf(HTMLElement))) continue;
+      const rect = handleEl.getBoundingClientRect();
+      if (
+        clientX < rect.left - pad
+        || clientX > rect.right + pad
+        || clientY < rect.top - pad
+        || clientY > rect.bottom + pad
+      ) {
+        continue;
+      }
+      for (const cls of Array.from(handleEl.classList)) {
+        const match = /^native-powerpoint-resize-(nw|ne|sw|se|n|e|s|w)$/.exec(cls);
+        if (match) return match[1] as HandleName;
+      }
+    }
+    return null;
+  }
+
+  /** Prefer an explicit grip, then an edge strip, then the outer edge band. */
+  private findSelectionResizeTargetAtPoint(clientX: number, clientY: number): HandleName | null {
+    const handle = this.findSelectionResizeHandleAtPoint(clientX, clientY);
+    if (handle) return handle;
+    if (!this.selectionOverlay) return null;
+
+    const strips = this.selectionOverlay.querySelectorAll('.native-powerpoint-move-border');
+    for (const strip of Array.from(strips)) {
+      if (!(strip.instanceOf(HTMLElement))) continue;
+      const rect = strip.getBoundingClientRect();
+      if (
+        clientX < rect.left
+        || clientX > rect.right
+        || clientY < rect.top
+        || clientY > rect.bottom
+      ) {
+        continue;
+      }
+      for (const cls of Array.from(strip.classList)) {
+        const match = /^native-powerpoint-move-border-(n|e|s|w)$/.exec(cls);
+        if (match) return match[1] as HandleName;
+      }
+    }
+
+    const bounds = this.selectionOverlay.getBoundingClientRect();
+    const edgePad = 14;
+    const nearLeft = clientX <= bounds.left + edgePad;
+    const nearRight = clientX >= bounds.right - edgePad;
+    const nearTop = clientY <= bounds.top + edgePad;
+    const nearBottom = clientY >= bounds.bottom - edgePad;
+    if (nearTop && nearLeft) return 'nw';
+    if (nearTop && nearRight) return 'ne';
+    if (nearBottom && nearLeft) return 'sw';
+    if (nearBottom && nearRight) return 'se';
+    if (nearTop) return 'n';
+    if (nearBottom) return 's';
+    if (nearLeft) return 'w';
+    if (nearRight) return 'e';
+    return null;
   }
 
   private updateMultiSelectionBoxes(): void {
     this.removeMultiSelectionBoxes();
+    if (!this.canvasPane || !this.svgEl || this.selectedShapeIndices.size <= 1) return;
+
+    for (const index of this.selectedShapeIndices) {
+      const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
+      if (!isSVGGElement(shape)) continue;
+      const box = this.getElementBox(this.getShapeSelectionElement(shape));
+      if (!box) continue;
+
+      const boxEl = this.canvasPane.createDiv({
+        cls: 'native-powerpoint-selection-box native-powerpoint-multi-selection-box',
+      });
+      boxEl.setCssProps({
+        left: `${box.left}px`,
+        top: `${box.top}px`,
+        width: `${box.width}px`,
+        height: `${box.height}px`,
+      });
+      this.multiSelectionBoxes.push(boxEl);
+    }
+  }
+
+  private removeSelectionOverlay(): void {
+    this.selectionOverlay?.remove();
+    this.selectionOverlay = null;
   }
 
   private removeMultiSelectionBoxes(): void {
@@ -9748,6 +9966,10 @@ export class NativePowerPointView extends FileView {
     this.marqueeEl?.remove();
     this.marqueeEl = null;
     this.removeMarqueeSelectionPreview();
+    // Restore committed multi-select outlines if a live marquee preview cleared them.
+    if (this.selectedShapeIndices.size > 1) {
+      this.updateMultiSelectionBoxes();
+    }
   }
 
   private removeMarqueeSelectionPreview(): void {
@@ -9758,9 +9980,11 @@ export class NativePowerPointView extends FileView {
   /** Render a passive outline around the live marquee result; controls wait for pointer-up. */
   private updateMarqueeSelectionPreview(indices: Iterable<number>): void {
     if (!this.canvasPane) return;
-    const box = this.getSelectionBoxForShapeIndices(indices);
+    const indexList = [...indices];
+    const box = this.getSelectionBoxForShapeIndices(indexList);
     if (!box) {
       this.removeMarqueeSelectionPreview();
+      this.removeMultiSelectionBoxes();
       return;
     }
 
@@ -9775,6 +9999,26 @@ export class NativePowerPointView extends FileView {
       width: `${box.width}px`,
       height: `${box.height}px`,
     });
+
+    // Show a dashed outline on each hit shape as the marquee grows.
+    this.removeMultiSelectionBoxes();
+    if (!this.svgEl || indexList.length <= 1) return;
+    for (const index of indexList) {
+      const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
+      if (!isSVGGElement(shape)) continue;
+      const shapeBox = this.getElementBox(this.getShapeSelectionElement(shape));
+      if (!shapeBox) continue;
+      const boxEl = this.canvasPane.createDiv({
+        cls: 'native-powerpoint-selection-box native-powerpoint-multi-selection-box',
+      });
+      boxEl.setCssProps({
+        left: `${shapeBox.left}px`,
+        top: `${shapeBox.top}px`,
+        width: `${shapeBox.width}px`,
+        height: `${shapeBox.height}px`,
+      });
+      this.multiSelectionBoxes.push(boxEl);
+    }
   }
 
   private getSelectionBoxForShapeIndices(
@@ -10164,6 +10408,7 @@ export class NativePowerPointView extends FileView {
         dyUser,
       });
     }
+    this.updateMultiSelectionBoxes();
   }
 
   /** Build the affine transform shared by all live group-resize previews. */
@@ -10222,6 +10467,7 @@ export class NativePowerPointView extends FileView {
     let objectCount = 0;
     let textTransformCount = 0;
     let textReflowCount = 0;
+    let loggedTextCompensation = false;
     for (const index of groupDrag.start.keys()) {
       const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
       if (!isSVGGElement(shape)) continue;
@@ -10238,6 +10484,16 @@ export class NativePowerPointView extends FileView {
       const next = groupDrag.latest.get(index);
       const text = shape.querySelector('text');
       if (!start || !next || !isSVGTextElement(text)) continue;
+
+      // Pure vertical group stretch: keep the outer affine on text too. Inverse
+      // compensation used body-local tspan y mixed with the group north edge, so
+      // lower frames looked like pure translates while the top still stretched.
+      if (
+        Math.abs(Math.abs(scaleX) - 1) <= 0.001
+        && Math.abs(Math.abs(scaleY) - 1) > 0.001
+      ) {
+        continue;
+      }
 
       if (!groupDrag.previewOriginalText?.has(index)) {
         groupDrag.previewOriginalText?.set(index, text.cloneNode(true) as SVGTextElement);
@@ -10260,6 +10516,19 @@ export class NativePowerPointView extends FileView {
           textReflowCount += 1;
         }
         textTransformCount += 1;
+        if (!loggedTextCompensation) {
+          loggedTextCompensation = true;
+          debugLog('selection', 'PowerPoint group resize text compensation', {
+            op: 'group-resize-text-compensation',
+            slide: this.currentSlide,
+            shapeIndex: index,
+            scaleX,
+            scaleY,
+            anchorX,
+            anchorY,
+            startY: start.y,
+          });
+        }
       } catch (error) {
         // A malformed text frame must not prevent subsequent selected text
         // frames from following a crossed group resize.
@@ -10269,6 +10538,7 @@ export class NativePowerPointView extends FileView {
     groupDrag.previewObjectCount = objectCount;
     groupDrag.previewTextTransformCount = textTransformCount;
     groupDrag.previewTextReflowCount = textReflowCount;
+    this.updateMultiSelectionBoxes();
   }
 
   private restoreGroupShapePreviews(groupDrag: GroupDragState): void {
@@ -10362,6 +10632,57 @@ export class NativePowerPointView extends FileView {
     };
   }
 
+  /** Sum translate(...) offsets between a text node and its shape group. */
+  private getNestedTranslateOffset(from: Element, stopAt: Element): { x: number; y: number } {
+    let x = 0;
+    let y = 0;
+    let el: Element | null = from.parentElement;
+    while (el && el !== stopAt) {
+      const transform = el.getAttribute('transform') ?? '';
+      for (const match of transform.matchAll(/translate\(\s*([-\d.eE]+)(?:[,|\s]+([-\d.eE]+))?\s*\)/g)) {
+        x += Number(match[1]);
+        y += Number(match[2] ?? 0);
+      }
+      el = el.parentElement;
+    }
+    return { x, y };
+  }
+
+  /**
+   * Text anchors must share the group resize slide-user space. Raw tspan x/y are
+   * sometimes body-local under an inner translate; mixing them with the group
+   * north edge makes lower shapes look like pure vertical translates.
+   */
+  private resolveTextPreviewAnchorInSlideSpace(
+    shape: SVGGElement,
+    text: SVGTextElement,
+    start: ShapeTransform,
+    slideScale: number,
+  ): { x: number; y: number } {
+    const origin = { x: start.x / slideScale, y: start.y / slideScale };
+    const local = this.getTextPreviewAnchor(text, { x: 0, y: 0 });
+    const nested = this.getNestedTranslateOffset(text, shape);
+    const frameW = Math.max(1, start.cx / slideScale);
+    const frameH = Math.max(1, start.cy / slideScale);
+
+    if (Math.hypot(nested.x, nested.y) > 0.5) {
+      const nestedIsOrigin =
+        Math.abs(nested.x - origin.x) <= 1 && Math.abs(nested.y - origin.y) <= 1;
+      if (nestedIsOrigin) {
+        return { x: nested.x + local.x, y: nested.y + local.y };
+      }
+      return { x: origin.x + nested.x + local.x, y: origin.y + nested.y + local.y };
+    }
+
+    const absolute =
+      local.x >= origin.x - 2
+      && local.y >= origin.y - 2
+      && local.x <= origin.x + frameW + 2
+      && local.y <= origin.y + frameH + 2;
+    if (absolute) return local;
+    return { x: origin.x + local.x, y: origin.y + local.y };
+  }
+
   /** Apply a relative-position, no-glyph-scale text preview, then reflow its resized frame. */
   private applyTextResizePreview(
     shape: SVGGElement,
@@ -10377,10 +10698,7 @@ export class NativePowerPointView extends FileView {
     const text = this.restoreShapeTextPreview(shape, originalText);
     if (!text || !Number.isFinite(slideScale) || slideScale === 0) return false;
 
-    const textAnchor = this.getTextPreviewAnchor(text, {
-      x: start.x / slideScale,
-      y: start.y / slideScale,
-    });
+    const textAnchor = this.resolveTextPreviewAnchorInSlideSpace(shape, text, start, slideScale);
     const translation = this.getRelativeTextPreviewTranslation(
       textAnchor,
       scaleX,
@@ -10401,7 +10719,14 @@ export class NativePowerPointView extends FileView {
 
     const base = text.getAttribute('transform')?.trim() ?? '';
     text.setAttribute('transform', base ? `${compensation} ${base}` : compensation);
-    if (Math.abs(Math.abs(scaleX) - 1) <= 0.001) return false;
+    // South-only group resize previously skipped reflow (scaleX≈1), leaving lower
+    // text frames looking translated. Reflow whenever either axis changes.
+    if (
+      Math.abs(Math.abs(scaleX) - 1) <= 0.001
+      && Math.abs(Math.abs(scaleY) - 1) <= 0.001
+    ) {
+      return false;
+    }
     try {
       return this.reflowShapeTextResizePreview(shape, text);
     } catch (error) {
