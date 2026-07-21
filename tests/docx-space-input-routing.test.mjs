@@ -8,7 +8,7 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 
 test("shipped PagedEditor dist does not replay a space key already handled by hidden ProseMirror", async () => {
   const dist = await readFile(
-    path.join(projectRoot, "docx-editor/packages/react/dist/index.js"),
+    path.join(projectRoot, "vendor/docx-editor-runtime/react/dist/index.js"),
     "utf8",
   );
   const handledKeyCheck = dist.indexOf("defaultPrevented");

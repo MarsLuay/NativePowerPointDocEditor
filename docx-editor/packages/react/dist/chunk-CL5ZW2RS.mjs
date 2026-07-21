@@ -1,1 +1,0 @@
-export{RenderedDomContextImpl as a,createRenderedDomContext as b}from'@npde/docx-editor-core/plugin-api/RenderedDomContext';

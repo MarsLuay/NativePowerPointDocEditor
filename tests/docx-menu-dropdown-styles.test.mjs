@@ -19,10 +19,10 @@ async function readReactMenuSurfaceSources() {
 	}
 
 	// Catalog-safe mirror ships package dist only (no packages/*/src).
-	const distDir = path.join(projectRoot, 'docx-editor/packages/react/dist');
-	assert.ok(existsSync(distDir), 'missing docx-editor/packages/react/dist');
+	const distDir = path.join(projectRoot, 'vendor/docx-editor-runtime/react/dist');
+	assert.ok(existsSync(distDir), 'missing vendor/docx-editor-runtime/react/dist');
 	const files = readdirSync(distDir).filter((name) => name.endsWith('.js') || name.endsWith('.mjs'));
-	assert.ok(files.length > 0, 'docx-editor/packages/react/dist has no JS bundles');
+	assert.ok(files.length > 0, 'vendor/docx-editor-runtime/react/dist has no JS bundles');
 	const combined = (
 		await Promise.all(files.map((name) => readFile(path.join(distDir, name), 'utf8')))
 	).join('\n');

@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Release-branch DOCX runtime is vendor-only (`vendor/docx-editor-runtime` from `docx-editor-source` via `npm run vendor:docx`). Removed in-repo `docx-editor/` from `nightly-releases`. Documented `docx-editor-source` → `nightly-releases` → `main` flow in AGENTS.md. Removed bogus `versions.json` `"undefined"` key.
+
+
 ## [1.0.53] - 2026-07-21
 
 ### Fixed

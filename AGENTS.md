@@ -12,19 +12,34 @@
 - Render DOCX settings from shared descriptors in `src/settings.ts`; do not duplicate labels, descriptions, defaults, option lists between Obsidian settings tab and in-editor DOCX settings menu.
 - Resolve editor theme via plugin-level path in `src/main.ts`. DOCX/PPTX roots consume `resolvedEditorTheme`; views must not inspect `document.body` or call `resolveEditorThemePreference()` locally.
 - Theme colors use `--npde-*` tokens. Hardcoded color literals live in token definitions, not component rules.
-- Avoid `!important` in `docx-editor/` CSS entirely (code-analysis `css/no-important` rejects suppressions). Root plugin `styles.css` may use line-scoped `obsidian: allow css-important` only for documented third-party / PDF isolation.
+- Do not hand-edit generated DOCX runtime CSS under `vendor/docx-editor-runtime/`. Apply DOCX CSS changes on `docx-editor-source`; root plugin `styles.css` may use line-scoped `obsidian: allow css-important` only for documented third-party / PDF isolation.
 - Do not use CSS `:has()`, stylesheet `text-indent`, `break-before`/`page-break-*`, or `@tailwind` in scanned source. Stamp class hooks / indent in JS; inject Tailwind at build time; page breaks stay in the layout engine.
 - Prefer CSS2 single-keyword `text-decoration` only. Tint deletes with `box-shadow` / `background` / `color`.
 - After theme/menu/settings changes, run guards: `npm run check:theme-architecture`, `npm run check:theme-css`, `npm run check:shared-ui-patterns`.
 
-### vendored DOCX editor (in-repo monorepo)
+### Branch workflow (`docx-editor-source` → `nightly-releases` → `main`)
 
-- Source + package dist: `docx-editor/` (pin `npde-mirror-1.9.0` / `66d74702…`, Apache-2.0). Runtime aliases: `scripts/lib/docx-editor-aliases.mjs` → `docx-editor/packages/{core,react,i18n}` plus single-copy `react` / `react-dom` (root `node_modules`). Pin plugin ProseMirror packages to the same versions as `docx-editor` and map them in `tsconfig.json` `paths` so `tsc` does not see dual package identities. No agents package and no `packages/core/src/agent/` — plugin AI is `src/ai` only; React save uses `Document` + packers (`exportDocxBuffer` / selective / rezip). Content controls: `@npde/docx-editor-core/contentControls`.
-- Edit source → `npm run build:docx-editor` (needs bun) → `npm run build` / `dev`. Users still only get `main.js`; monorepo is not an Obsidian download.
-- **Publish always fresh-rebuilds:** when publishing this plugin, run `npm run build:docx-editor` then `npm run build` (see vault publish skill). Fail if bun/rebuild tooling is missing — do not release stale package dist.
-- **Vault code-analysis:** scans Obsidian-runtime `docx-editor/packages/{core,react,i18n}` source. Unused monorepo trees (vue/nuxt/full agents/examples/docs/e2e tests) were removed from this vault tree. Core unit fixtures: `docx-editor/packages/core/testdata/` (`manual/` = unwired samples).
-- **Public catalog mirror (NativePowerPointDocEditor):** sync with `node scripts/sync-obsidian-catalog-mirror.mjs <clone>` so the public tree is **JS-only dist** for `docx-editor/packages/{core,react,i18n}` (no `src/`, no package `.d.ts`, no agents/vue/nuxt). Obsidian Community catalog ESLint scans all public `.ts`/`.tsx` — full monorepo source fails catalog (1.0.35–1.0.38). Vault keeps full source and typings.
-- Do **not** add `@npde/*` to root `package.json`. Details: `src/docx/editor/README.md`.
+Release branches (`nightly-releases`, then `main`) must **not** contain an in-repo `docx-editor/` monorepo. Latest plugin work lands on **`nightly-releases`**; when that branch is good, promote it to **`main`**.
+
+| Branch | Role |
+|--------|------|
+| `docx-editor-source` | Editable DOCX editor monorepo only (Bun build/test). Not the Obsidian plugin release surface. |
+| `nightly-releases` | Latest plugin updates. Builds against `vendor/docx-editor-runtime` refreshed from `docx-editor-source` via `npm run vendor:docx`. |
+| `main` | Stable promote target. Same vendor-only layout as nightly once promoted. Catalog / default-branch review uses this shape. |
+
+Flow:
+
+1. Edit DOCX runtime on `docx-editor-source` (worktree e.g. `/Users/mars/NPDE-docx-editor-source` or `DOCX_EDITOR_SOURCE_DIR`). Build/test there with Bun.
+2. On `nightly-releases`, run `npm run vendor:docx` to refresh `vendor/docx-editor-runtime/` + `provenance.json` from that source commit.
+3. Implement plugin changes on `nightly-releases`; verify with `npm run verify:review` (no Bun / no in-repo monorepo).
+4. When satisfied with nightly, merge or fast-forward **`nightly-releases` → `main`** (keep vendor-only; never reintroduce `docx-editor/`).
+
+### DOCX runtime snapshot (vendor-only on release branches)
+
+- Release branches vendor only generated JS/CSS at `vendor/docx-editor-runtime/{core,react,i18n}` plus `provenance.json` (source branch + commit). No DOCX TypeScript or package `.d.ts` on these branches.
+- Plugin TypeScript imports DOCX facilities from `src/docx/runtime` only. `src/docx/runtime/bridge.mjs` is the sole `@npde/*` import boundary; `src/docx/runtime/styles.ts` is the sole vendored-CSS boundary.
+- `scripts/lib/docx-editor-aliases.mjs` resolves `@npde/docx-editor-*` to `vendor/docx-editor-runtime` and keeps one root `react` / `react-dom` pair. Keep plugin ProseMirror versions aligned with the source worktree.
+- Plugin AI remains `src/ai`; do **not** add `@npde/*` to root `package.json`. Details: `src/docx/editor/README.md`.
 
 ### Agent DOCX editing (vault)
 

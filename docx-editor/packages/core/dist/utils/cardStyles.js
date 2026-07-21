@@ -1,1 +1,0 @@
-'use strict';require('../chunk-O2XFH626.js');var r={padding:"8px 10px",borderRadius:8,backgroundColor:"var(--doc-card)",cursor:"pointer",boxShadow:"var(--doc-card-shadow)"},o={padding:"10px 12px",borderRadius:8,backgroundColor:"var(--doc-surface)",cursor:"pointer",boxShadow:"var(--doc-card-shadow-strong)"};exports.CARD_STYLE_COLLAPSED=r;exports.CARD_STYLE_EXPANDED=o;

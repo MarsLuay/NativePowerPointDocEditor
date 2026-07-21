@@ -1,88 +1,65 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import test from 'node:test';
+import { build } from 'esbuild';
+import { inspectReviewSurface } from '../scripts/check-review-surface.mjs';
 import {
 	createDocxEditorAliases,
-	docxEditorPackages,
 	resolveDocxEditorPackagesRoot,
 } from '../scripts/lib/docx-editor-aliases.mjs';
 
-const root = new URL('../', import.meta.url);
-const projectRoot = fileURLToPath(root);
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-async function readJson(relativePath) {
-	return JSON.parse(await readFile(new URL(relativePath, root), 'utf8'));
-}
+test('DOCX runtime is vendored behind the local facade and has a reviewer-safe surface', async () => {
+	const report = await inspectReviewSurface({ projectRoot });
 
-test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm-scoped upstream packages', async () => {
-	const packagesRoot = resolveDocxEditorPackagesRoot(projectRoot);
-	const [manifest, lockfile, esbuildConfig, testBundler, tsconfig, aliases] = await Promise.all([
-		readJson('package.json'),
-		readJson('package-lock.json'),
-		readFile(new URL('esbuild.config.mjs', root), 'utf8'),
-		readFile(new URL('tests/helpers/load-plugin-modules.mjs', root), 'utf8'),
-		readJson('tsconfig.json'),
-		createDocxEditorAliases(packagesRoot),
-	]);
+	assert.deepEqual(report.violations, [], report.violations.join('\n'));
+	assert.ok(report.aliasCount > report.reactAliasCount, 'runtime package export aliases should exist');
+	assert.equal(report.reactAliasCount, 5, 'React and ReactDOM must stay single-copy aliases');
+	assert.ok(report.provenance?.sourceCommit, 'runtime provenance must name the source commit');
+	assert.equal(report.facade.bridgeExists, true, 'the runtime bridge must exist');
+	assert.equal(report.facade.stylesExists, true, 'the runtime CSS boundary must exist');
+});
 
-	const declaredDependencies = {
-		...manifest.dependencies,
-		...manifest.devDependencies,
-	};
-	assert.deepEqual(
-		Object.keys(declaredDependencies).filter((name) => name.startsWith('@npde/')),
-		[],
-	);
+test('DOCX runtime bridge bundles through esbuild with its required exports', async () => {
+	const temporaryDirectory = await mkdtemp(path.join(tmpdir(), 'npde-docx-runtime-bridge-'));
+	const outfile = path.join(temporaryDirectory, 'bridge.mjs');
 
-	const installedScopedDocxEditorPackages = Object.keys(lockfile.packages).filter((path) =>
-		path.startsWith('node_modules/@npde/') || path.startsWith('node_modules/@eigenpal/'),
-	);
-	assert.deepEqual(installedScopedDocxEditorPackages, []);
+	try {
+		await build({
+			alias: await createDocxEditorAliases(
+				resolveDocxEditorPackagesRoot(projectRoot),
+				projectRoot,
+			),
+			bundle: true,
+			entryPoints: [path.join(projectRoot, 'src/docx/runtime/bridge.mjs')],
+			format: 'esm',
+			loader: { '.css': 'text' },
+			logLevel: 'silent',
+			outfile,
+			platform: 'node',
+			target: 'node22',
+		});
 
-	assert.match(esbuildConfig, /createDocxEditorAliases/);
-	assert.match(esbuildConfig, /resolveDocxEditorPackagesRoot/);
-	assert.match(testBundler, /createDocxEditorAliases/);
-	assert.equal(docxEditorPackages['@npde/docx-editor-agents'], undefined);
-
-	await assert.rejects(
-		() => readFile(new URL('docx-editor/packages/agents/package.json', root)),
-		/ENOENT/,
-	);
-	await assert.rejects(
-		() => readFile(new URL('src/vendor/eigenpal/README.md', root)),
-		/ENOENT/,
-	);
-
-	for (const [packageName, dirName] of Object.entries(docxEditorPackages)) {
-		const localManifest = await readJson(`docx-editor/packages/${dirName}/package.json`);
-		assert.equal(localManifest.version, '1.9.0');
-		assert.equal(localManifest.name, packageName);
-		assert.ok(tsconfig.compilerOptions.paths[packageName], `${packageName} needs a local TypeScript path`);
-
-		for (const [exportPath, target] of Object.entries(localManifest.exports)) {
-			const importTarget = typeof target === 'string'
-				? target
-				: target?.import ?? target?.require ?? target?.default;
-			if (typeof importTarget !== 'string') continue;
-
-			const exportTargets = typeof target === 'string'
-				? [target]
-				: Object.values(target).filter((value) => typeof value === 'string');
-			for (const exportTarget of exportTargets) {
-				const relativePath = `docx-editor/packages/${dirName}/${exportTarget.replace(/^\.\//, '')}`;
-				await readFile(new URL(relativePath, root));
-			}
-
-			const aliasKey = exportPath === '.'
-				? packageName
-				: `${packageName}/${exportPath.replace(/^\.\//, '')}`;
-			assert.ok(aliases[aliasKey], `${aliasKey} needs a local runtime alias`);
+		const bridge = await import(pathToFileURL(outfile).href);
+		for (const [name, expectedType] of Object.entries({
+			DocxEditor: 'object',
+			clearParagraphMeasureCache: 'function',
+			insertTable: 'function',
+			setFontSize: 'function',
+			setLineSpacing: 'function',
+			loadFontFromBuffer: 'function',
+			createT: 'function',
+			deepMerge: 'function',
+			en: 'object',
+			loadDocxEditorLocale: 'function',
+		})) {
+			assert.equal(typeof bridge[name], expectedType, `bridge must export ${name}`);
 		}
+	} finally {
+		await rm(temporaryDirectory, { force: true, recursive: true });
 	}
-
-	assert.equal(aliases['@npde/docx-editor-agents/react'], undefined);
-	assert.ok(aliases.react?.includes(`${path.sep}node_modules${path.sep}react`), 'react alias must pin to plugin root');
-	assert.ok(aliases['react-dom']?.includes(`${path.sep}node_modules${path.sep}react-dom`), 'react-dom alias must pin to plugin root');
 });
