@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import JSZip from 'jszip';
 import { build } from 'esbuild';
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -86,6 +87,7 @@ async function loadDocxServiceModule() {
 	cachedObsidianStub = await setupObsidianStub(outputDirectory);
 	const outfile = path.join(outputDirectory, 'docx-service.cjs');
 	await build({
+		alias: docxEditorAliases,
 		absWorkingDir: outputDirectory,
 		entryPoints: [path.join(projectRoot, 'src/ai/docxDocumentService.ts')],
 		bundle: true,
@@ -105,6 +107,7 @@ async function loadDocxAgentReloadGuardModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-reload-guard-'));
 	const outfile = path.join(outputDirectory, 'docx-agent-reload-guard.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/docx/DocxAgentReloadGuard.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -138,6 +141,7 @@ async function loadPptxAiModules() {
 		},
 	};
 	await build({
+		alias: docxEditorAliases,
 		absWorkingDir: outputDirectory,
 		entryPoints: [path.join(projectRoot, 'src/ai/pptxOpExecutor.ts')],
 		bundle: true,
@@ -667,6 +671,7 @@ async function loadCreateOfficeDocumentModule() {
 	await setupObsidianStub(outputDirectory);
 	const outfile = path.join(outputDirectory, 'create-office-document.cjs');
 	await build({
+		alias: docxEditorAliases,
 		absWorkingDir: outputDirectory,
 		entryPoints: [path.join(projectRoot, 'src/ai/createOfficeDocument.ts')],
 		bundle: true,

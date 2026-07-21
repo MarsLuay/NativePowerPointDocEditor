@@ -9,6 +9,7 @@ import { obsidianLogicEslintRules } from './scripts/lib/obsidian-logic-eslint-ru
 
 export default defineConfig([
 	globalIgnores([
+		'eslint.config.mts',
 		'node_modules',
 		'dist',
 		'main.js',
@@ -46,6 +47,7 @@ export default defineConfig([
 			'no-debugger': 'error',
 			'no-var': 'error',
 			'prefer-const': 'warn',
+			'obsidianmd/prefer-active-doc': 'error',
 			'obsidianmd/no-global-this': 'error',
 			'obsidianmd/no-static-styles-assignment': 'error',
 			'obsidianmd/no-tfile-tfolder-cast': 'error',

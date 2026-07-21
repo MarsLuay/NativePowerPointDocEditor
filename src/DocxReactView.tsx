@@ -2097,7 +2097,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const renderedPages = renderedDomContextRef.current?.pagesContainer.querySelectorAll(DOCX_RENDERED_PAGE_SELECTOR).length
 				?? activeDocument.querySelectorAll(`.${editorClassNameRef.current} ${DOCX_RENDERED_PAGE_SELECTOR}`).length;
 			const sourceDiagnostics = getDocxPaginationSourceDiagnostics(editorCore?.getView()?.state.doc);
-			const sourceDocument = editor?.getDocument() as DocxDocumentWithSectionProperties | null | undefined;
+			const sourceDocument = editor?.getDocument();
 			const documentProperties = sourceDocument?.package?.[DOCX_PACKAGE_DOCUMENT_KEY];
 			const sectionProperties = {
 				...documentProperties?.sections?.[0]?.properties,

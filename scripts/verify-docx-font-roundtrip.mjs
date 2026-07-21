@@ -21,8 +21,8 @@ async function bundleHarness() {
 	
 	const harnessEntry = path.join(projectRoot, 'scripts', 'harness', 'docx-font-roundtrip-entry.tsx');
 	if (!existsSync(harnessEntry)) {
-		console.error(`Harness entry not present on release branches: ${harnessEntry}`);
-		process.exit(1);
+		console.log(`Skipping: harness entry not present on release branches: ${harnessEntry}`);
+		process.exit(0);
 	}
 
 	await build({

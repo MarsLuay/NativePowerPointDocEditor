@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { access } from "node:fs/promises";
 import { test } from "node:test";
 import { buildZip, extractZip } from "pptx-svg";
@@ -97,6 +98,7 @@ test("workshop deck AI insert+transform saves when deck is available", async () 
   };
   const outfile = path.join(outputDirectory, "pptx-service.cjs");
   await build({
+		alias: docxEditorAliases,
     absWorkingDir: outputDirectory,
     entryPoints: [path.join(projectRoot, "src/ai/pptxDocumentService.ts")],
     bundle: true,

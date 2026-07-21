@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import JSZip from 'jszip';
 import { build } from 'esbuild';
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -20,6 +21,7 @@ async function loadBlankPackagesModule() {
 
 	const outfile = path.join(outputDirectory, 'blankOfficePackages.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/vault/blankOfficePackages.ts')],
 		bundle: true,
 		platform: 'node',

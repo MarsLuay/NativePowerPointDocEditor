@@ -11,7 +11,7 @@ function getLocaleLanguage(locale: Translations): string {
 }
 
 export function createEditorTranslator(locale: Translations | undefined): EditorTranslator {
-	const mergedLocale = deepMerge(en, locale) as typeof en;
+	const mergedLocale = deepMerge(en, locale);
 	const translate = createT(mergedLocale, getLocaleLanguage(mergedLocale));
 
 	return (key, vars, fallback = key) => {

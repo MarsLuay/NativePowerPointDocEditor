@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { build } from 'esbuild';
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -30,6 +31,7 @@ async function loadErrorsModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'ai-errors.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/errors.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -47,6 +49,7 @@ async function loadOpRegistryModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'op-registry.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/opRegistry.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -64,6 +67,7 @@ async function loadAiTestModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'ai-core.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/aiCore.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -83,6 +87,7 @@ async function loadManifestWriterModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'manifest-writer.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/manifestWriter.ts')],
 		bundle: true,
 		format: 'cjs',

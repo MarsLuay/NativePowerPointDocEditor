@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { test } from "node:test";
 import { build } from "esbuild";
 import { mkdtemp } from "node:fs/promises";
@@ -16,6 +17,7 @@ async function loadCommentLoggingModule() {
   const outputDirectory = await mkdtemp(path.join(tmpdir(), "npde-comment-log-"));
   const outfile = path.join(outputDirectory, "docx-comment-logging.cjs");
   await build({
+		alias: docxEditorAliases,
     entryPoints: [path.join(projectRoot, "src/docxCommentLogging.ts")],
     bundle: true,
     format: "cjs",
