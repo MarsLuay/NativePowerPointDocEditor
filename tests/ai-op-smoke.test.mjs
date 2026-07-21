@@ -603,14 +603,63 @@ test('PPTX image deletion persists only with its explicit validation allowance',
 	const exported = await engine.export();
 	const unallowed = await validatePowerPointExportContents(source, exported);
 	assert.equal(unallowed.ok, false);
-	assert.ok(unallowed.errors.some((error) => error.includes('image')));
+	assert.ok(unallowed.errors.some((error) => error.includes('image') || error.includes('media')));
 
 	const allowed = await validatePowerPointExportContents(source, exported, {
 		allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+		allowedPartRemovals: engine.getPrunedPackageParts(),
 	});
 	assert.equal(allowed.ok, true, JSON.stringify(allowed.errors));
 	const reloaded = await PresentationEngine.load(exported);
 	assert.notEqual(reloaded.isImageShape(0, imageShape), true);
+});
+
+test('PPTX chart/table/group deletion records matching protected-marker allowances', async () => {
+	const { PresentationEngine } = await loadPresentationEngineModule();
+	const { validatePowerPointExportContents } = await loadPowerPointPackageModule();
+	const source = toArrayBuffer(await readDeck('features.pptx'));
+	const cases = [
+		{ label: 'chart', marker: 'chart', pick: (svg) => svg.includes('data-ooxml-shape-type="chart"') },
+		{ label: 'table', marker: 'table', pick: (svg) => svg.includes('data-ooxml-shape-type="table"') },
+		{ label: 'group', marker: 'groupedShape', pick: (svg) => svg.includes('data-ooxml-shape-type="group"') },
+	];
+
+	for (const testCase of cases) {
+		const engine = await PresentationEngine.load(source);
+		engine.renderSlide(0);
+		let shapeIndex = -1;
+		for (let index = 0; index < 32; index += 1) {
+			try {
+				const svg = engine.renderShape(0, index);
+				if (svg && testCase.pick(svg)) {
+					shapeIndex = index;
+					break;
+				}
+			} catch {
+				break;
+			}
+		}
+		assert.ok(shapeIndex >= 0, `${testCase.label}: expected a deletable shape on features.pptx`);
+
+		await engine.deleteShape(0, shapeIndex);
+		const exported = await engine.export();
+		const unallowed = await validatePowerPointExportContents(source, exported);
+		assert.equal(unallowed.ok, false, `${testCase.label}: expected validation to require an allowance`);
+		assert.ok(
+			unallowed.errors.some((error) => error.includes(testCase.marker)),
+			`${testCase.label}: expected ${testCase.marker} drop error, got ${JSON.stringify(unallowed.errors)}`,
+		);
+
+		const allowance = engine.getProtectedSlideMarkerRemovalAllowance();
+		assert.ok(
+			(allowance[testCase.marker] ?? 0) > 0,
+			`${testCase.label}: expected ${testCase.marker} allowance, got ${JSON.stringify(allowance)}`,
+		);
+		const allowed = await validatePowerPointExportContents(source, exported, {
+			allowedMarkerRemovals: allowance,
+		});
+		assert.equal(allowed.ok, true, `${testCase.label}: ${JSON.stringify(allowed.errors)}`);
+	}
 });
 
 async function loadCreateOfficeDocumentModule() {

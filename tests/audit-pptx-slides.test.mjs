@@ -39,6 +39,51 @@ test("duplicating a slide increments slideCount and renders the copy", async () 
   assert.match(engine.renderSlide(result.slideIndex).svg, /^<svg\b/);
 });
 
+test("duplicating a slide preserves pictures, groups, tables, and charts", async () => {
+  const { extractZip } = await import("pptx-svg");
+  const engine = await loadEngine("features.pptx");
+  assert.equal(engine.slideCount, 1);
+
+  const beforeZip = await extractZip(await engine.export());
+  const beforeXml = beforeZip.textFiles.get("ppt/slides/slide1.xml");
+  assert.ok(beforeXml, "features.pptx must include slide1.xml");
+  const beforeCounts = {
+    pic: (beforeXml.match(/<p:pic\b/g) ?? []).length,
+    graphicFrame: (beforeXml.match(/<p:graphicFrame\b/g) ?? []).length,
+    grpSp: (beforeXml.match(/<p:grpSp\b/g) ?? []).length,
+    tbl: (beforeXml.match(/<a:tbl\b/g) ?? []).length,
+    chart: (beforeXml.match(/c:chart\b/g) ?? []).length,
+    sp: (beforeXml.match(/<p:sp\b/g) ?? []).length,
+  };
+  assert.ok(beforeCounts.pic >= 1, "fixture needs a picture");
+  assert.ok(beforeCounts.graphicFrame >= 1, "fixture needs a graphic frame");
+  assert.ok(beforeCounts.grpSp >= 1, "fixture needs a group");
+
+  const result = await engine.duplicateSlide(0);
+  assert.equal(result.slideCount, 2);
+  assert.equal(result.slideIndex, 1);
+
+  const afterZip = await extractZip(await engine.export());
+  const duplicatedXml = afterZip.textFiles.get(`ppt/slides/slide${result.slideIndex + 1}.xml`);
+  assert.ok(duplicatedXml, "duplicated slide XML must exist");
+  const afterCounts = {
+    pic: (duplicatedXml.match(/<p:pic\b/g) ?? []).length,
+    graphicFrame: (duplicatedXml.match(/<p:graphicFrame\b/g) ?? []).length,
+    grpSp: (duplicatedXml.match(/<p:grpSp\b/g) ?? []).length,
+    tbl: (duplicatedXml.match(/<a:tbl\b/g) ?? []).length,
+    chart: (duplicatedXml.match(/c:chart\b/g) ?? []).length,
+    sp: (duplicatedXml.match(/<p:sp\b/g) ?? []).length,
+  };
+  assert.deepEqual(afterCounts, beforeCounts, "duplicate must keep all slide graphics");
+
+  const duplicatedRels = afterZip.textFiles.get(
+    `ppt/slides/_rels/slide${result.slideIndex + 1}.xml.rels`
+  );
+  assert.match(duplicatedRels ?? "", /relationships\/image/, "duplicate must keep image relationship");
+  assert.match(duplicatedRels ?? "", /relationships\/chart/, "duplicate must keep chart relationship");
+  assert.match(engine.renderSlide(result.slideIndex).svg, /^<svg\b/);
+});
+
 test("deleting a slide decrements slideCount and is guarded at one slide", async () => {
   const engine = await loadEngine();
   await engine.addSlide(0);

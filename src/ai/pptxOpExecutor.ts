@@ -174,6 +174,73 @@ async function applyTransformToInsertedShape(
 	await engine.applyInsertedShapeTransform(slideIndex, shapeIndex, transform);
 }
 
+/** Read pixel size from PNG/JPEG bytes without a native image decoder. */
+function readRasterPixelSize(bytes: Uint8Array, extension: string): { width: number; height: number } | null {
+	const ext = extension.replace(/^\./, '').toLowerCase();
+	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	const looksPng =
+		bytes.length >= 24 &&
+		bytes[0] === 0x89 &&
+		bytes[1] === 0x50 &&
+		bytes[2] === 0x4e &&
+		bytes[3] === 0x47;
+	if ((ext === 'png' || ext === 'apng' || looksPng) && looksPng) {
+		const width = view.getUint32(16);
+		const height = view.getUint32(20);
+		return width > 0 && height > 0 ? { width, height } : null;
+	}
+	const looksJpeg = bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8;
+	if ((ext === 'jpg' || ext === 'jpeg' || looksJpeg) && looksJpeg) {
+		let offset = 2;
+		while (offset + 9 < bytes.length) {
+			if (view.getUint8(offset) !== 0xff) {
+				offset += 1;
+				continue;
+			}
+			const marker = view.getUint8(offset + 1);
+			const size = view.getUint16(offset + 2);
+			// SOF0 / SOF2
+			if (marker === 0xc0 || marker === 0xc2) {
+				const height = view.getUint16(offset + 5);
+				const width = view.getUint16(offset + 7);
+				return width > 0 && height > 0 ? { width, height } : null;
+			}
+			if (size < 2) break;
+			offset += 2 + size;
+		}
+	}
+	return null;
+}
+
+/**
+ * Cover-fit crop fractions so the source fills the target box (may trim edges).
+ * Returns null when no crop is needed or dimensions are unknown.
+ */
+function computeCoverCrop(
+	bytes: Uint8Array,
+	extension: string,
+	frameCx: number,
+	frameCy: number,
+): ImageCrop | null {
+	if (frameCx <= 0 || frameCy <= 0) return null;
+	const size = readRasterPixelSize(bytes, extension);
+	if (!size) return null;
+	const imageAspect = size.width / size.height;
+	const frameAspect = frameCx / frameCy;
+	const epsilon = 0.01;
+	if (Math.abs(imageAspect - frameAspect) < epsilon) return null;
+	if (imageAspect > frameAspect) {
+		// Source is wider — trim left/right.
+		const visible = frameAspect / imageAspect;
+		const side = ((1 - visible) / 2) * 100;
+		return { left: side, top: 0, right: side, bottom: 0 };
+	}
+	// Source is taller — trim top/bottom.
+	const visible = imageAspect / frameAspect;
+	const side = ((1 - visible) / 2) * 100;
+	return { left: 0, top: side, right: 0, bottom: side };
+}
+
 export async function executePptxOp(
 	context: PptxOpExecutionContext,
 	op: DocumentOp,
@@ -244,6 +311,40 @@ export async function executePptxOp(
 				await context.engine.deleteShape(slideIndex, shapeIndex);
 			}
 			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
+		case 'pptx.deleteShapes': {
+			// Internal batch op produced by coalescePptxOps — not a public catalog id.
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			if (!Array.isArray(payload.shapeIndexes) || payload.shapeIndexes.length === 0) {
+				throw createAiError(
+					AI_ERROR_CODES.SCHEMA_INVALID,
+					'shapeIndexes must be a non-empty array of numbers.',
+					{ field: 'shapeIndexes' },
+				);
+			}
+			const shapeIndexes = payload.shapeIndexes.map((value, index) => {
+				if (typeof value !== 'number' || !Number.isFinite(value)) {
+					throw createAiError(
+						AI_ERROR_CODES.SCHEMA_INVALID,
+						`shapeIndexes[${index}] must be a number.`,
+						{ field: `shapeIndexes[${index}]` },
+					);
+				}
+				assertEditableShape(slideIndex, value);
+				return value;
+			});
+			for (const shapeIndex of shapeIndexes) {
+				const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+				const changedId = pptxShapeId(slideIndex, shapeIndex);
+				result.preview.push({ id: changedId, field: 'shape', before, after: null });
+				result.changedIds.push(changedId);
+			}
+			if (!context.dryRun) {
+				await context.engine.deleteShapes(slideIndex, shapeIndexes);
+			}
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
@@ -680,13 +781,45 @@ export async function executePptxOp(
 			const vaultImagePath = requireString(payload.vaultImagePath, 'vaultImagePath');
 			assertSlideInRange(context.engine, slideIndex);
 			assertEditableShape(slideIndex, shapeIndex);
+			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+			const wasImage = context.engine.isImageShape(slideIndex, shapeIndex);
 			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
 			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'image', before: null, after: vaultImagePath });
-			if (!context.dryRun) {
-				await context.engine.replaceImage(slideIndex, shapeIndex, image.bytes, getImageMimeType(image.extension));
+			result.preview.push({
+				id: changedId,
+				field: wasImage ? 'image' : 'convertToImage',
+				before: wasImage ? null : before,
+				after: vaultImagePath,
+			});
+			if (!wasImage) {
+				result.warnings.push(
+					`Shape ${changedId} was not a picture; converted it into a picture filling the same transform box.`,
+				);
 			}
-			result.changedIds.push(changedId);
+			if (!context.dryRun) {
+				const resultIndex = await context.engine.replaceImage(
+					slideIndex,
+					shapeIndex,
+					image.bytes,
+					getImageMimeType(image.extension),
+				);
+				// Cover-fit portrait/landscape sources into the target box when we
+				// converted a placeholder, so the frame stays filled without letterboxing.
+				if (!wasImage && before.transform?.cx && before.transform?.cy) {
+					const cover = computeCoverCrop(
+						image.bytes,
+						image.extension,
+						before.transform.cx,
+						before.transform.cy,
+					);
+					if (cover) {
+						await context.engine.setImageCrop(slideIndex, resultIndex, cover);
+					}
+				}
+				result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
+			} else {
+				result.changedIds.push(changedId);
+			}
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}

@@ -57,12 +57,16 @@ interface PowerPointSaveContext {
 function getDeletionValidationAllowances(engine: PresentationEngine): {
   allowedMarkerRemovals: Record<string, number>;
   allowedUnknownElementRemovals: Record<string, number>;
+  allowedPartRemovals: ReadonlySet<string>;
 } {
   const deletionAware = engine as Partial<Pick<PresentationEngine,
-    'getProtectedSlideMarkerRemovalAllowance' | 'getUnknownSlideElementRemovalAllowance'>>;
+    | 'getProtectedSlideMarkerRemovalAllowance'
+    | 'getUnknownSlideElementRemovalAllowance'
+    | 'getPrunedPackageParts'>>;
   return {
     allowedMarkerRemovals: deletionAware.getProtectedSlideMarkerRemovalAllowance?.() ?? {},
     allowedUnknownElementRemovals: deletionAware.getUnknownSlideElementRemovalAllowance?.() ?? {},
+    allowedPartRemovals: deletionAware.getPrunedPackageParts?.() ?? new Set<string>(),
   };
 }
 
@@ -320,13 +324,16 @@ export class SaveController {
       outputBytes: output.byteLength
     });
     const exportedPackage = inspectPowerPointPackage(output);
-    const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount);
+    const deletionAllowances = getDeletionValidationAllowances(engine);
+    const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount, {
+      allowedPartRemovals: deletionAllowances.allowedPartRemovals,
+    });
     if (!validation.ok) throw new Error(`Export validation failed: ${summarizePackageMessages(validation.errors)}`);
 
     const contentValidation = await validatePowerPointExportContents(
       sourceBuffer,
       output,
-      getDeletionValidationAllowances(engine),
+      deletionAllowances,
     );
     if (!contentValidation.ok) throw new Error(`Export validation failed: ${summarizePackageMessages(contentValidation.errors)}`);
     if (!options.skipRoundTrip) await PresentationEngine.validateRoundTrip(output, engine.slideCount);

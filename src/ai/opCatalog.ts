@@ -301,7 +301,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		crop: { type: 'object', additionalProperties: true, description: 'Image crop fractions.' },
 	})),
 	pptxOp('resetImage', 'image', 'Reset image crop and effects.', slideShapeParams()),
-	pptxOp('replaceImage', 'image', 'Replace image media from a vault file.', slideShapeParams({
+	pptxOp('replaceImage', 'image', 'Replace picture media, or convert a non-picture shape/placeholder into a picture that fills the same transform box.', slideShapeParams({
 		vaultImagePath: { type: 'string' },
 	})),
 

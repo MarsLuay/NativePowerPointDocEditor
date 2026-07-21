@@ -519,11 +519,17 @@ function mergePreservedGraphicFrames(previousXml: string, exportedXml: string, s
 }
 
 /**
- * Reorder slide XML parts in a buffer to match a renderer slide permutation.
- * `order[newIndex]` is the source slide index that should occupy `newIndex`.
+ * Copy slide XML + `.rels` from `sourceBuffer` into `targetBuffer` according to
+ * `order`, where `order[newIndex]` is the source slide index that should occupy
+ * `newIndex`. Non-slide package parts on the target (presentation manifest,
+ * media, charts, …) are left intact.
  */
-export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]): Promise<ArrayBuffer> {
-  const zip = await extractZip(buffer);
+export async function copySlidesFromSourceBuffer(
+  targetBuffer: ArrayBuffer,
+  sourceBuffer: ArrayBuffer,
+  order: number[]
+): Promise<ArrayBuffer> {
+  const sourceZip = await extractZip(sourceBuffer);
   const textModifications = new Map<string, string>();
 
   for (let newIndex = 0; newIndex < order.length; newIndex++) {
@@ -532,20 +538,51 @@ export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]
 
     const sourcePath = getSlidePath(sourceIndex as number);
     const targetPath = getSlidePath(newIndex);
-    const sourceXml = zip.textFiles.get(sourcePath);
+    const sourceXml = sourceZip.textFiles.get(sourcePath);
     if (sourceXml) {
       textModifications.set(targetPath, sourceXml);
     }
 
     const sourceRelsPath = getRelationshipsPath(sourcePath);
     const targetRelsPath = getRelationshipsPath(targetPath);
-    const sourceRels = zip.textFiles.get(sourceRelsPath);
+    const sourceRels = sourceZip.textFiles.get(sourceRelsPath);
     if (sourceRels) {
       textModifications.set(targetRelsPath, sourceRels);
     }
   }
 
-  return textModifications.size > 0 ? buildZip(buffer, textModifications) : buffer;
+  return textModifications.size > 0 ? buildZip(targetBuffer, textModifications) : targetBuffer;
+}
+
+/**
+ * Reorder slide XML parts in a buffer to match a renderer slide permutation.
+ * `order[newIndex]` is the source slide index that should occupy `newIndex`.
+ */
+export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]): Promise<ArrayBuffer> {
+  return copySlidesFromSourceBuffer(buffer, buffer, order);
+}
+
+/**
+ * Index map after inserting a duplicate of `sourceIndex` at `insertedIdx`.
+ * `slideCount` is the post-insert count. `order[newIndex]` reads from the
+ * pre-insert authoritative package.
+ */
+export function buildDuplicateSlideOrder(
+  slideCount: number,
+  sourceIndex: number,
+  insertedIdx: number
+): number[] {
+  const order: number[] = [];
+  for (let newIndex = 0; newIndex < slideCount; newIndex++) {
+    if (newIndex === insertedIdx) {
+      order.push(sourceIndex);
+    } else if (newIndex < insertedIdx) {
+      order.push(newIndex);
+    } else {
+      order.push(newIndex - 1);
+    }
+  }
+  return order;
 }
 
 export async function mergeSlideGraphicFramesFromBuffer(
@@ -581,7 +618,8 @@ function shouldPreservePackagePart(partPath: string): boolean {
 
 export async function mergeMissingPackageParts(
   previousBuffer: ArrayBuffer,
-  exportedBuffer: ArrayBuffer
+  exportedBuffer: ArrayBuffer,
+  excludedPartPaths: ReadonlySet<string> = new Set(),
 ): Promise<ArrayBuffer> {
   const [previousZip, exportedZip] = await Promise.all([
     extractZip(previousBuffer),
@@ -591,11 +629,13 @@ export async function mergeMissingPackageParts(
   const binaryModifications = new Map<string, Uint8Array>();
 
   for (const [partPath, contents] of previousZip.textFiles) {
+    if (excludedPartPaths.has(partPath)) continue;
     if (!shouldPreservePackagePart(partPath) || exportedZip.textFiles.has(partPath)) continue;
     textModifications.set(partPath, contents);
   }
 
   for (const [partPath, contents] of previousZip.binaryFiles) {
+    if (excludedPartPaths.has(partPath)) continue;
     if (!shouldPreservePackagePart(partPath) || exportedZip.binaryFiles.has(partPath)) continue;
     binaryModifications.set(partPath, contents);
   }

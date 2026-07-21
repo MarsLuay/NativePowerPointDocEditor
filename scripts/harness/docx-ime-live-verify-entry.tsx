@@ -8,6 +8,7 @@ import {
 	countTransformAncestors,
 	findDocxEditorZoomWrapper,
 	neutralizeDocxEditorZoomWrapper,
+	syncDocxImeHiddenProseMirrorAnchor,
 } from '../../src/docxImeTransformNeutralizer';
 
 const DOCX_BUFFER = Uint8Array.from(atob(window.__DOCX_BASE64__!), (char) => char.charCodeAt(0)).buffer;
@@ -71,6 +72,7 @@ function collectMetrics(
 	hostEl: HTMLElement,
 	editorRef: React.RefObject<DocxEditorRef>,
 	compositionStartAnchored: boolean,
+	getRenderedDomContext: () => RenderedDomContext | null,
 ): LiveVerifyMetrics {
 	const editorRoot = findNeutralizerRoot(hostEl);
 	if (!editorRoot) {
@@ -93,9 +95,17 @@ function collectMetrics(
 	if (zoomWrapper) {
 		neutralizeDocxEditorZoomWrapper(zoomWrapper);
 	}
+	const view = editorRef.current?.getEditorRef()?.getView() ?? null;
+	// Force one sync before measuring. Under parallel CI/analysis load the
+	// MutationObserver/rAF path can lag behind the publish timer window.
+	if (view) {
+		syncDocxImeHiddenProseMirrorAnchor(editorRoot, {
+			getEditorView: () => editorRef.current?.getEditorRef()?.getView() ?? null,
+			getRenderedDomContext,
+		});
+	}
 	const wrapper = inspectWrapper(editorRoot);
 	const transformAncestorsOnCaret = editable ? countTransformAncestors(editable) : -1;
-	const view = editorRef.current?.getEditorRef()?.getView() ?? null;
 	const hiddenRoot =
 		view?.dom.closest<HTMLElement>('[data-native-powerpoint-doc-editor-hidden-prosemirror]')
 		?? view?.dom.closest<HTMLElement>('.paged-editor__hidden-pm')
@@ -195,7 +205,13 @@ function DocxLiveVerifyApp({
 			window.setTimeout(() => {
 				document.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true, data: 'に' }));
 				window.setTimeout(() => {
-					const metrics = collectMetrics(scenarioName, hostEl, editorRef, compositionStartAnchored);
+					const metrics = collectMetrics(
+						scenarioName,
+						hostEl,
+						editorRef,
+						compositionStartAnchored,
+						() => renderedDomContextRef.current,
+					);
 					document.body.dataset.metrics = encodeURIComponent(JSON.stringify(metrics));
 					console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(metrics));
 				}, 50);

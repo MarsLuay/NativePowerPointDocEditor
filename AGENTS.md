@@ -288,3 +288,6 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 ## Code analysis — wont-fix
 
 - `src/powerpoint/backend/pptxJsEngine.mjs` (`repo/large-file`): generated pure-JS fallback of `pptx-svg` MoonBit JS backend (`npm run regen:pptx-js`). Must stay Git-tracked for offline Obsidian installs without WASM GC; size is inherent to the engine, not compressible without losing the fallback. External source of truth is the pptx-svg package + regen script.
+- `docx-editor/packages/core/src/layout-bridge/footnoteLayout.ts` (`completeness-audit.todo-marker`): upstream deferred footnote layout marker in the vendored DOCX monorepo; do not “finish” it in the plugin layer.
+- `docx-editor/**/editor.css` (`mobile-web.no-media-queries` / `mobile-web.small-input-font`): DOCX editor CSS targets Obsidian desktop chrome; mobile media-query / 16px input rules are not product requirements for this plugin surface.
+- `src/ai/registerAiCommands.ts` (`obsidian-semantic.dynamic-identifier-unresolved`): command ids come from `AI_COMMAND_IDS.*` constants; static Semgrep cannot resolve the indirection by design.

@@ -134,6 +134,7 @@ import {
   normalizeSvgForDisplay,
   transformsMatch
 } from '../svgUtils';
+import { scaleCroppedPicturePreview } from '../pictureCropPreview';
 import type {
   CanvasScrollPosition,
   DragState,
@@ -254,6 +255,10 @@ export class NativePowerPointView extends FileView {
   private paragraphRemovalPromise: Promise<void> | null = null;
   /** Prevent repeated Delete/Backspace presses from racing an inline range mutation. */
   private rangeDeletionPromise: Promise<void> | null = null;
+  /** Prevent overlapping shape deletes from racing index remap + re-render. */
+  private shapeDeletionPromise: Promise<void> | null = null;
+  /** Another Delete arrived while a shape delete was in flight; rerun with fresh selection. */
+  private shapeDeletionRerunRequested = false;
   private dragState: DragState | null = null;
   private activeEditor: HTMLTextAreaElement | null = null;
   /** Last text intentionally written by this inline-edit transaction. */
@@ -432,7 +437,7 @@ export class NativePowerPointView extends FileView {
       recordHistoryEntry: (entry) => getView().recordHistoryEntry(entry),
       markDirty: () => getView().markDirty(),
       renderCurrentSlide: (keepSelection, expectedGeneration) => getView().renderCurrentSlide(keepSelection, expectedGeneration),
-      clearSelection: () => getView().clearSelection(),
+      clearSelection: (options) => getView().clearSelection(options),
       renderInspector: () => getView().renderInspector(),
       prepareSvgForRender: (svg, isThumbnail) => getView().prepareSvgForRender(svg, isThumbnail),
       createNativeMenu: () => getView().createNativeMenu()
@@ -942,6 +947,24 @@ export class NativePowerPointView extends FileView {
     return true;
   }
 
+  /**
+   * Load an AI undo/redo package into the open view. Clears interactive history
+   * so Ctrl+Z does not fight the durable AI undo stack after a restore.
+   */
+  async reloadFromAgentBuffer(buffer: ArrayBuffer): Promise<void> {
+    if (!this.engine) {
+      throw new Error('Cannot restore AI undo snapshot without a loaded presentation.');
+    }
+    await this.engine.restoreSnapshot(buffer);
+    this.historyController.clear();
+    this.markDirty();
+    await this.renderCurrentSlide();
+    const slideCount = this.engine.slideCount;
+    this.slideFilmstripController.scheduleThumbnailRefresh(
+      Array.from({ length: slideCount }, (_, index) => index),
+    );
+  }
+
   private importPendingAgentUndoHistory(): void {
     const file = this.loadedFile || this.file;
     if (!file || !this.engine) {
@@ -1010,9 +1033,10 @@ export class NativePowerPointView extends FileView {
     this.layoutEl = root.createDiv({ cls: 'native-powerpoint-layout' });
 
     const sidebar = this.layoutEl.createDiv({ cls: 'native-powerpoint-sidebar' });
-    this.registerDomEvent(sidebar, 'pointerdown', () => {
-      this.lastInteractionRegion = 'thumbnails';
-    }, true);
+    // Do not mark region=thumbnails on every sidebar pointerdown. That stole
+    // Delete from selected shapes (and, after partial selection clears, made
+    // Delete no-op so slides/thumbnails looked stuck). Thumbnail clicks and
+    // filmstrip keyboard navigation set the region explicitly.
     const sidebarHeader = sidebar.createDiv({ cls: 'native-powerpoint-sidebar-header', text: this.tb('slides') });
     const addSlideButton = createToolbarIconButton(sidebarHeader, {
       className: 'native-powerpoint-sidebar-add',
@@ -1268,7 +1292,7 @@ export class NativePowerPointView extends FileView {
         label: this.tb('cut'),
         icon: 'scissors',
         onClick: () => void this.cutSelectedShape(),
-        disabled: !canEdit || this.selectedShapeIndex === null
+        disabled: !canEdit || !hasSelection
       },
       {
         label: this.tb('copy'),
@@ -1768,9 +1792,25 @@ export class NativePowerPointView extends FileView {
     return shape?.getAttribute('data-ooxml-shape-type') === 'picture';
   }
 
-  /** Rotated pictures letterbox inside the OOXML frame; fit the visible image bounds. */
+  /** True when the picture has an active srcRect crop (expanded image + clip). */
+  private pictureHasCrop(shape: Element | null): boolean {
+    if (!this.isPictureShape(shape) || !shape) return false;
+    const image = this.getPictureImageElement(shape);
+    if (image?.getAttribute('clip-path')) return true;
+    const srcEdges = ['data-ooxml-blip-src-l', 'data-ooxml-blip-src-t', 'data-ooxml-blip-src-r', 'data-ooxml-blip-src-b'] as const;
+    return srcEdges.some((attribute) => {
+      const value = Number(shape.getAttribute(attribute) ?? 0);
+      return Number.isFinite(value) && value > 0;
+    });
+  }
+
+  /**
+   * Rotated uncropped pictures letterbox inside the OOXML frame; fit the visible
+   * image bounds. Cropped pictures must use the frame/clip instead — the
+   * rendered {@link SVGImageElement} is intentionally larger than the visible crop.
+   */
   private pictureUsesImageSelectionBounds(shape: Element | null): boolean {
-    return this.isPictureShape(shape);
+    return this.isPictureShape(shape) && !this.pictureHasCrop(shape);
   }
 
   private getPictureImageElement(shape: Element | null): SVGImageElement | null {
@@ -1779,14 +1819,49 @@ export class NativePowerPointView extends FileView {
     return image instanceof SVGImageElement ? image : null;
   }
 
+  private getPictureClipRectElement(shape: Element | null): SVGRectElement | null {
+    const image = this.getPictureImageElement(shape);
+    const clipRef = image?.getAttribute('clip-path');
+    const match = clipRef?.match(/url\(\s*#([^)\s]+)\s*\)/i);
+    const clipId = match?.[1];
+    if (!clipId || !shape) return null;
+    const clipPath = shape.querySelector(`clipPath#${CSS.escape(clipId)}`);
+    const rect = clipPath?.querySelector('rect');
+    return rect instanceof SVGRectElement ? rect : null;
+  }
+
+  private readSvgBoxAttrs(element: Element | null): {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null {
+    if (!element) return null;
+    const x = Number(element.getAttribute('x') ?? 0);
+    const y = Number(element.getAttribute('y') ?? 0);
+    const width = Number(element.getAttribute('width') ?? 0);
+    const height = Number(element.getAttribute('height') ?? 0);
+    if (![x, y, width, height].every(Number.isFinite) || width <= 0 || height <= 0) return null;
+    return { x, y, width, height };
+  }
+
   private getPictureSelectionBox(
     shape: SVGGElement,
   ): { left: number; top: number; width: number; height: number } | null {
+    if (this.pictureHasCrop(shape)) {
+      const transform = this.selectedTransform
+        ?? (this.engine ? this.engine.getShapeTransform(shape) : null);
+      if (transform) {
+        const frameBox = this.getTransformSelectionBox(transform);
+        if (frameBox) return frameBox;
+      }
+    }
     const image = this.getPictureImageElement(shape);
     return image ? this.getElementBox(image) : null;
   }
 
   private getShapeSelectionElement(shape: SVGGElement): Element {
+    if (this.pictureHasCrop(shape)) return shape;
     return this.getPictureImageElement(shape) ?? shape;
   }
 
@@ -1814,14 +1889,19 @@ export class NativePowerPointView extends FileView {
     const image = this.getPictureImageElement(shape);
     const imageBox = image ? this.getElementBox(image) : null;
     const ooxmlBox = transform ? this.getTransformSelectionBox(transform) : null;
+    const clipRect = this.getPictureClipRectElement(shape);
+    const clipAttrs = this.readSvgBoxAttrs(clipRect);
     debugLog('selection', 'PowerPoint selection overlay layout', {
       reason,
       slide: this.currentSlide,
       shapeIndex: this.selectedShapeIndex,
       strategy,
       rotation: transform?.rot ?? 0,
+      hasCrop: this.pictureHasCrop(shape),
       groupBox,
       imageBox,
+      imageAttrs: this.readSvgBoxAttrs(image),
+      clipAttrs,
       ooxmlBox,
       box,
       imageTransform: image?.getAttribute('transform') ?? null,
@@ -1932,7 +2012,9 @@ export class NativePowerPointView extends FileView {
   private syncOrientedSelectionOverlayRotation(transform: ShapeTransform): void {
     if (!this.selectionOverlay || !this.engine) return;
     const shape = this.getSelectedShapeElement();
-    if (this.isPictureShape(shape)) {
+    // Uncropped pictures use tight image AABB selection (no CSS rotate).
+    // Cropped pictures use the OOXML frame, so oriented overlay rotation applies.
+    if (this.pictureUsesImageSelectionBounds(shape)) {
       this.selectionOverlay.style.removeProperty('transform');
       this.selectionOverlay.style.removeProperty('transform-origin');
       return;
@@ -1953,7 +2035,14 @@ export class NativePowerPointView extends FileView {
     if (!next) return false;
 
     const selected = this.getSelectedShapeElement();
-    if (this.pictureUsesImageSelectionBounds(selected) && selected) {
+    if (this.isPictureShape(selected) && selected) {
+      // Cropped + rotated: oriented OOXML frame (handles match the visible crop window).
+      if (this.pictureHasCrop(selected) && this.shapeHasRotation(next)) {
+        this.positionOverlayFromTransform(next);
+        this.syncOrientedSelectionOverlayRotation(next);
+        this.logSelectionOverlayLayout('apply', selected, next, null, 'picture-crop-frame-rotate');
+        return true;
+      }
       const box = this.getPictureSelectionBox(selected);
       if (!box) return false;
       this.selectionOverlay.style.removeProperty('transform');
@@ -1964,7 +2053,13 @@ export class NativePowerPointView extends FileView {
         width: `${box.width}px`,
         height: `${box.height}px`,
       });
-      this.logSelectionOverlayLayout('apply', selected, next, box, 'picture-image-bounds');
+      this.logSelectionOverlayLayout(
+        'apply',
+        selected,
+        next,
+        box,
+        this.pictureHasCrop(selected) ? 'picture-crop-frame' : 'picture-image-bounds',
+      );
       return true;
     }
 
@@ -2532,7 +2627,7 @@ export class NativePowerPointView extends FileView {
       }
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
-        if (this.selectedShapeIndex !== null) {
+        if (this.getSelectedIndices().length > 0) {
           event.preventDefault();
           event.stopImmediatePropagation();
           void this.duplicateSelectedShape();
@@ -2574,6 +2669,8 @@ export class NativePowerPointView extends FileView {
         (event.key === 'Delete' || event.key === 'Backspace')
         && this.lastInteractionRegion === 'thumbnails'
       ) {
+        // Filmstrip focus deletes slides. Shape selection is cleared when the
+        // filmstrip is focused (thumbnail click / slide keyboard nav).
         if (this.slideFilmstripController.selectedSlideIndices.size > 0) {
           event.preventDefault();
           void this.slideFilmstripController.deleteSelectedSlides();
@@ -2602,7 +2699,7 @@ export class NativePowerPointView extends FileView {
           });
           return;
         }
-        if (this.selectedShapeIndex !== null || this.selectedShapeIndices.size > 0) {
+        if (hasShapeSelection) {
           event.preventDefault();
           void this.deleteSelectedShape();
         }
@@ -3383,51 +3480,173 @@ export class NativePowerPointView extends FileView {
   }
 
 
-  private async deleteSelectedShape(): Promise<void> {
-    if (!this.engine) return;
-    if (this.selectedShapeIndices.size > 1) {
-      await this.deleteSelectedShapes();
-      return;
+  private getSelectedShapeIndexesForDeletion(): number[] {
+    if (this.selectedShapeIndices.size > 0) {
+      return [...this.selectedShapeIndices];
     }
-    if (this.selectedShapeIndex === null) return;
-    if (!this.ensureEditable('delete object')) return;
+    return this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex];
+  }
 
-    const shapeIndex = this.selectedShapeIndex;
-    debugLog('selection', 'Deleting PowerPoint object', { slide: this.currentSlide, shapeIndex });
-    try {
-      const history = await this.captureHistoryEntry('Delete object');
-      await this.engine.deleteShape(this.currentSlide, shapeIndex);
-      this.clearSelection();
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
-      debugLog('selection', 'Deleted PowerPoint object', { slide: this.currentSlide, shapeIndex });
-    } catch (error) {
-      errorLog('selection', 'PowerPoint object deletion failed', { slide: this.currentSlide, shapeIndex, error });
-      pptNotice('powerpoint:notice.couldNotDeleteObject', { message: cleanError(error) });
+  /**
+   * Tear down drag/inline chrome before a structural delete so a pending text
+   * commit cannot rewrite a just-removed shape, and so resize previews do not
+   * orphan after `slideSurface.empty()`.
+   */
+  private async prepareForShapeDeletion(indices: readonly number[]): Promise<void> {
+    this.dragState = null;
+    this.groupDrag = null;
+    this.selectionDragController.clearDragState();
+    this.snapController.endDrag();
+    this.setResizeCrossedHandleState(false, false);
+
+    if (this.rangeDeletionPromise) {
+      await this.rangeDeletionPromise.catch(() => undefined);
+    }
+    if (this.paragraphRemovalPromise) {
+      await this.paragraphRemovalPromise.catch(() => undefined);
+    }
+
+    if (this.activeEditor) {
+      const editingShape = this.activeEditorTarget?.closest('g[data-ooxml-shape-idx]') ?? null;
+      const editingIndex = editingShape ? getShapeIndex(editingShape) : null;
+      if (editingIndex !== null && indices.includes(editingIndex)) {
+        debugLog('selection', 'Discarding inline editor before deleting its shape', {
+          slide: this.currentSlide,
+          shapeIndex: editingIndex,
+          shapeIndexes: [...indices],
+        });
+        this.removeActiveEditor();
+      } else {
+        await this.finishInlineTextEditing('before-shape-delete');
+      }
+    } else if (this.textCommitPromise) {
+      await this.textCommitPromise.catch(() => undefined);
     }
   }
 
+  /**
+   * Serialize shape deletes. A second Delete during an in-flight delete queues a
+   * rerun that re-reads the live selection so stale indices (post-renumber) are
+   * never reused. Same-shape double-Delete no-ops after selection clears.
+   */
+  private async runExclusiveShapeDeletion(run: () => Promise<void>): Promise<void> {
+    if (this.shapeDeletionPromise) {
+      this.shapeDeletionRerunRequested = true;
+      debugLog('selection', 'Queued overlapping PowerPoint shape delete', {
+        slide: this.currentSlide,
+        reason: 'delete-in-flight',
+      });
+      await this.shapeDeletionPromise.catch(() => undefined);
+      return;
+    }
+
+    this.shapeDeletionPromise = (async () => {
+      do {
+        this.shapeDeletionRerunRequested = false;
+        await run();
+      } while (this.shapeDeletionRerunRequested);
+    })().finally(() => {
+      this.shapeDeletionPromise = null;
+      this.shapeDeletionRerunRequested = false;
+    });
+    await this.shapeDeletionPromise;
+  }
+
+  private async deleteSelectedShape(): Promise<void> {
+    if (!this.engine) return;
+    if (!this.ensureEditable('delete object')) return;
+
+    await this.runExclusiveShapeDeletion(async () => {
+      if (this.selectedShapeIndices.size > 1) {
+        await this.deleteSelectedShapesUnlocked();
+        return;
+      }
+      if (this.selectedShapeIndex === null) {
+        debugLog('selection', 'Skipped queued PowerPoint shape delete without selection', {
+          slide: this.currentSlide,
+        });
+        return;
+      }
+
+      const shapeIndex = this.selectedShapeIndex;
+      if (!isEditableShapeIndex(shapeIndex)) {
+        pptNotice('powerpoint:notice.objectNotEditable');
+        return;
+      }
+
+      debugLog('selection', 'Deleting PowerPoint object', {
+        slide: this.currentSlide,
+        shapeIndex,
+        interactionRegion: this.lastInteractionRegion,
+      });
+      try {
+        await this.prepareForShapeDeletion([shapeIndex]);
+        const history = await this.captureHistoryEntry('Delete object');
+        await this.engine!.deleteShape(this.currentSlide, shapeIndex);
+        this.clearSelection({ skipTextCommit: true });
+        this.markDirty();
+        const rendered = await this.renderCurrentSlide();
+        if (!rendered) {
+          // Keep undo available even when the live surface fails to paint.
+          this.recordHistoryEntry(history);
+          throw new Error('The slide could not be re-rendered after deleting the object.');
+        }
+        this.recordHistoryEntry(history);
+        await this.renderThumbnails();
+        debugLog('selection', 'Deleted PowerPoint object', { slide: this.currentSlide, shapeIndex });
+      } catch (error) {
+        errorLog('selection', 'PowerPoint object deletion failed', { slide: this.currentSlide, shapeIndex, error });
+        pptNotice('powerpoint:notice.couldNotDeleteObject', { message: cleanError(error) });
+      }
+    });
+  }
+
   private async deleteSelectedShapes(): Promise<void> {
-    if (!this.engine || this.selectedShapeIndices.size === 0) return;
+    if (!this.engine) return;
     if (!this.ensureEditable('delete objects')) return;
 
-    const indices = [...this.selectedShapeIndices].sort((a, b) => b - a);
+    await this.runExclusiveShapeDeletion(async () => {
+      await this.deleteSelectedShapesUnlocked();
+    });
+  }
+
+  /** Delete the current multi-selection. Call only under {@link runExclusiveShapeDeletion}. */
+  private async deleteSelectedShapesUnlocked(): Promise<void> {
+    if (!this.engine || this.selectedShapeIndices.size === 0) {
+      debugLog('selection', 'Skipped queued PowerPoint multi-shape delete without selection', {
+        slide: this.currentSlide,
+      });
+      return;
+    }
+
+    const indices = this.getSelectedShapeIndexesForDeletion()
+      .filter((index) => isEditableShapeIndex(index))
+      .sort((a, b) => b - a);
+    if (indices.length === 0) {
+      pptNotice('powerpoint:notice.objectNotEditable');
+      return;
+    }
+
     debugLog('selection', 'Deleting PowerPoint objects', {
       slide: this.currentSlide,
       count: indices.length,
-      shapeIndexes: indices
+      shapeIndexes: indices,
+      interactionRegion: this.lastInteractionRegion,
     });
     const startedAt = Date.now();
     try {
+      await this.prepareForShapeDeletion(indices);
       const history = await this.captureHistoryEntry('Delete objects');
       await this.engine.deleteShapes(this.currentSlide, indices);
-      this.clearSelection();
-      this.recordHistoryEntry(history);
+      this.clearSelection({ skipTextCommit: true });
       this.markDirty();
       const rendered = await this.renderCurrentSlide();
-      if (rendered) this.scheduleThumbnailRefresh(this.currentSlide);
+      if (!rendered) {
+        this.recordHistoryEntry(history);
+        throw new Error('The slide could not be re-rendered after deleting the objects.');
+      }
+      this.recordHistoryEntry(history);
+      this.scheduleThumbnailRefresh(this.currentSlide);
       debugLog('selection', 'Deleted PowerPoint objects', {
         slide: this.currentSlide,
         count: indices.length,
@@ -3515,36 +3734,40 @@ export class NativePowerPointView extends FileView {
   }
 
   private async duplicateSelectedShape(): Promise<void> {
-    if (!this.engine || this.selectedShapeIndex === null) {
+    const shapeIndexes = this.getSelectedIndices();
+    if (!this.engine || shapeIndexes.length === 0) {
       pptNotice('powerpoint:notice.selectObjectToDuplicate');
       return;
     }
     if (!this.ensureEditable('duplicate object')) return;
 
-    const sourceShapeIndex = this.selectedShapeIndex;
-    debugLog('clipboard', 'Duplicating PowerPoint object', {
+    debugLog('clipboard', 'Duplicating PowerPoint objects', {
       slide: this.currentSlide,
-      sourceShapeIndex
+      count: shapeIndexes.length,
+      shapeIndexes,
     });
     try {
-      const history = await this.captureHistoryEntry('Duplicate object');
-      const shapeIndex = await this.engine.duplicateShape(this.currentSlide, sourceShapeIndex);
+      const history = await this.captureHistoryEntry(
+        shapeIndexes.length === 1 ? 'Duplicate object' : 'Duplicate objects',
+      );
+      const clipboard = await this.engine.copyShapes(this.currentSlide, shapeIndexes);
+      const duplicatedIndexes = await this.engine.pasteShapes(clipboard, this.currentSlide);
       this.recordHistoryEntry(history);
       this.markDirty();
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
-        this.selectShape(shapeIndex);
+        this.applyMultiSelection(duplicatedIndexes);
         await this.renderThumbnails();
       }
-      debugLog('clipboard', 'Duplicated PowerPoint object', {
+      debugLog('clipboard', 'Duplicated PowerPoint objects', {
         slide: this.currentSlide,
-        sourceShapeIndex,
-        shapeIndex
+        sourceShapeIndexes: shapeIndexes,
+        shapeIndexes: duplicatedIndexes,
       });
     } catch (error) {
       errorLog('clipboard', 'PowerPoint object duplication failed', {
         slide: this.currentSlide,
-        sourceShapeIndex,
+        shapeIndexes,
         error
       });
       pptNotice('powerpoint:notice.couldNotDuplicateObject', { message: cleanError(error) });
@@ -3552,24 +3775,34 @@ export class NativePowerPointView extends FileView {
   }
 
   private async cutSelectedShape(): Promise<void> {
-    if (!this.engine || this.selectedShapeIndex === null) {
+    const shapeIndexes = this.getSelectedIndices();
+    if (!this.engine || shapeIndexes.length === 0) {
       pptNotice('powerpoint:notice.selectObjectToCut');
       return;
     }
     if (!this.ensureEditable('cut object')) return;
 
-    debugLog('clipboard', 'Cutting PowerPoint object', {
+    debugLog('clipboard', 'Cutting PowerPoint objects', {
       slide: this.currentSlide,
-      shapeIndex: this.selectedShapeIndex
+      count: shapeIndexes.length,
+      shapeIndexes,
     });
     try {
-      this.objectClipboard = await this.engine.copyShape(this.currentSlide, this.selectedShapeIndex);
+      this.objectClipboard = await this.engine.copyShapes(this.currentSlide, shapeIndexes);
       this.updateObjectClipboardAvailability();
       await this.deleteSelectedShape();
-      debugLog('clipboard', 'Cut PowerPoint object', { slide: this.currentSlide });
+      debugLog('clipboard', 'Cut PowerPoint objects', {
+        slide: this.currentSlide,
+        count: shapeIndexes.length,
+        shapeIndexes,
+      });
       pptNotice('powerpoint:notice.cutSlideObject');
     } catch (error) {
-      errorLog('clipboard', 'PowerPoint object cut failed', { slide: this.currentSlide, error });
+      errorLog('clipboard', 'PowerPoint object cut failed', {
+        slide: this.currentSlide,
+        shapeIndexes,
+        error,
+      });
       pptNotice('powerpoint:notice.couldNotCutObject', { message: cleanError(error) });
     }
   }
@@ -3684,7 +3917,8 @@ export class NativePowerPointView extends FileView {
       shapeIndex,
       'Replace image',
       'replace image',
-      (slideIndex, index) => this.engine!.replaceImage(slideIndex, index, bytes, getImageMimeType(file.extension))
+      (slideIndex, index) =>
+        this.engine!.replaceImage(slideIndex, index, bytes, getImageMimeType(file.extension)).then(() => undefined)
     );
   }
 
@@ -3696,7 +3930,7 @@ export class NativePowerPointView extends FileView {
       shapeIndex,
       'Replace image',
       'replace image',
-      (slideIndex, index) => this.engine!.replaceImage(slideIndex, index, bytes, mimeType)
+      (slideIndex, index) => this.engine!.replaceImage(slideIndex, index, bytes, mimeType).then(() => undefined)
     );
   }
 
@@ -8161,6 +8395,9 @@ export class NativePowerPointView extends FileView {
     };
     const runs = Array.from(shape.querySelectorAll('tspan[data-ooxml-run-idx]')).filter(isSVGTSpanElement);
     for (const run of runs) run.textContent = '';
+    // Bullet/number markers are run-less `data-ooxml-para-idx` containers.
+    // Clearing only runs leaves • / 1. glyphs painted until commit re-renders.
+    this.setLiveListMarkersHidden(target.shapeIndex, true);
     debugLog('text-edit', 'Prepared whole-shape inline text replacement', {
       slide: this.currentSlide,
       shapeIndex: target.shapeIndex,
@@ -8946,8 +9183,18 @@ export class NativePowerPointView extends FileView {
 
   private getSelectedShapeElement(): SVGGElement | null {
     if (!this.svgEl || this.selectedShapeIndex === null) return null;
-    const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${this.selectedShapeIndex}"]`);
-    return isSVGGElement(shape) ? shape : null;
+    // Nested group children can reuse the same idx attribute; prefer the
+    // outermost top-level shape (same rule as renderShapeInPlace / hit-testing).
+    const matches = this.svgEl.querySelectorAll(
+      `g[data-ooxml-shape-idx="${this.selectedShapeIndex}"]`,
+    );
+    for (const candidate of Array.from(matches)) {
+      if (!isSVGGElement(candidate)) continue;
+      if (candidate.parentElement?.closest('g[data-ooxml-shape-idx]')) continue;
+      return candidate;
+    }
+    const fallback = matches[0];
+    return isSVGGElement(fallback) ? fallback : null;
   }
 
   private getTextEditTargetFromSelectedShape(): ShapeTextEditTarget | null {
@@ -8989,6 +9236,7 @@ export class NativePowerPointView extends FileView {
       // advance while the on-slide text stays unchanged until commit re-renders.
       this.refreshShapeParagraphPreviewTarget(target);
       const previewDomText = this.resolveInlinePreviewDomText(text);
+      const logicalEmpty = stripEmptyParagraphRenderAnchors(text).length === 0;
 
       if (!this.reflowShapeParagraphPreview(target, previewDomText)) {
         const firstRun = target.runElements[0];
@@ -9005,6 +9253,13 @@ export class NativePowerPointView extends FileView {
       }
 
       this.reconcileShapeParagraphPreview(target, previewDomText);
+      // Keep list markers in lockstep with run text. Whole-shape replacement
+      // clears every paragraph at once, so leave all markers hidden until commit.
+      if (this.inlineWholeShapeReplacement?.shapeIndex === target.shapeIndex) {
+        this.setLiveListMarkersHidden(target.shapeIndex, true);
+      } else {
+        this.setLiveListMarkersHidden(target.shapeIndex, logicalEmpty, target.paragraphIndex);
+      }
       return options.replaceTextFrame
         ? this.replaceLiveShapeTextFrame(target)
         : false;
@@ -9370,6 +9625,43 @@ export class NativePowerPointView extends FileView {
   private getRunLineContainers(shapeIndex: number, paragraphIndex: number): SVGTSpanElement[] {
     return this.getParagraphLineContainers(shapeIndex, paragraphIndex)
       .filter((container) => this.collectParagraphRuns(container).length > 0);
+  }
+
+  /** Run-less para containers that paint bullet/number glyphs beside the text. */
+  private getListMarkerLineContainers(shapeIndex: number, paragraphIndex: number): SVGTSpanElement[] {
+    return this.getParagraphLineContainers(shapeIndex, paragraphIndex)
+      .filter((container) => this.collectParagraphRuns(container).length === 0);
+  }
+
+  /**
+   * Hide or restore list marker containers during live inline preview.
+   * Markers are not OOXML runs, so run-only preview clears leave them painted
+   * until a full shape re-render on blur/commit.
+   */
+  private setLiveListMarkersHidden(
+    shapeIndex: number,
+    hidden: boolean,
+    paragraphIndex?: number,
+  ): void {
+    const shape = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
+    if (!shape) return;
+
+    const containers = paragraphIndex === undefined
+      ? Array.from(shape.querySelectorAll('tspan[data-ooxml-para-idx]'))
+        .filter(isSVGTSpanElement)
+        .filter((container) => this.collectParagraphRuns(container).length === 0)
+      : this.getListMarkerLineContainers(shapeIndex, paragraphIndex);
+
+    for (const container of containers) {
+      if (hidden) {
+        container.setAttribute('display', 'none');
+        container.setAttribute('data-ooxml-preview-marker-hidden', '1');
+        continue;
+      }
+      if (container.getAttribute('data-ooxml-preview-marker-hidden') !== '1') continue;
+      container.removeAttribute('display');
+      container.removeAttribute('data-ooxml-preview-marker-hidden');
+    }
   }
 
   /**
@@ -10990,7 +11282,7 @@ export class NativePowerPointView extends FileView {
 
   private getSelectedBox(): { left: number; top: number; width: number; height: number } | null {
     const selected = this.getSelectedShapeElement();
-    if (selected && this.pictureUsesImageSelectionBounds(selected)) {
+    if (selected && this.isPictureShape(selected)) {
       const box = this.getPictureSelectionBox(selected);
       if (box) return box;
     }
@@ -11027,6 +11319,7 @@ export class NativePowerPointView extends FileView {
     const freezeShapeDuringResize = this.shouldFreezeTextDuringResize(mode, previewElement);
     const paneEmuScale = this.getPaneEmuScale();
     const previewImageElement = previewElement ? this.getPictureImageElement(previewElement) : null;
+    const previewClipRectElement = previewElement ? this.getPictureClipRectElement(previewElement) : null;
     const previewText = previewElement?.querySelector('text');
     const previewImageAttrs = previewImageElement
       ? {
@@ -11037,6 +11330,7 @@ export class NativePowerPointView extends FileView {
           transform: previewImageElement.getAttribute('transform'),
         }
       : null;
+    const previewClipAttrs = this.readSvgBoxAttrs(previewClipRectElement);
     const excluded = new Set(this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex]);
     this.snapController.beginDrag(excluded);
     if (previewElement) {
@@ -11066,6 +11360,8 @@ export class NativePowerPointView extends FileView {
       paneEmuScaleY: paneEmuScale?.y,
       previewImageElement,
       previewImageAttrs,
+      previewClipRectElement,
+      previewClipAttrs,
     };
     logPptxAction('selection', 'drag', {
       slide: this.currentSlide,
@@ -11184,17 +11480,26 @@ export class NativePowerPointView extends FileView {
   private restorePictureImagePreview(
     image: SVGImageElement | null | undefined,
     attrs: DragState['previewImageAttrs'],
+    clipRect?: SVGRectElement | null,
+    clipAttrs?: DragState['previewClipAttrs'],
   ): void {
-    if (!image || !attrs || !image.isConnected) return;
-    image.style.removeProperty('will-change');
-    image.setAttribute('x', String(attrs.x));
-    image.setAttribute('y', String(attrs.y));
-    image.setAttribute('width', String(attrs.width));
-    image.setAttribute('height', String(attrs.height));
-    if (attrs.transform) {
-      image.setAttribute('transform', attrs.transform);
-    } else {
-      image.removeAttribute('transform');
+    if (image && attrs && image.isConnected) {
+      image.style.removeProperty('will-change');
+      image.setAttribute('x', String(attrs.x));
+      image.setAttribute('y', String(attrs.y));
+      image.setAttribute('width', String(attrs.width));
+      image.setAttribute('height', String(attrs.height));
+      if (attrs.transform) {
+        image.setAttribute('transform', attrs.transform);
+      } else {
+        image.removeAttribute('transform');
+      }
+    }
+    if (clipRect && clipAttrs && clipRect.isConnected) {
+      clipRect.setAttribute('x', String(clipAttrs.x));
+      clipRect.setAttribute('y', String(clipAttrs.y));
+      clipRect.setAttribute('width', String(clipAttrs.width));
+      clipRect.setAttribute('height', String(clipAttrs.height));
     }
   }
 
@@ -11331,6 +11636,7 @@ export class NativePowerPointView extends FileView {
     if (!dragState?.previewImageElement || !dragState.previewImageAttrs) return;
 
     const orig = dragState.previewImageAttrs;
+    const startClip = dragState.previewClipAttrs;
     const startBox = dragState.startBox;
     const sx = startBox.width > 0 ? overlayBox.width / startBox.width : 1;
     const sy = startBox.height > 0 ? overlayBox.height / startBox.height : 1;
@@ -11344,12 +11650,13 @@ export class NativePowerPointView extends FileView {
 
     const rotate = this.parseSvgRotate(orig.transform);
     const rotationDegrees = rotate?.degrees ?? (this.engine ? this.engine.ooxmlToDegrees(dragState.startTransform.rot) : 0);
+    const frameFallback = startClip ?? { width: orig.width, height: orig.height, x: orig.x, y: orig.y };
     const dimensions = this.solveRotatedRectDimensions(
       userSize.width,
       userSize.height,
       rotationDegrees,
-      orig.width,
-      orig.height,
+      frameFallback.width,
+      frameFallback.height,
       sx,
       sy,
     );
@@ -11358,23 +11665,41 @@ export class NativePowerPointView extends FileView {
     if (picture?.getAttribute('data-ooxml-blip-stretch') === '1') {
       image.setAttribute('preserveAspectRatio', 'none');
     }
-    const width = Math.max(1, dimensions.width);
-    const height = Math.max(1, dimensions.height);
-    const centerX = orig.x + orig.width / 2 + userDelta.x;
-    const centerY = orig.y + orig.height / 2 + userDelta.y;
-    const x = centerX - width / 2;
-    const y = centerY - height / 2;
+    const frameWidth = Math.max(1, dimensions.width);
+    const frameHeight = Math.max(1, dimensions.height);
+    const frameCenterX = frameFallback.x + frameFallback.width / 2 + userDelta.x;
+    const frameCenterY = frameFallback.y + frameFallback.height / 2 + userDelta.y;
+    const nextFrame = {
+      x: frameCenterX - frameWidth / 2,
+      y: frameCenterY - frameHeight / 2,
+      width: frameWidth,
+      height: frameHeight,
+    };
 
-    image.setAttribute('x', this.formatSvgNumber(x));
-    image.setAttribute('y', this.formatSvgNumber(y));
-    image.setAttribute('width', this.formatSvgNumber(width));
-    image.setAttribute('height', this.formatSvgNumber(height));
+    let nextImage = nextFrame;
+    if (startClip) {
+      const scaled = scaleCroppedPicturePreview(orig, startClip, nextFrame);
+      nextImage = scaled.image;
+      const clipRect = dragState.previewClipRectElement;
+      if (clipRect?.isConnected) {
+        clipRect.setAttribute('x', this.formatSvgNumber(scaled.clip.x));
+        clipRect.setAttribute('y', this.formatSvgNumber(scaled.clip.y));
+        clipRect.setAttribute('width', this.formatSvgNumber(scaled.clip.width));
+        clipRect.setAttribute('height', this.formatSvgNumber(scaled.clip.height));
+      }
+    }
+
+    image.setAttribute('x', this.formatSvgNumber(nextImage.x));
+    image.setAttribute('y', this.formatSvgNumber(nextImage.y));
+    image.setAttribute('width', this.formatSvgNumber(nextImage.width));
+    image.setAttribute('height', this.formatSvgNumber(nextImage.height));
 
     if (orig.transform && rotate) {
-      const originalCenterX = orig.x + orig.width / 2;
-      const originalCenterY = orig.y + orig.height / 2;
-      const rotateCenterX = centerX + (rotate.centerX === null ? 0 : rotate.centerX - originalCenterX);
-      const rotateCenterY = centerY + (rotate.centerY === null ? 0 : rotate.centerY - originalCenterY);
+      // Cropped pictures rotate around the frame center; uncropped around the image center.
+      const originalCenterX = frameFallback.x + frameFallback.width / 2;
+      const originalCenterY = frameFallback.y + frameFallback.height / 2;
+      const rotateCenterX = frameCenterX + (rotate.centerX === null ? 0 : rotate.centerX - originalCenterX);
+      const rotateCenterY = frameCenterY + (rotate.centerY === null ? 0 : rotate.centerY - originalCenterY);
       const nextRotate =
         `rotate(${this.formatSvgNumber(rotate.degrees)},${this.formatSvgNumber(rotateCenterX)},${this.formatSvgNumber(rotateCenterY)})`;
       image.setAttribute('transform', orig.transform.replace(rotate.raw, nextRotate));
@@ -11589,6 +11914,8 @@ export class NativePowerPointView extends FileView {
     const previewOriginalText = this.dragState.previewOriginalText ?? null;
     const previewImageElement = this.dragState.previewImageElement;
     const previewImageAttrs = this.dragState.previewImageAttrs;
+    const previewClipRectElement = this.dragState.previewClipRectElement;
+    const previewClipAttrs = this.dragState.previewClipAttrs;
     const freezeTextDuringResize = this.dragState.freezeShapeDuringResize ?? false;
     if (previewElement) {
       previewElement.classList.remove('native-powerpoint-shape-drag-preview');
@@ -11611,6 +11938,7 @@ export class NativePowerPointView extends FileView {
       finalTransform: transform,
       preview: 'shape-group',
       freezeTextDuringResize,
+      hasCropPreview: Boolean(previewClipAttrs),
       rotationSnapTarget,
       totalRotationDegrees,
       flippedHorizontal: flipAxes.horizontal,
@@ -11621,7 +11949,12 @@ export class NativePowerPointView extends FileView {
     void this.commitTransform(transform, flipAxes).finally(() => {
       this.restoreShapeDragPreview(previewElement, previewOriginalTransform);
       if (previewElement) this.restoreShapeTextPreview(previewElement, previewOriginalText);
-      this.restorePictureImagePreview(previewImageElement, previewImageAttrs);
+      this.restorePictureImagePreview(
+        previewImageElement,
+        previewImageAttrs,
+        previewClipRectElement,
+        previewClipAttrs,
+      );
     });
   };
 
@@ -11927,11 +12260,10 @@ export class NativePowerPointView extends FileView {
 
   private updateObjectClipboardAvailability(): void {
     const hasSelection = this.getSelectedIndices().length > 0;
-    const hasSingleSelection = this.selectedShapeIndex !== null;
     const canEdit = this.canEdit();
     this.updateObjectClipboardButton(this.copyButton, hasSelection);
     this.updateObjectClipboardButton(this.pasteButton, canEdit && Boolean(this.objectClipboard));
-    this.updateObjectClipboardButton(this.duplicateButton, canEdit && hasSingleSelection);
+    this.updateObjectClipboardButton(this.duplicateButton, canEdit && hasSelection);
     this.updateArrangeAvailability();
   }
 

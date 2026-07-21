@@ -38,11 +38,17 @@ import {
   insertShapeIntoPresentation,
   insertTableIntoPresentation,
   insertTextBoxIntoPresentation,
+  buildDuplicateSlideOrder,
+  copySlidesFromSourceBuffer,
   mergeMissingPackageParts,
   mergeSlideGraphicFramesFromBuffer,
   permuteSlidesInBuffer,
   type ParagraphListStyle
 } from './SlideInsertions';
+import {
+  collectShapeRelationshipIds,
+  pruneAfterShapeDeletion,
+} from './powerpoint/pruneDeletedShapeParts';
 import {
   DRAWINGML_NAMESPACE,
   IMAGE_RELATIONSHIP_TYPE,
@@ -123,8 +129,10 @@ import {
   preserveSlideExtensionLists,
 } from './powerpoint/slideExtensionPreserve';
 import {
+  addProtectedSlideMarkerAllowances,
   collectUnknownElementNames,
   countElementName,
+  countProtectedSlideMarkers,
   type ProtectedSlideMarkerRemovalAllowance,
 } from './PowerPointPackage';
 import {
@@ -457,6 +465,8 @@ export class PresentationEngine {
   private slideBackgroundImages = new Map<number, SlideBackgroundImage>();
   private protectedSlideMarkerRemovalAllowance: ProtectedSlideMarkerRemovalAllowance = {};
   private unknownSlideElementRemovalAllowance = new Map<string, number>();
+  /** Package parts removed by explicit deletes; merge funnels must not resurrect them. */
+  private prunedPackageParts = new Set<string>();
   // Invariant: the lossless package buffer is authoritative; renderer state is derived.
   // Authoritative per-slide run formatting. The renderer's SlideData model drops
   // authored run properties it doesn't model whenever a Wasm-primitive edit
@@ -2064,7 +2074,11 @@ export class PresentationEngine {
     await this.syncCurrentBuffer();
     const rawExport = await this.renderer.exportPptx();
     const mergedSlide = await mergeSlideGraphicFramesFromBuffer(this.currentBuffer, rawExport, slideIndex);
-    const mergedPackage = await mergeMissingPackageParts(this.currentBuffer, mergedSlide);
+    const mergedPackage = await mergeMissingPackageParts(
+      this.currentBuffer,
+      mergedSlide,
+      this.prunedPackageParts,
+    );
     const patched = await applyParagraphListStyle(mergedPackage, slideIndex, shapeIndex, paragraphIndex, style);
     const preserved = await preserveSlideExtensionLists(this.currentBuffer, patched);
     // Re-graft any highlights the renderer stripped before reloading.
@@ -2081,6 +2095,11 @@ export class PresentationEngine {
   clearProtectedSlideMarkerRemovalAllowance(): void {
     this.protectedSlideMarkerRemovalAllowance = {};
     this.unknownSlideElementRemovalAllowance.clear();
+  }
+
+  /** Parts removed by delete; used so list-style merge cannot resurrect orphans. */
+  getPrunedPackageParts(): ReadonlySet<string> {
+    return this.prunedPackageParts;
   }
 
   getUnknownSlideElementRemovalAllowance(): Record<string, number> {
@@ -2102,10 +2121,26 @@ export class PresentationEngine {
 
     this.ensureSlideRunCacheSeeded(slideIndex);
     const startedAt = Date.now();
-    let deletedImageCount = 0;
+    let deletedMarkerCounts: ProtectedSlideMarkerRemovalAllowance = {};
     const deletedUnknownElementCounts = new Map<string, number>();
+    const deletedRelationshipIds: string[] = [];
     let removedIndexes: number[] = [];
-    await this.mutateSlideTree(slideIndex, (slideDoc) => {
+
+    const slidePath = getSlidePath(slideIndex);
+    debugLog('mutate', 'Slide tree mutation started', {
+      op: 'delete-shapes',
+      slide: slideIndex,
+      path: slidePath,
+      authoritativePackage: true,
+    });
+    try {
+      const rawExport = await this.exportRendererState();
+      const zip = await extractZip(rawExport);
+      const slideXml = zip.textFiles.get(slidePath);
+      if (!slideXml) {
+        throw new Error(`Missing slide XML part: ${slidePath}`);
+      }
+      const slideDoc = parseXml(slideXml, slidePath);
       const targets = indexes.map((shapeIndex) => ({
         shapeIndex,
         shape: getShapeElementByRendererIndex(slideDoc, shapeIndex),
@@ -2122,8 +2157,12 @@ export class PresentationEngine {
 
       removedIndexes = topLevelTargets.map(({ shapeIndex }) => shapeIndex);
       for (const { shape } of topLevelTargets) {
-        if (shape.localName === 'pic') deletedImageCount += 1;
         const shapeXml = new XMLSerializer().serializeToString(shape);
+        deletedMarkerCounts = addProtectedSlideMarkerAllowances(
+          deletedMarkerCounts,
+          countProtectedSlideMarkers(shapeXml),
+        );
+        deletedRelationshipIds.push(...collectShapeRelationshipIds(shape));
         for (const elementName of collectUnknownElementNames(shapeXml)) {
           const count = countElementName(shapeXml, elementName);
           deletedUnknownElementCounts.set(
@@ -2135,11 +2174,39 @@ export class PresentationEngine {
         if (!parent) throw new Error('Could not delete shape without a parent element.');
         parent.removeChild(shape);
       }
-    });
-    if (deletedImageCount > 0) {
-      this.protectedSlideMarkerRemovalAllowance.image =
-        (this.protectedSlideMarkerRemovalAllowance.image ?? 0) + deletedImageCount;
+
+      const pruned = await pruneAfterShapeDeletion(
+        rawExport,
+        slideIndex,
+        slideDoc,
+        deletedRelationshipIds,
+      );
+      for (const partPath of pruned.removedPartPaths) {
+        this.prunedPackageParts.add(partPath);
+      }
+      await this.reloadFromBuffer(pruned.buffer, this.slideCountValue);
+      debugLog('mutate', 'Slide tree mutation committed', {
+        op: 'delete-shapes',
+        slide: slideIndex,
+        path: slidePath,
+        removedPartPaths: pruned.removedPartPaths,
+        removedRelationshipIds: pruned.removedRelationshipIds,
+        ms: Date.now() - startedAt,
+      });
+    } catch (error) {
+      errorLog('mutate', 'Slide tree mutation failed', {
+        op: 'delete-shapes',
+        slide: slideIndex,
+        path: slidePath,
+        error,
+      });
+      throw error;
     }
+
+    this.protectedSlideMarkerRemovalAllowance = addProtectedSlideMarkerAllowances(
+      this.protectedSlideMarkerRemovalAllowance,
+      deletedMarkerCounts,
+    );
     for (const [elementName, count] of deletedUnknownElementCounts) {
       this.unknownSlideElementRemovalAllowance.set(
         elementName,
@@ -2151,9 +2218,10 @@ export class PresentationEngine {
       count: removedIndexes.length,
       shapeIndexes: indexes,
       removedShapeIndexes: removedIndexes,
-      deletedImageCount,
+      deletedMarkerCounts,
       deletedUnknownElementCounts: Object.fromEntries(deletedUnknownElementCounts),
-      allowedImageRemovals: this.protectedSlideMarkerRemovalAllowance.image ?? 0,
+      allowedMarkerRemovals: this.getProtectedSlideMarkerRemovalAllowance(),
+      prunedPackagePartCount: this.prunedPackageParts.size,
       ms: Date.now() - startedAt,
     });
   }
@@ -2487,8 +2555,28 @@ export class PresentationEngine {
   }
 
   async duplicateSlide(slideIndex: number): Promise<SlideMoveResult> {
+    // pptx-svg addSlide only copies the layout into a blank slide. Rebuild the
+    // inserted slot from the authoritative package so pictures, groups, tables,
+    // charts, and other slide graphics survive.
+    await this.syncCurrentBuffer();
+    const sourceIndex = slideIndex;
+    const authoritativePackage = this.currentBuffer.slice(0);
     const { slideCount, insertedIdx } = await this.renderer.addSlide(slideIndex, slideIndex);
-    await this.reloadAfterSlideManagement(slideCount);
+    const structuralExport = await this.renderer.exportPptx();
+    const order = buildDuplicateSlideOrder(slideCount, sourceIndex, insertedIdx);
+    const duplicatedPackage = await copySlidesFromSourceBuffer(
+      structuralExport,
+      authoritativePackage,
+      order
+    );
+    const normalizedPackage = await normalizeSlideManifest(duplicatedPackage, slideCount);
+    debugLog('slide', 'Duplicate slide package rebuilt from authoritative source', {
+      sourceIndex,
+      insertedIdx,
+      slideCount,
+      order,
+    });
+    await this.reloadFromBuffer(normalizedPackage, slideCount);
     return { slideIndex: insertedIdx, slideCount };
   }
 
@@ -2838,7 +2926,7 @@ export class PresentationEngine {
     shapeIndex: number,
     bytes: Uint8Array,
     mimeType: string
-  ): Promise<void> {
+  ): Promise<number> {
     const rawExport = await this.exportRendererState();
     const slidePath = getSlidePath(slideIndex);
     const zip = await extractZip(rawExport);
@@ -2850,7 +2938,22 @@ export class PresentationEngine {
     const slideDoc = parseXml(slideXml, slidePath);
     const shape = getShapeElement(slideDoc, shapeIndex);
     if (shape.localName !== 'pic') {
-      throw new Error('The selected object is not an image.');
+      // Convert a non-picture placeholder/shape into a picture that fills the
+      // same transform box (poster "Picture N" frames, empty rects, text slots).
+      const box = getShapeBox(shape);
+      if (!box || box.cx <= 0 || box.cy <= 0) {
+        throw new Error('The selected object has no usable size to fill with an image.');
+      }
+      await this.deleteShape(slideIndex, shapeIndex);
+      const insertedIndex = await this.addImage(slideIndex, bytes, mimeType);
+      await this.applyInsertedShapeTransform(slideIndex, insertedIndex, {
+        x: box.x,
+        y: box.y,
+        cx: box.cx,
+        cy: box.cy,
+        rot: 0,
+      });
+      return insertedIndex;
     }
 
     const blip = getDescendants(shape, 'blip')[0];
@@ -2878,6 +2981,7 @@ export class PresentationEngine {
 
     const patched = await buildZip(rawExport, textModifications, undefined, binaryModifications);
     await this.reloadFromBuffer(patched, this.slideCountValue);
+    return shapeIndex;
   }
 
   /**
@@ -3033,6 +3137,7 @@ export class PresentationEngine {
     await this.pptxDocument.restore(buffer);
     this.resetSlideRunCache();
     this.clearProtectedSlideMarkerRemovalAllowance();
+    this.prunedPackageParts.clear();
   }
 
   private async reloadAfterSlideManagement(expectedSlideCount: number): Promise<void> {

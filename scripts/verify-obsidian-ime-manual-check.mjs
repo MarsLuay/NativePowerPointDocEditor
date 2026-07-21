@@ -158,7 +158,7 @@ async function main() {
 	await bundleHarness();
 
 	const results = [];
-	const maxAttempts = 3;
+	const maxAttempts = 5;
 	for (const scenario of scenarios) {
 		const htmlPath = path.join(outputDir, `${scenario.name}.html`);
 		await writeFile(htmlPath, createHarnessHtml(scenario.name, docxBase64));

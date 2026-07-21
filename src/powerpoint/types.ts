@@ -61,6 +61,14 @@ export interface DragState {
     height: number;
     transform: string | null;
   } | null;
+  /** Crop clip rect (`clipPath > rect`) attrs at drag start, when the picture is cropped. */
+  previewClipRectElement?: SVGRectElement | null;
+  previewClipAttrs?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null;
 }
 
 export interface MarqueeState {

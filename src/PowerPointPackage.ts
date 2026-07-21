@@ -43,6 +43,19 @@ export type ProtectedSlideMarkerRemovalAllowance = Partial<Record<ProtectedSlide
 export interface PowerPointContentValidationOptions {
   allowedMarkerRemovals?: ProtectedSlideMarkerRemovalAllowance;
   allowedUnknownElementRemovals?: Record<string, number>;
+  /** Package parts removed by an explicit delete (media/charts/embeddings). */
+  allowedPartRemovals?: ReadonlySet<string> | readonly string[];
+}
+
+function isAllowedPartRemoval(
+  partPath: string,
+  allowedPartRemovals?: ReadonlySet<string> | readonly string[],
+): boolean {
+  if (!allowedPartRemovals) return false;
+  if (typeof (allowedPartRemovals as ReadonlySet<string>).has === 'function') {
+    return (allowedPartRemovals as ReadonlySet<string>).has(partPath);
+  }
+  return (allowedPartRemovals as readonly string[]).includes(partPath);
 }
 
 const EOCD_SIGNATURE = 0x06054b50;
@@ -221,7 +234,8 @@ export function validatePowerPointPackageStructure(
 export function validatePowerPointExport(
   original: PowerPointPackageInspection,
   exported: PowerPointPackageInspection,
-  expectedSlideCount: number
+  expectedSlideCount: number,
+  options: Pick<PowerPointContentValidationOptions, 'allowedPartRemovals'> = {},
 ): PackageValidationResult {
   const structure = validatePowerPointPackageStructure(exported, expectedSlideCount);
   const errors = [...structure.errors];
@@ -232,6 +246,7 @@ export function validatePowerPointExport(
 
     const exportedEntry = exported.entryMap.get(originalEntry.name);
     if (!exportedEntry) {
+      if (isAllowedPartRemoval(originalEntry.name, options.allowedPartRemovals)) continue;
       errors.push(`Preserved OOXML part was dropped: ${originalEntry.name}`);
       continue;
     }
@@ -269,6 +284,9 @@ export async function validatePowerPointExportContents(
 
   for (const [path, contents] of original.textFiles) {
     if (!shouldPreserveOriginalPart(path)) continue;
+    if (isAllowedPartRemoval(path, options.allowedPartRemovals) && !exported.textFiles.has(path)) {
+      continue;
+    }
     if (exported.textFiles.get(path) !== contents) {
       errors.push(`Preserved OOXML part bytes changed unexpectedly: ${path}`);
     }
@@ -276,6 +294,9 @@ export async function validatePowerPointExportContents(
 
   for (const [path, contents] of original.binaryFiles) {
     if (!shouldPreserveOriginalPart(path)) continue;
+    if (isAllowedPartRemoval(path, options.allowedPartRemovals) && !exported.binaryFiles.has(path)) {
+      continue;
+    }
     const exportedContents = exported.binaryFiles.get(path);
     if (!exportedContents || !sameBytes(contents, exportedContents)) {
       errors.push(`Preserved binary part bytes changed unexpectedly: ${path}`);
@@ -386,6 +407,33 @@ const KNOWN_OOXML_PREFIXES = new Set(['a', 'c', 'm', 'mc', 'p', 'r']);
 
 function countMatches(contents: string, pattern: RegExp): number {
   return Array.from(contents.matchAll(pattern)).length;
+}
+
+/** Count protected markup markers inside OOXML (e.g. a deleted shape subtree). */
+export function countProtectedSlideMarkers(contents: string): ProtectedSlideMarkerRemovalAllowance {
+  const counts: ProtectedSlideMarkerRemovalAllowance = {};
+  for (const marker of PROTECTED_SLIDE_MARKERS) {
+    const count = countMatches(contents, marker.pattern);
+    if (count > 0) {
+      counts[marker.featureId] = count;
+    }
+  }
+  return counts;
+}
+
+/** Add marker-removal allowances from an explicit user mutation. */
+export function addProtectedSlideMarkerAllowances(
+  target: ProtectedSlideMarkerRemovalAllowance,
+  additions: ProtectedSlideMarkerRemovalAllowance,
+): ProtectedSlideMarkerRemovalAllowance {
+  const next: ProtectedSlideMarkerRemovalAllowance = { ...target };
+  for (const [featureId, count] of Object.entries(additions) as Array<
+    [ProtectedSlideMarkerFeatureId, number | undefined]
+  >) {
+    if (!count || count <= 0) continue;
+    next[featureId] = (next[featureId] ?? 0) + count;
+  }
+  return next;
 }
 
 export function collectUnknownElementNames(contents: string): string[] {

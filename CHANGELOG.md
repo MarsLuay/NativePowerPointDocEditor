@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.53] - 2026-07-21
+
+### Fixed
+
+- PowerPoint cropped-image resize handles track the visible clip frame instead of the expanded source image bounds.
+- PowerPoint Delete no longer no-ops after filmstrip focus leaves a stale multi-shape selection.
+- PowerPoint deleting charts/tables/groups records protected-marker allowances so save validation succeeds.
+- PowerPoint cut/duplicate honor multi-select; nested group hit-testing prefers the top-level shape.
+- PowerPoint AI multi-`deleteShape` ops coalesce to one batched delete before index renumber.
+- PowerPoint shape delete prunes orphan media/chart/embedding parts and blocks them from resurrecting on save merge.
+- PowerPoint Cmd+A / whole-box text clear hides bullet and number markers in the live SVG preview (not only after blur).
+- PowerPoint overlapping Delete while a shape delete is in flight queues a fresh-selection rerun instead of dropping the second request.
+
 ## [1.0.52] - 2026-07-17
 
 ### Fixed

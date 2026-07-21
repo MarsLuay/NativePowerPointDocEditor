@@ -21,6 +21,8 @@ export interface PptxViewAgentBridge {
 		label: string,
 		mutate: (engine: PresentationEngine) => Promise<number[]>,
 	): Promise<void>;
+	/** Restore an AI undo/redo snapshot into the open view without nesting history. */
+	reloadFromAgentBuffer(buffer: ArrayBuffer): Promise<void>;
 	saveCurrentPresentation(): Promise<boolean>;
 	getAgentSaveError(): string | null;
 	canUndoAgentEdit(): boolean;

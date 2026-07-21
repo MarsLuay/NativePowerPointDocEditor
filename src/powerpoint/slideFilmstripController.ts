@@ -44,7 +44,7 @@ export interface SlideFilmstripHost {
   recordHistoryEntry(entry: HistoryEntry): void;
   markDirty(): void;
   renderCurrentSlide(keepSelection?: boolean, expectedGeneration?: number): Promise<boolean>;
-  clearSelection(): void;
+  clearSelection(options?: { skipTextCommit?: boolean }): void;
   renderInspector(): void;
   prepareSvgForRender(
     svg: string,
@@ -447,8 +447,25 @@ export class SlideFilmstripController {
     if (index < 0 || index >= this.host.engine.slideCount) return;
 
     const fromSlide = this.host.currentSlide;
+    const focusesFilmstrip =
+      reason === 'thumbnail-click'
+      || reason.startsWith('keyboard-');
+    if (focusesFilmstrip) {
+      this.host.lastInteractionRegion = 'thumbnails';
+    }
+
     if (index === fromSlide) {
-      debugLog('slide', 'goToSlide skipped (already active)', { index, reason });
+      // Re-clicking the active thumbnail must still drop canvas selection so
+      // Delete targets the slide (not a stale shape index set).
+      await this.host.finishInlineTextEditing(`slide-navigation:${reason}`);
+      this.host.clearSelection({ skipTextCommit: true });
+      this.updateThumbnailActiveState();
+      debugLog('slide', 'goToSlide skipped (already active)', {
+        index,
+        reason,
+        clearedShapeSelection: true,
+        interactionRegion: this.host.lastInteractionRegion,
+      });
       return;
     }
 
@@ -465,8 +482,9 @@ export class SlideFilmstripController {
       }
 
       this.host.currentSlide = index;
-      this.host.selectedShapeIndex = null;
-      this.host.selectedTransform = null;
+      // Clear the full multi-select set — nulling only selectedShapeIndex left
+      // selectedShapeIndices populated and made Delete a no-op.
+      this.host.clearSelection();
       const rendered = await this.host.renderCurrentSlide(false, generation);
       if (generation !== this.host.slideRenderGeneration) {
         debugLog('slide', 'goToSlide render discarded (superseded)', { index, generation, reason });

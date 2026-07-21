@@ -15,7 +15,10 @@ export async function exportValidatedPptx(
 ): Promise<ArrayBuffer> {
 	const output = await engine.export();
 	const exportedPackage = inspectPowerPointPackage(output);
-	const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount);
+	const allowedPartRemovals = engine.getPrunedPackageParts();
+	const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount, {
+		allowedPartRemovals,
+	});
 	if (!validation.ok) {
 		throw new Error(`Export validation failed: ${summarizePackageMessages(validation.errors)}`);
 	}
@@ -23,6 +26,7 @@ export async function exportValidatedPptx(
 	const contentValidation = await validatePowerPointExportContents(sourceBuffer, output, {
 		allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
 		allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+		allowedPartRemovals,
 	});
 	if (!contentValidation.ok) {
 		throw new Error(`Export validation failed: ${summarizePackageMessages(contentValidation.errors)}`);
