@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.55] - 2026-07-21
+
+### Fixed
+
+- Settings UI refresh no longer calls `PluginSettingTab.update` (Obsidian API newer than `minAppVersion` 1.8.7; fails `obsidianmd/no-unsupported-api`).
+
 ## [1.0.54] - 2026-07-21
 
 ### Changed

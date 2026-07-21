@@ -745,11 +745,8 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 	}
 
 	private refreshSettingsUi(): void {
-		const update = (this as PluginSettingTab & { update?: () => void }).update;
-		if (typeof update === 'function') {
-			update.call(this);
-			return;
-		}
+		// Always re-render via display path. Do not call PluginSettingTab.update —
+		// that API is newer than minAppVersion 1.8.7 and fails obsidianmd/no-unsupported-api.
 		this.renderSettings();
 	}
 
