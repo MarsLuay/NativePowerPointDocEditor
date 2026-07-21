@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { build } from 'esbuild';
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -8,6 +9,17 @@ import { createRequire } from 'node:module';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const require = createRequire(import.meta.url);
+
+const stubObsidianPlugin = {
+	name: 'stub-obsidian',
+	setup(buildContext) {
+		buildContext.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'stub-obsidian' }));
+		buildContext.onLoad({ filter: /.*/, namespace: 'stub-obsidian' }, () => ({
+			contents: `export const normalizePath = (value) => value.replace(/\\\\/g, '/').replace(/\\/{2,}/g, '/');`,
+			loader: 'js',
+		}));
+	},
+};
 
 let cachedErrorsModule;
 let cachedOpRegistryModule;
@@ -19,6 +31,7 @@ async function loadErrorsModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'ai-errors.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/errors.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -36,6 +49,7 @@ async function loadOpRegistryModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'op-registry.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/opRegistry.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -53,6 +67,7 @@ async function loadAiTestModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'ai-core.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/aiCore.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -61,6 +76,7 @@ async function loadAiTestModule() {
 		platform: 'node',
 		target: 'node22',
 		external: ['./pptxDocumentService', './docxDocumentService', '../PresentationEngine', '../PowerPointPackage'],
+		plugins: [stubObsidianPlugin],
 	});
 	cachedAiCoreModule = require(outfile);
 	return cachedAiCoreModule;
@@ -71,6 +87,7 @@ async function loadManifestWriterModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
 	const outfile = path.join(outputDirectory, 'manifest-writer.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/manifestWriter.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -132,6 +149,18 @@ test('AI op catalog validates known pptx.updateShapeText payload', async () => {
 	assert.equal(result.length, 0);
 
 	const bad = validateDocumentOps([{ op: 'pptx.updateShapeText', slideIndex: 2 }]);
+	assert.ok(bad.some((issue) => issue.code === AI_ERROR_CODES.SCHEMA_INVALID));
+});
+
+test('AI op catalog validates pptx.deleteShape payload', async () => {
+	const { validateDocumentOps } = await loadOpRegistryModule();
+	const { AI_ERROR_CODES } = await loadErrorsModule();
+
+	assert.equal(validateDocumentOps([
+		{ op: 'pptx.deleteShape', slideIndex: 0, shapeIndex: 2 },
+	]).length, 0);
+
+	const bad = validateDocumentOps([{ op: 'pptx.deleteShape', slideIndex: 0 }]);
 	assert.ok(bad.some((issue) => issue.code === AI_ERROR_CODES.SCHEMA_INVALID));
 });
 

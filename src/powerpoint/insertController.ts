@@ -6,7 +6,7 @@ import { createTranslateNotice } from '../i18n/translate';
 import { isElement, isNode } from '../domGuards';
 import { debugLog, errorLog } from '../logger';
 import { createMenuItem, createPopoverShell, positionPopoverBelow } from '../menuControls';
-import type { InsertableShapeGeometry, PresentationEngine } from '../PresentationEngine';
+import type { InsertableShapeGeometry, PresentationEngine, TextBoxInsertOrigin } from '../PresentationEngine';
 import {
   getImageMimeType,
   InsertTableModal,
@@ -279,23 +279,26 @@ export class InsertController {
     });
   }
 
-  async insertTextBox(editImmediately = false): Promise<void> {
+  async insertTextBox(editImmediately = false, origin?: TextBoxInsertOrigin): Promise<void> {
     if (!this.getInsertEngine('insert text box', 'PowerPoint text-box insertion failed')) return;
 
     try {
       const shapeIndex = await this.commitInsertedShape('Add text box', {
         type: 'insert-text-box',
-        slideIndex: this.host.currentSlide
+        slideIndex: this.host.currentSlide,
+        origin,
       }, editImmediately);
 		debugLog('insert', 'Inserted PowerPoint text box', {
 			slide: this.host.currentSlide,
-			shapeIndex
+			shapeIndex,
+        requestedOrigin: origin ?? null,
 		});
     } catch (error) {
       errorLog('insert', 'PowerPoint text-box insertion failed', {
         slide: this.host.currentSlide,
         error
       });
+      this.notice('powerpoint:notice.couldNotAddTextBox', { message: cleanError(error) });
     }
   }
 

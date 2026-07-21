@@ -74,7 +74,7 @@ async function rasterizeSlideToCanvas(
 
   try {
     const image = await loadImageFromUrl(url);
-    const canvas = ownerDocument.createElement('canvas');
+    const canvas = ownerDocument.createEl('canvas');
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
     const context = canvas.getContext('2d');

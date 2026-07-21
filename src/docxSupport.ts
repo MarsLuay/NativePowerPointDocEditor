@@ -43,6 +43,8 @@ export async function registerDocxSupport(
 			() => plugin.pluginSettings.autosave,
 			() => plugin.pluginSettings.createBackupsBeforeSave,
 			() => plugin.pluginSettings.defaultZoom,
+			(wordCount) => plugin.updateDocumentWordCount(leaf, wordCount),
+			() => plugin.clearDocumentWordCount(leaf),
 		),
 	);
 	plugin.registerExtensions(DOCX_EXTENSIONS, VIEW_TYPE_DOCX);
@@ -324,6 +326,23 @@ export function findDocxViewForPath(app: App, path: string): DocxViewAgentBridge
 		}
 	}
 	return null;
+}
+
+/**
+ * Persist every dirty DOCX view before the development hot-reloader disables
+ * the plugin. Returns false when any source file could not be updated so the
+ * caller can keep the current plugin instance and its in-memory edits alive.
+ */
+export async function saveDocxViewsBeforePluginReload(
+	plugin: NativePowerPointDocEditorPlugin,
+): Promise<boolean> {
+	const views = plugin.app.workspace
+		.getLeavesOfType(VIEW_TYPE_DOCX)
+		.map((leaf) => leaf.view)
+		.filter((view): view is DocxView => view instanceof DocxView);
+
+	const results = await Promise.all(views.map((view) => view.saveBeforePluginReload()));
+	return results.every(Boolean);
 }
 
 export function refreshDocxViews(plugin: NativePowerPointDocEditorPlugin) {

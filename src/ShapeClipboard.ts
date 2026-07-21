@@ -22,11 +22,17 @@ export interface SlideObjectClipboard {
   buffer: ArrayBuffer;
   slideIndex: number;
   shapeIndex: number;
+  shapeIndexes: readonly number[];
 }
 
 export interface PasteSlideObjectResult {
   buffer: ArrayBuffer;
   shapeIndex: number;
+}
+
+export interface PasteSlideObjectsResult {
+  buffer: ArrayBuffer;
+  shapeIndexes: number[];
 }
 
 interface PasteContext {
@@ -43,10 +49,21 @@ export function createSlideObjectClipboard(
   slideIndex: number,
   shapeIndex: number
 ): SlideObjectClipboard {
+  return createSlideObjectsClipboard(buffer, slideIndex, [shapeIndex]);
+}
+
+/** Snapshot multiple top-level objects in slide order for one atomic paste. */
+export function createSlideObjectsClipboard(
+  buffer: ArrayBuffer,
+  slideIndex: number,
+  shapeIndexes: readonly number[]
+): SlideObjectClipboard {
+  const normalizedShapeIndexes = normalizeShapeIndexes(shapeIndexes);
   return {
     buffer: buffer.slice(0),
     slideIndex,
-    shapeIndex
+    shapeIndex: normalizedShapeIndexes[0]!,
+    shapeIndexes: normalizedShapeIndexes,
   };
 }
 
@@ -56,6 +73,31 @@ export async function pasteSlideObject(
   destinationSlideIndex: number,
   offsetEmu = DEFAULT_PASTE_OFFSET_EMU
 ): Promise<PasteSlideObjectResult> {
+  const result = await pasteSlideObjects(
+    destinationBuffer,
+    {
+      ...clipboard,
+      shapeIndex: clipboard.shapeIndex,
+      shapeIndexes: [clipboard.shapeIndex],
+    },
+    destinationSlideIndex,
+    offsetEmu,
+  );
+  const [shapeIndex] = result.shapeIndexes;
+  if (shapeIndex === undefined) {
+    throw new Error('Could not paste the selected PowerPoint object.');
+  }
+  return { buffer: result.buffer, shapeIndex };
+}
+
+/** Paste all copied objects into one OOXML/relationship transaction. */
+export async function pasteSlideObjects(
+  destinationBuffer: ArrayBuffer,
+  clipboard: SlideObjectClipboard,
+  destinationSlideIndex: number,
+  offsetEmu = DEFAULT_PASTE_OFFSET_EMU
+): Promise<PasteSlideObjectsResult> {
+  const sourceShapeIndexes = normalizeShapeIndexes(clipboard.shapeIndexes);
   const [source, destination] = await Promise.all([
     extractZip(clipboard.buffer),
     extractZip(destinationBuffer)
@@ -83,26 +125,39 @@ export async function pasteSlideObject(
     clonedParts: new Map()
   };
   const destinationShapeTree = getShapeTree(destinationSlideDocument);
-  const clonedShape = destinationSlideDocument.importNode(
-    getShapeElement(sourceSlideDocument, clipboard.shapeIndex),
-    true
-  );
+  const shapeIndexes: number[] = [];
+  for (const sourceShapeIndex of sourceShapeIndexes) {
+    const clonedShape = destinationSlideDocument.importNode(
+      getShapeElement(sourceSlideDocument, sourceShapeIndex),
+      true
+    );
 
-  offsetShape(clonedShape, offsetEmu, offsetEmu);
-  assignUniqueNonVisualIds(destinationSlideDocument, clonedShape);
-  await copyShapeRelationships(sourceSlidePath, destinationSlidePath, clonedShape, context);
-  destinationShapeTree.appendChild(clonedShape);
+    offsetShape(clonedShape, offsetEmu, offsetEmu);
+    assignUniqueNonVisualIds(destinationSlideDocument, clonedShape);
+    await copyShapeRelationships(sourceSlidePath, destinationSlidePath, clonedShape, context);
+    destinationShapeTree.appendChild(clonedShape);
+    shapeIndexes.push(getShapeChildren(destinationShapeTree).length - 1);
+  }
 
   context.textModifications.set(destinationSlidePath, serializeXml(destinationSlideDocument));
   context.textModifications.set('[Content_Types].xml', serializeXml(contentTypesDocument));
-  const shapeIndex = getShapeChildren(destinationShapeTree).length - 1;
   const buffer = await buildZip(
     destinationBuffer,
     context.textModifications,
     undefined,
     context.binaryModifications
   );
-  return { buffer, shapeIndex };
+  return { buffer, shapeIndexes };
+}
+
+function normalizeShapeIndexes(shapeIndexes: readonly number[]): number[] {
+  const normalized = [...new Set(shapeIndexes)]
+    .filter((shapeIndex) => Number.isInteger(shapeIndex) && shapeIndex >= 0)
+    .sort((left, right) => left - right);
+  if (normalized.length === 0) {
+    throw new Error('Select at least one PowerPoint object to copy.');
+  }
+  return normalized;
 }
 
 function getRequiredTextFile(zip: ZipContents, partPath: string): string {

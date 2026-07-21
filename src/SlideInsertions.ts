@@ -15,6 +15,10 @@ import {
   parseXml,
   serializeXml,
 } from './powerpoint/ooxmlXml';
+import {
+  applyDrawingParagraphListStyle,
+  type ParagraphListStyle,
+} from './powerpoint/paragraphListStyle';
 
 const DRAWINGML_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const PACKAGE_RELATIONSHIP_NAMESPACE =
@@ -24,16 +28,13 @@ const CONTENT_TYPES_NAMESPACE =
 const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
 
-export type ParagraphListStyle = 'none' | 'bullet' | 'number';
+export type { ParagraphListStyle } from './powerpoint/paragraphListStyle';
 
 export interface SlideInsertionResult {
   buffer: ArrayBuffer;
   shapeIndex: number;
 }
 
-const DEFAULT_LIST_MARGIN_LEFT_EMU = 285750;
-const DEFAULT_LIST_HANGING_INDENT_EMU = -285750;
-const DEFAULT_BULLET_FONT = 'Arial';
 
 function getSlidePath(slideIndex: number): string {
   return `ppt/slides/slide${slideIndex + 1}.xml`;
@@ -518,11 +519,17 @@ function mergePreservedGraphicFrames(previousXml: string, exportedXml: string, s
 }
 
 /**
- * Reorder slide XML parts in a buffer to match a renderer slide permutation.
- * `order[newIndex]` is the source slide index that should occupy `newIndex`.
+ * Copy slide XML + `.rels` from `sourceBuffer` into `targetBuffer` according to
+ * `order`, where `order[newIndex]` is the source slide index that should occupy
+ * `newIndex`. Non-slide package parts on the target (presentation manifest,
+ * media, charts, …) are left intact.
  */
-export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]): Promise<ArrayBuffer> {
-  const zip = await extractZip(buffer);
+export async function copySlidesFromSourceBuffer(
+  targetBuffer: ArrayBuffer,
+  sourceBuffer: ArrayBuffer,
+  order: number[]
+): Promise<ArrayBuffer> {
+  const sourceZip = await extractZip(sourceBuffer);
   const textModifications = new Map<string, string>();
 
   for (let newIndex = 0; newIndex < order.length; newIndex++) {
@@ -531,20 +538,51 @@ export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]
 
     const sourcePath = getSlidePath(sourceIndex as number);
     const targetPath = getSlidePath(newIndex);
-    const sourceXml = zip.textFiles.get(sourcePath);
+    const sourceXml = sourceZip.textFiles.get(sourcePath);
     if (sourceXml) {
       textModifications.set(targetPath, sourceXml);
     }
 
     const sourceRelsPath = getRelationshipsPath(sourcePath);
     const targetRelsPath = getRelationshipsPath(targetPath);
-    const sourceRels = zip.textFiles.get(sourceRelsPath);
+    const sourceRels = sourceZip.textFiles.get(sourceRelsPath);
     if (sourceRels) {
       textModifications.set(targetRelsPath, sourceRels);
     }
   }
 
-  return textModifications.size > 0 ? buildZip(buffer, textModifications) : buffer;
+  return textModifications.size > 0 ? buildZip(targetBuffer, textModifications) : targetBuffer;
+}
+
+/**
+ * Reorder slide XML parts in a buffer to match a renderer slide permutation.
+ * `order[newIndex]` is the source slide index that should occupy `newIndex`.
+ */
+export async function permuteSlidesInBuffer(buffer: ArrayBuffer, order: number[]): Promise<ArrayBuffer> {
+  return copySlidesFromSourceBuffer(buffer, buffer, order);
+}
+
+/**
+ * Index map after inserting a duplicate of `sourceIndex` at `insertedIdx`.
+ * `slideCount` is the post-insert count. `order[newIndex]` reads from the
+ * pre-insert authoritative package.
+ */
+export function buildDuplicateSlideOrder(
+  slideCount: number,
+  sourceIndex: number,
+  insertedIdx: number
+): number[] {
+  const order: number[] = [];
+  for (let newIndex = 0; newIndex < slideCount; newIndex++) {
+    if (newIndex === insertedIdx) {
+      order.push(sourceIndex);
+    } else if (newIndex < insertedIdx) {
+      order.push(newIndex);
+    } else {
+      order.push(newIndex - 1);
+    }
+  }
+  return order;
 }
 
 export async function mergeSlideGraphicFramesFromBuffer(
@@ -580,7 +618,8 @@ function shouldPreservePackagePart(partPath: string): boolean {
 
 export async function mergeMissingPackageParts(
   previousBuffer: ArrayBuffer,
-  exportedBuffer: ArrayBuffer
+  exportedBuffer: ArrayBuffer,
+  excludedPartPaths: ReadonlySet<string> = new Set(),
 ): Promise<ArrayBuffer> {
   const [previousZip, exportedZip] = await Promise.all([
     extractZip(previousBuffer),
@@ -590,11 +629,13 @@ export async function mergeMissingPackageParts(
   const binaryModifications = new Map<string, Uint8Array>();
 
   for (const [partPath, contents] of previousZip.textFiles) {
+    if (excludedPartPaths.has(partPath)) continue;
     if (!shouldPreservePackagePart(partPath) || exportedZip.textFiles.has(partPath)) continue;
     textModifications.set(partPath, contents);
   }
 
   for (const [partPath, contents] of previousZip.binaryFiles) {
+    if (excludedPartPaths.has(partPath)) continue;
     if (!shouldPreservePackagePart(partPath) || exportedZip.binaryFiles.has(partPath)) continue;
     binaryModifications.set(partPath, contents);
   }
@@ -615,96 +656,6 @@ function getDrawingParagraphs(container: Element): Element[] {
   );
 }
 
-function ensureParagraphProperties(paragraph: Element): Element {
-  let properties = getElementChildren(paragraph).find(
-    (element) => element.localName === 'pPr' && element.namespaceURI === DRAWINGML_NAMESPACE
-  );
-  if (!properties) {
-    properties = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:pPr');
-    paragraph.insertBefore(properties, paragraph.firstChild);
-  }
-  return properties;
-}
-
-function clearListMarkers(properties: Element): void {
-  for (const child of getElementChildren(properties)) {
-    if (child.localName === 'buChar' || child.localName === 'buAutoNum' || child.localName === 'buNone') {
-      properties.removeChild(child);
-    }
-  }
-}
-
-function insertParagraphPropertyChild(properties: Element, child: Element): void {
-  const tail = getElementChildren(properties).find((element) =>
-    element.localName === 'tabLst' || element.localName === 'defRPr' || element.localName === 'extLst'
-  );
-  properties.insertBefore(child, tail ?? null);
-}
-
-function ensureDefaultListIndent(properties: Element): void {
-  if (!properties.hasAttribute('marL')) {
-    properties.setAttribute('marL', String(DEFAULT_LIST_MARGIN_LEFT_EMU));
-  }
-  if (!properties.hasAttribute('indent')) {
-    properties.setAttribute('indent', String(DEFAULT_LIST_HANGING_INDENT_EMU));
-  }
-}
-
-function clearDefaultListIndent(properties: Element): void {
-  if (properties.getAttribute('marL') === String(DEFAULT_LIST_MARGIN_LEFT_EMU)) {
-    properties.removeAttribute('marL');
-  }
-  if (properties.getAttribute('indent') === String(DEFAULT_LIST_HANGING_INDENT_EMU)) {
-    properties.removeAttribute('indent');
-  }
-}
-
-function ensureBulletFont(properties: Element): void {
-  const hasBulletFont = getElementChildren(properties).some(
-    (child) => child.localName === 'buFont' || child.localName === 'buFontTx'
-  );
-  if (hasBulletFont) return;
-
-  const font = properties.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buFont');
-  font.setAttribute('typeface', DEFAULT_BULLET_FONT);
-  insertParagraphPropertyChild(properties, font);
-}
-
-function clearDefaultBulletFont(properties: Element): void {
-  for (const child of getElementChildren(properties)) {
-    if (child.localName === 'buFont' && child.getAttribute('typeface') === DEFAULT_BULLET_FONT) {
-      properties.removeChild(child);
-    }
-  }
-}
-
-function applyListStyleToParagraph(paragraph: Element, style: ParagraphListStyle): void {
-  const properties = ensureParagraphProperties(paragraph);
-  clearListMarkers(properties);
-
-  if (style === 'none') {
-    clearDefaultListIndent(properties);
-    clearDefaultBulletFont(properties);
-    const marker = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buNone');
-    insertParagraphPropertyChild(properties, marker);
-    return;
-  }
-
-  ensureDefaultListIndent(properties);
-
-  if (style === 'bullet') {
-    ensureBulletFont(properties);
-    const marker = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buChar');
-    marker.setAttribute('char', '•');
-    insertParagraphPropertyChild(properties, marker);
-    return;
-  }
-
-  const marker = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:buAutoNum');
-  marker.setAttribute('type', 'arabicPeriod');
-  insertParagraphPropertyChild(properties, marker);
-}
-
 export async function applyParagraphListStyle(
   buffer: ArrayBuffer,
   slideIndex: number,
@@ -722,6 +673,6 @@ export async function applyParagraphListStyle(
     throw new Error('Could not find the selected text paragraph.');
   }
 
-  applyListStyleToParagraph(paragraph, style);
+  applyDrawingParagraphListStyle(paragraph, style);
   return buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));
 }

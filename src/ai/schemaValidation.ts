@@ -52,6 +52,16 @@ function validateValue(
 		return;
 	}
 
+	if (expectedType === 'string' && typeof value === 'string') {
+		if (typeof schema.minLength === 'number' && value.trim().length < schema.minLength) {
+			issues.push({
+				path,
+				message: `Expected string with minLength ${schema.minLength} after trim.`,
+			});
+		}
+		return;
+	}
+
 	if (expectedType === 'array' && Array.isArray(value) && schema.items) {
 		value.forEach((item, index) => {
 			validateValue(item, schema.items as JsonSchema, `${path}[${index}]`, issues);

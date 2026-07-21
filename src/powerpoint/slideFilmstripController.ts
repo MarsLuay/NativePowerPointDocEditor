@@ -44,7 +44,7 @@ export interface SlideFilmstripHost {
   recordHistoryEntry(entry: HistoryEntry): void;
   markDirty(): void;
   renderCurrentSlide(keepSelection?: boolean, expectedGeneration?: number): Promise<boolean>;
-  clearSelection(): void;
+  clearSelection(options?: { skipTextCommit?: boolean }): void;
   renderInspector(): void;
   prepareSvgForRender(
     svg: string,
@@ -175,16 +175,30 @@ export class SlideFilmstripController {
     if (!this.host.engine || !this.host.thumbnailContainer) return;
 
     const thumbnailStarted = performance.now();
-    const slideCount = this.host.engine.slideCount;
+    const engine = this.host.engine;
+    const thumbnailContainer = this.host.thumbnailContainer;
+    const slideCount = engine.slideCount;
     const generation = ++this.thumbnailRenderGeneration;
     const lazy = shouldUseLazyThumbnails(slideCount);
     debugLog('render', 'PowerPoint renderThumbnails start', { slideCount, lazy });
+
+    const { cx, cy } = await engine.getSlideSizeEmu();
+    if (
+      generation !== this.thumbnailRenderGeneration
+      || engine !== this.host.engine
+      || thumbnailContainer !== this.host.thumbnailContainer
+    ) {
+      return;
+    }
+    const aspectRatio = `${cx} / ${cy}`;
+    thumbnailContainer.style.setProperty('--native-powerpoint-thumbnail-aspect-ratio', aspectRatio);
+    debugLog('render', 'PowerPoint thumbnail aspect ratio resolved', { cx, cy, aspectRatio });
 
     this.disconnectThumbnailObserver();
     this.cancelIdleThumbnailFill?.();
     this.cancelIdleThumbnailFill = null;
     this.renderedThumbnailIndices.clear();
-    this.host.thumbnailContainer.empty();
+    thumbnailContainer.empty();
 
     for (let index = 0; index < slideCount; index += 1) {
       this.appendThumbnailShell(index, !lazy);
@@ -433,8 +447,25 @@ export class SlideFilmstripController {
     if (index < 0 || index >= this.host.engine.slideCount) return;
 
     const fromSlide = this.host.currentSlide;
+    const focusesFilmstrip =
+      reason === 'thumbnail-click'
+      || reason.startsWith('keyboard-');
+    if (focusesFilmstrip) {
+      this.host.lastInteractionRegion = 'thumbnails';
+    }
+
     if (index === fromSlide) {
-      debugLog('slide', 'goToSlide skipped (already active)', { index, reason });
+      // Re-clicking the active thumbnail must still drop canvas selection so
+      // Delete targets the slide (not a stale shape index set).
+      await this.host.finishInlineTextEditing(`slide-navigation:${reason}`);
+      this.host.clearSelection({ skipTextCommit: true });
+      this.updateThumbnailActiveState();
+      debugLog('slide', 'goToSlide skipped (already active)', {
+        index,
+        reason,
+        clearedShapeSelection: true,
+        interactionRegion: this.host.lastInteractionRegion,
+      });
       return;
     }
 
@@ -451,8 +482,9 @@ export class SlideFilmstripController {
       }
 
       this.host.currentSlide = index;
-      this.host.selectedShapeIndex = null;
-      this.host.selectedTransform = null;
+      // Clear the full multi-select set — nulling only selectedShapeIndex left
+      // selectedShapeIndices populated and made Delete a no-op.
+      this.host.clearSelection();
       const rendered = await this.host.renderCurrentSlide(false, generation);
       if (generation !== this.host.slideRenderGeneration) {
         debugLog('slide', 'goToSlide render discarded (superseded)', { index, generation, reason });

@@ -25,6 +25,39 @@ export interface PackageValidationResult {
   warnings: string[];
 }
 
+export type ProtectedSlideMarkerFeatureId =
+  | 'animationTiming'
+  | 'chart'
+  | 'groupedShape'
+  | 'hyperlink'
+  | 'image'
+  | 'slideExtension'
+  | 'table';
+
+/**
+ * Narrowly permits protected markup removed by an explicit user mutation.
+ * Any removal beyond the recorded allowance remains a validation failure.
+ */
+export type ProtectedSlideMarkerRemovalAllowance = Partial<Record<ProtectedSlideMarkerFeatureId, number>>;
+
+export interface PowerPointContentValidationOptions {
+  allowedMarkerRemovals?: ProtectedSlideMarkerRemovalAllowance;
+  allowedUnknownElementRemovals?: Record<string, number>;
+  /** Package parts removed by an explicit delete (media/charts/embeddings). */
+  allowedPartRemovals?: ReadonlySet<string> | readonly string[];
+}
+
+function isAllowedPartRemoval(
+  partPath: string,
+  allowedPartRemovals?: ReadonlySet<string> | readonly string[],
+): boolean {
+  if (!allowedPartRemovals) return false;
+  if (typeof (allowedPartRemovals as ReadonlySet<string>).has === 'function') {
+    return (allowedPartRemovals as ReadonlySet<string>).has(partPath);
+  }
+  return (allowedPartRemovals as readonly string[]).includes(partPath);
+}
+
 const EOCD_SIGNATURE = 0x06054b50;
 const CENTRAL_DIRECTORY_SIGNATURE = 0x02014b50;
 const EOCD_MIN_LENGTH = 22;
@@ -201,7 +234,8 @@ export function validatePowerPointPackageStructure(
 export function validatePowerPointExport(
   original: PowerPointPackageInspection,
   exported: PowerPointPackageInspection,
-  expectedSlideCount: number
+  expectedSlideCount: number,
+  options: Pick<PowerPointContentValidationOptions, 'allowedPartRemovals'> = {},
 ): PackageValidationResult {
   const structure = validatePowerPointPackageStructure(exported, expectedSlideCount);
   const errors = [...structure.errors];
@@ -212,6 +246,7 @@ export function validatePowerPointExport(
 
     const exportedEntry = exported.entryMap.get(originalEntry.name);
     if (!exportedEntry) {
+      if (isAllowedPartRemoval(originalEntry.name, options.allowedPartRemovals)) continue;
       errors.push(`Preserved OOXML part was dropped: ${originalEntry.name}`);
       continue;
     }
@@ -238,7 +273,8 @@ export function validatePowerPointExport(
 
 export async function validatePowerPointExportContents(
   originalBuffer: ArrayBuffer,
-  exportedBuffer: ArrayBuffer
+  exportedBuffer: ArrayBuffer,
+  options: PowerPointContentValidationOptions = {},
 ): Promise<PackageValidationResult> {
   const [original, exported] = await Promise.all([
     extractZip(originalBuffer),
@@ -248,6 +284,9 @@ export async function validatePowerPointExportContents(
 
   for (const [path, contents] of original.textFiles) {
     if (!shouldPreserveOriginalPart(path)) continue;
+    if (isAllowedPartRemoval(path, options.allowedPartRemovals) && !exported.textFiles.has(path)) {
+      continue;
+    }
     if (exported.textFiles.get(path) !== contents) {
       errors.push(`Preserved OOXML part bytes changed unexpectedly: ${path}`);
     }
@@ -255,6 +294,9 @@ export async function validatePowerPointExportContents(
 
   for (const [path, contents] of original.binaryFiles) {
     if (!shouldPreserveOriginalPart(path)) continue;
+    if (isAllowedPartRemoval(path, options.allowedPartRemovals) && !exported.binaryFiles.has(path)) {
+      continue;
+    }
     const exportedContents = exported.binaryFiles.get(path);
     if (!exportedContents || !sameBytes(contents, exportedContents)) {
       errors.push(`Preserved binary part bytes changed unexpectedly: ${path}`);
@@ -269,13 +311,20 @@ export async function validatePowerPointExportContents(
     for (const marker of PROTECTED_SLIDE_MARKERS) {
       const originalCount = countMatches(originalSlideXml, marker.pattern);
       const exportedCount = countMatches(exportedSlideXml, marker.pattern);
-      if (exportedCount < originalCount) {
+      const removedCount = Math.max(0, originalCount - exportedCount);
+      const allowedCount = Math.max(0, Math.floor(options.allowedMarkerRemovals?.[marker.featureId] ?? 0));
+      if (removedCount > allowedCount) {
         errors.push(`Slide edit dropped ${marker.featureId} markup.`);
       }
     }
 
     for (const elementName of collectUnknownElementNames(originalSlideXml)) {
-      if (countElementName(exportedSlideXml, elementName) < countElementName(originalSlideXml, elementName)) {
+      const removedCount = Math.max(
+        0,
+        countElementName(originalSlideXml, elementName) - countElementName(exportedSlideXml, elementName),
+      );
+      const allowedCount = Math.max(0, Math.floor(options.allowedUnknownElementRemovals?.[elementName] ?? 0));
+      if (removedCount > allowedCount) {
         errors.push(`Slide edit dropped unknown OOXML element <${elementName}>.`);
       }
     }
@@ -344,7 +393,7 @@ function sameStoredContent(a: PowerPointPackageEntry, b: PowerPointPackageEntry)
   return a.crc32 === b.crc32 && a.uncompressedSize === b.uncompressedSize;
 }
 
-const PROTECTED_SLIDE_MARKERS = [
+const PROTECTED_SLIDE_MARKERS: ReadonlyArray<{ featureId: ProtectedSlideMarkerFeatureId; pattern: RegExp }> = [
   { featureId: 'animationTiming', pattern: /<p:timing\b/g },
   { featureId: 'chart', pattern: /<c:chart\b/g },
   { featureId: 'groupedShape', pattern: /<p:grpSp\b/g },
@@ -360,7 +409,34 @@ function countMatches(contents: string, pattern: RegExp): number {
   return Array.from(contents.matchAll(pattern)).length;
 }
 
-function collectUnknownElementNames(contents: string): string[] {
+/** Count protected markup markers inside OOXML (e.g. a deleted shape subtree). */
+export function countProtectedSlideMarkers(contents: string): ProtectedSlideMarkerRemovalAllowance {
+  const counts: ProtectedSlideMarkerRemovalAllowance = {};
+  for (const marker of PROTECTED_SLIDE_MARKERS) {
+    const count = countMatches(contents, marker.pattern);
+    if (count > 0) {
+      counts[marker.featureId] = count;
+    }
+  }
+  return counts;
+}
+
+/** Add marker-removal allowances from an explicit user mutation. */
+export function addProtectedSlideMarkerAllowances(
+  target: ProtectedSlideMarkerRemovalAllowance,
+  additions: ProtectedSlideMarkerRemovalAllowance,
+): ProtectedSlideMarkerRemovalAllowance {
+  const next: ProtectedSlideMarkerRemovalAllowance = { ...target };
+  for (const [featureId, count] of Object.entries(additions) as Array<
+    [ProtectedSlideMarkerFeatureId, number | undefined]
+  >) {
+    if (!count || count <= 0) continue;
+    next[featureId] = (next[featureId] ?? 0) + count;
+  }
+  return next;
+}
+
+export function collectUnknownElementNames(contents: string): string[] {
   const names = new Set<string>();
   for (const match of contents.matchAll(/<([A-Za-z_][\w.-]*):([A-Za-z_][\w.-]*)\b/g)) {
     const prefix = match[1];
@@ -372,7 +448,7 @@ function collectUnknownElementNames(contents: string): string[] {
   return Array.from(names);
 }
 
-function countElementName(contents: string, name: string): number {
+export function countElementName(contents: string, name: string): number {
   return countMatches(contents, new RegExp(`<${escapeRegex(name)}\\b`, 'g'));
 }
 

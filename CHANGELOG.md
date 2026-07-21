@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-07-21
+
+### Changed
+
+- Promote `nightly-releases` (through 1.0.55) onto `main` as the stable catalog branch (vendor-only DOCX runtime).
+
+### Fixed
+
+- Settings UI refresh no longer calls `PluginSettingTab.update` (Obsidian API newer than `minAppVersion` 1.8.7; fails `obsidianmd/no-unsupported-api`).
+
 ## [1.1.2] - 2026-07-17
 
 ### Fixed
@@ -20,19 +30,117 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Re-issue the stable release with CI-built, uniquely attested `main.js` / `styles.css` (avoids digest collision with 1.0.44 and manual release-upload races).
 
-
 ## [1.1.0] - 2026-07-17
 
 ### Changed
 
 - Version bump to 1.1.0 on main (stable 1.0.44 line). Nightly work remains on `nightly-releases` only.
 
+## [1.0.55] - 2026-07-21
 
-## [1.0.44] - 2026-07-15
+### Fixed
+
+- Settings UI refresh no longer calls `PluginSettingTab.update` (Obsidian API newer than `minAppVersion` 1.8.7; fails `obsidianmd/no-unsupported-api`).
+
+## [1.0.54] - 2026-07-21
 
 ### Changed
 
-- Split DOCX editor development into `docx-editor-source` (the full editable monorepo) and `main` (the independently type-checkable plugin). Main now vendors an allowlisted JavaScript/CSS snapshot at `vendor/docx-editor-runtime` behind `src/docx/runtime`.
+- Release-branch DOCX runtime is vendor-only (`vendor/docx-editor-runtime` from `docx-editor-source` via `npm run vendor:docx`). Removed in-repo `docx-editor/` from `nightly-releases`. Documented `docx-editor-source` → `nightly-releases` → `main` flow in AGENTS.md. Removed bogus `versions.json` `"undefined"` key.
+
+### Fixed
+
+- AI/DOCX unit tests resolve vendored `@npde/docx-editor-*` aliases under `vendor/docx-editor-runtime`.
+- Release-branch DOCX font/IME harness scripts skip cleanly when harness entries are absent.
+- Enable `obsidianmd/prefer-active-doc`; document `DOCX_EDITOR_SOURCE_DIR`; bump `dompurify` to 3.4.12.
+- Point CI release/lint at `check:docx-runtime` instead of removed in-repo `build:docx-editor`.
+
+## [1.0.53] - 2026-07-21
+
+### Fixed
+
+- PowerPoint cropped-image resize handles track the visible clip frame instead of the expanded source image bounds.
+- PowerPoint Delete no longer no-ops after filmstrip focus leaves a stale multi-shape selection.
+- PowerPoint deleting charts/tables/groups records protected-marker allowances so save validation succeeds.
+- PowerPoint cut/duplicate honor multi-select; nested group hit-testing prefers the top-level shape.
+- PowerPoint AI multi-`deleteShape` ops coalesce to one batched delete before index renumber.
+- PowerPoint shape delete prunes orphan media/chart/embedding parts and blocks them from resurrecting on save merge.
+- PowerPoint Cmd+A / whole-box text clear hides bullet and number markers in the live SVG preview (not only after blur).
+- PowerPoint overlapping Delete while a shape delete is in flight queues a fresh-selection rerun instead of dropping the second request.
+
+## [1.0.52] - 2026-07-17
+
+### Fixed
+
+- PowerPoint selection outline edge strips move the shape; only corner and mid-edge resize dots stretch it.
+- Multi-select south (and pure vertical) group resize stretches all rows instead of translating the bottom via text preview inverse-compensation.
+- Shift/Ctrl/Meta while a multi-select union outline is active hit-tests shapes underneath instead of forcing group drag.
+- Per-shape dashed outlines appear again as multi-select grows (including marquee preview).
+
+## [1.0.51] - 2026-07-17
+
+### Fixed
+
+- PowerPoint empty/centered text boxes wrap typed characters horizontally instead of stacking one glyph per line.
+- PowerPoint text color/highlight/font popovers keep formatting context after selection clears.
+- PowerPoint Backspace on an empty first paragraph no longer drops the text box out of edit.
+- PowerPoint color-picker swatches stay filled in dark chrome (not blank until hover).
+
+## [1.0.50] - 2026-07-17
+
+### Fixed
+
+- Multi-select move now live-previews selected shapes with the selection outline (not outline-only).
+
+
+## [1.0.49] - 2026-07-17
+
+### Fixed
+
+- PowerPoint whole-shape text commits no longer skip OOXML writes after a live SVG preview update (authoritative baseline text).
+- Inline text preview measurement uses a detached `Window.createEl('canvas')` so pop-out / XML slide documents do not throw during reflow.
+
+## [1.0.48] - 2026-07-16
+
+### Fixed
+
+- Catalog export now removes stale analyzer caches, DOCX test fixtures, source tooling, and TypeScript from the public runtime mirror; its strict surface guard prevents them from returning.
+- PowerPoint **Send forward** and **Send backward** now move a shape exactly one z-order position, including around pictures.
+- PowerPoint selection, inline text previews, shape-fill swatches, and text-box resize behavior stay visually stable while editing.
+
+## [1.0.47] - 2026-07-16
+
+### Added
+
+- AI: `docx.replaceBodyParagraphs` for writing multi-paragraph DOCX bodies without chaining paragraph breaks.
+- AI: `ai.createDocument({ path, kind, paragraphs?, overwrite? })` to create blank vault DOCX/PPTX packages (optional DOCX paragraphs).
+
+### Fixed
+
+- PowerPoint filmstrip thumbnails preserve nonstandard slide aspect ratios instead of forcing a standard format.
+- PowerPoint two-finger gestures pan horizontally and vertically; they no longer invert into pinch zoom, and zoomed canvases can reach the upper and left bounds.
+- PowerPoint rich-text editing: reliable caret/word/paragraph selection, `Ctrl+A` within a text box, and increment/decrement font-size synchronization for mixed-format text.
+- PowerPoint text editing preserves blank paragraphs and reflows content after inserting paragraph breaks instead of overflowing a text box.
+- New PowerPoint text boxes use the right-click position.
+- DOCX editors route a typed space through the active editor once, preventing duplicate spacing.
+
+## [1.0.46] - 2026-07-15
+
+### Fixed
+
+- Catalog mirror verify: comment-marker tests load `docx-editor` package **dist** (no package `src/` in public tree).
+
+## [1.0.45] - 2026-07-15
+
+### Fixed
+
+- DOCX comments: overlapping threads keep marks; empty range repair; flush/save races (hydrate dirty, getComments ref, strip empty comments.xml).
+- Prefer Obsidian DOM helpers (`createEl` / `createDiv` / `createSvg`) over `createElement`; inject host/print CSS via `adoptedStyleSheets`.
+
+### Added
+
+- Settings tab `getSettingDefinitions()` (Obsidian 1.13+ settings search) with dual-support `display()`.
+- Code-analysis ESLint policy requires `obsidianmd/prefer-create-el` and `obsidianmd/settings-tab/prefer-setting-definitions` (`eslint-plugin-obsidianmd` 0.4.1).
 
 ## [1.0.43] - 2026-07-15
 
@@ -45,14 +153,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Code-analysis: `css/theme-system-light-chrome` and `obsidian/vendor-floating-toolbar-tooltip` (plus theme-css mirror check).
-- Catalog mirror ESLint: legacy catalog-shaped builds temporarily used a marker-driven type-aware lint bypass so JS-only package dist could verify (fixes failed 1.0.42 release CI).
+- Catalog mirror ESLint: when `docx-editor/CATALOG_SURFACE.md` is present, disable type-checked TypeScript rules so JS-only package dist verifies (fixes failed 1.0.42 release CI).
 
 ## [1.0.42] - 2026-07-15
 
 ### Changed
 
 - Catalog mirror Option A: public packages are **JS-only** (no package `.d.ts` / `types` fields). Sync drops decls; types stay in the vault. Code-analysis fails catalog-shaped trees that still ship package declarations (`catalog/dts-not-excluded`). Sanitized public `.d.ts` retired.
-- Catalog-shaped builds formerly used a surface-specific helper to omit the TypeScript compiler while esbuild consumed package JavaScript.
+- Catalog surface build skips `tsc` (`scripts/typecheck-for-surface.mjs`) so clean clones typecheck-free via esbuild against package JS.
 - Drop leftover Option A / agent hygiene: ambient-stub `rmSync`, `docs/AGENT-API.md` exclude/gitignore, hazard scanners + async catalog check wrapper, empty `dist/agent`, stale `./agent` docs.
 - Remove always-error MCP mutation stubs (`docx_insert_text` / replace / delete / format / apply_style, `docx_insert_variable`). Drop `@npde/docx-editor-agents` package rows from local READMEs / changeset fixed set.
 
@@ -81,18 +189,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Deduplicate shading parse/serialize and consolidate agent navigation helpers onto `text-utils`.
-- Vault code-analysis scanned the Obsidian-runtime editor packages while skipping demos and unused framework packages.
+- Vault code-analysis scans Obsidian-runtime `docx-editor/packages/{core,react,i18n}` and skips demos / unused framework packages.
 
 ## [1.0.39] - 2026-07-15
 
 ### Fixed
 
-- Unblock Obsidian Community catalog checks: the public mirror shipped dist-only editor packages (no monorepo TypeScript sources, agents, Vue, or Nuxt). Catalog ESLint scanned public `.ts`/`.tsx` regardless of local ESLint ignores.
+- Unblock Obsidian Community catalog checks: public mirror ships dist-only `docx-editor/packages/{core,react,i18n}` (no monorepo TypeScript sources / agents / vue / nuxt). Catalog ESLint scans public `.ts`/`.tsx` regardless of local eslint ignores.
 - Rename command id `copy-native-powerpoint-doc-editor-debug-log` → `copy-debug-log` (plugin id must not appear in command ids).
 
 ### Changed
 
-- Add a catalog-sync utility and make the editor-source build verify committed distribution files on catalog-shaped trees.
+- Add `scripts/sync-obsidian-catalog-mirror.mjs` and make `build:docx-editor` verify committed dist on catalog-shaped trees.
 
 ## [1.0.38] - 2026-07-14
 
@@ -117,11 +225,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Embed the Eigenpal docx-editor source monorepo under `docx-editor/` (1.9.0 pin) and wire package dist into the plugin build; Obsidian downloads remain `main.js` only.
-- Add an editor-source build command and require a fresh monorepo package rebuild on publish.
+- Add `npm run build:docx-editor` and require a fresh monorepo package rebuild on publish.
 
 ### Changed
 
-- Replace `src/vendor/eigenpal` committed packages with in-repository core, React, and i18n packages plus an AgentPanel stub.
+- Replace `src/vendor/eigenpal` committed packages with in-repo `docx-editor/packages/{core,react,i18n}` plus `agentsStub` for AgentPanel.
 - Move the pure-JS PPTX engine to `src/powerpoint/backend/pptxJsEngine.mjs`.
 
 ### Fixed
@@ -410,8 +518,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial community release: open, view, and edit DOCX and PPTX files directly
   inside the Obsidian vault.
 
-[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.44...HEAD
-[1.0.44]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.43...1.0.44
+[Unreleased]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.47...HEAD
+[1.0.47]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.46...1.0.47
 [1.0.28]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.27...1.0.28
 [1.0.27]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.26...1.0.27
 [1.0.26]: https://github.com/MarsLuay/NativePowerPointDocEditor/compare/1.0.25...1.0.26

@@ -20,6 +20,8 @@ export interface PptxDescribedRun {
 export interface PptxDescribedParagraph {
 	id: string;
 	text: string;
+	/** Explicit native list marker, or null when the paragraph has none. */
+	listStyle: 'none' | 'bullet' | 'number' | null;
 	align?: string | null;
 	runs?: PptxDescribedRun[];
 }
@@ -43,7 +45,12 @@ export interface PptxDescribedShape {
 	editable: boolean;
 	text: string | null;
 	paragraphs?: PptxDescribedParagraph[];
-	transform: ShapeTransform;
+	transform: ShapeTransform & {
+		/** Alias of `cx` for agent-facing layout sizing. */
+		width: number;
+		/** Alias of `cy` for agent-facing layout sizing. */
+		height: number;
+	};
 	style: PptxDescribedShapeStyle | null;
 	crop?: ImageCrop | null;
 	chartData?: ChartDataGrid;
@@ -135,6 +142,7 @@ function describeShapeParagraphs(
 		paragraphs.push({
 			id: pptxParagraphId(slideIndex, shapeIndex, paragraphIndex),
 			text,
+			listStyle: engine.getParagraphListStyle(slideIndex, shapeIndex, paragraphIndex),
 			align,
 			runs: runs.length > 0 ? runs : undefined,
 		});
@@ -185,7 +193,11 @@ function describeShape(
 		editable,
 		text,
 		paragraphs: paragraphs.length > 0 ? paragraphs : undefined,
-		transform,
+		transform: {
+			...transform,
+			width: transform.cx,
+			height: transform.cy,
+		},
 		style,
 		...(crop !== undefined ? { crop } : {}),
 		...(chartData ? { chartData } : {}),

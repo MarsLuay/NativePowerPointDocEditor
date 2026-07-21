@@ -320,6 +320,30 @@ export function formatZoom(value: number): string {
 	return `${Math.round(value * 100)}%`;
 }
 
+/**
+ * Minimal declarative settings shape for Obsidian 1.13+ (insider) search indexing.
+ * Typings ship after 1.12.x; keep structural — dual-support with {@link display}.
+ */
+type DeclarativeSettingDefinition = {
+	type?: 'group';
+	heading?: string;
+	name?: string;
+	desc?: string;
+	items?: DeclarativeSettingDefinition[];
+	control?: {
+		type: 'toggle' | 'text' | 'dropdown' | 'slider';
+		key: string;
+		placeholder?: string;
+		defaultValue?: string | number | boolean;
+		options?: Record<string, string>;
+		min?: number;
+		max?: number;
+		step?: number;
+	};
+	render?: (setting: Setting) => void;
+	action?: () => void | Promise<void>;
+};
+
 export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 	plugin: NativePowerPointDocEditorPlugin;
 
@@ -329,6 +353,400 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 	}
 
 	display(): void {
+		this.renderSettings();
+	}
+
+	/**
+	 * Obsidian 1.13+: indexes settings for global search and renders this tree
+	 * (skips {@link display}). Pre-1.13 keeps imperative {@link display}.
+	 */
+	getSettingDefinitions(): DeclarativeSettingDefinition[] {
+		const i18n = this.plugin.getI18n()!;
+		const descriptors = getNativePowerPointDocEditorSettingDescriptors(i18n);
+		const sectionLabels = Object.fromEntries(
+			getNativePowerPointDocEditorSettingsTabSections(i18n).map(({ id, label }) => [id, label]),
+		) as Record<NativePowerPointDocEditorSettingSectionId, string>;
+		const defaultAuthorName = String(descriptors.authorName.defaultValue ?? DEFAULT_SETTINGS.authorName);
+		const defaultTheme = normalizeEditorThemePreference(descriptors.editorTheme.defaultValue);
+		const defaultZoom = normalizeDefaultZoom(descriptors.defaultZoom.defaultValue);
+		const themeOptions = Object.fromEntries(
+			getEditorThemeSettingOptions(i18n, defaultTheme).map((option) => [option.value, option.label]),
+		);
+
+		return [
+			{
+				type: 'group',
+				heading: sectionLabels.identity,
+				items: [
+					{
+						name: descriptors.authorName.name,
+						desc: descriptors.authorName.description,
+						render: (setting) => {
+							setting
+								.addText((text) =>
+									text
+										.setPlaceholder(descriptors.authorName.placeholder ?? defaultAuthorName)
+										.setValue(this.plugin.pluginSettings.authorName)
+										.onChange(async (value) => {
+											this.plugin.pluginSettings.authorName = value.trim() || defaultAuthorName;
+											await this.plugin.saveSettings();
+										}),
+								)
+								.addButton((button) =>
+									button
+										.setButtonText(descriptors.authorName.resetLabel ?? i18n.t('common:actions.reset'))
+										.onClick(async () => {
+											this.plugin.pluginSettings.authorName = defaultAuthorName;
+											await this.plugin.saveSettings();
+											this.refreshSettingsUi();
+										}),
+								);
+						},
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: i18n.t('settings:fileHandoff.section'),
+				items: [
+					{
+						name: descriptors.disableDocxFiles.name,
+						desc: descriptors.disableDocxFiles.description,
+						control: { type: 'toggle', key: 'disableDocxFiles' },
+					},
+					{
+						name: descriptors.disablePowerPointFiles.name,
+						desc: descriptors.disablePowerPointFiles.description,
+						control: { type: 'toggle', key: 'disablePowerPointFiles' },
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: sectionLabels.editorDefaults,
+				items: [
+					{
+						name: descriptors.editorTheme.name,
+						desc: descriptors.editorTheme.description,
+						control: {
+							type: 'dropdown',
+							key: 'editorTheme',
+							defaultValue: defaultTheme,
+							options: themeOptions,
+						},
+					},
+					{
+						name: descriptors.showRuler.name,
+						desc: descriptors.showRuler.description,
+						control: { type: 'toggle', key: 'showRuler' },
+					},
+					{
+						name: descriptors.defaultZoom.name,
+						desc: descriptors.defaultZoom.description,
+						render: (setting) => {
+							const selectedZoom = normalizeDefaultZoom(this.plugin.pluginSettings.defaultZoom);
+							const zoomValueEl = setting.controlEl.createSpan({
+								cls: 'native-powerpoint-doc-editor-setting-value',
+								text: formatZoom(selectedZoom),
+							});
+							setting
+								.addSlider((slider) =>
+									slider
+										.setLimits(MIN_DEFAULT_ZOOM, MAX_DEFAULT_ZOOM, DEFAULT_ZOOM_STEP)
+										.setValue(selectedZoom)
+										.onChange(async (value) => {
+											const zoom = normalizeDefaultZoom(value);
+											this.plugin.pluginSettings.defaultZoom = zoom;
+											zoomValueEl.setText(formatZoom(zoom));
+											await this.plugin.saveSettings();
+										}),
+								)
+								.addButton((button) =>
+									button
+										.setButtonText(descriptors.defaultZoom.resetLabel ?? i18n.t('common:actions.reset'))
+										.onClick(async () => {
+											this.plugin.pluginSettings.defaultZoom = defaultZoom;
+											await this.plugin.saveSettings();
+											this.refreshSettingsUi();
+										}),
+								);
+						},
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: sectionLabels.saving,
+				items: [
+					{
+						name: descriptors.autosave.name,
+						desc: descriptors.autosave.description,
+						control: { type: 'toggle', key: 'autosave' },
+					},
+					{
+						name: descriptors.createBackupsBeforeSave.name,
+						desc: descriptors.createBackupsBeforeSave.description,
+						control: { type: 'toggle', key: 'createBackupsBeforeSave' },
+					},
+					{
+						name: descriptors.powerPointAutosaveEnabled.name,
+						desc: descriptors.powerPointAutosaveEnabled.description,
+						control: { type: 'toggle', key: 'powerPointAutosaveEnabled' },
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: sectionLabels.powerpoint,
+				items: [
+					{
+						name: descriptors.powerPointShowInspector.name,
+						desc: descriptors.powerPointShowInspector.description,
+						control: { type: 'toggle', key: 'powerPointShowInspector' },
+					},
+					{
+						name: descriptors.powerPointHideUnsupportedSvgContent.name,
+						desc: descriptors.powerPointHideUnsupportedSvgContent.description,
+						control: { type: 'toggle', key: 'powerPointHideUnsupportedSvgContent' },
+					},
+					{
+						name: descriptors.powerPointOpenWithYoloMode.name,
+						desc: descriptors.powerPointOpenWithYoloMode.description,
+						control: { type: 'toggle', key: 'powerPointOpenWithYoloMode' },
+					},
+					{
+						name: i18n.t('settings:templates.title'),
+						desc: i18n.t('settings:templates.description'),
+						render: (setting) => {
+							const templateLinks = setting.controlEl.createDiv({ cls: 'native-powerpoint-template-links' });
+							for (const link of FREE_TEMPLATE_LINKS) {
+								templateLinks.createEl('a', {
+									cls: 'native-powerpoint-template-link',
+									text: link.name,
+									attr: {
+										href: link.url,
+										rel: 'noopener noreferrer',
+										target: '_blank',
+									},
+								});
+							}
+						},
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: sectionLabels.search,
+				items: [
+					{
+						name: descriptors.enableDocxSearchIndex.name,
+						desc: descriptors.enableDocxSearchIndex.description,
+						control: { type: 'toggle', key: 'enableDocxSearchIndex' },
+					},
+					{
+						name: descriptors.autoIndexDocxSearch.name,
+						desc: descriptors.autoIndexDocxSearch.description,
+						control: { type: 'toggle', key: 'autoIndexDocxSearch' },
+					},
+					{
+						name: descriptors.rebuildDocxSearchIndex.name,
+						desc: descriptors.rebuildDocxSearchIndex.description,
+						render: (setting) => {
+							setting.addButton((button) =>
+								button
+									.setButtonText(
+										descriptors.rebuildDocxSearchIndex.actionLabel ?? i18n.t('common:actions.rebuild'),
+									)
+									.onClick(async () => {
+										await this.plugin.rebuildDocxSearchIndex(true);
+									}),
+							);
+						},
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: sectionLabels.ai,
+				items: [
+					{
+						name: descriptors.enableAiInterfacing.name,
+						desc: descriptors.enableAiInterfacing.description,
+						control: { type: 'toggle', key: 'enableAiInterfacing' },
+					},
+				],
+			},
+			{
+				type: 'group',
+				heading: sectionLabels.diagnostics,
+				items: [
+					{
+						name: descriptors.debugLogging.name,
+						desc: descriptors.debugLogging.description,
+						control: { type: 'toggle', key: 'debugLogging' },
+					},
+					{
+						name: descriptors.copyDocxLog.name,
+						desc: descriptors.copyDocxLog.description,
+						render: (setting) => {
+							setting.addButton((button) =>
+								button
+									.setButtonText(descriptors.copyDocxLog.actionLabel ?? i18n.t('common:actions.copy'))
+									.onClick(async () => {
+										await this.plugin.copyDebugLog('docx');
+									}),
+							);
+						},
+					},
+					{
+						name: descriptors.copyPptxLog.name,
+						desc: descriptors.copyPptxLog.description,
+						render: (setting) => {
+							setting.addButton((button) =>
+								button
+									.setButtonText(descriptors.copyPptxLog.actionLabel ?? i18n.t('common:actions.copy'))
+									.onClick(async () => {
+										await this.plugin.copyDebugLog('pptx');
+									}),
+							);
+						},
+					},
+					{
+						name: descriptors.copyFullLog.name,
+						desc: descriptors.copyFullLog.description,
+						render: (setting) => {
+							setting.addButton((button) =>
+								button
+									.setButtonText(descriptors.copyFullLog.actionLabel ?? i18n.t('common:actions.copy'))
+									.onClick(async () => {
+										await this.plugin.copyDebugLog('all');
+									}),
+							);
+						},
+					},
+					{
+						name: 'Report bug',
+						render: (setting) => {
+							const reportBugBox = setting.controlEl.createDiv({ cls: 'native-powerpoint-report-bug' });
+							reportBugBox.createEl('a', {
+								cls: 'native-powerpoint-report-bug-link',
+								text: 'Report bug',
+								attr: {
+									href: 'https://github.com/MarsLuay/NativePowerPointDocEditor/issues',
+									rel: 'noopener noreferrer',
+									target: '_blank',
+								},
+							});
+							reportBugBox.createEl('a', {
+								cls: 'native-powerpoint-report-bug-link',
+								text: 'Buy me a coffee',
+								attr: {
+									href: 'https://buymeacoffee.com/marwanluaye',
+									rel: 'noopener noreferrer',
+									target: '_blank',
+								},
+							});
+						},
+					},
+				],
+			},
+		];
+	}
+
+	getControlValue(key: string): unknown {
+		return this.plugin.pluginSettings[key as keyof NativePowerPointDocEditorSettings];
+	}
+
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		const settings = this.plugin.pluginSettings;
+		const i18n = this.plugin.getI18n()!;
+
+		switch (key as keyof NativePowerPointDocEditorSettings) {
+			case 'authorName':
+				settings.authorName = String(value).trim() || DEFAULT_SETTINGS.authorName;
+				break;
+			case 'disableDocxFiles':
+				settings.disableDocxFiles = Boolean(value);
+				await this.plugin.saveSettings();
+				showI18nNotice(i18n, 'settings:fileHandoff.reloadDocxNotice');
+				return;
+			case 'disablePowerPointFiles':
+				settings.disablePowerPointFiles = Boolean(value);
+				await this.plugin.saveSettings();
+				showI18nNotice(i18n, 'settings:fileHandoff.reloadPptxNotice');
+				return;
+			case 'editorTheme':
+				settings.editorTheme = normalizeEditorThemePreference(value);
+				await this.plugin.saveSettings();
+				this.plugin.refreshDocxViews();
+				this.plugin.refreshPowerPointViews();
+				return;
+			case 'showRuler':
+				settings.showRuler = Boolean(value);
+				await this.plugin.saveSettings();
+				this.plugin.refreshDocxViews();
+				return;
+			case 'defaultZoom':
+				settings.defaultZoom = normalizeDefaultZoom(value);
+				break;
+			case 'autosave':
+				settings.autosave = Boolean(value);
+				await this.plugin.saveSettings();
+				this.plugin.refreshDocxViews();
+				return;
+			case 'createBackupsBeforeSave':
+				settings.createBackupsBeforeSave = Boolean(value);
+				await this.plugin.saveSettings();
+				this.plugin.refreshDocxViews();
+				return;
+			case 'powerPointAutosaveEnabled':
+				settings.powerPointAutosaveEnabled = Boolean(value);
+				break;
+			case 'powerPointShowInspector':
+				settings.powerPointShowInspector = Boolean(value);
+				await this.plugin.saveSettings();
+				this.plugin.refreshPowerPointViews();
+				return;
+			case 'powerPointHideUnsupportedSvgContent':
+				settings.powerPointHideUnsupportedSvgContent = Boolean(value);
+				break;
+			case 'powerPointOpenWithYoloMode':
+				settings.powerPointOpenWithYoloMode = Boolean(value);
+				break;
+			case 'enableDocxSearchIndex':
+				settings.enableDocxSearchIndex = Boolean(value);
+				await this.plugin.saveSettings();
+				if (settings.enableDocxSearchIndex) {
+					await this.plugin.rebuildDocxSearchIndex(false);
+				}
+				return;
+			case 'autoIndexDocxSearch':
+				settings.autoIndexDocxSearch = Boolean(value);
+				await this.plugin.saveSettings();
+				if (settings.autoIndexDocxSearch && settings.enableDocxSearchIndex) {
+					await this.plugin.rebuildDocxSearchIndex(false);
+				}
+				return;
+			case 'enableAiInterfacing':
+				settings.enableAiInterfacing = Boolean(value);
+				await this.plugin.saveSettings();
+				await this.plugin.syncAiInterfacing();
+				return;
+			case 'debugLogging':
+				settings.debugLogging = Boolean(value);
+				configureNativePowerPointDocEditorLogger(settings.debugLogging);
+				infoLog('settings', `Debug logging ${settings.debugLogging ? 'enabled' : 'disabled'}`);
+				break;
+			default:
+				return;
+		}
+
+		await this.plugin.saveSettings();
+	}
+
+	private refreshSettingsUi(): void {
+		// Always re-render via display path. Do not call PluginSettingTab.update —
+		// that API is newer than minAppVersion 1.8.7 and fails obsidianmd/no-unsupported-api.
 		this.renderSettings();
 	}
 

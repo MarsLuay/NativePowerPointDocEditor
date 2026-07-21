@@ -26,7 +26,10 @@ export interface DocxEditorCoreRef {
 
 /** Comment fields used by the plugin's review-sidebar controls. */
 export interface DocxComment {
+	id: number;
+	author?: string;
 	parentId?: number | null;
+	[key: string]: unknown;
 }
 
 /** DOCX document fields read by NPDE's pagination and ruler integrations. */
@@ -119,6 +122,12 @@ export interface DocxEditorProps {
 	onFontsLoaded?: () => void;
 	onSave?: (buffer: ArrayBuffer) => void | Promise<void>;
 	onError?: (error: Error) => void;
+	onCommentsChange?: (comments: readonly DocxComment[]) => void;
+	onCommentAdd?: (comment: DocxComment) => void;
+	onCommentReply?: (reply: DocxComment, parent: DocxComment) => void;
+	onCommentDelete?: (comment: DocxComment) => void;
+	onCommentResolve?: (comment: DocxComment) => void;
+	onCommentUnresolve?: (comment: DocxComment) => void;
 }
 
 export type DocxEditorComponent = ForwardRefExoticComponent<DocxEditorProps & RefAttributes<DocxEditorRef>>;

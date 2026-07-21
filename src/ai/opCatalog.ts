@@ -100,7 +100,29 @@ const DOCX_TEXT_RANGE: JsonSchema = {
 export const OP_CATALOG: readonly OpDefinition[] = [
 	// PPTX — text-editing
 	pptxOp('updateShapeText', 'text-editing', 'Replace all text in a shape.', slideShapeParams({
-		text: { type: 'string', description: 'Plain text for the shape body.' },
+		text: {
+			type: 'string',
+			description: 'Plain text for one shape paragraph. Use replaceShapeParagraphs for multiple paragraphs or lists.',
+		},
+	})),
+	pptxOp('replaceShapeParagraphs', 'text-editing', 'Replace a shape with native PowerPoint paragraphs and list markers. Use for bullets; do not put literal bullet glyphs in text.', slideShapeParams({
+		paragraphs: {
+			type: 'array',
+			description: 'One entry per real PowerPoint paragraph. Each text value must not contain line breaks.',
+			items: {
+				type: 'object',
+				required: ['text', 'listStyle'],
+				properties: {
+					text: { type: 'string' },
+					listStyle: { type: 'string', enum: ['none', 'bullet', 'number'] },
+					bold: {
+						type: 'boolean',
+						description: 'Optional run bold. Heading-first shapes: set true on the title paragraph; omit/false on body so bold does not leak from the template.',
+					},
+				},
+				additionalProperties: false,
+			},
+		},
 	})),
 	pptxOp('updateParagraphText', 'text-editing', 'Replace one paragraph of text.', slideShapeParams({
 		paragraphIndex: { type: 'integer', minimum: 0 },
@@ -142,7 +164,13 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	pptxOp('updateTransform', 'arrange', 'Move, resize, or rotate a shape.', slideShapeParams({
 		transform: TRANSFORM,
 	})),
-	pptxOp('reorderShapes', 'arrange', 'Change z-order of shapes on a slide.', {
+	pptxOp('setShapeFillColor', 'arrange', 'Set an explicit solid fill color on an editable shape.', slideShapeParams({
+		hex: {
+			type: 'string',
+			description: 'Six-digit RGB hex color, with or without #.',
+		},
+	})),
+	pptxOp('reorderShapes', 'arrange', 'Change z-order of shapes on a slide. Reordering changes renderer shape indices, so describe the slide again before targeting another shape.', {
 		type: 'object',
 		required: ['slideIndex', 'shapeIndex', 'mode'],
 		properties: {
@@ -165,6 +193,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	pptxOp('flipShape', 'arrange', 'Flip a shape horizontally or vertically.', slideShapeParams({
 		axis: { type: 'string', enum: ['horizontal', 'vertical'] },
 	})),
+	pptxOp('deleteShape', 'arrange', 'Delete an editable shape. When deleting several shapes, use descending shape indices and describe the slide again.', slideShapeParams()),
 
 	// PPTX — insert
 	pptxOp('addImage', 'insert', 'Insert an image on a slide.', {
@@ -272,7 +301,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		crop: { type: 'object', additionalProperties: true, description: 'Image crop fractions.' },
 	})),
 	pptxOp('resetImage', 'image', 'Reset image crop and effects.', slideShapeParams()),
-	pptxOp('replaceImage', 'image', 'Replace image media from a vault file.', slideShapeParams({
+	pptxOp('replaceImage', 'image', 'Replace picture media, or convert a non-picture shape/placeholder into a picture that fills the same transform box.', slideShapeParams({
 		vaultImagePath: { type: 'string' },
 	})),
 
@@ -280,6 +309,23 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	pptxOp('updateChartData', 'charts', 'Update chart series data.', slideShapeParams({
 		data: { type: 'object', additionalProperties: true, description: 'Chart data grid patch.' },
 	})),
+
+	// DOCX — review / metadata
+	docxOp('removeComments', 'review', 'Remove every comment annotation, inline anchor, and related DOCX package part.', {
+		type: 'object',
+		required: [],
+		properties: {},
+		additionalProperties: false,
+	}),
+	docxOp('setCoreProperties', 'metadata', 'Set the DOCX author and last modifier in docProps/core.xml.', {
+		type: 'object',
+		required: ['creator', 'lastModifiedBy'],
+		properties: {
+			creator: { type: 'string', minLength: 1, description: 'Document author (dc:creator).' },
+			lastModifiedBy: { type: 'string', minLength: 1, description: 'Most recent editor (cp:lastModifiedBy).' },
+		},
+		additionalProperties: false,
+	}),
 
 	// DOCX — text / font
 	docxOp('setRunText', 'font', 'Set run text by stable block/run id (body, header, footer, footnotes, endnotes).', {
@@ -399,7 +445,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
-	docxOp('insertParagraphBreak', 'font', 'Split a paragraph at an offset without rewriting the whole part.', {
+	docxOp('insertParagraphBreak', 'font', 'Split a paragraph at an offset without rewriting the whole part. Prefer docx.replaceBodyParagraphs when writing a full multi-paragraph letter from scratch.', {
 		type: 'object',
 		required: ['blockId', 'offset'],
 		properties: {
@@ -409,6 +455,23 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
+	docxOp(
+		'replaceBodyParagraphs',
+		'font',
+		'Replace all body paragraphs/tables with plain paragraphs (preserves trailing sectPr). Prefer this over chaining insertParagraphBreak for new letters.',
+		{
+			type: 'object',
+			required: ['paragraphs'],
+			properties: {
+				paragraphs: {
+					type: 'array',
+					items: { type: 'string' },
+					description: 'Ordered paragraph plain text. Empty strings become blank paragraphs. Empty array becomes one blank paragraph.',
+				},
+			},
+			additionalProperties: false,
+		},
+	),
 
 	// DOCX — find-replace
 	docxOp('replaceText', 'find-replace', 'Find and replace text across body, headers, footers, footnotes, and endnotes.', {

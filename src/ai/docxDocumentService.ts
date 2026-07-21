@@ -77,17 +77,18 @@ export class DocxDocumentService {
 		try {
 			const lease = await this.sessions.acquire(path);
 			const beforeBuffer = lease.sourceBuffer.slice(0);
-			const originalXml = lease.patch.getDocumentXml();
+			const patch = dryRun ? await lease.patch.clone() : lease.patch;
+			const originalXml = patch.getDocumentXml();
 			let documentXml = originalXml;
 			const changed = new Set<string>();
 			const preview: ApplyResult['preview'] = [];
 			const warnings: string[] = [];
 
 			for (const op of ops) {
-				lease.patch.setDocumentXml(documentXml);
+				patch.setDocumentXml(documentXml);
 				const result = await executeDocxOp(
 					{
-						session: lease.patch,
+						session: patch,
 						vault: this.runtime.vault,
 						filePath: lease.file.path,
 						dryRun,
@@ -102,9 +103,7 @@ export class DocxDocumentService {
 
 			validateDocxDocumentXmlLight(documentXml);
 
-			if (dryRun) {
-				lease.patch.setDocumentXml(originalXml);
-			} else {
+			if (!dryRun) {
 				lease.patch.setDocumentXml(documentXml);
 				aiUndoStore.record(lease.file.path, {
 					label: AI_EDIT_UNDO_LABEL,
@@ -183,25 +182,32 @@ export class DocxDocumentService {
 	}
 
 	async close(path: string): Promise<void> {
-		const normalized = this.runtime.normalizePath(path);
-		aiUndoStore.clear(normalized);
+		// Keep AI undo/redo snapshots after session.close() so agents can undo
+		// apply→save→close without falling back to git restore.
 		await this.sessions.release(path);
 	}
 
 	async undo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		try {
 			const normalized = this.runtime.normalizePath(path);
-			const openView = this.runtime.findOpenDocxView(normalized);
-			if (openView?.canUndoAgentEdit()) {
-				const undone = await openView.undoAgentEdit();
-				return undone
-					? { ok: true, errors: [] }
-					: { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })] };
-			}
-
 			const entry = aiUndoStore.popUndo(normalized);
 			if (!entry || entry.before.kind !== 'docx') {
-				return { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })] };
+				const openView = this.runtime.findOpenDocxView(normalized);
+				if (openView?.canUndoAgentEdit()) {
+					const undone = await openView.undoAgentEdit();
+					if (!undone) {
+						return {
+							ok: false,
+							errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })],
+						};
+					}
+					const saved = await this.save(path);
+					return saved.ok ? { ok: true, errors: [] } : saved;
+				}
+				return {
+					ok: false,
+					errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })],
+				};
 			}
 
 			const lease = await this.sessions.acquire(path);
@@ -218,7 +224,8 @@ export class DocxDocumentService {
 			if (lease.mode === 'view') {
 				await lease.view.reloadFromAgentBuffer(entry.before.buffer);
 			}
-			return { ok: true, errors: [] };
+			const saved = await this.save(path);
+			return saved.ok ? { ok: true, errors: [] } : saved;
 		} catch (error) {
 			if (isAiErrorDetail(error)) {
 				return { ok: false, errors: [error] };
@@ -233,17 +240,24 @@ export class DocxDocumentService {
 	async redo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		try {
 			const normalized = this.runtime.normalizePath(path);
-			const openView = this.runtime.findOpenDocxView(normalized);
-			if (openView?.canRedoAgentEdit()) {
-				const redone = await openView.redoAgentEdit();
-				return redone
-					? { ok: true, errors: [] }
-					: { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })] };
-			}
-
 			const entry = aiUndoStore.popRedo(normalized);
 			if (!entry || entry.before.kind !== 'docx') {
-				return { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })] };
+				const openView = this.runtime.findOpenDocxView(normalized);
+				if (openView?.canRedoAgentEdit()) {
+					const redone = await openView.redoAgentEdit();
+					if (!redone) {
+						return {
+							ok: false,
+							errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })],
+						};
+					}
+					const saved = await this.save(path);
+					return saved.ok ? { ok: true, errors: [] } : saved;
+				}
+				return {
+					ok: false,
+					errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })],
+				};
 			}
 
 			const lease = await this.sessions.acquire(path);
@@ -260,7 +274,8 @@ export class DocxDocumentService {
 			if (lease.mode === 'view') {
 				await lease.view.reloadFromAgentBuffer(entry.before.buffer);
 			}
-			return { ok: true, errors: [] };
+			const saved = await this.save(path);
+			return saved.ok ? { ok: true, errors: [] } : saved;
 		} catch (error) {
 			if (isAiErrorDetail(error)) {
 				return { ok: false, errors: [error] };

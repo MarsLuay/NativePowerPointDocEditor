@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { build } from 'esbuild';
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { loadPresentationEngineModule } from './helpers/load-plugin-modules.mjs';
-import { getDocxRuntimeAliases } from './helpers/docx-runtime-aliases.mjs';
 import { readDeck, toArrayBuffer } from './helpers/renderer.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
@@ -63,8 +63,8 @@ async function loadPptxServiceModule() {
 		},
 	};
 	await build({
+		alias: docxEditorAliases,
 		absWorkingDir: outputDirectory,
-		alias: await getDocxRuntimeAliases(projectRoot),
 		entryPoints: [path.join(projectRoot, 'src/ai/pptxDocumentService.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -165,4 +165,45 @@ test('PptxDocumentService redo restores headless agent undo', async () => {
 
 	const leaseAfterRedo = await service.sessions.acquire(deckPath);
 	assert.equal(leaseAfterRedo.engine.getParagraphRunText(0, textShape, 0), 'Redo me');
+});
+
+test('PptxDocumentService undo survives close and rewrites vault bytes after save', async () => {
+	const { PptxDocumentService } = await loadPptxServiceModule();
+	const { PresentationEngine } = await loadPresentationEngineModule();
+
+	const deckPath = 'deck/features.pptx';
+	const featuresBytes = toArrayBuffer(await readDeck('features.pptx'));
+	const probe = await PresentationEngine.load(featuresBytes);
+	const textShape = await discoverTextShape(probe);
+	const originalText = probe.getParagraphRunText(0, textShape, 0) ?? '';
+
+	const vault = createMockVault(new Map([[deckPath, Buffer.from(featuresBytes)]]));
+	const service = new PptxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenPptxView: () => null,
+		findOpenDocxView: () => null,
+	});
+
+	const applyResult = await service.apply(deckPath, [
+		{ op: 'pptx.updateShapeText', slideIndex: 0, shapeIndex: textShape, text: 'Persist undo me' },
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	assert.equal(applyResult.canUndo, true);
+
+	const saveResult = await service.save(deckPath);
+	assert.equal(saveResult.ok, true, JSON.stringify(saveResult.errors));
+	await service.close(deckPath);
+
+	const undoResult = await service.undo(deckPath);
+	assert.equal(
+		undoResult.ok,
+		true,
+		`close must keep AI undo snapshots: ${JSON.stringify(undoResult.errors)}`,
+	);
+
+	const diskBytes = vault.store.get(deckPath);
+	assert.ok(diskBytes, 'undo must rewrite vault file');
+	const reloaded = await PresentationEngine.load(toArrayBuffer(diskBytes));
+	assert.equal(reloaded.getParagraphRunText(0, textShape, 0), originalText);
 });

@@ -16,6 +16,29 @@ export function normalizeSearchText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Resolve the pre-edit text used by applyTextValue's unchanged check.
+ * Session baseline (captured before live SVG preview mutation) always wins over
+ * target.text and over live SVG — otherwise whole-shape preview recovery makes
+ * the commit think nothing changed and skip the OOXML write.
+ */
+export function previousTextForInlineApply(args: {
+  sessionBaseline?: string | null;
+  targetText?: string | null;
+  liveSvgText?: string | null;
+}): { previousText: string; source: 'session-baseline' | 'target' | 'live-svg' | 'empty' } {
+  if (args.sessionBaseline !== undefined && args.sessionBaseline !== null) {
+    return { previousText: args.sessionBaseline, source: 'session-baseline' };
+  }
+  if (args.targetText !== undefined && args.targetText !== null) {
+    return { previousText: args.targetText, source: 'target' };
+  }
+  if (args.liveSvgText !== undefined && args.liveSvgText !== null) {
+    return { previousText: args.liveSvgText, source: 'live-svg' };
+  }
+  return { previousText: '', source: 'empty' };
+}
+
 /** Resolve the word a text caret sits in, using browser-native Unicode segmentation. */
 export function getInlineWordRange(text: string, caretOffset: number): { start: number; end: number } {
   const offset = Math.max(0, Math.min(caretOffset, text.length));
@@ -40,6 +63,201 @@ export function getInlineWordRange(text: string, caretOffset: number): { start: 
 /** Join visual line fragments for one OOXML paragraph (soft wraps are not newlines). */
 export function joinParagraphVisualLines(lineTexts: string[]): string {
   return lineTexts.join('');
+}
+
+export type PreviewFrameBox = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+
+/**
+ * Convert a candidate frame + first-line left edge into the usable wrap width.
+ * Returns null when the frame is too narrow to host horizontal preview text.
+ *
+ * `firstLineLeft` is only a valid body inset for start-aligned glyphs. Middle /
+ * end `text-anchor` (common on empty .potx placeholders) places the glyph box
+ * near the center or right edge; treating that as inset collapses wrap width to
+ * ~the current glyph width and stacks each typed character on its own line.
+ * Pass `firstLineWidth` so that collapse can fall back to the full frame.
+ */
+export function previewWrapMaxWidth(
+  frame: Pick<PreviewFrameBox, 'left' | 'width'>,
+  firstLineLeft: number,
+  firstLineWidth?: number,
+): number | null {
+  if (!Number.isFinite(frame.width) || frame.width < 4) return null;
+
+  const inset = Math.max(0, firstLineLeft - frame.left);
+  const insetDerived = frame.width - inset * 2;
+  if (!Number.isFinite(insetDerived) || insetDerived < 4) {
+    // Empty / ZWSP / center-end glyph geometry drove inset past the frame.
+    return frame.width;
+  }
+
+  const lineWidth = typeof firstLineWidth === 'number' && Number.isFinite(firstLineWidth)
+    ? Math.max(0, firstLineWidth)
+    : null;
+  if (lineWidth !== null) {
+    // Live repro (center-aligned empty .potx box): frameBoxWidth≈148, inset≈71,
+    // firstLineWidth≈4 → insetDerived≈6. Strict `<= width+1` missed by 1–2px and
+    // still wrapped one glyph per line. Treat large inset + short glyphs, or a
+    // wrap width that only barely exceeds the glyph box, as anchor collapse.
+    const looksCenteredOrEnd =
+      inset > lineWidth + 2
+      && inset > frame.width * 0.2;
+    const collapsedToGlyph =
+      insetDerived <= Math.max(lineWidth + 8, lineWidth * 1.5 + 2);
+    if (looksCenteredOrEnd || collapsedToGlyph) {
+      return frame.width;
+    }
+  }
+
+  return insetDerived;
+}
+
+/**
+ * Pick the first usable preview frame in priority order.
+ * Callers must pass OOXML/transform before decorative `:scope > rect` candidates —
+ * a thin accent rect (~10px) otherwise wraps each glyph onto its own line.
+ */
+export function pickInlinePreviewFrameBox(
+  candidates: ReadonlyArray<{ source: string; box: PreviewFrameBox | null | undefined }>,
+): { source: string; box: PreviewFrameBox } | null {
+  for (const candidate of candidates) {
+    const box = candidate.box;
+    if (!box || !Number.isFinite(box.width) || box.width < 4) continue;
+    return { source: candidate.source, box };
+  }
+  return null;
+}
+
+/**
+ * Split text into visual lines without changing its characters. The caller
+ * provides a screen-pixel measurement function so this stays pure and can be
+ * shared by the SVG inline-preview path and its tests.
+ */
+export function wrapTextForPreview(
+  text: string,
+  maxWidth: number,
+  measure: (value: string) => number
+): string[] {
+  if (!text || !Number.isFinite(maxWidth) || maxWidth <= 0) return [text];
+
+  const lines: string[] = [];
+  let lineStart = 0;
+  let index = 0;
+  let lastBreak = -1;
+
+  while (index < text.length) {
+    const character = text.charAt(index);
+    if (character === '\n') return [text];
+
+    const candidate = text.slice(lineStart, index + 1);
+    if (measure(candidate) <= maxWidth || index === lineStart) {
+      if (/\s/.test(character)) lastBreak = index + 1;
+      index += 1;
+      continue;
+    }
+
+    // Prefer an existing word boundary. Keeping its whitespace in the prior
+    // line preserves the editor string exactly while the SVG renders it as a
+    // normal soft wrap.
+    if (lastBreak > lineStart) {
+      lines.push(text.slice(lineStart, lastBreak));
+      lineStart = lastBreak;
+      index = lineStart;
+      lastBreak = -1;
+      continue;
+    }
+
+    // A space that just crosses the limit belongs to the previous line; do
+    // not make the next line begin with a visible leading gap.
+    if (/\s/.test(character)) {
+      lines.push(candidate);
+      lineStart = index + 1;
+      index = lineStart;
+      lastBreak = -1;
+      continue;
+    }
+
+    // Long unbroken words still need to stay inside the text box.
+    lines.push(text.slice(lineStart, index));
+    lineStart = index;
+    lastBreak = -1;
+  }
+
+  lines.push(text.slice(lineStart));
+  return lines;
+}
+
+/**
+ * Keep an inline edit's run styling while it is redistributed across visual
+ * line tspans.
+ *
+ * PowerPoint's renderer emits a separate run tspan for every soft-wrapped
+ * fragment. This maps the changed range from the previous flat text to the new
+ * flat text, allowing the view to retain run styling while it live-reflows the
+ * preview. A final engine render on commit remains authoritative.
+ */
+export function redistributeTextAcrossVisualRuns(previousRunTexts: string[], nextText: string): string[] {
+  if (previousRunTexts.length === 0) return [];
+
+  const previousText = previousRunTexts.join('');
+  if (previousText === nextText) return [...previousRunTexts];
+
+  let commonPrefixLength = 0;
+  const sharedLength = Math.min(previousText.length, nextText.length);
+  while (
+    commonPrefixLength < sharedLength
+    && previousText.charAt(commonPrefixLength) === nextText.charAt(commonPrefixLength)
+  ) {
+    commonPrefixLength++;
+  }
+
+  let commonSuffixLength = 0;
+  while (
+    commonSuffixLength < sharedLength - commonPrefixLength
+    && previousText.charAt(previousText.length - 1 - commonSuffixLength)
+      === nextText.charAt(nextText.length - 1 - commonSuffixLength)
+  ) {
+    commonSuffixLength++;
+  }
+
+  const previousChangeStart = commonPrefixLength;
+  const previousChangeEnd = previousText.length - commonSuffixLength;
+  const nextChangeEnd = nextText.length - commonSuffixLength;
+  const delta = nextText.length - previousText.length;
+  const boundaries = [0];
+  for (const runText of previousRunTexts) {
+    boundaries.push((boundaries[boundaries.length - 1] ?? 0) + runText.length);
+  }
+
+  // On an insertion that lands on a run boundary, assign the inserted text to
+  // the following run (or the final run at paragraph end). This keeps every
+  // unchanged fragment on its existing SVG line.
+  const ownerIndex = previousRunTexts.findIndex(
+    (_, index) => (boundaries[index + 1] ?? 0) > previousChangeStart
+  );
+  const replacementOwnerIndex = ownerIndex === -1 ? previousRunTexts.length - 1 : ownerIndex;
+  const isInsertion = previousChangeStart === previousChangeEnd;
+
+  const mapBoundary = (boundary: number, boundaryIndex: number): number => {
+    if (isInsertion) {
+      if (boundary < previousChangeStart) return boundary;
+      if (boundary > previousChangeStart) return boundary + delta;
+      return boundaryIndex > replacementOwnerIndex ? nextChangeEnd : boundary;
+    }
+    if (boundary <= previousChangeStart) return boundary;
+    if (boundary >= previousChangeEnd) return boundary + delta;
+    return boundaryIndex <= replacementOwnerIndex ? previousChangeStart : nextChangeEnd;
+  };
+
+  const nextBoundaries = boundaries.map(mapBoundary);
+  return previousRunTexts.map((_, index) =>
+    nextText.slice(nextBoundaries[index] ?? 0, nextBoundaries[index + 1] ?? nextText.length)
+  );
 }
 
 /**

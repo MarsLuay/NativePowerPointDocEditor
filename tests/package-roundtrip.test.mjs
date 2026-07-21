@@ -359,6 +359,14 @@ test("setRunStyleForRange formats only the selected characters within a paragrap
   assert.equal(selected?.highlight, "FFEEDD");
   assert.equal(engine.isRangeStyled(0, shapeIndex, paragraphIndex, 6, 11, "bold"), true);
   assert.equal(engine.isRangeStyled(0, shapeIndex, paragraphIndex, 0, 5, "bold"), false);
+  assert.equal(
+    engine.getRangesFontSizePt(0, shapeIndex, [{ paragraphIndex, start: 6, end: 11 }]),
+    31
+  );
+  assert.equal(
+    engine.getRangesFontSizePt(0, shapeIndex, [{ paragraphIndex, start: 0, end: 11 }]),
+    null
+  );
 });
 
 test("setRunStyleForRanges applies every run style across paragraph selections", async () => {
@@ -448,6 +456,81 @@ test("updateParagraphText preserves line breaks within a paragraph", async () =>
   assert.ok(svg.includes(">one<"));
   assert.ok(svg.includes(">two<"));
   assert.ok((svg.match(/data-ooxml-para-idx="0"/g) || []).length >= 2);
+});
+
+test("splitParagraph creates a native sibling paragraph and preserves list and run styling", async () => {
+  const { createRequire } = await import("node:module");
+  const JSZip = createRequire(import.meta.url)("jszip");
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const bulletParagraph = [
+    '<a:p><a:pPr marL="285750" indent="-285750"><a:buFont typeface="Arial"/><a:buChar char="•"/></a:pPr>',
+    '<a:r><a:rPr lang="en-US" sz="2800" b="1"/><a:t>Bold </a:t></a:r>',
+    '<a:br/><a:r><a:rPr lang="en-US" sz="2800" b="0"/><a:t>suffix</a:t></a:r>',
+    '<a:endParaRPr lang="en-US"/></a:p>',
+  ].join("");
+  const patched = await createTitleParagraphFixture([bulletParagraph, paragraphXml("Trailing paragraph")]);
+  const engine = await PresentationEngine.load(patched);
+
+  const result = await engine.splitParagraph(0, 0, 0, 5);
+  assert.deepEqual(result, {
+    paragraphIndex: 1,
+    beforeParagraphCount: 2,
+    afterParagraphCount: 3,
+    listStyle: "bullet",
+    removedSoftBreaks: 1,
+  });
+  assert.equal(engine.getParagraphRunText(0, 0, 0), "Bold ");
+  assert.equal(engine.getParagraphRunText(0, 0, 1), "suffix");
+  assert.equal(engine.getParagraphRunText(0, 0, 2), "Trailing paragraph");
+  assert.equal(engine.getParagraphListStyle(0, 0, 0), "bullet");
+  assert.equal(engine.getParagraphListStyle(0, 0, 1), "bullet");
+  assert.equal(engine.getRunStyle(0, 0, 0, 0)?.bold, true);
+  assert.equal(engine.getRunStyle(0, 0, 1, 0)?.bold, false);
+
+  const exported = await engine.export();
+  const zip = await JSZip.loadAsync(exported);
+  const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+  assert.doesNotMatch(slideXml, /<a:br\b/);
+
+  const reloaded = await PresentationEngine.load(exported);
+  assert.equal(reloaded.getParagraphRunText(0, 0, 0), "Bold ");
+  assert.equal(reloaded.getParagraphRunText(0, 0, 1), "suffix");
+  assert.equal(reloaded.getParagraphRunText(0, 0, 2), "Trailing paragraph");
+  assert.equal(reloaded.getParagraphListStyle(0, 0, 1), "bullet");
+  assert.match(reloaded.renderSlide(0).svg, /^<svg\b/);
+});
+
+test("replaceShapeParagraphs writes native list paragraphs and survives a round trip", async () => {
+  const { createRequire } = await import("node:module");
+  const JSZip = createRequire(import.meta.url)("jszip");
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const input = await readDeck("features.pptx");
+  const engine = await PresentationEngine.load(toArrayBuffer(input));
+
+  await engine.replaceShapeParagraphs(0, 0, [
+    { text: "Fluent AI-Assistance can:", listStyle: "none" },
+    { text: "Inspect logs and scripts", listStyle: "bullet" },
+    { text: "Build review-ready artifacts", listStyle: "bullet" },
+    { text: "Keep human review in the loop.", listStyle: "none" },
+  ]);
+
+  assert.equal(engine.getParagraphRunText(0, 0, 0), "Fluent AI-Assistance can:");
+  assert.equal(engine.getParagraphRunText(0, 0, 1), "Inspect logs and scripts");
+  assert.equal(engine.getParagraphListStyle(0, 0, 0), "none");
+  assert.equal(engine.getParagraphListStyle(0, 0, 1), "bullet");
+  assert.equal(engine.getParagraphListStyle(0, 0, 2), "bullet");
+  assert.equal(engine.getParagraphListStyle(0, 0, 3), "none");
+
+  const exported = await engine.export();
+  const zip = await JSZip.loadAsync(exported);
+  const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+  assert.equal((slideXml.match(/<a:buChar\b[^>]*\bchar="•"/g) || []).length, 2);
+  assert.doesNotMatch(slideXml, /<a:t>[^<]*•/);
+
+  const reloaded = await PresentationEngine.load(exported);
+  assert.equal(reloaded.getParagraphRunText(0, 0, 1), "Inspect logs and scripts");
+  assert.equal(reloaded.getParagraphListStyle(0, 0, 1), "bullet");
+  assert.match(reloaded.renderSlide(0).svg, /^<svg\b/);
 });
 
 test("updateShapeTransform allows shapes outside the slide bounds", async () => {

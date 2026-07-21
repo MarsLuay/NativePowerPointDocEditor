@@ -1,1 +1,0 @@
-'use strict';var chunkQ33FYLTD_js=require('./chunk-Q33FYLTD.js');var t=new chunkQ33FYLTD_js.r(chunkQ33FYLTD_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;

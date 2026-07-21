@@ -21,47 +21,38 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify committed DOCX runtime
+      - name: Verify vendored DOCX runtime
         run: npm run check:docx-runtime
 
       - name: Validate release version
         run: node scripts/check-release-version.mjs
 
-      - name: Verify and build plugin
-        run: npm run verify:review
+      - name: Verify plugin
+        run: npm run verify
 
-      - name: Confirm release artifacts exist
-        run: |
-          test -f main.js
-          test -f styles.css
-          test -f manifest.json
-          python3 - <<'PY'
-          import json
-          from pathlib import Path
-          man = json.loads(Path('manifest.json').read_text())
-          pkg = json.loads(Path('package.json').read_text())
-          assert man['version'] == pkg['version'], (man['version'], pkg['version'])
-          print('release artifacts ready', man['version'])
-          PY
-
-      - name: Generate artifact attestations
+      - name: Generate artifact attestation for main.js
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: |
-            main.js
-            styles.css
-            manifest.json
+          subject-path: 'main.js'
+
+      - name: Generate artifact attestation for styles.css
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'styles.css'
+
+      - name: Generate artifact attestation for manifest.json
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'manifest.json'
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
-          fail_on_unmatched_files: true
           files: |
             main.js
             styles.css

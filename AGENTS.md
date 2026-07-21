@@ -12,19 +12,41 @@
 - Render DOCX settings from shared descriptors in `src/settings.ts`; do not duplicate labels, descriptions, defaults, option lists between Obsidian settings tab and in-editor DOCX settings menu.
 - Resolve editor theme via plugin-level path in `src/main.ts`. DOCX/PPTX roots consume `resolvedEditorTheme`; views must not inspect `document.body` or call `resolveEditorThemePreference()` locally.
 - Theme colors use `--npde-*` tokens. Hardcoded color literals live in token definitions, not component rules.
-- Do not hand-edit generated DOCX runtime CSS under `vendor/docx-editor-runtime/`. Apply DOCX CSS changes in the source worktree; root plugin `styles.css` may use line-scoped `obsidian: allow css-important` only for documented third-party / PDF isolation.
+- Do not hand-edit generated DOCX runtime CSS under `vendor/docx-editor-runtime/`. Apply DOCX CSS changes on `docx-editor-source`; root plugin `styles.css` may use line-scoped `obsidian: allow css-important` only for documented third-party / PDF isolation.
 - Do not use CSS `:has()`, stylesheet `text-indent`, `break-before`/`page-break-*`, or `@tailwind` in scanned source. Stamp class hooks / indent in JS; inject Tailwind at build time; page breaks stay in the layout engine.
 - Prefer CSS2 single-keyword `text-decoration` only. Tint deletes with `box-shadow` / `background` / `color`.
 - After theme/menu/settings changes, run guards: `npm run check:theme-architecture`, `npm run check:theme-css`, `npm run check:shared-ui-patterns`.
 
-### DOCX runtime snapshot and source worktree
+### Branch workflow (`docx-editor-source` → `nightly-releases` → `main`)
 
-- `main` vendors only the generated JS/CSS runtime at `vendor/docx-editor-runtime/{core,react,i18n}`. It contains no source or declarations; `provenance.json` records the matching source commit.
-- Plugin TypeScript/TSX imports DOCX facilities only from `src/docx/runtime`. `src/docx/runtime/bridge.mjs` is the sole `@npde/*` package-import boundary, and `src/docx/runtime/styles.ts` is the sole vendored-CSS boundary.
-- `scripts/lib/docx-editor-aliases.mjs` resolves the runtime packages from `vendor/docx-editor-runtime` and preserves the root `react` / `react-dom` pair. Keep the plugin ProseMirror versions aligned with the source worktree versions.
-- The editable DOCX editor monorepo lives on branch `docx-editor-source` in `/Users/mars/NPDE-docx-editor-source`. Edit and build it there with Bun; then run `npm run vendor:docx` in this main worktree to refresh the snapshot.
-- Main-branch verification is `npm run verify:review`; it needs no Bun or source monorepo. Before publishing a runtime update, build/test the source worktree, vendor its exact commit here, then verify `main`.
+Release branches (`nightly-releases`, then `main`) must **not** contain an in-repo `docx-editor/` monorepo. Latest plugin work lands on **`nightly-releases`**; when that branch is good, promote it to **`main`**.
+
+| Branch | Role |
+|--------|------|
+| `docx-editor-source` | Editable DOCX editor monorepo only (Bun build/test). Not the Obsidian plugin release surface. |
+| `nightly-releases` | Latest plugin updates. Builds against `vendor/docx-editor-runtime` refreshed from `docx-editor-source` via `npm run vendor:docx`. |
+| `main` | Stable promote target. Same vendor-only layout as nightly once promoted. Catalog / default-branch review uses this shape. |
+
+Flow:
+
+1. Edit DOCX runtime on `docx-editor-source` (worktree e.g. `/Users/mars/NPDE-docx-editor-source` or `DOCX_EDITOR_SOURCE_DIR`). Build/test there with Bun.
+2. On `nightly-releases`, run `npm run vendor:docx` to refresh `vendor/docx-editor-runtime/` + `provenance.json` from that source commit.
+3. Implement plugin changes on `nightly-releases`; verify with `npm run verify:review` (no Bun / no in-repo monorepo).
+4. When satisfied with nightly, merge or fast-forward **`nightly-releases` → `main`** (keep vendor-only; never reintroduce `docx-editor/`).
+
+### DOCX runtime snapshot (vendor-only on release branches)
+
+- Release branches vendor only generated JS/CSS at `vendor/docx-editor-runtime/{core,react,i18n}` plus `provenance.json` (source branch + commit). No DOCX TypeScript or package `.d.ts` on these branches.
+- Plugin TypeScript imports DOCX facilities from `src/docx/runtime` only. `src/docx/runtime/bridge.mjs` is the sole `@npde/*` import boundary; `src/docx/runtime/styles.ts` is the sole vendored-CSS boundary.
+- `scripts/lib/docx-editor-aliases.mjs` resolves `@npde/docx-editor-*` to `vendor/docx-editor-runtime` and keeps one root `react` / `react-dom` pair. Keep plugin ProseMirror versions aligned with the source worktree.
 - Plugin AI remains `src/ai`; do **not** add `@npde/*` to root `package.json`. Details: `src/docx/editor/README.md`.
+
+### Agent DOCX editing (vault)
+
+- Prefer plugin AI bridge (`describe` / `apply` / `openSession().save()`), not Computer Use.
+- Multi-run template bodies: put full text on first run, clear siblings.
+- Missing capability → `src/ai` catalog + executor + tests + `npm run ai:generate` + build (not one-off ZIP hacks).
+- Vault playbook: `.agents/skills/01-personal-vault/native-docx-plugin-edit/SKILL.md`.
 
 ### PPTX action logging
 
@@ -281,3 +303,6 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 ## Code analysis — wont-fix
 
 - `src/powerpoint/backend/pptxJsEngine.mjs` (`repo/large-file`): generated pure-JS fallback of `pptx-svg` MoonBit JS backend (`npm run regen:pptx-js`). Must stay Git-tracked for offline Obsidian installs without WASM GC; size is inherent to the engine, not compressible without losing the fallback. External source of truth is the pptx-svg package + regen script.
+- `docx-editor/packages/core/src/layout-bridge/footnoteLayout.ts` (`completeness-audit.todo-marker`): upstream deferred footnote layout marker in the vendored DOCX monorepo; do not “finish” it in the plugin layer.
+- `docx-editor/**/editor.css` (`mobile-web.no-media-queries` / `mobile-web.small-input-font`): DOCX editor CSS targets Obsidian desktop chrome; mobile media-query / 16px input rules are not product requirements for this plugin surface.
+- `src/ai/registerAiCommands.ts` (`obsidian-semantic.dynamic-identifier-unresolved`): command ids come from `AI_COMMAND_IDS.*` constants; static Semgrep cannot resolve the indirection by design.

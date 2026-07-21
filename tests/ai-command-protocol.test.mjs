@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { build } from 'esbuild';
+import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -16,6 +17,7 @@ async function loadCommandProtocolModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-cmd-test-'));
 	const outfile = path.join(outputDirectory, 'command-protocol.cjs');
 	await build({
+		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/commandProtocol.ts')],
 		bundle: true,
 		format: 'cjs',

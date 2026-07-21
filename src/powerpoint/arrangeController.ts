@@ -3,7 +3,7 @@ import { createTranslateNotice } from '../i18n/translate';
 import type { ShapeTransform } from 'pptx-svg';
 
 import { isSVGGElement } from '../domGuards';
-import { debugLog, errorLog } from '../logger';
+import { debugLog, errorLog, logPptxAction } from '../logger';
 import type { PresentationEngine, ShapeReorderMode } from '../PresentationEngine';
 import { cleanError } from './runtimeCompat';
 import type { PresentationSession } from './session/PresentationSession';
@@ -37,6 +37,8 @@ export interface ArrangeHost {
 export class ArrangeController {
   private distributeButtons: HTMLButtonElement[] = [];
   private zOrderButtons: HTMLButtonElement[] = [];
+  /** A reorder reloads the package and shifts numeric shape indexes. */
+  private reorderInFlight = false;
   private groupButton: HTMLButtonElement | null = null;
   private ungroupButton: HTMLButtonElement | null = null;
   private readonly notice: TranslateNoticeFn;
@@ -85,7 +87,7 @@ export class ArrangeController {
       this.host.updateToolbarButton(button, canEdit && count >= 3);
     }
     for (const button of this.zOrderButtons) {
-      this.host.updateToolbarButton(button, canEdit && count >= 1);
+      this.host.updateToolbarButton(button, canEdit && count >= 1 && !this.reorderInFlight);
     }
     this.host.updateToolbarButton(this.groupButton, canEdit && count >= 2);
     this.host.updateToolbarButton(this.ungroupButton, canEdit && this.isSingleGroupSelected());
@@ -175,17 +177,48 @@ export class ArrangeController {
   async reorderSelection(mode: ShapeReorderMode): Promise<void> {
     if (!this.host.engine || !this.host.ensureEditable('reorder objects')) return;
 
+    // A second click before the first package reload completes carries the old
+    // numeric shape index. It can therefore reorder the neighboring object and
+    // undo the first one-step move. Keep this action single-flight.
+    if (this.reorderInFlight) {
+      debugLog('arrange', 'Ignored overlapping PowerPoint reorder', {
+        op: 'reorder',
+        slide: this.host.currentSlide,
+        shapeIndexes: this.host.getSelectedIndices().filter((index) => index >= 0),
+        mode,
+      });
+      return;
+    }
+
     const indices = this.host.getSelectedIndices().filter((index) => index >= 0);
     if (indices.length === 0) return;
 
+    this.reorderInFlight = true;
+    this.updateArrangeAvailability();
     try {
+      logPptxAction('arrange', 'reorder', {
+        slide: this.host.currentSlide,
+        shapeIndexes: indices,
+        mode,
+        intersectingOnly: true,
+      });
       const history = await this.host.captureHistoryEntry('Reorder objects');
       const newIndices = await this.host.session.applyCommand({
         type: 'reorder-shapes',
         slideIndex: this.host.currentSlide,
         shapeIndexes: indices,
-        mode
-      }) as number[];
+        mode,
+        intersectingOnly: true,
+      }) as number[] | null;
+      if (newIndices === null) {
+        debugLog('arrange', 'Skipped overlap-aware PowerPoint reorder without an intersecting object', {
+          op: 'reorder',
+          slide: this.host.currentSlide,
+          shapeIndexes: indices,
+          mode,
+        });
+        return;
+      }
       this.host.recordHistoryEntry(history);
       const rendered = await this.host.renderCurrentSlide();
       if (rendered) {
@@ -195,12 +228,17 @@ export class ArrangeController {
       debugLog('arrange', 'Reordered PowerPoint objects', {
         op: 'reorder',
         slide: this.host.currentSlide,
-        count: indices.length,
-        mode
+        sourceShapeIndexes: indices,
+        finalShapeIndexes: newIndices,
+        mode,
+        rendered,
       });
     } catch (error) {
       errorLog('arrange', 'PowerPoint object reorder failed', { indices, mode, error });
       this.notice('powerpoint:notice.couldNotReorderObjects', { message: cleanError(error) });
+    } finally {
+      this.reorderInFlight = false;
+      this.updateArrangeAvailability();
     }
   }
 

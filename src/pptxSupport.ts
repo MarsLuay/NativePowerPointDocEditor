@@ -21,7 +21,12 @@ export function registerPowerPointSupport(
 ) {
 	plugin.registerView(
 		NATIVE_POWERPOINT_VIEW_TYPE,
-		(leaf) => new NativePowerPointView(leaf, getPowerPointSettings),
+		(leaf) => new NativePowerPointView(
+			leaf,
+			getPowerPointSettings,
+			(wordCount) => plugin.updateDocumentWordCount(leaf, wordCount),
+			() => plugin.clearDocumentWordCount(leaf),
+		),
 	);
 	plugin.registerExtensions(POWERPOINT_EXTENSIONS, NATIVE_POWERPOINT_VIEW_TYPE);
 

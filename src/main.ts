@@ -1,4 +1,4 @@
-import { Notice, Platform, Plugin, normalizePath, setIcon } from 'obsidian';
+import { Notice, Platform, Plugin, normalizePath, setIcon, type WorkspaceLeaf } from 'obsidian';
 import {
 	NativePowerPointDocEditorSettingTab,
 	getNativePowerPointSettings,
@@ -26,6 +26,7 @@ import { getObsidianLocale } from './i18n/obsidianLocale';
 import type { PluginI18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { configureForceJsBackendOverrideReader } from './powerpoint/forceJsBackend';
+import { formatDocumentWordCount, type DocumentWordCount } from './documentWordCount';
 import {
 	AiCore,
 	createNpdeAiApi,
@@ -44,6 +45,7 @@ const DOCX_LOG_AREAS = new Set([
 	'backup',
 	'chunk',
 	'clipboard',
+	'comments',
 	'copy',
 	'diagnostics',
 	'editor',
@@ -115,11 +117,24 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	private editorThemeObserver: MutationObserver | null = null;
 	private applyingEditorThemePreference = false;
 	private aiCore: AiCore | null = null;
+	private docxWordCountStatusBarItem: HTMLElement | null = null;
+	private readonly documentWordCounts = new Map<WorkspaceLeaf, DocumentWordCount>();
+	private activeWordCountLeaf: WorkspaceLeaf | null = null;
 	/** Agent API surface. Undefined when AI-Interfacing is disabled in settings. */
 	ai: NpdeAiApi | undefined;
 
 	setDocxSearchIndex(index: DocxSearchIndex) {
 		this.docxSearchIndex = index;
+	}
+
+	updateDocumentWordCount(leaf: WorkspaceLeaf, wordCount: DocumentWordCount) {
+		this.documentWordCounts.set(leaf, wordCount);
+		this.refreshDocumentWordCountStatus();
+	}
+
+	clearDocumentWordCount(leaf: WorkspaceLeaf) {
+		this.documentWordCounts.delete(leaf);
+		this.refreshDocumentWordCountStatus();
 	}
 
 	getI18n(): PluginI18nService | null {
@@ -136,6 +151,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.initializeDocumentWordCountStatus();
 		await initPluginI18n(this, await resolvePluginLocale(this));
 		const docxLanguage = this.getResolvedDocxEditorLanguage();
 		preloadDocxEditorLocale(docxLanguage);
@@ -221,18 +237,62 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 		this.addSettingTab(new NativePowerPointDocEditorSettingTab(this.app, this));
 		this.registerEditorThemeObserver();
+		this.registerEvent(this.app.workspace.on('active-leaf-change', (leaf) => {
+			this.activeWordCountLeaf = leaf;
+			this.refreshDocumentWordCountStatus();
+		}));
 		void this.setupDevHotReload();
 	}
 
 	onunload() {
-		infoLog('plugin', 'Plugin unloaded');
+		infoLog('plugin', 'Plugin unloaded — flushing open DOCX views if dirty');
+		if (docxSupportModule) {
+			void docxSupportModule.saveDocxViewsBeforePluginReload(this).then((ok) => {
+				infoLog('plugin', 'DOCX unload flush settled', { ok });
+			}).catch((error) => {
+				errorLog('plugin', 'DOCX unload flush failed', error);
+			});
+		}
+		if (pptxSupportModule) {
+			void pptxSupportModule.savePowerPointViewsBeforePluginReload(this).catch((error) => {
+				errorLog('plugin', 'PPTX unload flush failed', error);
+			});
+		}
 		this.editorThemeObserver?.disconnect();
+		this.documentWordCounts.clear();
+		this.activeWordCountLeaf = null;
+		this.docxWordCountStatusBarItem = null;
 		this.editorThemeObserver = null;
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-resolved-theme');
 		setNativePowerPointDocEditorLogSink(null);
+	}
+
+	private initializeDocumentWordCountStatus() {
+		this.activeWordCountLeaf = this.app.workspace.getMostRecentLeaf();
+		this.docxWordCountStatusBarItem = this.addStatusBarItem();
+		this.docxWordCountStatusBarItem.addClass('native-powerpoint-doc-editor-word-count');
+		this.docxWordCountStatusBarItem.setAttribute('aria-live', 'polite');
+		this.refreshDocumentWordCountStatus();
+	}
+
+	private refreshDocumentWordCountStatus() {
+		const statusBarItem = this.docxWordCountStatusBarItem;
+		if (!statusBarItem) {
+			return;
+		}
+
+		const wordCount = this.activeWordCountLeaf
+			? this.documentWordCounts.get(this.activeWordCountLeaf)
+			: undefined;
+		statusBarItem.toggleClass('is-hidden', !wordCount);
+		if (wordCount) {
+			const text = formatDocumentWordCount(wordCount);
+			statusBarItem.setText(text);
+			statusBarItem.setAttribute('aria-label', text);
+		}
 	}
 
 	private async setupDevFileLog(pluginDir: string): Promise<void> {
@@ -335,6 +395,13 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				if (pptxSupportModule && !await pptxSupportModule.savePowerPointViewsBeforePluginReload(this)) {
 					reloading = false;
 					errorLog('plugin', 'Hot reload aborted because an open PowerPoint file could not be saved', {
+						pluginId,
+					});
+					return;
+				}
+				if (docxSupportModule && !await docxSupportModule.saveDocxViewsBeforePluginReload(this)) {
+					reloading = false;
+					errorLog('plugin', 'Hot reload aborted because an open DOCX file could not be saved', {
 						pluginId,
 					});
 					return;

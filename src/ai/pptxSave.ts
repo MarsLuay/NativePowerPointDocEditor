@@ -15,12 +15,19 @@ export async function exportValidatedPptx(
 ): Promise<ArrayBuffer> {
 	const output = await engine.export();
 	const exportedPackage = inspectPowerPointPackage(output);
-	const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount);
+	const allowedPartRemovals = engine.getPrunedPackageParts();
+	const validation = validatePowerPointExport(sourcePackage, exportedPackage, engine.slideCount, {
+		allowedPartRemovals,
+	});
 	if (!validation.ok) {
 		throw new Error(`Export validation failed: ${summarizePackageMessages(validation.errors)}`);
 	}
 
-	const contentValidation = await validatePowerPointExportContents(sourceBuffer, output);
+	const contentValidation = await validatePowerPointExportContents(sourceBuffer, output, {
+		allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+		allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+		allowedPartRemovals,
+	});
 	if (!contentValidation.ok) {
 		throw new Error(`Export validation failed: ${summarizePackageMessages(contentValidation.errors)}`);
 	}
@@ -38,6 +45,7 @@ export async function savePptxToVault(
 ): Promise<{ output: ArrayBuffer; sourcePackage: PowerPointPackageInspection }> {
 	const output = await exportValidatedPptx(engine, sourceBuffer, sourcePackage);
 	await vault.modifyBinary(file, output);
+	engine.clearProtectedSlideMarkerRemovalAllowance();
 	return {
 		output,
 		sourcePackage: inspectPowerPointPackage(output),

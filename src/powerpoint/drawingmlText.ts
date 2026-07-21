@@ -4,15 +4,67 @@ import {
   getDescendants,
   getElementChildren,
 } from './ooxmlXml';
+import {
+  applyDrawingParagraphListStyle,
+  type ParagraphListStyle,
+} from './paragraphListStyle';
 
 const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
+
+/**
+ * Zero-width space stored in otherwise-empty `<a:t>` nodes.
+ *
+ * pptx-svg drops empty runs at parse time (`text === ""`) and then skips
+ * paragraphs with `runs.length === 0` during SVG emit. Enter at the end of a
+ * line creates a native empty sibling `<a:p>`; without this anchor the new
+ * paragraph never appears in SVG, so the inline editor cannot rebind to it.
+ */
+export const EMPTY_PARAGRAPH_RENDER_ANCHOR = '\u200B';
+
+export function isEmptyParagraphRenderAnchorText(text: string): boolean {
+  if (text.length === 0) return true;
+  for (let index = 0; index < text.length; index++) {
+    if (text.charAt(index) !== EMPTY_PARAGRAPH_RENDER_ANCHOR) return false;
+  }
+  return true;
+}
+
+/** Strip render anchors for editor display / logical emptiness checks. */
+export function stripEmptyParagraphRenderAnchors(text: string): string {
+  return text.split(EMPTY_PARAGRAPH_RENDER_ANCHOR).join('');
+}
+
+/** Persist empty paragraph text in a form the renderer will still emit. */
+export function toStoredParagraphRunText(text: string): string {
+  return text.length === 0 ? EMPTY_PARAGRAPH_RENDER_ANCHOR : text;
+}
+
+export interface DrawingParagraphText {
+  text: string;
+  listStyle: ParagraphListStyle;
+  /** When set, forces run bold on/off. When omitted, paragraph 0 keeps template bold; later paragraphs default to not bold. */
+  bold?: boolean;
+}
 
 export function setDrawingText(container: Element, text: string): void {
   const textElements = getDescendants(container, 't')
     .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
   const firstText = textElements[0];
   if (!firstText) {
-    throw new Error('This PowerPoint label has no editable text node.');
+    const firstParagraph = getDrawingParagraphs(container)[0];
+    if (!firstParagraph) {
+      throw new Error('This PowerPoint label has no editable text paragraph.');
+    }
+
+    const activeDocument = firstParagraph.ownerDocument;
+    const run = activeDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:r');
+    const textElement = activeDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
+    textElement.textContent = text;
+    run.appendChild(textElement);
+    const endParagraphProperties = getElementChildren(firstParagraph)
+      .find((element) => element.localName === 'endParaRPr' && element.namespaceURI === DRAWINGML_NAMESPACE);
+    firstParagraph.insertBefore(run, endParagraphProperties ?? null);
+    return;
   }
 
   firstText.textContent = text;
@@ -27,6 +79,171 @@ export function getDrawingParagraphs(container: Element): Element[] {
   const scope = textBody ?? container;
   return getElementChildren(scope)
     .filter((element) => element.localName === 'p' && element.namespaceURI === DRAWINGML_NAMESPACE);
+}
+
+/**
+ * Remove the direct predecessor of a paragraph only when it is a genuinely
+ * empty DrawingML paragraph. Empty runs are valid placeholders, but a soft
+ * break, field, or non-empty run carries visible content and must be retained.
+ */
+export function hasEmptyDrawingParagraphBefore(container: Element, paragraphIndex: number): boolean {
+  const paragraphs = getDrawingParagraphs(container);
+  const paragraph = paragraphs[paragraphIndex];
+  const previous = paragraphIndex > 0 ? paragraphs[paragraphIndex - 1] : null;
+  if (!paragraph || !previous || previous.parentNode !== paragraph.parentNode) return false;
+
+  const contentChildren = getElementChildren(previous).filter((child) =>
+    child.namespaceURI === DRAWINGML_NAMESPACE
+      && child.localName !== 'pPr'
+      && child.localName !== 'endParaRPr'
+  );
+  if (contentChildren.some((child) => child.localName !== 'r')) return false;
+  if (getDrawingRuns(previous).some((run) => !isEmptyParagraphRenderAnchorText(getDrawingRunText(run)))) {
+    return false;
+  }
+
+  return true;
+}
+
+export function removeEmptyDrawingParagraphBefore(container: Element, paragraphIndex: number): boolean {
+  if (!hasEmptyDrawingParagraphBefore(container, paragraphIndex)) return false;
+  const previous = getDrawingParagraphs(container)[paragraphIndex - 1];
+  if (!previous?.parentNode) return false;
+
+  previous.parentNode.removeChild(previous);
+  return true;
+}
+
+/**
+ * Merge a paragraph into its direct predecessor for Backspace at its start.
+ * The predecessor keeps its paragraph-level formatting; every visible child of
+ * the current paragraph moves before the predecessor's end-paragraph style so
+ * run formatting, fields, and soft breaks survive the join.
+ */
+export function mergeDrawingParagraphWithPrevious(
+  container: Element,
+  paragraphIndex: number,
+): { merged: boolean; caretOffset: number } {
+  const paragraphs = getDrawingParagraphs(container);
+  const previous = paragraphIndex > 0 ? paragraphs[paragraphIndex - 1] : null;
+  const current = paragraphs[paragraphIndex];
+  if (!previous || !current || previous.parentNode !== current.parentNode) {
+    return { merged: false, caretOffset: 0 };
+  }
+
+  const caretOffset = getDrawingRuns(previous)
+    .reduce((offset, run) => offset + getDrawingRunText(run).length, 0);
+  const insertionPoint = getElementChildren(previous).find((child) => (
+    child.localName === 'endParaRPr' && child.namespaceURI === DRAWINGML_NAMESPACE
+  ));
+  for (const child of getElementChildren(current)) {
+    if (
+      child.namespaceURI !== DRAWINGML_NAMESPACE
+      || child.localName === 'pPr'
+      || child.localName === 'endParaRPr'
+    ) {
+      continue;
+    }
+    previous.insertBefore(child, insertionPoint ?? null);
+  }
+  current.parentNode?.removeChild(current);
+  return { merged: true, caretOffset };
+}
+
+/** Remove soft breaks whose layout is confined to a single DrawingML paragraph. */
+export function removeDrawingParagraphSoftBreaks(paragraph: Element): number {
+  let removed = 0;
+  for (const child of getElementChildren(paragraph)) {
+    if (child.localName === 'br' && child.namespaceURI === DRAWINGML_NAMESPACE) {
+      paragraph.removeChild(child);
+      removed++;
+    }
+  }
+  return removed;
+}
+
+/**
+ * Replace a text body's direct paragraphs while retaining the first paragraph's
+ * run and end-paragraph styling. Each entry becomes a real `<a:p>` so list
+ * markers belong to PowerPoint paragraphs rather than literal glyph text.
+ *
+ * Heading-first templates often have bold on paragraph 0. Later paragraphs
+ * default to not bold unless `bold` is set, so body copy does not inherit the
+ * heading weight.
+ */
+export function replaceDrawingParagraphs(container: Element, paragraphs: readonly DrawingParagraphText[]): void {
+  if (paragraphs.length === 0) {
+    throw new Error('A PowerPoint text body needs at least one paragraph.');
+  }
+  if (paragraphs.some(({ text }) => /[\r\n]/.test(text))) {
+    throw new Error('Paragraph text cannot contain line breaks; use separate paragraph entries instead.');
+  }
+
+  const existing = getDrawingParagraphs(container);
+  const template = existing[0];
+  if (!template) {
+    throw new Error('This PowerPoint label has no editable text paragraph.');
+  }
+  const parent = template.parentNode;
+  if (!parent) {
+    throw new Error('Could not find the PowerPoint text body.');
+  }
+
+  const replacements = paragraphs.map(({ text, listStyle, bold }, index) => {
+    const paragraph = template.cloneNode(true) as Element;
+    setDrawingParagraphContents(paragraph, text);
+    applyDrawingParagraphListStyle(paragraph, listStyle);
+    const resolvedBold = bold ?? (index === 0 ? undefined : false);
+    if (resolvedBold !== undefined) {
+      applyDrawingParagraphRunBold(paragraph, resolvedBold);
+    }
+    return paragraph;
+  });
+
+  for (const paragraph of replacements) {
+    parent.insertBefore(paragraph, template);
+  }
+  for (const paragraph of existing) {
+    parent.removeChild(paragraph);
+  }
+}
+
+function applyDrawingParagraphRunBold(paragraph: Element, bold: boolean): void {
+  const run = getDrawingRuns(paragraph)[0];
+  if (!run) return;
+  const doc = paragraph.ownerDocument;
+  let runProperties = getElementChildren(run).find(
+    (element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE,
+  );
+  if (!runProperties) {
+    runProperties = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:rPr');
+    run.insertBefore(runProperties, run.firstChild);
+  }
+  applyRunPropertyChange(runProperties, doc, { bold });
+}
+
+function setDrawingParagraphContents(paragraph: Element, text: string): void {
+  const templateRun = getDrawingRuns(paragraph)[0] ?? null;
+  const endParagraphProperties = getElementChildren(paragraph).find(
+    (element) => element.localName === 'endParaRPr' && element.namespaceURI === DRAWINGML_NAMESPACE,
+  ) ?? null;
+  for (const child of getElementChildren(paragraph)) {
+    if (child.localName === 'pPr' || child === endParagraphProperties) continue;
+    paragraph.removeChild(child);
+  }
+
+  const run = templateRun
+    ? cloneDrawingRun(templateRun, paragraph.ownerDocument)
+    : paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:r');
+  let textElement = getElementChildren(run)
+    .find((element) => element.localName === 't' && element.namespaceURI === DRAWINGML_NAMESPACE)
+    ?? getDescendants(run, 't').find((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+  if (!textElement) {
+    textElement = paragraph.ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
+    run.appendChild(textElement);
+  }
+  textElement.textContent = text;
+  paragraph.insertBefore(run, endParagraphProperties);
 }
 
 function clearDrawingParagraphContent(paragraph: Element): Element | null {
@@ -56,13 +273,18 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
   }
 
   if (!text.includes('\n')) {
-    const runs = getDrawingRuns(paragraph);
+    removeDrawingParagraphSoftBreaks(paragraph);
+    let runs = getDrawingRuns(paragraph);
     if (runs.length === 0) {
-      throw new Error('Could not find the selected text paragraph runs.');
+      // Empty template paragraphs can contain only <a:endParaRPr>. Keep that
+      // paragraph and its list properties, but create the run needed to write
+      // the requested text instead of rejecting an otherwise valid edit.
+      ensureDrawingParagraphRun(paragraph, null);
+      runs = getDrawingRuns(paragraph);
     }
 
     runs.forEach((run, runIndex) => {
-      setDrawingRunText(run, runIndex === 0 ? text : '');
+      setDrawingRunText(run, runIndex === 0 ? toStoredParagraphRunText(text) : '');
     });
     return;
   }
@@ -74,8 +296,112 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
     if (lineIndex > 0) {
       paragraph.appendChild(doc.createElementNS(DRAWINGML_NAMESPACE, 'a:br'));
     }
-    appendDrawingParagraphRun(paragraph, templateRun, line);
+    appendDrawingParagraphRun(paragraph, templateRun, toStoredParagraphRunText(line));
   });
+}
+
+function findEndParagraphProperties(paragraph: Element): Element | null {
+  return getElementChildren(paragraph).find(
+    (element) => element.localName === 'endParaRPr' && element.namespaceURI === DRAWINGML_NAMESPACE,
+  ) ?? null;
+}
+
+function insertDrawingRunBeforeEndParagraphProperties(paragraph: Element, run: Element): void {
+  paragraph.insertBefore(run, findEndParagraphProperties(paragraph));
+}
+
+function findNearestDrawingParagraphRun(paragraph: Element): Element | null {
+  const parent = paragraph.parentNode;
+  if (!parent || parent.nodeType !== 1) return null;
+  const paragraphs = getElementChildren(parent as Element).filter(
+    (child) => child.localName === 'p' && child.namespaceURI === DRAWINGML_NAMESPACE,
+  );
+  const paragraphIndex = paragraphs.indexOf(paragraph);
+  if (paragraphIndex === -1) return null;
+
+  for (let index = paragraphIndex - 1; index >= 0; index--) {
+    const candidate = paragraphs[index];
+    const run = candidate ? getDrawingRuns(candidate)[0] : null;
+    if (run) return run;
+  }
+  for (let index = paragraphIndex + 1; index < paragraphs.length; index++) {
+    const candidate = paragraphs[index];
+    const run = candidate ? getDrawingRuns(candidate)[0] : null;
+    if (run) return run;
+  }
+  return null;
+}
+
+function ensureDrawingParagraphRun(paragraph: Element, templateRun: Element | null): void {
+  if (getDrawingRuns(paragraph).length > 0) return;
+  const doc = paragraph.ownerDocument;
+  const styleTemplate = templateRun ?? findNearestDrawingParagraphRun(paragraph);
+  const run = styleTemplate ? cloneDrawingRun(styleTemplate, doc) : doc.createElementNS(DRAWINGML_NAMESPACE, 'a:r');
+  let textElement = getElementChildren(run)
+    .find((element) => element.localName === 't' && element.namespaceURI === DRAWINGML_NAMESPACE)
+    ?? getDescendants(run, 't').find((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+  if (!textElement) {
+    textElement = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:t');
+    run.appendChild(textElement);
+  }
+  textElement.textContent = EMPTY_PARAGRAPH_RENDER_ANCHOR;
+  insertDrawingRunBeforeEndParagraphProperties(paragraph, run);
+}
+
+/**
+ * Split one real DrawingML paragraph at its run-text offset. The sibling keeps
+ * the source paragraph's pPr (including native list style), while the suffix
+ * retains each run's direct formatting. This is the normal PowerPoint Enter
+ * behavior; soft breaks belong to `setDrawingParagraphText` instead.
+ */
+export function splitDrawingParagraphAtOffset(
+  container: Element,
+  paragraphIndex: number,
+  offset: number,
+): number {
+  const paragraphs = getDrawingParagraphs(container);
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) {
+    throw new Error('Could not find the selected text paragraph.');
+  }
+  const parent = paragraph.parentNode;
+  if (!parent) {
+    throw new Error('Could not find the PowerPoint text body.');
+  }
+
+  const doc = paragraph.ownerDocument;
+  const templateRun = getDrawingRuns(paragraph)[0] ?? null;
+  const segments = getDrawingRunSegments(paragraph);
+  const total = segments.at(-1)?.end ?? 0;
+  const splitOffset = Math.max(0, Math.min(total, offset));
+  splitParagraphAtOffset(paragraph, splitOffset, doc);
+
+  const splitSegments = getDrawingRunSegments(paragraph);
+  const firstSuffixRunIndex = splitSegments.findIndex((segment) => segment.start >= splitOffset);
+  const suffixRuns = firstSuffixRunIndex === -1
+    ? []
+    : getDrawingRuns(paragraph).slice(firstSuffixRunIndex);
+
+  const suffixParagraph = paragraph.cloneNode(true) as Element;
+  for (const child of getElementChildren(suffixParagraph)) {
+    if (
+      child.localName === 'pPr'
+      || (child.localName === 'endParaRPr' && child.namespaceURI === DRAWINGML_NAMESPACE)
+    ) {
+      continue;
+    }
+    suffixParagraph.removeChild(child);
+  }
+
+  for (const run of suffixRuns) {
+    insertDrawingRunBeforeEndParagraphProperties(suffixParagraph, cloneDrawingRun(run, doc));
+    paragraph.removeChild(run);
+  }
+
+  ensureDrawingParagraphRun(paragraph, templateRun);
+  ensureDrawingParagraphRun(suffixParagraph, templateRun);
+  parent.insertBefore(suffixParagraph, paragraph.nextSibling);
+  return paragraphIndex + 1;
 }
 
 export function setDrawingTextRun(container: Element, paragraphIndex: number, runIndex: number, text: string): void {
@@ -131,6 +457,23 @@ interface DrawingRunSegment {
   text: string;
 }
 
+/** A character range inside one DrawingML paragraph. */
+export interface DrawingTextRange {
+  paragraphIndex: number;
+  start: number;
+  end: number;
+}
+
+/** Outcome of deleting one or more text ranges from a shape. */
+export interface DrawingTextRangeDeletionResult {
+  changed: boolean;
+  paragraphIndex: number;
+  caretOffset: number;
+  deletedRangeCount: number;
+  removedParagraphCount: number;
+  mergedParagraphs: boolean;
+}
+
 function getDrawingRunSegments(paragraph: Element): DrawingRunSegment[] {
   const segments: DrawingRunSegment[] = [];
   let offset = 0;
@@ -140,6 +483,141 @@ function getDrawingRunSegments(paragraph: Element): DrawingRunSegment[] {
     offset += text.length;
   });
   return segments;
+}
+
+function paragraphTextLength(paragraph: Element): number {
+  return getDrawingRunSegments(paragraph).at(-1)?.end ?? 0;
+}
+
+function mergeDrawingRanges(ranges: readonly DrawingTextRange[]): DrawingTextRange[] {
+  const merged: DrawingTextRange[] = [];
+  for (const range of [...ranges].sort((left, right) => (
+    left.paragraphIndex - right.paragraphIndex || left.start - right.start || left.end - right.end
+  ))) {
+    const previous = merged.at(-1);
+    if (previous && previous.paragraphIndex === range.paragraphIndex && range.start <= previous.end) {
+      previous.end = Math.max(previous.end, range.end);
+    } else {
+      merged.push({ ...range });
+    }
+  }
+  return merged;
+}
+
+function deleteDrawingParagraphTextRange(paragraph: Element, start: number, end: number): boolean {
+  let changed = false;
+  for (const segment of getDrawingRunSegments(paragraph)) {
+    const localStart = Math.max(0, Math.min(segment.text.length, start - segment.start));
+    const localEnd = Math.max(0, Math.min(segment.text.length, end - segment.start));
+    if (localEnd <= localStart) continue;
+    const nextText = segment.text.slice(0, localStart) + segment.text.slice(localEnd);
+    setDrawingRunText(segment.run, nextText);
+    changed = true;
+  }
+  return changed;
+}
+
+function retainDrawingParagraphPrefix(paragraph: Element, offset: number): void {
+  for (const segment of getDrawingRunSegments(paragraph)) {
+    const retainedLength = Math.max(0, Math.min(segment.text.length, offset - segment.start));
+    setDrawingRunText(segment.run, segment.text.slice(0, retainedLength));
+  }
+}
+
+function cloneDrawingParagraphSuffix(paragraph: Element, offset: number): Element[] {
+  const clones: Element[] = [];
+  for (const segment of getDrawingRunSegments(paragraph)) {
+    const localStart = Math.max(0, Math.min(segment.text.length, offset - segment.start));
+    if (localStart >= segment.text.length) continue;
+    const clone = segment.run.cloneNode(true) as Element;
+    setDrawingRunText(clone, segment.text.slice(localStart));
+    clones.push(clone);
+  }
+  return clones;
+}
+
+/**
+ * Delete selected text from one shape in a single OOXML mutation. A continuous
+ * selection across paragraphs joins the remaining prefix and suffix in the
+ * first paragraph while retaining the original runs and their formatting.
+ */
+export function deleteDrawingTextRanges(
+  container: Element,
+  requestedRanges: readonly DrawingTextRange[],
+): DrawingTextRangeDeletionResult {
+  const paragraphs = getDrawingParagraphs(container);
+  const ranges = mergeDrawingRanges(requestedRanges.flatMap((range) => {
+    if (!Number.isFinite(range.paragraphIndex) || !Number.isFinite(range.start) || !Number.isFinite(range.end)) {
+      return [];
+    }
+    const paragraph = paragraphs[range.paragraphIndex];
+    if (!paragraph) return [];
+    const length = paragraphTextLength(paragraph);
+    const start = Math.max(0, Math.min(length, Math.floor(range.start)));
+    const end = Math.max(start, Math.min(length, Math.floor(range.end)));
+    return end > start ? [{ paragraphIndex: range.paragraphIndex, start, end }] : [];
+  }));
+  const first = ranges[0];
+  if (!first) {
+    return {
+      changed: false,
+      paragraphIndex: 0,
+      caretOffset: 0,
+      deletedRangeCount: 0,
+      removedParagraphCount: 0,
+      mergedParagraphs: false,
+    };
+  }
+  const last = ranges.at(-1) ?? first;
+  const spansParagraphs = first.paragraphIndex !== last.paragraphIndex;
+  const continuousParagraphSpan = spansParagraphs
+    && ranges.length === last.paragraphIndex - first.paragraphIndex + 1
+    && ranges.every((range, index) => range.paragraphIndex === first.paragraphIndex + index)
+    && first.end === paragraphTextLength(paragraphs[first.paragraphIndex]!)
+    && last.start === 0
+    && ranges.slice(1, -1).every((range) => {
+      const length = paragraphTextLength(paragraphs[range.paragraphIndex]!);
+      return range.start === 0 && range.end === length;
+    });
+
+  if (continuousParagraphSpan) {
+    const firstParagraph = paragraphs[first.paragraphIndex]!;
+    const lastParagraph = paragraphs[last.paragraphIndex]!;
+    const suffixRuns = cloneDrawingParagraphSuffix(lastParagraph, last.end);
+    retainDrawingParagraphPrefix(firstParagraph, first.start);
+    const endProperties = getElementChildren(firstParagraph).find((child) => (
+      child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'endParaRPr'
+    ));
+    for (const run of suffixRuns) {
+      firstParagraph.insertBefore(run, endProperties ?? null);
+    }
+    for (let index = last.paragraphIndex; index > first.paragraphIndex; index--) {
+      const paragraph = paragraphs[index];
+      paragraph?.parentNode?.removeChild(paragraph);
+    }
+    return {
+      changed: true,
+      paragraphIndex: first.paragraphIndex,
+      caretOffset: first.start,
+      deletedRangeCount: ranges.length,
+      removedParagraphCount: last.paragraphIndex - first.paragraphIndex,
+      mergedParagraphs: true,
+    };
+  }
+
+  let changed = false;
+  for (const range of [...ranges].reverse()) {
+    const paragraph = paragraphs[range.paragraphIndex];
+    if (paragraph) changed = deleteDrawingParagraphTextRange(paragraph, range.start, range.end) || changed;
+  }
+  return {
+    changed,
+    paragraphIndex: first.paragraphIndex,
+    caretOffset: first.start,
+    deletedRangeCount: ranges.length,
+    removedParagraphCount: 0,
+    mergedParagraphs: false,
+  };
 }
 
 function splitDrawingRunAt(

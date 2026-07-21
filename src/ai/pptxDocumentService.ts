@@ -3,6 +3,7 @@ import { isPowerPointExtension } from '../powerpoint/extensions';
 import type { AiRuntime } from './aiRuntime';
 import { AI_EDIT_UNDO_LABEL, aiUndoStore } from './aiUndoStore';
 import { AI_ERROR_CODES, createAiError } from './errors';
+import { coalescePptxOps } from './coalescePptxOps';
 import { describePptxFromEngine } from './pptxDescribe';
 import { executePptxOp } from './pptxOpExecutor';
 import { isAiErrorDetail } from './errors';
@@ -98,7 +99,10 @@ export class PptxDocumentService {
 			const affectedSlideIndices = new Set<number>();
 
 			const runBatch = async (engine: typeof lease.engine) => {
-				for (const op of ops) {
+				// Coalesce consecutive same-slide deletes so renumbering cannot
+				// make later shapeIndex payloads miss their targets.
+				const batchOps = coalescePptxOps(ops);
+				for (const op of batchOps) {
 					const result = await executePptxOp(
 						{
 							engine,
@@ -137,7 +141,14 @@ export class PptxDocumentService {
 				if (dryRun) {
 					await runBatch(lease.engine);
 				} else {
+					// Keep a durable pre-edit snapshot for AI undo even after session.close()
+					// or view history clear on reload. View history still gets Ctrl+Z.
+					const rollbackBuffer = await lease.engine.export();
 					await lease.view.runAgentEditBatch('AI edit', (engine) => runBatch(engine));
+					aiUndoStore.record(lease.file.path, {
+						label: AI_EDIT_UNDO_LABEL,
+						before: { kind: 'pptx', buffer: rollbackBuffer.slice(0), currentSlide: 0 },
+					});
 				}
 			} else {
 				const rollbackBuffer = dryRun ? null : await lease.engine.export();
@@ -170,11 +181,7 @@ export class PptxDocumentService {
 				dryRun,
 				changed: [...changed],
 				undoLabel: dryRun ? undefined : AI_EDIT_UNDO_LABEL,
-				canUndo: !dryRun && (
-					lease.mode === 'view'
-						? lease.view.canUndoAgentEdit()
-						: aiUndoStore.canUndo(lease.file.path)
-				),
+				canUndo: !dryRun && aiUndoStore.canUndo(lease.file.path),
 				preview: preview.length > 0 ? preview : undefined,
 				warnings,
 				errors: [],
@@ -204,11 +211,19 @@ export class PptxDocumentService {
 			const lease = await this.sessions.acquire(path);
 			if (lease.mode === 'view') {
 				const saved = await lease.view.saveCurrentPresentation();
+				const saveError = lease.view.getAgentSaveError();
+				if (!saved) {
+					debugLog('agent', 'AI view session save failed', {
+						path: lease.file.path,
+						mode: 'view',
+						error: saveError,
+					});
+				}
 				return saved
 					? { ok: true, errors: [] }
 					: {
 						ok: false,
-						errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Save failed in the open PowerPoint view.', {
+						errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, saveError ?? 'Save failed in the open PowerPoint view.', {
 							path: lease.file.path,
 						})],
 					};
@@ -236,36 +251,57 @@ export class PptxDocumentService {
 	}
 
 	async close(path: string): Promise<void> {
-		const normalized = this.runtime.normalizePath(path);
-		aiUndoStore.clear(normalized);
+		// Keep AI undo/redo snapshots after session.close() so agents can undo
+		// apply→save→close the same way Ctrl+Z undoes in the editor.
 		await this.sessions.release(path);
+	}
+
+	private async exportCurrentPptxBuffer(path: string): Promise<ArrayBuffer> {
+		const lease = await this.sessions.acquire(path, { requireEditable: false });
+		return lease.engine.export();
+	}
+
+	private async restorePptxUndoBuffer(path: string, buffer: ArrayBuffer): Promise<void> {
+		const openView = this.runtime.findOpenPptxView(this.runtime.normalizePath(path));
+		if (openView) {
+			await openView.reloadFromAgentBuffer(buffer);
+			return;
+		}
+		await this.sessions.restoreHeadlessBuffer(path, buffer);
 	}
 
 	async undo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		try {
 			this.assertPptxPath(path);
 			const normalized = this.runtime.normalizePath(path);
-			const openView = this.runtime.findOpenPptxView(normalized);
-			if (openView?.canUndoAgentEdit()) {
-				const undone = await openView.undoAgentEdit();
-				return undone
-					? { ok: true, errors: [] }
-					: { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })] };
-			}
-
 			const entry = aiUndoStore.popUndo(normalized);
 			if (!entry || entry.before.kind !== 'pptx') {
-				return { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })] };
+				const openView = this.runtime.findOpenPptxView(normalized);
+				if (openView?.canUndoAgentEdit()) {
+					const undone = await openView.undoAgentEdit();
+					if (!undone) {
+						return {
+							ok: false,
+							errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })],
+						};
+					}
+					const saved = await this.save(path);
+					return saved.ok ? { ok: true, errors: [] } : saved;
+				}
+				return {
+					ok: false,
+					errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })],
+				};
 			}
 
-			const lease = await this.sessions.acquire(path);
-			const currentBuffer = await lease.engine.export();
+			const currentBuffer = await this.exportCurrentPptxBuffer(path);
 			aiUndoStore.pushRedo(normalized, {
 				label: entry.label,
 				before: { kind: 'pptx', buffer: currentBuffer.slice(0), currentSlide: 0 },
 			});
-			await this.sessions.restoreHeadlessBuffer(path, entry.before.buffer);
-			return { ok: true, errors: [] };
+			await this.restorePptxUndoBuffer(path, entry.before.buffer);
+			const saved = await this.save(path);
+			return saved.ok ? { ok: true, errors: [] } : saved;
 		} catch (error) {
 			if (isAiErrorDetail(error)) {
 				return { ok: false, errors: [error] };
@@ -281,27 +317,34 @@ export class PptxDocumentService {
 		try {
 			this.assertPptxPath(path);
 			const normalized = this.runtime.normalizePath(path);
-			const openView = this.runtime.findOpenPptxView(normalized);
-			if (openView?.canRedoAgentEdit()) {
-				const redone = await openView.redoAgentEdit();
-				return redone
-					? { ok: true, errors: [] }
-					: { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })] };
-			}
-
 			const entry = aiUndoStore.popRedo(normalized);
 			if (!entry || entry.before.kind !== 'pptx') {
-				return { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })] };
+				const openView = this.runtime.findOpenPptxView(normalized);
+				if (openView?.canRedoAgentEdit()) {
+					const redone = await openView.redoAgentEdit();
+					if (!redone) {
+						return {
+							ok: false,
+							errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })],
+						};
+					}
+					const saved = await this.save(path);
+					return saved.ok ? { ok: true, errors: [] } : saved;
+				}
+				return {
+					ok: false,
+					errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })],
+				};
 			}
 
-			const lease = await this.sessions.acquire(path);
-			const currentBuffer = await lease.engine.export();
+			const currentBuffer = await this.exportCurrentPptxBuffer(path);
 			aiUndoStore.record(normalized, {
 				label: entry.label,
 				before: { kind: 'pptx', buffer: currentBuffer.slice(0), currentSlide: 0 },
 			});
-			await this.sessions.restoreHeadlessBuffer(path, entry.before.buffer);
-			return { ok: true, errors: [] };
+			await this.restorePptxUndoBuffer(path, entry.before.buffer);
+			const saved = await this.save(path);
+			return saved.ok ? { ok: true, errors: [] } : saved;
 		} catch (error) {
 			if (isAiErrorDetail(error)) {
 				return { ok: false, errors: [error] };

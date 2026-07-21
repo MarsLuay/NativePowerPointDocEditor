@@ -637,7 +637,7 @@ export class FindReplaceController {
     if (!isSVGTextElement(textElement) || !parent) return;
 
     for (const box of boxes) {
-      const rect = activeDocument.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      const rect = activeDocument.createSvg('rect');
       rect.classList.add('native-powerpoint-find-highlight');
       if (isCurrent) rect.classList.add('is-current');
       rect.setAttribute('x', this.host.formatSvgNumber(box.x));

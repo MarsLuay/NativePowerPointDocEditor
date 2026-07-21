@@ -1,4 +1,3 @@
-/* native-powerpoint-doc-editor 1.1.2 */
 /* obsidian: allow css-scrollbar-width -- progressive enhancement paired with ::-webkit-scrollbar rules */
 
 /* Preference `system` must NOT paint light chrome tokens on the host.
@@ -1127,16 +1126,19 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	[data-native-powerpoint-doc-editor-root]
 	.native-powerpoint-doc-editor-option-search-result {
 	background: transparent;
+	align-items: center;
 	border: 0;
 	border-radius: 4px;
 	box-shadow: none;
 	color: var(--npde-menu-item-text);
 	cursor: pointer;
+	display: flex;
+	gap: var(--doc-menu-item-gap, 8px);
 	justify-content: flex-start;
-	font-size: 12px;
+	font-size: var(--doc-menu-item-font-size, 13px);
 	line-height: 1.35;
-	min-height: 28px;
-	padding: 6px 8px;
+	min-height: var(--doc-menu-item-min-height, 28px);
+	padding: var(--doc-menu-item-padding, 6px 12px);
 	text-align: left;
 	white-space: nowrap;
 	width: 100%;
@@ -1170,27 +1172,54 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	padding: 8px;
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'],
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: absolute'] {
-	background: var(--npde-menu-bg);
-	border-color: var(--npde-menu-border);
+/* MenuDropdown uses inline geometry. The semantic markers let vendor and
+   plugin-added File/Edit actions share one surface without broad position selectors. */
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] :is([data-native-powerpoint-doc-editor-menu-dropdown], .native-powerpoint-doc-editor-edit-menu) {
+	--doc-menu-bg: var(--npde-menu-bg);
+	--doc-menu-border: var(--npde-menu-border);
+	--doc-menu-shadow: var(--npde-menu-shadow-sm);
+	--doc-menu-radius: 6px;
+	--doc-menu-padding: 4px 0;
+	--doc-menu-min-width: 200px;
+	--doc-menu-z-index: 100020;
+	--doc-menu-submenu-z-index: 100021;
+	--doc-menu-item-gap: 8px;
+	--doc-menu-item-min-height: 28px;
+	--doc-menu-item-padding: 6px 12px;
+	--doc-menu-item-radius: 4px;
+	--doc-menu-item-font-size: 13px;
+	--doc-menu-item-text: var(--npde-menu-item-text);
+	--doc-menu-item-hover-bg: var(--npde-menu-hover-bg);
+	--doc-menu-text-muted: var(--npde-menu-text-muted);
+	--doc-menu-shortcut-font-size: 12px;
+	--doc-menu-separator: var(--npde-menu-separator);
+	--doc-menu-separator-margin: 4px 0;
+	background: var(--doc-menu-bg);
+	border: 1px solid var(--doc-menu-border);
+	border-radius: var(--doc-menu-radius);
+	box-shadow: var(--doc-menu-shadow);
 	color: var(--npde-menu-text);
 	isolation: isolate;
+	min-width: var(--doc-menu-min-width);
 	opacity: 1;
-	z-index: 100020;
+	padding: var(--doc-menu-padding);
+	z-index: var(--doc-menu-z-index);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'] :is(button, [role='menuitem'], [role='option']),
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: absolute'] :is(button, [role='menuitem'], [role='option']) {
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menu-item-button] {
 	background: transparent;
 	box-shadow: none;
-	color: var(--npde-menu-item-text);
+	color: var(--doc-menu-item-text);
 }
 
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]),
-.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: absolute'] :is(button:hover, button:focus, [role='menuitem']:hover, [role='menuitem']:focus, [role='option']:hover, [role='option']:focus, [data-highlighted]) {
-	background: var(--npde-menu-hover-bg);
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menu-item-button]:is(:hover, :focus, [data-highlighted]) {
+	background: var(--doc-menu-item-hover-bg);
 	color: var(--npde-menu-hover-text);
+}
+
+.workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menu-item-button]:focus-visible {
+	outline: 2px solid var(--npde-toolbar-focus-ring);
+	outline-offset: -2px;
 }
 
 .workspace-leaf-content.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-outline-nav {
@@ -1450,11 +1479,12 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	color: var(--npde-menu-item-text);
 	cursor: pointer;
 	display: flex;
-	font-size: 12px;
+	font-size: var(--doc-menu-item-font-size, 13px);
+	gap: var(--doc-menu-item-gap, 8px);
 	justify-content: flex-start;
 	line-height: 1.35;
-	min-height: 28px;
-	padding: 6px 8px;
+	min-height: var(--doc-menu-item-min-height, 28px);
+	padding: var(--doc-menu-item-padding, 6px 12px);
 	text-align: left;
 	white-space: nowrap;
 	width: 100%;
@@ -1956,8 +1986,8 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .menu-sepa
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
-	button,
-	.native-powerpoint-toolbar-popover button
+	button:not(.native-powerpoint-color-popover-swatch),
+	.native-powerpoint-toolbar-popover button:not(.native-powerpoint-color-popover-swatch)
 ) {
 	appearance: none;
 	background: transparent;
@@ -1966,8 +1996,8 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface :is(
-	button:hover,
-	button:focus
+	button:not(.native-powerpoint-color-popover-swatch):hover,
+	button:not(.native-powerpoint-color-popover-swatch):focus
 ) {
 	background: var(--npde-chrome-bg-muted);
 	box-shadow: none;
@@ -2075,22 +2105,27 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 
 /*
  * Color-picker swatches are buttons but must keep their data-driven fill. Exclude
- * them from the chrome resets above and re-assert the swatch color with matching
- * specificity so Obsidian's global button styles cannot blank them out.
+ * them from the chrome resets above and paint via .swatch-fill so Obsidian's
+ * global button styles cannot blank them out until hover.
  */
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch {
 	appearance: none;
-	background: var(--np-swatch-color, transparent);
+	background: transparent;
 	box-shadow: none;
 	color: var(--text-muted);
+}
+
+body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch-fill,
+body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch-fill {
+	background-color: var(--np-swatch-color, transparent);
 }
 
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:hover,
 body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:focus,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch:hover,
 body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-editor-theme-resolved-light .native-powerpoint-root .native-powerpoint-color-popover-swatch:focus {
-	background: var(--np-swatch-color, transparent);
+	background: transparent;
 	box-shadow: inset 0 0 0 1px var(--background-modifier-border-hover);
 	color: var(--text-normal);
 }
@@ -2464,7 +2499,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-thumbnail-preview {
-	aspect-ratio: 16 / 9;
+	aspect-ratio: var(--native-powerpoint-thumbnail-aspect-ratio, 16 / 9);
 	background: var(--npde-document-bg);
 	border-radius: 3px;
 	overflow: hidden;
@@ -2883,13 +2918,15 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-canvas-pane {
-	align-items: center;
+	align-items: flex-start;
 	background: var(--nps-canvas);
 	display: flex;
 	flex: 1 1 auto;
-	justify-content: center;
+	justify-content: flex-start;
 	min-height: 0;
 	overflow: auto;
+	/* Text-preview DOM changes must not make the browser pan the slide viewport. */
+	overflow-anchor: none;
 	padding: 32px;
 	position: relative;
 }
@@ -2899,6 +2936,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	box-shadow: var(--npde-document-shadow);
 	color: var(--npde-document-text);
 	flex: 0 0 auto;
+	/* Centers a fitting slide, but resolves to zero when it overflows so every edge remains scrollable. */
+	margin: auto;
 	min-height: 320px;
 	min-width: 560px;
 	position: relative;
@@ -2961,15 +3000,15 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	filter: none;
 }
 
+.native-powerpoint-slide-svg .native-powerpoint-shape-selected {
+	filter: none;
+}
+
 .native-powerpoint-grid-label {
 	paint-order: stroke fill;
 	stroke: var(--native-powerpoint-text-halo, var(--npde-document-text-halo));
 	stroke-linejoin: round;
 	stroke-width: 1.35px;
-}
-
-.native-powerpoint-slide-svg .native-powerpoint-shape-selected {
-	filter: drop-shadow(0 0 2px var(--interactive-accent));
 }
 
 .native-powerpoint-slide-svg .native-powerpoint-find-highlight {
@@ -3004,6 +3043,35 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	z-index: 5;
 }
 
+/* Multi-select only: opaque drag fill so chrome near-misses cannot fall through
+   to SVG shapes (which would start a group move instead of resize). */
+.native-powerpoint-selection-move-surface {
+	bottom: 0;
+	cursor: move;
+	left: 0;
+	pointer-events: none;
+	position: absolute;
+	right: 0;
+	top: 0;
+	z-index: 2;
+}
+
+.native-powerpoint-selection-box.native-powerpoint-multi-selection-outline .native-powerpoint-selection-move-surface {
+	/* Keep the outer edge band free for resize strips + mid-edge dots. */
+	bottom: 12px;
+	left: 12px;
+	pointer-events: auto;
+	right: 12px;
+	top: 12px;
+}
+
+/* Shift/Ctrl/Meta: let clicks reach shapes under the union outline. Drag resumes
+   when the additive modifier is released. Resize/rotate grips stay interactive. */
+.native-powerpoint-selection-box.native-powerpoint-additive-hit-through.native-powerpoint-multi-selection-outline .native-powerpoint-selection-move-surface,
+.native-powerpoint-selection-box.native-powerpoint-additive-hit-through .native-powerpoint-move-border {
+	pointer-events: none;
+}
+
 .native-powerpoint-shape-drag-preview {
 	will-change: transform;
 }
@@ -3011,6 +3079,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 .native-powerpoint-multi-selection-box {
 	border-style: dashed;
 	border-width: 1.5px;
+	pointer-events: none;
+	z-index: 4;
 }
 
 .native-powerpoint-marquee-box {
@@ -3022,6 +3092,15 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	z-index: 6;
 }
 
+/* Shows the prospective multi-selection while its marquee is still moving. */
+.native-powerpoint-marquee-selection-preview {
+	border: 2px solid var(--interactive-accent);
+	box-sizing: border-box;
+	pointer-events: none;
+	position: absolute;
+	z-index: 7;
+}
+
 .native-powerpoint-resize-handle {
 	background: var(--interactive-accent);
 	border: 2px solid var(--background-primary);
@@ -3031,7 +3110,16 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	pointer-events: auto;
 	position: absolute;
 	width: 10px;
-	z-index: 5;
+	/* Above move-border segments so mid-edge / corner dots stretch, not translate. */
+	z-index: 8;
+}
+
+/* Invisible hit pad: mid-edge dots sit on the outline move strips; a near-miss
+   must still resize (especially multi-select group stretch). */
+.native-powerpoint-resize-handle::before {
+	content: "";
+	inset: -10px;
+	position: absolute;
 }
 
 .native-powerpoint-resize-nw {
@@ -3086,7 +3174,37 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	transform: translateY(-50%);
 }
 
+/* A crossed resize mirrors the active grip so it keeps following the pointer. */
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-horizontal .native-powerpoint-resize-w,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-horizontal .native-powerpoint-resize-nw,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-horizontal .native-powerpoint-resize-sw {
+	left: auto;
+	right: -6px;
+}
+
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-horizontal .native-powerpoint-resize-e,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-horizontal .native-powerpoint-resize-ne,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-horizontal .native-powerpoint-resize-se {
+	left: -6px;
+	right: auto;
+}
+
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-vertical .native-powerpoint-resize-n,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-vertical .native-powerpoint-resize-nw,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-vertical .native-powerpoint-resize-ne {
+	bottom: -6px;
+	top: auto;
+}
+
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-vertical .native-powerpoint-resize-s,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-vertical .native-powerpoint-resize-sw,
+.native-powerpoint-selection-box.native-powerpoint-resize-crossed-vertical .native-powerpoint-resize-se {
+	bottom: auto;
+	top: -6px;
+}
+
 .native-powerpoint-move-border {
+	cursor: move;
 	pointer-events: auto;
 	position: absolute;
 	z-index: 3;
@@ -3094,10 +3212,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 
 .native-powerpoint-move-border-n,
 .native-powerpoint-move-border-s {
-	cursor: move;
 	height: 6px;
-	left: 14px;
-	right: 14px;
+	left: 0;
+	right: 0;
 }
 
 .native-powerpoint-move-border-n {
@@ -3110,9 +3227,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 
 .native-powerpoint-move-border-e,
 .native-powerpoint-move-border-w {
-	bottom: 14px;
-	cursor: move;
-	top: 14px;
+	bottom: 0;
+	top: 0;
 	width: 6px;
 }
 
@@ -3122,6 +3238,31 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 
 .native-powerpoint-move-border-e {
 	right: -3px;
+}
+
+/* Leave a center gap on each edge for the mid-edge resize dot (+ hit pad). */
+.native-powerpoint-move-border-n.native-powerpoint-move-border-seg-a,
+.native-powerpoint-move-border-s.native-powerpoint-move-border-seg-a {
+	left: 14px;
+	right: calc(50% + 16px);
+}
+
+.native-powerpoint-move-border-n.native-powerpoint-move-border-seg-b,
+.native-powerpoint-move-border-s.native-powerpoint-move-border-seg-b {
+	left: calc(50% + 16px);
+	right: 14px;
+}
+
+.native-powerpoint-move-border-e.native-powerpoint-move-border-seg-a,
+.native-powerpoint-move-border-w.native-powerpoint-move-border-seg-a {
+	bottom: calc(50% + 16px);
+	top: 14px;
+}
+
+.native-powerpoint-move-border-e.native-powerpoint-move-border-seg-b,
+.native-powerpoint-move-border-w.native-powerpoint-move-border-seg-b {
+	bottom: 14px;
+	top: calc(50% + 16px);
 }
 
 .native-powerpoint-rotate-stem {
@@ -3320,13 +3461,28 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-color-popover-swatch {
-	background-color: var(--np-swatch-color, transparent);
+	background-color: transparent;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: 3px;
 	cursor: pointer;
 	height: 18px;
+	overflow: hidden;
 	padding: 0;
+	position: relative;
 	width: 18px;
+}
+
+/*
+ * Dedicated fill layer — chrome button resets target `button` backgrounds and
+ * used to blank every swatch until :hover re-asserted --np-swatch-color.
+ */
+.native-powerpoint-color-popover-swatch-fill {
+	background-color: var(--np-swatch-color, transparent);
+	border-radius: inherit;
+	display: block;
+	height: 100%;
+	pointer-events: none;
+	width: 100%;
 }
 
 .native-powerpoint-color-popover-swatch.is-active {
@@ -4074,7 +4230,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-s
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface :is(
-	button,
+	button:not(.native-powerpoint-color-popover-swatch),
 	.menu-item,
 	[role='menuitem'],
 	[role='option']
@@ -4086,8 +4242,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-s
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface :is(
-	button:hover,
-	button:focus,
+	button:not(.native-powerpoint-color-popover-swatch):hover,
+	button:not(.native-powerpoint-color-popover-swatch):focus,
 	.menu-item:hover,
 	.menu-item:focus,
 	[role='menuitem']:hover,
@@ -4143,13 +4299,17 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-s
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch {
-	background: var(--np-swatch-color, transparent);
+	background: transparent;
 	border-color: var(--npde-editor-border-strong);
+}
+
+body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch-fill {
+	background-color: var(--np-swatch-color, transparent);
 }
 
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:hover,
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface .native-powerpoint-color-popover-swatch:focus {
-	background: var(--np-swatch-color, transparent);
+	background: transparent;
 	box-shadow: inset 0 0 0 1px var(--npde-editor-border-strong);
 }
 
@@ -4449,4 +4609,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-doc-edi
 	background: var(--npde-warning-bg);
 	border-color: var(--npde-warning-border);
 	color: var(--npde-warning-text);
+}
+
+.native-powerpoint-doc-editor-word-count.is-hidden {
+	display: none;
 }

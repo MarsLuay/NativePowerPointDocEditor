@@ -128,17 +128,17 @@ export class SelectionDragController {
         this.selectionOverlay = this.host.canvasPane.createDiv({ cls: 'native-powerpoint-selection-box' });
         if (this.host.canEdit()) {
           // Edge hit-zones first so the corner dots stack above them at overlaps.
-          // Each edge stretches the object along a single axis.
-          for (const handle of ['n', 'e', 's', 'w'] as HandleName[]) {
-            const edgeEl = this.selectionOverlay.createDiv({ cls: `native-powerpoint-resize-edge native-powerpoint-resize-${handle}` });
+        // Outline edges MOVE; only the handle dots stretch.
+        for (const handle of ['n', 'e', 's', 'w'] as HandleName[]) {
+            const edgeEl = this.selectionOverlay.createDiv({ cls: `native-powerpoint-move-border native-powerpoint-move-border-${handle}` });
             edgeEl.addEventListener('pointerdown', (event) => {
               event.preventDefault();
               event.stopPropagation();
-              this.startDrag(event, 'resize', handle);
+              this.startDrag(event, 'move');
             });
           }
 
-          for (const handle of ['nw', 'ne', 'sw', 'se'] as HandleName[]) {
+          for (const handle of ['n', 'e', 's', 'w', 'nw', 'ne', 'sw', 'se'] as HandleName[]) {
             const handleEl = this.selectionOverlay.createDiv({ cls: `native-powerpoint-resize-handle native-powerpoint-resize-${handle}` });
             handleEl.addEventListener('pointerdown', (event) => {
               event.preventDefault();
@@ -335,6 +335,13 @@ export class SelectionDragController {
     }
 
   cancelMarquee(): void {
+      if (this.marquee) {
+        debugLog('selection', 'PowerPoint selection marquee cancelled', {
+          op: 'marquee-cancel',
+          slide: this.host.currentSlide,
+          shapeIndexes: [...this.host.selectedShapeIndices]
+        });
+      }
       this.marquee = null;
       this.marqueeEl?.remove();
       this.marqueeEl = null;
@@ -355,11 +362,47 @@ export class SelectionDragController {
       }
       if (start.size === 0) return;
 
+      let left = Infinity;
+      let top = Infinity;
+      let right = -Infinity;
+      let bottom = -Infinity;
+      start.forEach((transform) => {
+        left = Math.min(left, transform.x);
+        top = Math.min(top, transform.y);
+        right = Math.max(right, transform.x + transform.cx);
+        bottom = Math.max(bottom, transform.y + transform.cy);
+      });
+      if (!Number.isFinite(left)) return;
+      const startBounds: ShapeTransform = {
+        x: left,
+        y: top,
+        cx: Math.max(1, right - left),
+        cy: Math.max(1, bottom - top),
+        rot: 0,
+      };
+      const topLeft = this.host.emuPointToPane(startBounds.x, startBounds.y);
+      const bottomRight = this.host.emuPointToPane(
+        startBounds.x + startBounds.cx,
+        startBounds.y + startBounds.cy,
+      );
+      const startBox = topLeft && bottomRight
+        ? {
+            left: topLeft.x,
+            top: topLeft.y,
+            width: Math.max(0, bottomRight.x - topLeft.x),
+            height: Math.max(0, bottomRight.y - topLeft.y),
+          }
+        : { left: event.clientX, top: event.clientY, width: 0, height: 0 };
+
       this.groupDrag = {
+        mode: 'move',
         pointerId: event.pointerId,
         startPoint,
         startClientX: event.clientX,
         startClientY: event.clientY,
+        startBox,
+        startBounds,
+        latestBounds: cloneTransform(startBounds),
         start,
         latest: new Map(start),
         moved: false

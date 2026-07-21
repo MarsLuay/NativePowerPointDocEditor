@@ -126,3 +126,29 @@ test("PresentationEngine paragraph alignment edit survives export", async () => 
   assert.match(reloaded.renderSlide(0).svg, /^<svg\b/);
   assert.equal(reloaded.getRunStyle(0, 0, 0, 0)?.alignment, "ctr");
 });
+
+test("PresentationEngine deletes a cross-paragraph selection in one mutation", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const input = await readDeck("features.pptx");
+  const engine = await PresentationEngine.load(toArrayBuffer(input));
+  const shapeIndex = await engine.insertTextBox(0, { x: 100_000, y: 100_000 });
+  await engine.replaceShapeParagraphs(0, shapeIndex, [
+    { text: "Alpha beta", listStyle: "none" },
+    { text: "Gamma delta", listStyle: "none" },
+  ]);
+
+  const result = await engine.deleteTextRanges(0, shapeIndex, [
+    { paragraphIndex: 0, start: 6, end: 10 },
+    { paragraphIndex: 1, start: 0, end: 6 },
+  ]);
+
+  assert.equal(result.changed, true);
+  assert.equal(result.mergedParagraphs, true);
+  assert.equal(result.removedParagraphCount, 1);
+  assert.equal(engine.getParagraphRunText(0, shapeIndex, 0), "Alpha delta");
+  assert.equal(engine.getParagraphRunText(0, shapeIndex, 1), null);
+
+  const reloaded = await PresentationEngine.load(await engine.export());
+  assert.equal(reloaded.getParagraphRunText(0, shapeIndex, 0), "Alpha delta");
+  assert.equal(reloaded.getParagraphRunText(0, shapeIndex, 1), null);
+});

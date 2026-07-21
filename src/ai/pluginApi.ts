@@ -1,4 +1,5 @@
 import type { AiCore } from './aiCore';
+import type { CreateOfficeDocumentOptions, CreateOfficeDocumentResult } from './createOfficeDocument';
 import { AI_API_VERSION, PLUGIN_ID } from './types';
 import type {
 	ApplyOptions,
@@ -29,6 +30,7 @@ export interface NpdeAiApi {
 	getInfo(): NpdeAiApiInfo;
 	listCapabilities(): CapabilityManifest | { ok: false; errors: ApplyResult['errors'] };
 	validateOps(ops: DocumentOp[]): { ok: boolean; errors: ApplyResult['errors'] };
+	createDocument(options: CreateOfficeDocumentOptions): Promise<CreateOfficeDocumentResult>;
 	describe(path: string): Promise<DescribeResult>;
 	apply(path: string, ops: DocumentOp[], options?: ApplyOptions): Promise<ApplyResult>;
 	undo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }>;
@@ -77,6 +79,7 @@ export function createNpdeAiApi(core: AiCore): NpdeAiApi {
 		}),
 		listCapabilities: () => core.listCapabilities(),
 		validateOps: (ops) => core.validateOps(ops),
+		createDocument: (options) => core.createDocument(options),
 		describe: (path) => core.describe(path),
 		apply: (path, ops, options) => core.apply(path, ops, options),
 		undo: (path) => core.undoAgentEdit(path),
