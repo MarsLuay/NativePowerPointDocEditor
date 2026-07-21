@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AI/DOCX unit tests resolve vendored `@npde/docx-editor-*` aliases under `vendor/docx-editor-runtime`.
 - Release-branch DOCX font/IME harness scripts skip cleanly when harness entries are absent.
 - Enable `obsidianmd/prefer-active-doc`; document `DOCX_EDITOR_SOURCE_DIR`; bump `dompurify` to 3.4.12.
+- Point CI release/lint at `check:docx-runtime` instead of removed in-repo `build:docx-editor`.
 
 ## [1.0.53] - 2026-07-21
 
