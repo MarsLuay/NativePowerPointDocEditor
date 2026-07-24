@@ -22,9 +22,11 @@ export interface PptxPackageDocumentHooks {
 /**
  * Owns the lossless PPTX package and the renderer derived from it.
  *
- * Every mutation that requires a package export must enter through `export()`
- * or `syncPackageFromPendingSlides()`. This preserves OOXML the renderer does
- * not model before it becomes the next authoritative package.
+ * Every mutation that requires a package export must enter through `export()`,
+ * `foldLiveSlidesIntoPackage()`, or `syncPackageFromPendingSlides()`. This
+ * preserves OOXML the renderer does not model before it becomes the next
+ * authoritative package. Prefer `foldLiveSlidesIntoPackage()` when a full WASM
+ * `exportPptx()` is unnecessary (history snapshots, slide delete/reorder).
  */
 export class PptxPackageDocument {
   private _renderer: PptxRenderer;
@@ -182,6 +184,64 @@ export class PptxPackageDocument {
         op: 'sync-pending-slides',
         pendingSlideCount: slides.length,
         slides,
+        authoritativePackage: true,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Fold live renderer slide OOXML into the authoritative package without
+   * `exportPptx()`. Used for history snapshots and slide-management ops where a
+   * full WASM package encode is the dominant cost on image-heavy decks.
+   */
+  async foldLiveSlidesIntoPackage(): Promise<ArrayBuffer> {
+    const startedAt = Date.now();
+    await this.syncPackageFromPendingSlides();
+    const previousBuffer = this.currentBuffer;
+    const reader = this._renderer as Partial<SlideOoxmlReadable>;
+    const modifications = new Map<string, string>();
+    if (typeof reader.getSlideOoxml === 'function') {
+      for (let slideIndex = 0; slideIndex < this._slideCount; slideIndex++) {
+        try {
+          const slideXml = reader.getSlideOoxml(slideIndex);
+          if (slideXml.includes('</p:sld>')) {
+            modifications.set(getSlidePath(slideIndex), slideXml);
+          }
+        } catch {
+          // Keep the prior package part when the runtime cannot serialize a slide.
+        }
+      }
+    }
+
+    debugLog('engine', 'Package fold transaction started', {
+      op: 'fold-live-slides',
+      slideCount: this._slideCount,
+      patchedSlideCount: modifications.size,
+      authoritativePackage: true,
+    });
+    try {
+      const patched =
+        modifications.size > 0 ? await buildZip(previousBuffer, modifications) : previousBuffer.slice(0);
+      const reconciledExport = await this.hooks.reconcileExport(previousBuffer, patched);
+      this.currentBuffer = reconciledExport.slice(0);
+      this.pendingSlideXml.clear();
+      await this.hooks.refreshDerivedState(reconciledExport);
+      debugLog('engine', 'Package fold transaction committed', {
+        op: 'fold-live-slides',
+        slideCount: this._slideCount,
+        patchedSlideCount: modifications.size,
+        outputBytes: reconciledExport.byteLength,
+        authoritativePackage: true,
+        ms: Date.now() - startedAt,
+      });
+      return reconciledExport;
+    } catch (error) {
+      errorLog('engine', 'Package fold transaction failed', {
+        op: 'fold-live-slides',
+        slideCount: this._slideCount,
+        patchedSlideCount: modifications.size,
         authoritativePackage: true,
         error,
       });

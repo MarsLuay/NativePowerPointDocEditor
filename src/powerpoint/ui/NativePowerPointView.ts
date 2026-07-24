@@ -51,6 +51,7 @@ import { isElement, isNode, isSVGGElement, isSVGTextElement, isSVGTSpanElement }
 import { PowerPointPresentController } from '../../PowerPointPresent';
 import { exportSlideToPng } from '../../PowerPointExport';
 import { InlineTextGeometry } from '../inlineTextGeometry';
+import { createDetachedMeasureCanvas } from '../measureCanvas';
 import {
   EMPTY_PARAGRAPH_RENDER_ANCHOR,
   stripEmptyParagraphRenderAnchors,
@@ -3076,6 +3077,23 @@ export class NativePowerPointView extends FileView {
       return false;
     }
 
+    // Inline editor targets live inside the slide SVG. Invalidate them before
+    // empty() so updateSlideScale cannot measure caret geometry against detached
+    // nodes (Bring Forward / full re-render with an open text editor).
+    if (this.activeEditorTarget || this.activeShapeTextTarget) {
+      this.activeEditorTarget?.classList.remove('native-powerpoint-text-editing');
+      this.activeEditorTarget = null;
+      this.activeShapeTextTarget = null;
+      this.activeTextStyleTarget = null;
+      this.activeInlineCaret?.addClass('native-powerpoint-inline-caret-hidden');
+    }
+    // Full-slide rebuild has no editor rebind path. Drop a clean editor now;
+    // dirty editors keep the textarea so clearSelection/commit can still flush
+    // via the closed-over commit callback.
+    if (this.activeEditor && !this.activeEditorTextDirty) {
+      this.removeActiveEditor();
+    }
+
     this.slideSurface.empty();
     this.slideSurface.appendChild(svgElement);
     this.svgEl = svgElement;
@@ -3088,7 +3106,9 @@ export class NativePowerPointView extends FileView {
       this.annotateSlideTextOffsets();
       this.svgEl.addClass('native-powerpoint-slide-svg');
       this.slideSurface.addClass('is-rendered');
-      this.updateSlideScale();
+      // Skip chrome on the first scale pass: selection/editor targets were just
+      // cleared and SVG events are not attached yet.
+      this.updateSlideScale({ skipChrome: true });
       window.requestAnimationFrame(() => this.updateSlideScale());
       this.attachSvgEvents();
       this.applyRunHighlights();
@@ -7222,7 +7242,7 @@ export class NativePowerPointView extends FileView {
       this.textToolbarController.preserveFormattingContext();
       this.openColorPopover(textColorButton, this.textColorValue, false, (color) => {
         debugLog('text-format', 'setTextColor', { color });
-        this.applyRunStyle({ color });
+        void this.applyRunStyle({ color });
       });
     });
 
@@ -7232,7 +7252,7 @@ export class NativePowerPointView extends FileView {
       this.textToolbarController.preserveFormattingContext();
       this.openColorPopover(highlightButton, this.textHighlightValue, true, (color) => {
         debugLog('text-format', 'setHighlight', { color });
-        this.applyRunStyle({ highlight: color });
+        void this.applyRunStyle({ highlight: color });
       });
     });
 
@@ -7296,7 +7316,7 @@ export class NativePowerPointView extends FileView {
       if (selectedRanges?.length) {
         const next = !this.engine.areRangesStyled(this.currentSlide, context.shapeIndex, selectedRanges, flag);
         debugLog('text-format', 'toggleRunFlag', { flag, path: 'inline-ranges', next, shapeIndex: context.shapeIndex });
-        this.applyRunStyle({ [flag]: next });
+        void this.applyRunStyle({ [flag]: next });
         return;
       }
     }
@@ -7324,14 +7344,14 @@ export class NativePowerPointView extends FileView {
           start,
           end
         });
-        this.applyRunStyle({ [flag]: next });
+        void this.applyRunStyle({ [flag]: next });
         return;
       }
     }
 
     const current = this.currentRunStyle?.[flag] ?? false;
     debugLog('text-format', 'toggleRunFlag', { flag, path: 'caret-or-shape', next: !current });
-    this.applyRunStyle({ [flag]: !current });
+    void this.applyRunStyle({ [flag]: !current });
   }
 
   private stepFontSize(delta: number): void {
@@ -7340,7 +7360,7 @@ export class NativePowerPointView extends FileView {
       ?? (Number.isFinite(inputValue) && inputValue > 0 ? inputValue : 18);
     const next = Math.min(TEXT_TOOLBAR_MAX_FONT_SIZE, Math.max(TEXT_TOOLBAR_MIN_FONT_SIZE, Math.round(current) + delta));
     debugLog('text-format', 'stepFontSize', { delta, current, next });
-    this.applyRunStyle({ fontSizePt: next });
+    void this.applyRunStyle({ fontSizePt: next });
   }
 
   private commitFontSizeInput(): void {
@@ -7355,7 +7375,7 @@ export class NativePowerPointView extends FileView {
       Math.max(TEXT_TOOLBAR_MIN_FONT_SIZE, Math.round(value))
     );
     debugLog('text-format', 'commitFontSizeInput', { value, clamped });
-    this.applyRunStyle({ fontSizePt: clamped });
+    void this.applyRunStyle({ fontSizePt: clamped });
   }
 
   private flushActiveEditor(): void {
@@ -7370,11 +7390,11 @@ export class NativePowerPointView extends FileView {
     }
   }
 
-  private applyRunStyle(change: RunStyleChange): void {
+  private applyRunStyle(change: RunStyleChange): Promise<void> {
     const engine = this.engine;
-    if (!engine) return;
+    if (!engine) return Promise.resolve();
     const isHighlightClear = change.highlight === null;
-    void this.runTextFormatting('Format text', (shapeIndex, run, selection) => {
+    return this.runTextFormatting('Format text', (shapeIndex, run, selection) => {
       if (selection?.length) {
         debugLog('text-select', 'applyRunStyle with ranges', {
           shapeIndex,
@@ -7675,7 +7695,7 @@ export class NativePowerPointView extends FileView {
         this.bindToolbarButton(item, () => {
           this.closeToolbarPopover();
           debugLog('text-format', 'setFontFamily', { font });
-          this.applyRunStyle({ fontFamily: font });
+          void this.applyRunStyle({ fontFamily: font });
         });
       }
     });
@@ -8717,6 +8737,10 @@ export class NativePowerPointView extends FileView {
   private updateInlineCaret(editor: HTMLTextAreaElement, element: SVGTextElement | SVGTSpanElement): void {
     if (!this.activeInlineCaret) return;
     if (this.isNavigatingSlide || this.isTearingDownEditor) return;
+    if (!element.isConnected) {
+      this.activeInlineCaret.addClass('native-powerpoint-inline-caret-hidden');
+      return;
+    }
 
     const box = this.getElementBox(element);
     if (!box) {
@@ -9657,9 +9681,9 @@ export class NativePowerPointView extends FileView {
     if (text.length === 0) return { left: box.left, ...row };
 
     const style = window.getComputedStyle(editor);
-    const canvas = activeDocument.createEl('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) {
+    const canvas = createDetachedMeasureCanvas(geometryElement.ownerDocument);
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) {
       return { left: box.left + box.width * (offset / text.length), ...row };
     }
 
@@ -9789,9 +9813,9 @@ export class NativePowerPointView extends FileView {
     const text = editor.value;
     const clickOffset = Math.max(0, Math.min(box.width, localClientX - box.left));
     const style = window.getComputedStyle(editor);
-    const canvas = activeDocument.createEl('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) {
+    const canvas = createDetachedMeasureCanvas(editor.ownerDocument);
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) {
       return Math.round(text.length * (clickOffset / box.width));
     }
 
@@ -10291,16 +10315,10 @@ export class NativePowerPointView extends FileView {
 
   /** Use the first run's effective on-screen font to decide where a word wraps. */
   private createInlinePreviewTextMeasurer(run: SVGTSpanElement): ((value: string) => number) | null {
-    // Prefer Window.createEl (detached canvas). Document.createEl on an SVG/XML
-    // pop-out can append to a Document that already has a root and throw
-    // "Only one element on document allowed", aborting preview sync.
-    const scopedWindow = (run.ownerDocument?.defaultView ?? window) as Window & {
-      createEl?: (tag: 'canvas') => HTMLCanvasElement;
-    };
-    if (typeof scopedWindow.createEl !== 'function') return null;
-    const canvas = scopedWindow.createEl('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) return null;
+    const canvas = createDetachedMeasureCanvas(run.ownerDocument);
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return null;
+    const scopedWindow = run.ownerDocument?.defaultView ?? window;
     const style = scopedWindow.getComputedStyle(run);
     context.font = `${style.fontStyle} ${style.fontWeight} ${this.getScreenFontSize(run)}px ${style.fontFamily}`;
     return (value: string) => context.measureText(value).width;
@@ -13103,6 +13121,9 @@ export class NativePowerPointView extends FileView {
 
   private refreshActiveInlineEditorGeometry(): void {
     if (!this.activeEditor || !this.activeEditorTarget) return;
+    // Full slide re-renders replace the SVG; keep the textarea but never chase
+    // caret geometry on a detached tspan/text node (createEl HierarchyRequestError).
+    if (!this.activeEditorTarget.isConnected) return;
 
     const box = this.getElementBox(this.activeEditorTarget);
     if (!box) return;

@@ -2536,13 +2536,57 @@ export class PresentationEngine {
   }
 
   async deleteSlide(slideIndex: number): Promise<SlideMoveResult> {
-    if (this.slideCountValue <= 1) {
+    return this.deleteSlides([slideIndex]);
+  }
+
+  /**
+   * Drop one or more slides by permuting the authoritative package and
+   * reloading. Avoids WASM `deleteSlide` + a second full `exportPptx()` reload.
+   */
+  async deleteSlides(slideIndices: number[]): Promise<SlideMoveResult> {
+    const unique = [...new Set(slideIndices)]
+      .filter((index) => Number.isInteger(index) && index >= 0 && index < this.slideCountValue)
+      .sort((left, right) => left - right);
+    if (unique.length === 0) {
+      return { slideIndex: 0, slideCount: this.slideCountValue };
+    }
+    if (unique.length >= this.slideCountValue) {
       throw new Error('A presentation must keep at least one slide.');
     }
 
-    const { slideCount } = await this.renderer.deleteSlide(slideIndex);
-    await this.reloadAfterSlideManagement(slideCount);
-    return { slideIndex: Math.min(slideIndex, slideCount - 1), slideCount };
+    const startedAt = Date.now();
+    const beforeCount = this.slideCountValue;
+    debugLog('mutate', 'PowerPoint mutation started', {
+      op: 'delete-slides',
+      slideIndices: unique,
+      slideCount: beforeCount,
+      queueMs: 0,
+      queueDepth: 0,
+    });
+
+    // Fold live OOXML (incl. WASM transforms) without a full package encode.
+    await this.pptxDocument.foldLiveSlidesIntoPackage();
+    const remaining = Array.from({ length: beforeCount }, (_, index) => index).filter(
+      (index) => !unique.includes(index)
+    );
+    const slideCount = remaining.length;
+    const permuted = await permuteSlidesInBuffer(this.currentBuffer, remaining);
+    const normalized = await normalizeSlideManifest(permuted, slideCount);
+    await this.reloadFromBuffer(normalized, slideCount);
+
+    const focusHint = Math.min(...unique);
+    const slideIndex = Math.min(focusHint, slideCount - 1);
+    debugLog('mutate', 'PowerPoint mutation committed', {
+      op: 'delete-slides',
+      slideIndices: unique,
+      beforeCount,
+      slideCount,
+      slideIndex,
+      ms: Date.now() - startedAt,
+      rollback: 'snapshot',
+      commit: 'buffer-permute',
+    });
+    return { slideIndex, slideCount };
   }
 
   async moveSlide(slideIndex: number, direction: -1 | 1): Promise<SlideMoveResult> {
@@ -2557,12 +2601,12 @@ export class PresentationEngine {
       return { slideIndex, slideCount: this.slideCountValue };
     }
     order.splice(targetIndex, 0, moved);
-    // Slide-local text edits defer folding pending XML into `currentBuffer`;
-    // permute must see those edits or they vanish when slides move.
-    await this.syncCurrentBuffer();
-    const { slideCount } = await this.renderer.reorderSlides(order);
-    this.currentBuffer = await permuteSlidesInBuffer(this.currentBuffer, order);
-    await this.reloadAfterSlideManagement(slideCount);
+    // Fold live/pending slides into the package, then permute + reload — skip
+    // renderer.reorderSlides + exportPptx reloadAfterSlideManagement.
+    await this.pptxDocument.foldLiveSlidesIntoPackage();
+    const slideCount = order.length;
+    const permuted = await permuteSlidesInBuffer(this.currentBuffer, order);
+    await this.reloadFromBuffer(await normalizeSlideManifest(permuted, slideCount), slideCount);
     return { slideIndex: targetIndex, slideCount };
   }
 
@@ -2593,12 +2637,11 @@ export class PresentationEngine {
   }
 
   async reorderSlides(newOrder: number[]): Promise<SlideMoveResult> {
-    // Same deferred-pending invariant as `moveSlide`: fold slide-local edits
-    // before permuting the authoritative package.
-    await this.syncCurrentBuffer();
-    const { slideCount } = await this.renderer.reorderSlides(newOrder);
-    this.currentBuffer = await permuteSlidesInBuffer(this.currentBuffer, newOrder);
-    await this.reloadAfterSlideManagement(slideCount);
+    // Same fold-then-permute path as `moveSlide` / `deleteSlides`.
+    await this.pptxDocument.foldLiveSlidesIntoPackage();
+    const slideCount = newOrder.length;
+    const permuted = await permuteSlidesInBuffer(this.currentBuffer, newOrder);
+    await this.reloadFromBuffer(await normalizeSlideManifest(permuted, slideCount), slideCount);
     return { slideIndex: 0, slideCount };
   }
 
@@ -3137,6 +3180,14 @@ export class PresentationEngine {
 
   async export(): Promise<ArrayBuffer> {
     return this.exportRendererState();
+  }
+
+  /**
+   * Authoritative package snapshot without WASM `exportPptx()`. Prefer this for
+   * undo history on image-heavy decks; keep `export()` for save / AI rollback.
+   */
+  async snapshotAuthoritativePackage(): Promise<ArrayBuffer> {
+    return this.pptxDocument.foldLiveSlidesIntoPackage();
   }
 
   /**

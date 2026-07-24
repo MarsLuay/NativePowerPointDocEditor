@@ -167,13 +167,17 @@ function readBuffer(buffer) {
 }
 
 // Minimal stand-in for the slice of NativePowerPointView that HistoryHost needs.
-// `engine.state` is a single number standing in for the document; export()
-// snapshots it and restoreSnapshot() reinstates it, so undo/redo are observable.
+// `engine.state` is a single number standing in for the document;
+// snapshotAuthoritativePackage()/export() snapshot it and restoreSnapshot()
+// reinstates it, so undo/redo are observable.
 function createFakeHost() {
   const engine = {
     slideCount: 3,
     state: 0,
     async export() {
+      return makeBuffer(this.state);
+    },
+    async snapshotAuthoritativePackage() {
       return makeBuffer(this.state);
     },
     async restoreSnapshot(buffer) {
@@ -182,6 +186,7 @@ function createFakeHost() {
   };
   const calls = { render: 0, thumbnails: 0, markDirty: 0 };
   const host = {
+    t: (key) => key,
     engine,
     currentSlide: 0,
     activeEditor: null,
@@ -206,6 +211,7 @@ function createFakeHost() {
     async renderThumbnails() {
       calls.thumbnails += 1;
     },
+    scheduleThumbnailRefresh() {},
   };
   return { host, engine, calls };
 }

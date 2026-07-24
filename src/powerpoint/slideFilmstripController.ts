@@ -171,7 +171,7 @@ export class SlideFilmstripController {
     });
   }
 
-  async renderThumbnails(): Promise<void> {
+  async renderThumbnails(options?: { preferLazy?: boolean }): Promise<void> {
     if (!this.host.engine || !this.host.thumbnailContainer) return;
 
     const thumbnailStarted = performance.now();
@@ -179,8 +179,11 @@ export class SlideFilmstripController {
     const thumbnailContainer = this.host.thumbnailContainer;
     const slideCount = engine.slideCount;
     const generation = ++this.thumbnailRenderGeneration;
-    const lazy = shouldUseLazyThumbnails(slideCount);
-    debugLog('render', 'PowerPoint renderThumbnails start', { slideCount, lazy });
+    const preferLazy = options?.preferLazy === true;
+    // Structural edits (delete/move/duplicate) prefer lazy so the UI responds
+    // after the active thumb instead of blocking on a full filmstrip rebuild.
+    const lazy = preferLazy || shouldUseLazyThumbnails(slideCount);
+    debugLog('render', 'PowerPoint renderThumbnails start', { slideCount, lazy, preferLazy });
 
     const { cx, cy } = await engine.getSlideSizeEmu();
     if (
@@ -210,7 +213,9 @@ export class SlideFilmstripController {
         await this.renderThumbnailAt(index);
       }
     } else {
-      const priority = priorityThumbnailIndices(this.host.currentSlide, slideCount);
+      const priority = preferLazy
+        ? priorityThumbnailIndices(this.host.currentSlide, slideCount, 0)
+        : priorityThumbnailIndices(this.host.currentSlide, slideCount);
       await this.renderThumbnailBatch(priority, generation);
       if (generation !== this.thumbnailRenderGeneration) return;
       this.setupThumbnailObserver(generation);
@@ -221,6 +226,7 @@ export class SlideFilmstripController {
     debugLog('render', 'PowerPoint renderThumbnails complete', {
       slideCount,
       lazy,
+      preferLazy,
       renderedCount: this.renderedThumbnailIndices.size,
       ms: thumbnailMs
     });
@@ -549,7 +555,7 @@ export class SlideFilmstripController {
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
+      if (rendered) await this.renderThumbnails({ preferLazy: true });
       debugLog('slide', 'Delete slide completed', { slide: this.host.currentSlide, slideCount: this.host.engine.slideCount });
     } catch (error) {
       errorLog('slide', 'Delete slide failed', { slide: this.host.currentSlide, error });
@@ -561,7 +567,7 @@ export class SlideFilmstripController {
     if (!this.host.engine) return;
     if (!this.host.ensureEditable('delete slides')) return;
 
-    const targets = Array.from(this.selectedSlideIndices).sort((a, b) => b - a);
+    const targets = Array.from(this.selectedSlideIndices).sort((a, b) => a - b);
     if (targets.length === 0) return;
     if (targets.length >= this.host.engine.slideCount) {
       this.notice('powerpoint:notice.cannotDeleteEverySlide');
@@ -571,18 +577,14 @@ export class SlideFilmstripController {
     try {
       debugLog('slide', 'Delete selected slides started', { targets, slideCount: this.host.engine.slideCount });
       const history = await this.host.captureHistoryEntry('Delete slides');
-      let resultIndex = this.host.currentSlide;
-      for (const target of targets) {
-        const result = await this.host.engine.deleteSlide(target);
-        resultIndex = result.slideIndex;
-      }
-      this.host.currentSlide = resultIndex;
+      const result = await this.host.engine.deleteSlides(targets);
+      this.host.currentSlide = result.slideIndex;
       this.clearSlideSelection();
       this.host.clearSelection();
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
+      if (rendered) await this.renderThumbnails({ preferLazy: true });
       debugLog('slide', 'Delete selected slides completed', {
         deletedCount: targets.length,
         slide: this.host.currentSlide,
@@ -613,7 +615,7 @@ export class SlideFilmstripController {
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
+      if (rendered) await this.renderThumbnails({ preferLazy: true });
       debugLog('slide', 'Move slide completed', { from: index, to: this.host.currentSlide });
     } catch (error) {
       errorLog('slide', 'Move slide failed', { index, direction, error });
@@ -660,7 +662,7 @@ export class SlideFilmstripController {
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
+      if (rendered) await this.renderThumbnails({ preferLazy: true });
       debugLog('slide', 'Duplicate slide completed', {
         sourceSlide: targetIndex,
         slide: this.host.currentSlide,
@@ -686,7 +688,7 @@ export class SlideFilmstripController {
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
+      if (rendered) await this.renderThumbnails({ preferLazy: true });
       debugLog('slide', 'Delete slide at index completed', {
         deletedSlide: targetIndex,
         slide: this.host.currentSlide,
@@ -727,7 +729,7 @@ export class SlideFilmstripController {
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
-      if (rendered) await this.renderThumbnails();
+      if (rendered) await this.renderThumbnails({ preferLazy: true });
       debugLog('slide', 'Reorder slides completed', { fromIndex, toIndex });
     } catch (error) {
       errorLog('slide', 'Reorder slides failed', { fromIndex, toIndex, error });

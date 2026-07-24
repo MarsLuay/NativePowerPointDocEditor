@@ -11,9 +11,10 @@ type EngineProvider = PresentationEngine | (() => PresentationEngine | null);
  *
  * These can roll back from a cheap synchronous `getSlideXml`/`restoreSlideXml`
  * pair instead of a full-deck `export()` snapshot (megabytes on image-heavy
- * decks), which is the dominant per-keystroke cost for inline text editing.
- * Anything that touches slide structure, ordering, media, relationships, or
- * charts must keep the lossless package snapshot.
+ * decks), which is the dominant per-edit cost for inline text and toolbar
+ * formatting (font size, bold, alignment). Anything that touches slide
+ * structure, ordering, media, relationships, or charts must keep the lossless
+ * package snapshot.
  */
 function slideLocalRollbackSlideIndex(command: MutationCommand): number | null {
   switch (command.type) {
@@ -22,6 +23,11 @@ function slideLocalRollbackSlideIndex(command: MutationCommand): number | null {
     case 'remove-empty-preceding-paragraph':
     case 'merge-preceding-paragraph':
     case 'update-text-run':
+    case 'set-run-style':
+    case 'set-run-style-range':
+    case 'set-run-style-ranges':
+    case 'set-paragraph-alignment':
+    case 'set-paragraph-alignment-ranges':
       return command.slideIndex;
     default:
       return null;
@@ -91,7 +97,7 @@ export class PptxMutationService implements MutationExecutor {
       : null;
     const snapshot = useSlideXmlRollback ? null : await engine.export();
 
-    // The same slide-local text ops that roll back from slide XML also already
+    // The same slide-local text/format ops that roll back from slide XML also already
     // pushed their result into the renderer model (via `commitSlideDoc`) and
     // recorded pending lossless slide XML. The commit itself is a no-op: folding
     // pending into `currentBuffer` is deferred until a buffer reader (reorder /

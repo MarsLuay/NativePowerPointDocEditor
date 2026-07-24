@@ -452,6 +452,46 @@ test("deferred slide-local commit keeps edits through a later reorder", async ()
   await assertExportRoundTrips("deferred slide-local commit + reorder", engine, { expectedSlides: 2 });
 });
 
+test("PptxMutationService uses slide-local commit for set-run-style-ranges", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    getSlideXml: (slideIndex) => {
+      calls.push(["getSlideXml", slideIndex]);
+      return `<slide-${slideIndex}/>`;
+    },
+    restoreSlideXml: async (slideIndex, xml) => calls.push(["restoreSlideXml", slideIndex, xml]),
+    restoreSnapshot: async () => calls.push("restoreSnapshot"),
+    setRunStyleForRanges: async (slideIndex, shapeIndex, ranges, change) => {
+      calls.push(["setRunStyleForRanges", slideIndex, shapeIndex, ranges, change]);
+      return undefined;
+    },
+    commitMutation: async () => calls.push("commit"),
+    commitSlideLocalMutation: async () => calls.push("commit-slide-local"),
+  };
+  const service = new PptxMutationService(engine);
+
+  await service.execute({
+    type: "set-run-style-ranges",
+    slideIndex: 0,
+    shapeIndex: 2,
+    ranges: [{ paragraphIndex: 0, start: 0, end: 4 }],
+    change: { fontSizePt: 18 },
+  });
+
+  assert.deepEqual(calls, [
+    ["getSlideXml", 0],
+    ["setRunStyleForRanges", 0, 2, [{ paragraphIndex: 0, start: 0, end: 4 }], { fontSizePt: 18 }],
+    "commit-slide-local",
+  ]);
+  assert.ok(!calls.includes("export"), "font-size formatting must not export the full deck");
+  assert.ok(!calls.includes("commit"), "font-size formatting must not run the full-export commit");
+});
+
 test("PptxMutationService keeps the full-export commit for non-slide-local commands", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const calls = [];
