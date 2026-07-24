@@ -3,7 +3,11 @@ import type { TranslateFn } from './i18n/translate';
 import { pptT } from './i18n/powerpointNotify';
 import { closeModalDomScope, loadModalDomScope, openModalDomScope } from './modalDomScope';
 
-const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp']);
+const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic', 'heif']);
+
+/** File picker accept list for PowerPoint image insert/replace (includes HEIC). */
+export const POWERPOINT_IMAGE_FILE_ACCEPT =
+  'image/png,image/jpeg,image/gif,image/webp,image/bmp,image/heic,image/heif,.heic,.heif';
 
 const clampPercent = (raw: string): number => Math.max(0, Math.min(100, Number(raw) || 0));
 
@@ -25,6 +29,12 @@ export function getImageMimeType(extension: string): string {
       return 'image/webp';
     case 'bmp':
       return 'image/bmp';
+    case 'heic':
+    case 'heics':
+      return 'image/heic';
+    case 'heif':
+    case 'heifs':
+      return 'image/heif';
     default:
       return 'image/png';
   }

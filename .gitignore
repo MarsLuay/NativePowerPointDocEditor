@@ -25,6 +25,7 @@ ai/capabilities.json
 
 # Visual smoke output
 scripts/visual-output/
+scripts/.cache/
 test-results/
 
 # Local manual test documents
@@ -60,9 +61,3 @@ docx-editor/docs/
 docx-editor/.gstack/
 docx-editor/screenshots/
 docx-editor/.ralph/
-
-# DOCX source lives on docx-editor-source; do not re-add monorepo to release branches.
-/.code-analysis/out/
-/.code-analysis/*.json
-
-docx-editor/

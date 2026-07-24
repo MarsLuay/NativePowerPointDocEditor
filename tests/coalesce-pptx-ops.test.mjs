@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
@@ -15,7 +14,6 @@ async function loadHelper() {
   const outputDirectory = await mkdtemp(path.join(tmpdir(), "coalesce-pptx-ops-"));
   const outfile = path.join(outputDirectory, "coalesce-pptx-ops.cjs");
   await build({
-		alias: docxEditorAliases,
     entryPoints: [path.join(projectRoot, "src/ai/coalescePptxOps.ts")],
     bundle: true,
     format: "cjs",

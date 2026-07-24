@@ -1,0 +1,368 @@
+{
+  "name": "@npde/docx-editor-core",
+  "version": "1.9.0",
+  "sideEffects": true,
+  "description": "Framework-agnostic core for DOCX parsing, editing, and rendering",
+  "main": "./dist/core.js",
+  "module": "./dist/core.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/core.mjs",
+      "require": "./dist/core.js"
+    },
+    "./headless": {
+      "import": "./dist/headless.mjs",
+      "require": "./dist/headless.js"
+    },
+    "./core-plugins": {
+      "import": "./dist/core-plugins.mjs",
+      "require": "./dist/core-plugins.js"
+    },
+    "./mcp": {
+      "import": "./dist/mcp.mjs",
+      "require": "./dist/mcp.js"
+    },
+    "./prosemirror": {
+      "import": "./dist/prosemirror/index.mjs",
+      "require": "./dist/prosemirror/index.js"
+    },
+    "./prosemirror/extensions": {
+      "import": "./dist/prosemirror/extensions/index.mjs",
+      "require": "./dist/prosemirror/extensions/index.js"
+    },
+    "./prosemirror/conversion": {
+      "import": "./dist/prosemirror/conversion/index.mjs",
+      "require": "./dist/prosemirror/conversion/index.js"
+    },
+    "./prosemirror/commands": {
+      "import": "./dist/prosemirror/commands/index.mjs",
+      "require": "./dist/prosemirror/commands/index.js"
+    },
+    "./prosemirror/plugins": {
+      "import": "./dist/prosemirror/plugins/index.mjs",
+      "require": "./dist/prosemirror/plugins/index.js"
+    },
+    "./prosemirror/utils/ClickPositionResolver": {
+      "import": "./dist/prosemirror/utils/ClickPositionResolver.mjs",
+      "require": "./dist/prosemirror/utils/ClickPositionResolver.js"
+    },
+    "./prosemirror/utils/extractTrackedChanges": {
+      "import": "./dist/prosemirror/utils/extractTrackedChanges.mjs",
+      "require": "./dist/prosemirror/utils/extractTrackedChanges.js"
+    },
+    "./prosemirror/utils/LayoutSelectionGate": {
+      "import": "./dist/prosemirror/utils/LayoutSelectionGate.mjs",
+      "require": "./dist/prosemirror/utils/LayoutSelectionGate.js"
+    },
+    "./prosemirror/utils/PointerEventHandler": {
+      "import": "./dist/prosemirror/utils/PointerEventHandler.mjs",
+      "require": "./dist/prosemirror/utils/PointerEventHandler.js"
+    },
+    "./prosemirror/utils/visualLineNavigation": {
+      "import": "./dist/prosemirror/utils/visualLineNavigation.mjs",
+      "require": "./dist/prosemirror/utils/visualLineNavigation.js"
+    },
+    "./prosemirror/extensions/nodes/TableExtension": {
+      "import": "./dist/prosemirror/extensions/nodes/TableExtension.mjs",
+      "require": "./dist/prosemirror/extensions/nodes/TableExtension.js"
+    },
+    "./prosemirror/template/prosemirror-plugin": {
+      "import": "./dist/prosemirror/template/prosemirror-plugin.mjs",
+      "require": "./dist/prosemirror/template/prosemirror-plugin.js"
+    },
+    "./prosemirror/editor.css": "./dist/prosemirror/editor.css",
+    "./docx": {
+      "import": "./dist/docx/index.mjs",
+      "require": "./dist/docx/index.js"
+    },
+    "./docx/wrapTypes": {
+      "import": "./dist/docx/wrapTypes.mjs",
+      "require": "./dist/docx/wrapTypes.js"
+    },
+    "./docx/serializer": {
+      "import": "./dist/docx/serializer/index.mjs",
+      "require": "./dist/docx/serializer/index.js"
+    },
+    "./contentControls": {
+      "import": "./dist/contentControls/index.mjs",
+      "require": "./dist/contentControls/index.js"
+    },
+    "./layout-engine": {
+      "import": "./dist/layout-engine/index.mjs",
+      "require": "./dist/layout-engine/index.js"
+    },
+    "./layout-painter": {
+      "import": "./dist/layout-painter/index.mjs",
+      "require": "./dist/layout-painter/index.js"
+    },
+    "./layout-bridge": {
+      "import": "./dist/layout-bridge/index.mjs",
+      "require": "./dist/layout-bridge/index.js"
+    },
+    "./plugin-api": {
+      "import": "./dist/plugin-api/index.mjs",
+      "require": "./dist/plugin-api/index.js"
+    },
+    "./plugin-api/RenderedDomContext": {
+      "import": "./dist/plugin-api/RenderedDomContext.mjs",
+      "require": "./dist/plugin-api/RenderedDomContext.js"
+    },
+    "./plugin-api/resolveItemPositions": {
+      "import": "./dist/plugin-api/resolveItemPositions.mjs",
+      "require": "./dist/plugin-api/resolveItemPositions.js"
+    },
+    "./plugin-api/types": {
+      "import": "./dist/plugin-api/types.mjs",
+      "require": "./dist/plugin-api/types.js"
+    },
+    "./types/document": {
+      "import": "./dist/types/document.mjs",
+      "require": "./dist/types/document.js"
+    },
+    "./types/content": {
+      "import": "./dist/types/content.mjs",
+      "require": "./dist/types/content.js"
+    },
+    "./types/agentApi": {
+      "import": "./dist/types/agentApi.mjs",
+      "require": "./dist/types/agentApi.js"
+    },
+    "./utils": {
+      "import": "./dist/utils/index.mjs",
+      "require": "./dist/utils/index.js"
+    },
+    "./utils/cardStyles": {
+      "import": "./dist/utils/cardStyles.mjs",
+      "require": "./dist/utils/cardStyles.js"
+    },
+    "./utils/comments": {
+      "import": "./dist/utils/comments.mjs",
+      "require": "./dist/utils/comments.js"
+    },
+    "./utils/stylePreview": {
+      "import": "./dist/utils/stylePreview.mjs",
+      "require": "./dist/utils/stylePreview.js"
+    },
+    "./utils/findReplace": {
+      "import": "./dist/utils/findReplace.mjs",
+      "require": "./dist/utils/findReplace.js"
+    },
+    "./utils/findVerticalScrollParent": {
+      "import": "./dist/utils/findVerticalScrollParent.mjs",
+      "require": "./dist/utils/findVerticalScrollParent.js"
+    },
+    "./utils/fontOptions": {
+      "import": "./dist/utils/fontOptions.mjs",
+      "require": "./dist/utils/fontOptions.js"
+    },
+    "./utils/headingCollector": {
+      "import": "./dist/utils/headingCollector.mjs",
+      "require": "./dist/utils/headingCollector.js"
+    },
+    "./utils/highlightColors": {
+      "import": "./dist/utils/highlightColors.mjs",
+      "require": "./dist/utils/highlightColors.js"
+    },
+    "./utils/listState": {
+      "import": "./dist/utils/listState.mjs",
+      "require": "./dist/utils/listState.js"
+    },
+    "./utils/reportIssue": {
+      "import": "./dist/utils/reportIssue.mjs",
+      "require": "./dist/utils/reportIssue.js"
+    },
+    "./utils/sidebarConstants": {
+      "import": "./dist/utils/sidebarConstants.mjs",
+      "require": "./dist/utils/sidebarConstants.js"
+    },
+    "./utils/textSelection": {
+      "import": "./dist/utils/textSelection.mjs",
+      "require": "./dist/utils/textSelection.js"
+    },
+    "./utils/units": {
+      "import": "./dist/utils/units.mjs",
+      "require": "./dist/utils/units.js"
+    },
+    "./utils/autoScroll": {
+      "import": "./dist/utils/autoScroll.mjs",
+      "require": "./dist/utils/autoScroll.js"
+    },
+    "./docx/parser": {
+      "import": "./dist/docx/parser.mjs",
+      "require": "./dist/docx/parser.js"
+    },
+    "./docx/rezip": {
+      "import": "./dist/docx/rezip.mjs",
+      "require": "./dist/docx/rezip.js"
+    },
+    "./layout-bridge/clickToPositionDom": {
+      "import": "./dist/layout-bridge/clickToPositionDom.mjs",
+      "require": "./dist/layout-bridge/clickToPositionDom.js"
+    },
+    "./layout-bridge/measuring": {
+      "import": "./dist/layout-bridge/measuring/index.mjs",
+      "require": "./dist/layout-bridge/measuring/index.js"
+    },
+    "./layout-bridge/tableInsertHover": {
+      "import": "./dist/layout-bridge/tableInsertHover.mjs",
+      "require": "./dist/layout-bridge/tableInsertHover.js"
+    },
+    "./layout-bridge/toFlowBlocks": {
+      "import": "./dist/layout-bridge/toFlowBlocks.mjs",
+      "require": "./dist/layout-bridge/toFlowBlocks.js"
+    },
+    "./layout-engine/types": {
+      "import": "./dist/layout-engine/types.mjs",
+      "require": "./dist/layout-engine/types.js"
+    },
+    "./layout-painter/renderPage": {
+      "import": "./dist/layout-painter/renderPage.mjs",
+      "require": "./dist/layout-painter/renderPage.js"
+    },
+    "./managers/AutoSaveManager": {
+      "import": "./dist/managers/AutoSaveManager.mjs",
+      "require": "./dist/managers/AutoSaveManager.js"
+    },
+    "./managers/TableSelectionManager": {
+      "import": "./dist/managers/TableSelectionManager.mjs",
+      "require": "./dist/managers/TableSelectionManager.js"
+    },
+    "./managers/types": {
+      "import": "./dist/managers/types.mjs",
+      "require": "./dist/managers/types.js"
+    },
+    "./prosemirror/commands/formatting": {
+      "import": "./dist/prosemirror/commands/formatting.mjs",
+      "require": "./dist/prosemirror/commands/formatting.js"
+    },
+    "./prosemirror/commands/pageBreak": {
+      "import": "./dist/prosemirror/commands/pageBreak.mjs",
+      "require": "./dist/prosemirror/commands/pageBreak.js"
+    },
+    "./prosemirror/commands/sectionBreak": {
+      "import": "./dist/prosemirror/commands/sectionBreak.mjs",
+      "require": "./dist/prosemirror/commands/sectionBreak.js"
+    },
+    "./prosemirror/commands/paragraph": {
+      "import": "./dist/prosemirror/commands/paragraph.mjs",
+      "require": "./dist/prosemirror/commands/paragraph.js"
+    },
+    "./prosemirror/paraText": {
+      "import": "./dist/prosemirror/paraText.mjs",
+      "require": "./dist/prosemirror/paraText.js"
+    },
+    "./prosemirror/queries": {
+      "import": "./dist/prosemirror/queries.mjs",
+      "require": "./dist/prosemirror/queries.js"
+    },
+    "./prosemirror/applyFormatting": {
+      "import": "./dist/prosemirror/applyFormatting.mjs",
+      "require": "./dist/prosemirror/applyFormatting.js"
+    },
+    "./prosemirror/tableResize": {
+      "import": "./dist/prosemirror/tableResize.mjs",
+      "require": "./dist/prosemirror/tableResize.js"
+    },
+    "./prosemirror/cellDragSelection": {
+      "import": "./dist/prosemirror/cellDragSelection.mjs",
+      "require": "./dist/prosemirror/cellDragSelection.js"
+    },
+    "./prosemirror/imageCommit": {
+      "import": "./dist/prosemirror/imageCommit.mjs",
+      "require": "./dist/prosemirror/imageCommit.js"
+    },
+    "./prosemirror/commentOps": {
+      "import": "./dist/prosemirror/commentOps.mjs",
+      "require": "./dist/prosemirror/commentOps.js"
+    },
+    "./prosemirror/commentIdAllocator": {
+      "import": "./dist/prosemirror/commentIdAllocator.mjs",
+      "require": "./dist/prosemirror/commentIdAllocator.js"
+    },
+    "./editor": {
+      "import": "./dist/editor/index.mjs",
+      "require": "./dist/editor/index.js"
+    },
+    "./prosemirror/conversion/fromProseDoc": {
+      "import": "./dist/prosemirror/conversion/fromProseDoc.mjs",
+      "require": "./dist/prosemirror/conversion/fromProseDoc.js"
+    },
+    "./prosemirror/plugins/selectionTracker": {
+      "import": "./dist/prosemirror/plugins/selectionTracker.mjs",
+      "require": "./dist/prosemirror/plugins/selectionTracker.js"
+    },
+    "./prosemirror/schema": {
+      "import": "./dist/prosemirror/schema/index.mjs",
+      "require": "./dist/prosemirror/schema/index.js"
+    },
+    "./prosemirror/styles": {
+      "import": "./dist/prosemirror/styles/index.mjs",
+      "require": "./dist/prosemirror/styles/index.js"
+    }
+  },
+  "bin": {
+    "docx-editor-mcp": "./dist/mcp-cli.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "NODE_OPTIONS=--max-old-space-size=8192 tsup && node scripts/copy-assets.mjs && node ../../scripts/inject-package-doc.mjs --package @npde/docx-editor-core",
+    "typecheck": "tsc --noEmit",
+    "api:extract": "node ../../scripts/api-extractor.mjs --package @npde/docx-editor-core --local",
+    "api:check": "node ../../scripts/api-extractor.mjs --package @npde/docx-editor-core"
+  },
+  "dependencies": {
+    "docxtemplater": "^3.50.0",
+    "dompurify": "^3.2.0",
+    "jszip": "^3.10.1",
+    "pizzip": "^3.1.7",
+    "xml-js": "^1.6.11"
+  },
+  "peerDependencies": {
+    "prosemirror-commands": "^1.5.2",
+    "prosemirror-dropcursor": "^1.8.2",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.19.4",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.12.0",
+    "prosemirror-view": "^1.32.7"
+  },
+  "devDependencies": {
+    "@microsoft/api-extractor": "^7.50.0",
+    "prosemirror-commands": "^1.5.2",
+    "prosemirror-dropcursor": "^1.8.2",
+    "prosemirror-history": "^1.5.0",
+    "prosemirror-keymap": "^1.2.2",
+    "prosemirror-model": "^1.19.4",
+    "prosemirror-state": "^1.4.3",
+    "prosemirror-tables": "^1.8.5",
+    "prosemirror-transform": "^1.12.0",
+    "prosemirror-view": "^1.41.6"
+  },
+  "keywords": [
+    "docx",
+    "editor",
+    "template",
+    "word",
+    "document",
+    "prosemirror"
+  ],
+  "author": {
+    "name": "Jedr Blaszyk",
+    "email": "noreply@users.noreply.github.com",
+    "url": "https://github.com/jedrazb"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://docx-editor.dev/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MarsLuay/NativePowerPointDocEditor.git",
+    "directory": "packages/core"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

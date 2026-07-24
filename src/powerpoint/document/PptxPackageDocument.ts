@@ -110,6 +110,10 @@ export class PptxPackageDocument {
 
   async export(): Promise<ArrayBuffer> {
     const startedAt = Date.now();
+    // Slide-local text edits defer folding pending XML into `currentBuffer`.
+    // Drain that queue first so reconcile sees the lossless slide parts (and so
+    // we do not discard pending without applying it).
+    await this.syncPackageFromPendingSlides();
     const pendingSlideCount = this.pendingSlideXml.size;
     debugLog('engine', 'Package export transaction started', {
       op: 'export-package',

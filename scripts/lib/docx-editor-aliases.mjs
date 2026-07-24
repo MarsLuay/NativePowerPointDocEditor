@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-/** Runtime package folder names under vendor/docx-editor-runtime/. */
+/** Package folder names under docx-editor/packages/. */
 export const docxEditorPackages = {
 	'@npde/docx-editor-core': 'core',
 	'@npde/docx-editor-i18n': 'i18n',
@@ -16,6 +16,13 @@ export function resolvePluginProjectRoot(fromImportMetaUrl) {
 		if (
 			existsSync(path.join(dir, 'package.json'))
 			&& existsSync(path.join(dir, 'manifest.json'))
+			&& existsSync(path.join(dir, 'docx-editor'))
+		) {
+			return dir;
+		}
+		if (
+			existsSync(path.join(dir, 'package.json'))
+			&& existsSync(path.join(dir, 'manifest.json'))
 		) {
 			return dir;
 		}
@@ -25,21 +32,17 @@ export function resolvePluginProjectRoot(fromImportMetaUrl) {
 }
 
 export function resolveDocxEditorPackagesRoot(projectRoot) {
-	return path.join(projectRoot, 'vendor', 'docx-editor-runtime');
+	return path.join(projectRoot, 'docx-editor', 'packages');
 }
 
 /**
- * @param {string} runtimeRoot absolute path to vendor/docx-editor-runtime
- * @param {string} [projectRoot] plugin root; pass explicitly for robust React aliases
+ * @param {string} packagesRoot absolute path to docx-editor/packages
  */
-export async function createDocxEditorAliases(
-	runtimeRoot,
-	projectRoot = path.resolve(runtimeRoot, '..', '..'),
-) {
+export async function createDocxEditorAliases(packagesRoot) {
 	const aliases = {};
 
 	for (const [packageName, dirName] of Object.entries(docxEditorPackages)) {
-		const packageDir = path.resolve(runtimeRoot, dirName);
+		const packageDir = path.resolve(packagesRoot, dirName);
 		const packageJson = JSON.parse(await readFile(path.join(packageDir, 'package.json'), 'utf8'));
 
 		for (const [exportPath, target] of Object.entries(packageJson.exports ?? {})) {
@@ -59,12 +62,12 @@ export async function createDocxEditorAliases(
 		}
 	}
 
-	// Force a single React / ReactDOM copy. Vendored runtime modules must use
-	// the plugin's React pair; dual copies crash hooks
+	// Force a single React / ReactDOM copy. docx-editor's bun install can
+	// nest a different React under node_modules/.bun; dual copies crash hooks
 	// (`Cannot read properties of null (reading 'useState')`).
-	const resolvedProjectRoot = path.resolve(projectRoot);
-	const reactRoot = path.join(resolvedProjectRoot, 'node_modules', 'react');
-	const reactDomRoot = path.join(resolvedProjectRoot, 'node_modules', 'react-dom');
+	const projectRoot = path.resolve(packagesRoot, '..', '..');
+	const reactRoot = path.join(projectRoot, 'node_modules', 'react');
+	const reactDomRoot = path.join(projectRoot, 'node_modules', 'react-dom');
 	if (existsSync(reactRoot) && existsSync(reactDomRoot)) {
 		aliases.react = reactRoot;
 		aliases['react/jsx-runtime'] = path.join(reactRoot, 'jsx-runtime.js');

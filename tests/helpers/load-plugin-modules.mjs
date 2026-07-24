@@ -13,7 +13,6 @@ import {
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const docxEditorAliases = await createDocxEditorAliases(
   resolveDocxEditorPackagesRoot(projectRoot),
-  projectRoot,
 );
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require("@xmldom/xmldom");

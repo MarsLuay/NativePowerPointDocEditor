@@ -11,20 +11,13 @@ import {
 } from './lib/docx-editor-aliases.mjs';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot), projectRoot);
+const docxEditorAliases = await createDocxEditorAliases(resolveDocxEditorPackagesRoot(projectRoot));
 const outputDir = path.join(projectRoot, 'results', 'docx-font-roundtrip');
 const fixturePath = path.join(projectRoot, 'tests', 'fixtures', 'docx', 'table-cell-direct-24pt-font.docx');
 const chromeBinary = process.env.CHROME_PATH
 	|| '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 async function bundleHarness() {
-	
-	const harnessEntry = path.join(projectRoot, 'scripts', 'harness', 'docx-font-roundtrip-entry.tsx');
-	if (!existsSync(harnessEntry)) {
-		console.log(`Skipping: harness entry not present on release branches: ${harnessEntry}`);
-		process.exit(0);
-	}
-
 	await build({
 		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'scripts', 'harness', 'docx-font-roundtrip-entry.tsx')],

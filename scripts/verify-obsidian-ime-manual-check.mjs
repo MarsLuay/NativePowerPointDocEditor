@@ -37,13 +37,6 @@ const scenarios = [
 
 async function bundleHarness() {
 	const outfile = path.join(outputDir, 'harness.js');
-	
-	const harnessEntry = path.join(projectRoot, 'scripts/harness/docx-ime-live-verify-entry.tsx');
-	if (!existsSync(harnessEntry)) {
-		console.log(`Skipping: harness entry not present on release branches: ${harnessEntry}`);
-		process.exit(0);
-	}
-
 	await build({
 		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'scripts/harness/docx-ime-live-verify-entry.tsx')],

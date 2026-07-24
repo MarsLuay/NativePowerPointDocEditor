@@ -7,11 +7,35 @@ type MutationCommand = Exclude<PptxCommand, { type: 'noop' }>;
 type EngineProvider = PresentationEngine | (() => PresentationEngine | null);
 
 /**
+ * Commands whose engine mutation only rewrites a single slide's XML part.
+ *
+ * These can roll back from a cheap synchronous `getSlideXml`/`restoreSlideXml`
+ * pair instead of a full-deck `export()` snapshot (megabytes on image-heavy
+ * decks), which is the dominant per-keystroke cost for inline text editing.
+ * Anything that touches slide structure, ordering, media, relationships, or
+ * charts must keep the lossless package snapshot.
+ */
+function slideLocalRollbackSlideIndex(command: MutationCommand): number | null {
+  switch (command.type) {
+    case 'update-paragraph-text':
+    case 'split-paragraph':
+    case 'remove-empty-preceding-paragraph':
+    case 'merge-preceding-paragraph':
+    case 'update-text-run':
+      return command.slideIndex;
+    default:
+      return null;
+  }
+}
+
+/**
  * The sole command-to-engine mutation boundary.
  *
- * A mutation starts from an exported lossless snapshot, delegates the intent to
- * the engine, then commits renderer/pending-slide state back into the
- * authoritative package. Failed work restores that snapshot.
+ * A mutation snapshots enough state to undo itself, delegates the intent to the
+ * engine, then commits renderer/pending-slide state back into the authoritative
+ * package. Slide-local text edits snapshot only the touched slide's XML; every
+ * other command exports the whole lossless package. Failed work restores from
+ * whichever snapshot it took.
  */
 export class PptxMutationService implements MutationExecutor {
   /** Engine export/reload transactions must not overlap. */
@@ -54,19 +78,49 @@ export class PptxMutationService implements MutationExecutor {
       queueMs,
       queueDepth,
     });
-    const snapshot = await engine.export();
+
+    // Slide-local text edits roll back from a cheap per-slide XML snapshot; only
+    // fall back to the full-deck export when the engine lacks slide-XML access or
+    // the command can affect more than one slide's part.
+    const rollbackSlide = slideLocalRollbackSlideIndex(command);
+    const useSlideXmlRollback = rollbackSlide !== null
+      && typeof engine.getSlideXml === 'function'
+      && typeof engine.restoreSlideXml === 'function';
+    const slideXmlSnapshot = useSlideXmlRollback && rollbackSlide !== null
+      ? engine.getSlideXml(rollbackSlide)
+      : null;
+    const snapshot = useSlideXmlRollback ? null : await engine.export();
+
+    // The same slide-local text ops that roll back from slide XML also already
+    // pushed their result into the renderer model (via `commitSlideDoc`) and
+    // recorded pending lossless slide XML. The commit itself is a no-op: folding
+    // pending into `currentBuffer` is deferred until a buffer reader (reorder /
+    // insert / export) needs it. Eager zip-sync was the residual ~100ms+
+    // keystroke tax on image-heavy decks.
+    const useSlideLocalCommit = useSlideXmlRollback
+      && typeof engine.commitSlideLocalMutation === 'function';
 
     try {
       const result = await this.apply(engine, command);
-      await engine.commitMutation();
+      if (useSlideLocalCommit) {
+        await engine.commitSlideLocalMutation();
+      } else {
+        await engine.commitMutation();
+      }
       debugLog('mutate', 'PowerPoint mutation committed', {
         op: command.type,
         ms: Date.now() - startedAt,
+        rollback: useSlideXmlRollback ? 'slide-xml' : 'snapshot',
+        commit: useSlideLocalCommit ? 'slide-local-deferred' : 'full-export',
       });
       return result;
     } catch (error) {
       try {
-        await engine.restoreSnapshot(snapshot);
+        if (useSlideXmlRollback && slideXmlSnapshot !== null && rollbackSlide !== null) {
+          await engine.restoreSlideXml(rollbackSlide, slideXmlSnapshot);
+        } else if (snapshot) {
+          await engine.restoreSnapshot(snapshot);
+        }
       } catch (rollbackError) {
         errorLog('mutate', 'PowerPoint mutation rollback failed', {
           op: command.type,

@@ -23,7 +23,7 @@ const defaultDocuments = [
 	'School/Current Classes/ENG& 235/Resources/P1 Quick Start Guide/P1.1 Guided Self-Analysis.docx',
 	'School/Current Classes/ENG& 235/Resources/Writing Guides/Writing Clearly and Concisely Guidelines.docx',
 	'Life/Financials/Marwan Luay Resume.docx',
-	'Projects/Native PowerPoint Doc Editor/test_files/demo.docx',
+	'.Projects/Native PowerPoint Doc Editor/test_files/demo.docx',
 ];
 
 async function bundleHarness() {

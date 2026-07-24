@@ -1,5 +1,5 @@
 import { App, Component, FileView, Modal, Platform, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
-import type { Translations } from './docx/runtime';
+import type { Translations } from '@npde/docx-editor-i18n';
 import type { I18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { loadDocxEditorChunk } from './docxEditorLoader';

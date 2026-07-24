@@ -81,6 +81,9 @@ export const CATALOG_MIRROR_RSYNC_EXCLUDES = [
 	'docx-editor/.claude/',
 	'docx-editor/.github/',
 	'docx-editor/openspec/',
+	// Vault-local leftover / release-branch vendor snapshot. Catalog mirror uses
+	// `docx-editor/packages/{core,react,i18n}/dist` via docx-editor-aliases.
+	'vendor/docx-editor-runtime/',
 ];
 
 export function writeCatalogMirrorExcludeFile(filePath) {

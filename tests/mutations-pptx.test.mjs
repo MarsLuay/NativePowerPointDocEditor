@@ -317,6 +317,179 @@ test("PptxMutationService routes preceding paragraph merge commands", async () =
   ]);
 });
 
+test("PptxMutationService uses slide-XML rollback for slide-local text edits", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    getSlideXml: (slideIndex) => {
+      calls.push(["getSlideXml", slideIndex]);
+      return `<slide-${slideIndex}/>`;
+    },
+    restoreSlideXml: async (slideIndex, xml) => {
+      calls.push(["restoreSlideXml", slideIndex, xml]);
+    },
+    restoreSnapshot: async () => calls.push("restoreSnapshot"),
+    splitParagraph: async (slideIndex, shapeIndex, paragraphIndex, splitOffset, text) => {
+      calls.push(["splitParagraph", slideIndex, shapeIndex, paragraphIndex, splitOffset, text]);
+      if (text === "fail") throw new Error("split failed");
+      return { paragraphIndex: paragraphIndex + 1 };
+    },
+    commitMutation: async () => calls.push("commit"),
+  };
+  const service = new PptxMutationService(engine);
+
+  const result = await service.execute({
+    type: "split-paragraph",
+    slideIndex: 2,
+    shapeIndex: 3,
+    paragraphIndex: 4,
+    splitOffset: 5,
+    text: "ok",
+  });
+  assert.deepEqual(result, { paragraphIndex: 5 });
+
+  await assert.rejects(
+    () => service.execute({
+      type: "split-paragraph",
+      slideIndex: 2,
+      shapeIndex: 3,
+      paragraphIndex: 4,
+      splitOffset: 5,
+      text: "fail",
+    }),
+    /split failed/,
+  );
+
+  assert.deepEqual(calls, [
+    ["getSlideXml", 2],
+    ["splitParagraph", 2, 3, 4, 5, "ok"],
+    "commit",
+    ["getSlideXml", 2],
+    ["splitParagraph", 2, 3, 4, 5, "fail"],
+    ["restoreSlideXml", 2, "<slide-2/>"],
+  ]);
+  assert.ok(!calls.includes("export"), "slide-local edits must not export the full deck");
+  assert.ok(!calls.includes("restoreSnapshot"), "slide-local rollback must not restore a full-deck snapshot");
+});
+
+test("PptxMutationService uses the deferred slide-local commit when the engine supports it", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    getSlideXml: (slideIndex) => {
+      calls.push(["getSlideXml", slideIndex]);
+      return `<slide-${slideIndex}/>`;
+    },
+    restoreSlideXml: async (slideIndex, xml) => calls.push(["restoreSlideXml", slideIndex, xml]),
+    restoreSnapshot: async () => calls.push("restoreSnapshot"),
+    splitParagraph: async (slideIndex, shapeIndex, paragraphIndex, splitOffset) => {
+      calls.push(["splitParagraph", slideIndex, shapeIndex, paragraphIndex, splitOffset]);
+      return { paragraphIndex: paragraphIndex + 1 };
+    },
+    commitMutation: async () => calls.push("commit"),
+    // Deferred commit: recorded as called, but must not export/sync the package.
+    commitSlideLocalMutation: async () => calls.push("commit-slide-local"),
+  };
+  const service = new PptxMutationService(engine);
+
+  const result = await service.execute({
+    type: "split-paragraph",
+    slideIndex: 2,
+    shapeIndex: 3,
+    paragraphIndex: 4,
+    splitOffset: 5,
+  });
+  assert.deepEqual(result, { paragraphIndex: 5 });
+
+  assert.deepEqual(calls, [
+    ["getSlideXml", 2],
+    ["splitParagraph", 2, 3, 4, 5],
+    "commit-slide-local",
+  ]);
+  assert.ok(!calls.includes("export"), "slide-local commit must not export the full deck");
+  assert.ok(!calls.includes("commit"), "slide-local commit must not run the full-export commit");
+});
+
+test("deferred slide-local commit keeps edits through a later reorder", async () => {
+  // Regression for the residual keystroke lag fix: slide-local text edits no
+  // longer zip-sync `currentBuffer` on every commit. `reorderSlides` must fold
+  // pending slide XML before permuting, or the edit vanishes when slides move.
+  const { PptxMutationService } = await loadMutationModules();
+  const engine = await loadEngine("features.pptx");
+  const service = new PptxMutationService(engine);
+
+  // Ensure a second slide exists so a reorder is meaningful (full-export path).
+  await service.execute({ type: "add-slide", afterIndex: 0 });
+  assert.ok(engine.slideCount >= 2, "add-slide should yield at least two slides");
+
+  const marker = "CHEAP_COMMIT_MARKER_42";
+  await service.execute({
+    type: "update-paragraph-text",
+    slideIndex: 0,
+    shapeIndex: 0,
+    paragraphIndex: 0,
+    text: marker,
+  });
+  // Renderer model reflects the edit immediately.
+  assert.equal(engine.getParagraphRunText(0, 0, 0), marker);
+
+  // Move slide 0 to position 1. reorderSlides must sync pending first.
+  await engine.reorderSlides([1, 0]);
+  assert.equal(
+    engine.getParagraphRunText(1, 0, 0),
+    marker,
+    "reorder must fold deferred slide-local edits into currentBuffer before permuting",
+  );
+
+  await assertExportRoundTrips("deferred slide-local commit + reorder", engine, { expectedSlides: 2 });
+});
+
+test("PptxMutationService keeps the full-export commit for non-slide-local commands", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    getSlideXml: () => {
+      calls.push("getSlideXml");
+      return "<unused/>";
+    },
+    restoreSlideXml: async () => calls.push("restoreSlideXml"),
+    restoreSnapshot: async () => calls.push("restoreSnapshot"),
+    duplicateSlide: async (slideIndex) => {
+      calls.push(["duplicateSlide", slideIndex]);
+      return slideIndex + 1;
+    },
+    commitMutation: async () => calls.push("commit"),
+    commitSlideLocalMutation: async () => calls.push("commit-slide-local"),
+  };
+  const service = new PptxMutationService(engine);
+
+  const result = await service.execute({ type: "duplicate-slide", slideIndex: 1 });
+  assert.equal(result, 2);
+
+  assert.deepEqual(calls, [
+    "export",
+    ["duplicateSlide", 1],
+    "commit",
+  ]);
+  assert.ok(!calls.includes("getSlideXml"), "structural commands must snapshot the whole package");
+  assert.ok(
+    !calls.includes("commit-slide-local"),
+    "structural commands must not use the slide-local commit",
+  );
+});
+
 test("PptxMutationService rejects commands before an engine is available", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const service = new PptxMutationService(() => null);

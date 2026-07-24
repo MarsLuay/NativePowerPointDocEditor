@@ -8,33 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.1.3] - 2026-07-21
-
-### Changed
-
-- Promote `nightly-releases` (through 1.0.55) onto `main` as the stable catalog branch (vendor-only DOCX runtime).
+## [1.1.5] - 2026-07-24
 
 ### Fixed
 
-- Settings UI refresh no longer calls `PluginSettingTab.update` (Obsidian API newer than `minAppVersion` 1.8.7; fails `obsidianmd/no-unsupported-api`).
-
-## [1.1.2] - 2026-07-17
-
-### Fixed
-
-- Embed the release version in built `main.js` / `styles.css` so artifact digests are unique per tag (fixes Obsidian attestation verification when bytes previously collided with 1.0.44).
-
-## [1.1.1] - 2026-07-17
-
-### Fixed
-
-- Re-issue the stable release with CI-built, uniquely attested `main.js` / `styles.css` (avoids digest collision with 1.0.44 and manual release-upload races).
-
-## [1.1.0] - 2026-07-17
-
-### Changed
-
-- Version bump to 1.1.0 on main (stable 1.0.44 line). Nightly work remains on `nightly-releases` only.
+- PowerPoint zoom near ~206% on tall posters no longer flickers: fit scale measures border-box size and reserves scrollbar thickness when either axis overflows (horizontal bar ↔ `clientHeight` thrash).
+- Mac Delete (Backspace) in inline text prefers `event.code` so Electron’s `key: "Delete"` + `code: "Backspace"` no longer forward-deletes the character after the caret.
+- Soft-break editor newlines map to OOXML offsets without overshooting paragraph splits onto the wrong glyph.
+- Slide reorder/duplicate/export folds deferred slide-local text XML into the package so pending edits are not dropped.
+- Paragraph split / merge / empty-paragraph delete use slide-XML rollback and deferred package fold instead of a full-deck export per keystroke on image-heavy decks.
+- `pptx.addImage` applies the insert transform through the renderer path so composite shape indices no longer miss the serialized `spTree`.
 
 ## [1.0.55] - 2026-07-21
 
@@ -46,14 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Release-branch DOCX runtime is vendor-only (`vendor/docx-editor-runtime` from `docx-editor-source` via `npm run vendor:docx`). Removed in-repo `docx-editor/` from `nightly-releases`. Documented `docx-editor-source` → `nightly-releases` → `main` flow in AGENTS.md. Removed bogus `versions.json` `"undefined"` key.
-
-### Fixed
-
-- AI/DOCX unit tests resolve vendored `@npde/docx-editor-*` aliases under `vendor/docx-editor-runtime`.
-- Release-branch DOCX font/IME harness scripts skip cleanly when harness entries are absent.
-- Enable `obsidianmd/prefer-active-doc`; document `DOCX_EDITOR_SOURCE_DIR`; bump `dompurify` to 3.4.12.
-- Point CI release/lint at `check:docx-runtime` instead of removed in-repo `build:docx-editor`.
+- Public release branches are vendor-only for the DOCX runtime (`vendor/docx-editor-runtime`); see AGENTS.md branch workflow.
 
 ## [1.0.53] - 2026-07-21
 

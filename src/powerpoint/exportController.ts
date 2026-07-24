@@ -13,7 +13,7 @@ import {
 } from '../export/artifactPaths';
 import type { PresentationEngine } from '../PresentationEngine';
 import { debugLog, errorLog } from '../logger';
-import { exportSlideToPng, exportSlidesToPdf, exportSlidesToPngZip } from '../PowerPointExport';
+import { exportSlideToPng, exportSlidesToPdf, exportSlidesToPngZip, SLIDE_PDF_EXPORT_DPI, slideSizeEmuToPdfPoints } from '../PowerPointExport';
 import { cleanError } from './runtimeCompat';
 
 /**
@@ -142,7 +142,17 @@ export class ExportController {
       }
 
       this.notice(currentSlideOnly ? 'powerpoint:notice.exportingSlideToPdf' : 'powerpoint:notice.exportingDeckToPdf');
-      const bytes = await exportSlidesToPdf(elements, this.host.ownerDocument);
+      let pageSizePoints: { width: number; height: number } | undefined;
+      try {
+        const slideSize = await engine.getSlideSizeEmu();
+        pageSizePoints = slideSizeEmuToPdfPoints(slideSize.cx, slideSize.cy);
+      } catch {
+        pageSizePoints = undefined;
+      }
+      const bytes = await exportSlidesToPdf(elements, this.host.ownerDocument, {
+        dpi: SLIDE_PDF_EXPORT_DPI,
+        ...(pageSizePoints ? { pageSizePoints } : {}),
+      });
       const baseName = currentSlideOnly
         ? `${this.getExportBaseName()}-slide-${this.host.currentSlide + 1}`
         : this.getExportBaseName();

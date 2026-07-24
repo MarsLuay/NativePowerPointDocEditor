@@ -594,7 +594,10 @@ export async function executePptxOp(
 			let shapeIndex = 0;
 			if (!context.dryRun) {
 				shapeIndex = await context.engine.addImage(slideIndex, image.bytes, getImageMimeType(image.extension));
-				await applyTransformToInsertedShape(context.engine, slideIndex, shapeIndex, transform);
+				// Renderer-side insert returns a composite shape index that can diverge
+				// from the serialized spTree (group children / graphicFrame merge). Use
+				// the renderer transform path — not applyInsertedShapeTransform (OOXML).
+				await context.engine.updateShapeTransform(slideIndex, shapeIndex, transform);
 			}
 			result.changedIds.push(pptxShapeId(slideIndex, shapeIndex));
 			result.affectedSlideIndices.add(slideIndex);

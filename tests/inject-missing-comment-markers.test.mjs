@@ -13,7 +13,7 @@ async function loadInjectModule() {
   // Catalog mirror ships JS package dist only (no monorepo src/). Load from dist.
   const outfile = path.join(
     projectRoot,
-    "vendor/docx-editor-runtime/core/dist/docx/index.js",
+    "docx-editor/packages/core/dist/docx/index.js",
   );
   cachedModule = require(outfile);
   return cachedModule;

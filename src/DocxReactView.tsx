@@ -1,23 +1,18 @@
 import type { TFile } from 'obsidian';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent, type ComponentProps } from 'react';
-import {
-	clearParagraphMeasureCache,
-	DocxEditor,
-	insertTable,
-	loadFontFromBuffer,
-	setFontSize,
-	setLineSpacing,
-	type DocxEditorRef,
-	type EditorMode,
-	type FontOption,
-	type RenderedDomContext,
-	type Translations,
-} from './docx/runtime';
+import { DocxEditor, type DocxEditorRef, type EditorMode } from '@npde/docx-editor-react';
+import { clearParagraphMeasureCache } from '@npde/docx-editor-core/layout-bridge';
+import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
+import { insertTable, setFontSize, setLineSpacing } from '@npde/docx-editor-core/prosemirror/commands';
+import { loadFontFromBuffer } from '@npde/docx-editor-core/utils';
+import type { FontOption } from '@npde/docx-editor-core/utils/fontOptions';
+import type { Translations } from '@npde/docx-editor-i18n';
 import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import proseMirrorViewStyles from 'prosemirror-view/style/prosemirror.css';
-import { docxEditorRuntimeStyles } from './docx/runtime/styles';
+import proseMirrorEditorStyles from '../docx-editor/packages/core/dist/prosemirror/editor.css';
+import editorStyles from '../docx-editor/packages/react/dist/styles.css';
 import type { I18nService } from './i18n/I18nService';
 import { parsePrimaryFontFamily } from './powerpoint/textUtils';
 import { isClipboardEvent, isElement, isHTMLElement, isHTMLButtonElement, isInputEvent, isNode, isPointerEvent } from './domGuards';
@@ -63,7 +58,8 @@ let stylesInjected = false;
 let editorInstanceCounter = 0;
 const docxEditorStyles = [
 	proseMirrorViewStyles,
-	docxEditorRuntimeStyles,
+	proseMirrorEditorStyles,
+	editorStyles,
 ].join('\n');
 
 interface DocxSectionProperties {
@@ -2097,7 +2093,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const renderedPages = renderedDomContextRef.current?.pagesContainer.querySelectorAll(DOCX_RENDERED_PAGE_SELECTOR).length
 				?? activeDocument.querySelectorAll(`.${editorClassNameRef.current} ${DOCX_RENDERED_PAGE_SELECTOR}`).length;
 			const sourceDiagnostics = getDocxPaginationSourceDiagnostics(editorCore?.getView()?.state.doc);
-			const sourceDocument = editor?.getDocument();
+			const sourceDocument = editor?.getDocument() as DocxDocumentWithSectionProperties | null | undefined;
 			const documentProperties = sourceDocument?.package?.[DOCX_PACKAGE_DOCUMENT_KEY];
 			const sectionProperties = {
 				...documentProperties?.sections?.[0]?.properties,

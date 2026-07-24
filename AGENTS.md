@@ -1,5 +1,10 @@
 # Obsidian community plugin
 
+> **Public GitHub branches:** `docx-editor-source` (edit DOCX monorepo) → `nightly-releases` (latest plugin + `vendor:docx`) → `main` (promote when satisfied). Release branches are vendor-only — no in-repo `docx-editor/`. See section **Branch workflow** below.
+>
+> **This vault tree** may still keep a local `docx-editor/` for analysis/dev; do not push that monorepo onto `nightly-releases` / `main`.
+
+
 ## Project overview
 
 - Target: Obsidian Community Plugin (TypeScript → bundled JavaScript).

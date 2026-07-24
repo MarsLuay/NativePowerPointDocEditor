@@ -225,6 +225,32 @@ export class AiCore {
 		return pptxService.apply(path, ops, options);
 	}
 
+	async exportPdf(
+		path: string,
+		options: import('./pptxExportPdf').ExportPdfOptions = {},
+	): Promise<import('./pptxExportPdf').ExportPdfResult> {
+		if (!this.isEnabled()) {
+			return { ok: false, errors: [this.disabledError()] };
+		}
+		if (!this.options.runtime) {
+			return { ok: false, errors: [this.missingRuntimeError()] };
+		}
+
+		const extension = path.split('.').pop()?.toLowerCase() ?? '';
+		if (!isPowerPointExtension(extension)) {
+			return {
+				ok: false,
+				errors: [createAiError(AI_ERROR_CODES.UNSUPPORTED_FORMAT, `Unsupported file: ${path}.`, { path })],
+			};
+		}
+
+		const pptxService = await this.resolvePptxService();
+		if (!pptxService) {
+			return { ok: false, errors: [this.missingRuntimeError()] };
+		}
+		return pptxService.exportPdf(path, options);
+	}
+
 	async saveSession(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		if (!this.isEnabled()) {
 			return { ok: false, errors: [this.disabledError()] };

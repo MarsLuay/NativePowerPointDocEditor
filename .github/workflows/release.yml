@@ -22,11 +22,16 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        # Used only when package TypeScript source is present (vault-shaped trees).
+        # Catalog-safe public checkouts are dist-only; build:docx-editor then verifies dist.
+
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify vendored DOCX runtime
-        run: npm run check:docx-runtime
+      - name: Rebuild or verify docx-editor package dist
+        run: npm run build:docx-editor
 
       - name: Validate release version
         run: node scripts/check-release-version.mjs

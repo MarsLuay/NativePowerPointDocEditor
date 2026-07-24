@@ -1,5 +1,6 @@
 import type { AiCore } from './aiCore';
 import type { CreateOfficeDocumentOptions, CreateOfficeDocumentResult } from './createOfficeDocument';
+import type { ExportPdfOptions, ExportPdfResult } from './pptxExportPdf';
 import { AI_API_VERSION, PLUGIN_ID } from './types';
 import type {
 	ApplyOptions,
@@ -19,6 +20,7 @@ export interface AiDocumentSession {
 	readonly path: string;
 	describe(): Promise<DescribeResult>;
 	apply(ops: DocumentOp[], options?: ApplyOptions): Promise<ApplyResult>;
+	exportPdf(options?: ExportPdfOptions): Promise<ExportPdfResult>;
 	save(): Promise<{ ok: boolean; errors: ApplyResult['errors'] }>;
 	undo(): Promise<{ ok: boolean; errors: ApplyResult['errors'] }>;
 	redo(): Promise<{ ok: boolean; errors: ApplyResult['errors'] }>;
@@ -33,6 +35,7 @@ export interface NpdeAiApi {
 	createDocument(options: CreateOfficeDocumentOptions): Promise<CreateOfficeDocumentResult>;
 	describe(path: string): Promise<DescribeResult>;
 	apply(path: string, ops: DocumentOp[], options?: ApplyOptions): Promise<ApplyResult>;
+	exportPdf(path: string, options?: ExportPdfOptions): Promise<ExportPdfResult>;
 	undo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }>;
 	redo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }>;
 	openSession(path: string): Promise<AiDocumentSession>;
@@ -50,6 +53,10 @@ class AiDocumentSessionImpl implements AiDocumentSession {
 
 	apply(ops: DocumentOp[], options?: ApplyOptions): Promise<ApplyResult> {
 		return this.core.apply(this.path, ops, options);
+	}
+
+	exportPdf(options?: ExportPdfOptions): Promise<ExportPdfResult> {
+		return this.core.exportPdf(this.path, options);
 	}
 
 	save(): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
@@ -82,6 +89,7 @@ export function createNpdeAiApi(core: AiCore): NpdeAiApi {
 		createDocument: (options) => core.createDocument(options),
 		describe: (path) => core.describe(path),
 		apply: (path, ops, options) => core.apply(path, ops, options),
+		exportPdf: (path, options) => core.exportPdf(path, options),
 		undo: (path) => core.undoAgentEdit(path),
 		redo: (path) => core.redoAgentEdit(path),
 		openSession: (path) => Promise.resolve(new AiDocumentSessionImpl(path, core)),

@@ -1,9 +1,11 @@
 {
 	"compilerOptions": {
 		"baseUrl": "src",
+		"inlineSourceMap": true,
+		"inlineSources": true,
 		"module": "ESNext",
-		"moduleResolution": "Bundler",
-		"target": "ES2018",
+		"target": "ES6",
+		"allowJs": true,
 		"paths": {
 			"prosemirror-commands": ["../node_modules/prosemirror-commands"],
 			"prosemirror-dropcursor": ["../node_modules/prosemirror-dropcursor"],
@@ -14,21 +16,51 @@
 			"prosemirror-tables": ["../node_modules/prosemirror-tables"],
 			"prosemirror-transform": ["../node_modules/prosemirror-transform"],
 			"prosemirror-view": ["../node_modules/prosemirror-view"],
-			"orderedmap": ["../node_modules/orderedmap"]
+			"orderedmap": ["../node_modules/orderedmap"],
+			"@npde/docx-editor-core": [
+				"../docx-editor/packages/core/dist/core.d.ts"
+			],
+			"@npde/docx-editor-core/*": [
+				"../docx-editor/packages/core/dist/*/index.d.ts",
+				"../docx-editor/packages/core/dist/*.d.ts"
+			],
+			"@npde/docx-editor-i18n": [
+				"../docx-editor/packages/i18n/dist/index.d.ts"
+			],
+			"@npde/docx-editor-i18n/*": [
+				"../docx-editor/packages/i18n/dist/*.d.ts"
+			],
+			"@npde/docx-editor-react": [
+				"../docx-editor/packages/react/dist/index.d.ts"
+			],
+			"@npde/docx-editor-react/*": [
+				"../docx-editor/packages/react/dist/*/index.d.ts",
+				"../docx-editor/packages/react/dist/*.d.ts"
+			]
 		},
 		"jsx": "react-jsx",
-		"strict": true,
+		"noImplicitAny": true,
+		"noImplicitThis": true,
+		"noImplicitReturns": true,
+		"moduleResolution": "node",
+		"importHelpers": true,
 		"noUncheckedIndexedAccess": true,
 		"isolatedModules": true,
-		"skipLibCheck": true,
+		"strictNullChecks": true,
+		"strictBindCallApply": true,
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
-		"lib": ["DOM", "ES2022"]
+		"useUnknownInCatchVariables": true,
+		"lib": [
+			"DOM",
+			"ES5",
+			"ES6",
+			"ES7",
+			"ES2022"
+		]
 	},
 	"include": [
 		"src/**/*.ts",
-		"src/**/*.tsx",
-		"src/**/*.d.ts",
-		"src/**/*.d.mts"
+		"src/**/*.tsx"
 	]
 }

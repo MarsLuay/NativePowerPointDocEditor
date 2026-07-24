@@ -536,8 +536,12 @@ test("PowerPoint canvas disables browser scroll anchoring during text preview up
 
   assert.ok(canvasPaneRule, "the canvas pane must remain an explicit scroll owner");
   assert.match(canvasPaneRule[1], /overflow-anchor:\s*none/);
+  assert.match(
+    canvasPaneRule[1],
+    /scrollbar-gutter:\s*stable/,
+    "stable gutter prevents fitScale oscillation when overflow bars appear",
+  );
 });
-
 test("shape fill menu uses the shared color popover and excludes unsupported objects", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
   const view = createView(NativePowerPointView);

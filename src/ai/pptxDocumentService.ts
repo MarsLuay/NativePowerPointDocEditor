@@ -8,9 +8,18 @@ import { describePptxFromEngine } from './pptxDescribe';
 import { executePptxOp } from './pptxOpExecutor';
 import { isAiErrorDetail } from './errors';
 import { savePptxToVault } from './pptxSave';
+import {
+	exportPresentationToPdfBytes,
+	toExportPdfFailure,
+	writeExportPdfArtifact,
+	type ExportPdfOptions,
+	type ExportPdfResult,
+} from './pptxExportPdf';
 import { PptxSessionManager } from './pptxSessionManager';
 import { getOpDefinition, validateDocumentOps } from './opRegistry';
 import type { ApplyOptions, ApplyPreviewChange, ApplyResult, DescribeResult, DocumentOp } from './types';
+
+export type { ExportPdfOptions, ExportPdfResult };
 
 function isDocxPath(path: string): boolean {
 	return path.toLowerCase().endsWith('.docx');
@@ -247,6 +256,32 @@ export class PptxDocumentService {
 				ok: false,
 				errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, String(error), { path })],
 			};
+		}
+	}
+
+	async exportPdf(path: string, options: ExportPdfOptions = {}): Promise<ExportPdfResult> {
+		const startedAt = performance.now();
+		try {
+			this.assertPptxPath(path);
+			const lease = await this.sessions.acquire(path, { requireEditable: false });
+			const { bytes, slideCount } = await exportPresentationToPdfBytes(lease.engine, options);
+			const written = await writeExportPdfArtifact(this.runtime.vault, lease.file, bytes, options);
+			debugLog('agent', 'AI exportPdf completed', {
+				path: lease.file.path,
+				outputPath: written.path,
+				slideCount,
+				bytes: written.bytes,
+				ms: Math.round(performance.now() - startedAt),
+			});
+			return {
+				ok: true,
+				path: written.path,
+				bytes: written.bytes,
+				slideCount,
+				errors: [],
+			};
+		} catch (error) {
+			return toExportPdfFailure(error, path);
 		}
 	}
 

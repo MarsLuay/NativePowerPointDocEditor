@@ -7,6 +7,13 @@ export { getOpDefinition, listOpDefinitions, validateDocumentOp, validateDocumen
 export { validateAgainstSchema } from './schemaValidation';
 export { createNpdeAiApi } from './pluginApi';
 export type { AiDocumentSession, NpdeAiApi, NpdeAiApiInfo } from './pluginApi';
+export type { ExportPdfOptions, ExportPdfResult, ExportPdfConflict } from './pptxExportPdf';
+export {
+	buildSlideSvgElementForExport,
+	exportPresentationToPdfBytes,
+	resolveExportPdfOutputTarget,
+	writeExportPdfArtifact,
+} from './pptxExportPdf';
 export { AI_COMMAND_IDS, AI_LEGACY_COMMAND_IDS, AI_COMMAND_ID_LIST } from './aiCommandIds';
 export { registerAiCommands } from './registerAiCommands';
 export {

@@ -130,6 +130,7 @@ if (rsync) {
 // explicitly rather than using --delete-excluded. This also removes stale files
 // left by earlier catalog syncs before the surface assertion runs.
 rmSync(path.join(destRoot, '.code-analysis'), { recursive: true, force: true });
+rmSync(path.join(destRoot, 'vendor', 'docx-editor-runtime'), { recursive: true, force: true });
 pruneCatalogMirrorDocxTree(destRoot);
 
 // Strip declarations and type pointers from the retained runtime packages.

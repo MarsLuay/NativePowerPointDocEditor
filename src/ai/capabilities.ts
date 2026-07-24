@@ -98,6 +98,11 @@ const PLUGIN_API_METHODS: Record<string, ClipboardCommandSpec> = {
 		output: '{ ok: boolean, path?: string, errors: AiErrorDetail[] }',
 		notes: 'Creates a blank DOCX/PPTX in the vault (same packages as New DOCX/PPTX). For DOCX, optional paragraphs fills the body via docx.replaceBodyParagraphs semantics. Does not open a leaf.',
 	},
+	exportPdf: {
+		input: '{ "path": "vault/file.potx"|"vault/file.pptx", "outputPath"?: "vault/file.pdf", "slideIndices"?: number[], "conflict"?: "replace"|"keep-both", "scale"?: number }',
+		output: '{ ok: boolean, path?: string, bytes?: number, slideCount?: number, errors: AiErrorDetail[] }',
+		notes: 'Rasters PPTX/POTX/PPSX slides to a vault PDF via the NPDE SVG renderer (same path as Export → Whole deck PDF). Page size uses p:sldSz EMUs (true inches). Default output is <basename>.pdf beside the source; conflict defaults to keep-both. Does not call Microsoft PowerPoint.',
+	},
 };
 
 export function buildCapabilityManifest(options: BuildCapabilityManifestOptions): CapabilityManifest {

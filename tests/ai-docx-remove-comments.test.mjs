@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import JSZip from 'jszip';
 import { build } from 'esbuild';
-import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -43,7 +42,6 @@ async function loadDocxServiceModule() {
 	cachedObsidianStub = require(path.join(obsidianModuleDirectory, 'index.js'));
 	const outfile = path.join(outputDirectory, 'docx-service.cjs');
 	await build({
-		alias: docxEditorAliases,
 		absWorkingDir: outputDirectory,
 		entryPoints: [path.join(projectRoot, 'src/ai/docxDocumentService.ts')],
 		bundle: true,
@@ -63,7 +61,6 @@ async function loadDocxDescribeModule() {
 	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-docx-remove-comments-describe-'));
 	const outfile = path.join(outputDirectory, 'docx-describe.cjs');
 	await build({
-		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/docxDescribe.ts')],
 		bundle: true,
 		format: 'cjs',

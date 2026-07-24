@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { build } from 'esbuild';
-import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -20,7 +19,6 @@ async function loadAiSchemaModules() {
 	const examplesOut = path.join(outputDirectory, 'op-examples.cjs');
 	const errorsOut = path.join(outputDirectory, 'errors.cjs');
 	await build({
-		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/opRegistry.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -30,7 +28,6 @@ async function loadAiSchemaModules() {
 		target: 'node22',
 	});
 	await build({
-		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/opExamples.ts')],
 		bundle: true,
 		format: 'cjs',
@@ -40,7 +37,6 @@ async function loadAiSchemaModules() {
 		target: 'node22',
 	});
 	await build({
-		alias: docxEditorAliases,
 		entryPoints: [path.join(projectRoot, 'src/ai/errors.ts')],
 		bundle: true,
 		format: 'cjs',

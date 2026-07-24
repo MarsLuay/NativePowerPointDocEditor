@@ -2927,6 +2927,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	overflow: auto;
 	/* Text-preview DOM changes must not make the browser pan the slide viewport. */
 	overflow-anchor: none;
+	/* Reserve scrollbar space so clientWidth/Height stay stable when bars appear.
+	   Otherwise updateSlideScale fitScale oscillates (poster ~206% tweak/flicker). */
+	scrollbar-gutter: stable;
 	padding: 32px;
 	position: relative;
 }

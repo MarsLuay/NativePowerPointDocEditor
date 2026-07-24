@@ -12,6 +12,18 @@ export function isPrimaryFindShortcut(evt: KeyboardEvent): boolean {
   return key === 'f' && hasPrimaryModifier && !evt.altKey && !evt.shiftKey;
 }
 
+/**
+ * Prefer the physical key for delete direction. Electron/macOS can report the
+ * Mac "delete" key (backspace) as `key === 'Delete'` while `code` stays
+ * `'Backspace'`. Using `key` alone then forward-deletes the char after the
+ * caret (e.g. removes `n` from `i|n` when the user meant to remove `i`).
+ */
+export function isBackwardDeleteKey(event: Pick<KeyboardEvent, 'key' | 'code'>): boolean {
+  if (event.code === 'Backspace') return true;
+  if (event.code === 'Delete') return false;
+  return event.key === 'Backspace';
+}
+
 export function normalizeSearchText(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
@@ -393,6 +405,15 @@ export function mapEditorOffsetToOoxmlOffset(
     if (editorText[e] === ooxmlText[o]) {
       e++;
       o++;
+    } else if (editorText[e] === '\n') {
+      // A soft break (`<a:br/>`) is an editor-only glyph: the OOXML run text has
+      // no counterpart, so consume the newline from the editor side without
+      // advancing OOXML. Otherwise the walk would treat a real OOXML character
+      // as "dropped" and overshoot, landing a paragraph split on the wrong
+      // glyph. When the comparison string itself carries the break (a pending
+      // split mapped against editor-space text) the equality branch above
+      // already matched it, so this only fires against run-only OOXML text.
+      e++;
     } else {
       // OOXML char dropped from the SVG (whitespace at a wrap boundary).
       o++;

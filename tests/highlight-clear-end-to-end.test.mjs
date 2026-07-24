@@ -174,6 +174,32 @@ test("trailing-gap mapping absorbs dropped wrap whitespace but never real charac
   assert.ok(end <= "alpha ".length + 1, "END stops at the divergence instead of consuming real text");
 });
 
+test("soft-break newlines are editor-only glyphs: split offsets skip them in OOXML run text", () => {
+  // Enter-splits-at-wrong-character repro. `getParagraphRunText` concatenates
+  // <a:r> run text only; a soft break (<a:br/>) contributes ZERO characters, so
+  // the OOXML string has no `\n` while the editor value does. Each soft break
+  // before the caret must be consumed from the editor side without advancing
+  // OOXML, otherwise the split target overshoots by one glyph per break.
+  const editor = "AB\nCD"; // one soft break after "B"
+  const ooxml = "ABCD"; // run text: the break is not a character
+  // Caret after "C" (editor offset 4) -> OOXML offset 3 (split keeps "ABC").
+  assert.equal(mapEditorOffsetToOoxmlOffset(editor, ooxml, 4, false), 3);
+  // Caret right after the break (editor offset 3, before "C") -> OOXML offset 2.
+  assert.equal(mapEditorOffsetToOoxmlOffset(editor, ooxml, 3, false), 2);
+  // Caret before the break (offset 2) is unaffected.
+  assert.equal(mapEditorOffsetToOoxmlOffset(editor, ooxml, 2, false), 2);
+
+  // Multiple soft breaks accumulate: two breaks before the caret => offset - 2.
+  const multi = "A\nB\nCD";
+  assert.equal(mapEditorOffsetToOoxmlOffset(multi, "ABCD", "A\nB\nC".length, false), 3);
+
+  // Pending-edit split maps editor-space -> editor-space text: BOTH strings
+  // carry the break, so the equality branch matches and the newline is NOT
+  // skipped one-sidedly (no regression to the pending path).
+  const editorSpace = "AB\nCD";
+  assert.equal(mapEditorOffsetToOoxmlOffset(editorSpace, editorSpace, 4, false), 4);
+});
+
 test("end-to-end: clearing the full editor selection removes every highlight (no residual)", async () => {
   const engine = await loadEngineWithBulletParagraph();
   const slide = 0;

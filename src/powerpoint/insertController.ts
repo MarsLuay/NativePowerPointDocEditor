@@ -10,8 +10,10 @@ import type { InsertableShapeGeometry, PresentationEngine, TextBoxInsertOrigin }
 import {
   getImageMimeType,
   InsertTableModal,
+  POWERPOINT_IMAGE_FILE_ACCEPT,
   VaultImageSuggestModal
 } from '../PowerPointInsertModals';
+import { normalizeImageForPowerPoint } from './heicToPng';
 import type { ParagraphListStyle } from '../SlideInsertions';
 import { cleanError } from './runtimeCompat';
 import type { PresentationSession } from './session/PresentationSession';
@@ -119,7 +121,7 @@ export class InsertController {
       type: 'file',
       cls: 'native-powerpoint-image-file-input'
     });
-    input.accept = 'image/png,image/jpeg,image/gif,image/webp,image/bmp';
+    input.accept = POWERPOINT_IMAGE_FILE_ACCEPT;
     input.addEventListener('change', () => {
       const file = input.files?.[0];
       input.value = '';
@@ -308,18 +310,24 @@ export class InsertController {
     })) return;
 
     try {
-      const bytes = await this.host.app.vault.readBinary(file);
+      const rawBytes = new Uint8Array(await this.host.app.vault.readBinary(file));
+      const normalized = await normalizeImageForPowerPoint(
+        rawBytes,
+        getImageMimeType(file.extension),
+        file.extension,
+      );
       const shapeIndex = await this.commitInsertedShape('Insert image', {
         type: 'insert-image',
         slideIndex: this.host.currentSlide,
-        imageData: new Uint8Array(bytes),
-        mimeType: getImageMimeType(file.extension)
+        imageData: normalized.bytes,
+        mimeType: normalized.mimeType,
       });
       debugLog('insert', 'Inserted PowerPoint image from vault', {
         slide: this.host.currentSlide,
         shapeIndex,
         file: file.path,
-        bytes: bytes.byteLength
+        bytes: normalized.bytes.byteLength,
+        convertedFromHeic: normalized.convertedFromHeic,
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint vault image insertion failed', { file: file.path, error });
@@ -334,19 +342,25 @@ export class InsertController {
     })) return;
 
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const normalized = await normalizeImageForPowerPoint(
+        rawBytes,
+        file.type || getImageMimeType(file.name.split('.').pop() ?? 'png'),
+        file.name,
+      );
       const shapeIndex = await this.commitInsertedShape('Insert image', {
         type: 'insert-image',
         slideIndex: this.host.currentSlide,
-        imageData: bytes,
-        mimeType: file.type || getImageMimeType(file.name.split('.').pop() ?? 'png')
+        imageData: normalized.bytes,
+        mimeType: normalized.mimeType,
       });
       debugLog('insert', 'Inserted PowerPoint image from local file', {
         slide: this.host.currentSlide,
         shapeIndex,
         fileName: file.name,
-        mimeType: file.type || null,
-        bytes: bytes.byteLength
+        mimeType: normalized.mimeType,
+        bytes: normalized.bytes.byteLength,
+        convertedFromHeic: normalized.convertedFromHeic,
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint local image insertion failed', {

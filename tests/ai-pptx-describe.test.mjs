@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { build } from 'esbuild';
-import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -41,7 +40,6 @@ async function loadPptxDescribeModule() {
 		},
 	};
 	await build({
-		alias: docxEditorAliases,
 		absWorkingDir: outputDirectory,
 		entryPoints: [path.join(projectRoot, 'src/ai/pptxDescribe.ts')],
 		bundle: true,

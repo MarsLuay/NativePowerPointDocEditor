@@ -24,9 +24,15 @@ import {
   getImageMimeType,
   ImageCropModal,
   InsertTableModal,
+  POWERPOINT_IMAGE_FILE_ACCEPT,
   VaultImageSuggestModal,
   type ImageCropValues
 } from '../../PowerPointInsertModals';
+import {
+  readClipboardRasterImage,
+  readDataTransferRasterImage,
+} from '../clipboardImage';
+import { normalizeImageForPowerPoint } from '../heicToPng';
 import type { ParagraphListStyle } from '../../SlideInsertions';
 import {
   inspectPowerPointPackage,
@@ -112,6 +118,7 @@ import {
 } from '../annotateTextOffsets';
 import {
   getInlineWordRange,
+  isBackwardDeleteKey,
   isPrimaryFindShortcut,
   mapEditorOffsetToOoxmlOffset,
   mapEditorRangeToOoxml,
@@ -134,6 +141,7 @@ import {
   normalizeSvgForDisplay,
   transformsMatch
 } from '../svgUtils';
+import { computeStableSlideDisplaySize } from '../slideScale';
 import { scaleCroppedPicturePreview } from '../pictureCropPreview';
 import type {
   CanvasScrollPosition,
@@ -229,6 +237,14 @@ export class NativePowerPointView extends FileView {
     this.session.setCurrentSlide(value);
   }
   private zoomLevel = 1;
+  /** Coalesce trackpad pinch (Ctrl+wheel) to one scale pass per animation frame. */
+  private pendingWheelZoom: {
+    zoom: number;
+    anchor: { clientX: number; clientY: number };
+  } | null = null;
+  private wheelZoomRaf: number | null = null;
+  /** Selection/toolbar sync after a coalesced wheel-zoom burst settles. */
+  private wheelZoomChromeRaf: number | null = null;
   private selectedShapeIndex: number | null = null;
   private selectedShapeIndices = new Set<number>();
   private lastInteractionRegion: 'canvas' | 'thumbnails' = 'canvas';
@@ -259,6 +275,11 @@ export class NativePowerPointView extends FileView {
   private shapeDeletionPromise: Promise<void> | null = null;
   /** Another Delete arrived while a shape delete was in flight; rerun with fresh selection. */
   private shapeDeletionRerunRequested = false;
+  /** Cmd/Ctrl+V armed the next paste event for PowerPoint image/shape handling. */
+  private powerpointPasteArmed = false;
+  private powerpointPasteArmTimeout: number | null = null;
+  /** Prevent window+document paste listeners (or paste+timeout) from double-inserting. */
+  private powerpointPasteInFlight: Promise<void> | null = null;
   private dragState: DragState | null = null;
   private activeEditor: HTMLTextAreaElement | null = null;
   /** Last text intentionally written by this inline-edit transaction. */
@@ -278,6 +299,13 @@ export class NativePowerPointView extends FileView {
   private lastInlineCaretPlacement: InlineCaretPlacement | null = null;
   private suppressNextTextClick = false;
   private activeInlineCaretRow: InlineCaretRow | null = null;
+  /**
+   * Desired horizontal caret column (pane-local px) for vertical Arrow
+   * navigation. Set on the first ArrowUp/ArrowDown and preserved across a run of
+   * them so the caret keeps its column when crossing shorter lines/paragraphs;
+   * cleared by any horizontal move, edit, or pointer caret placement.
+   */
+  private inlineVerticalGoalX: number | null = null;
   /** Visual line count of the live SVG preview; logged only when it changes. */
   private activeInlinePreviewLineCount: number | null = null;
   private activeEditorTarget: SVGTextElement | SVGTSpanElement | null = null;
@@ -605,7 +633,9 @@ export class NativePowerPointView extends FileView {
       renderCurrentSlide: (keepSelection) => getView().renderCurrentSlide(keepSelection),
       renderThumbnails: () => getView().renderThumbnails(),
       renderEditedShape: (shapeIndex) => getView().renderEditedShape(shapeIndex),
-      commitTransform: (transform) => getView().commitTransform(transform)
+      commitTransform: async (transform) => {
+        await getView().commitTransform(transform);
+      }
     };
   }
 
@@ -838,6 +868,12 @@ export class NativePowerPointView extends FileView {
       file: this.loadedFile?.path ?? this.file?.path ?? null,
       dirty: this.session.dirty
     });
+    if (this.powerpointPasteArmTimeout !== null) {
+      window.clearTimeout(this.powerpointPasteArmTimeout);
+      this.powerpointPasteArmTimeout = null;
+    }
+    this.powerpointPasteArmed = false;
+    this.cancelPendingWheelZoomWork();
     this.findController.dispose();
     this.presentController?.dispose();
     this.presentController = null;
@@ -1494,8 +1530,10 @@ export class NativePowerPointView extends FileView {
 
     if (!this.canvasPane || typeof ResizeObserver === 'undefined') return;
 
+    // border-box: content-box observations fire when overflow scrollbars appear
+    // and were the second half of the ~206% fitScale thrash loop.
     const observer = new ResizeObserver(() => this.updateSlideScale());
-    observer.observe(this.canvasPane);
+    observer.observe(this.canvasPane, { box: 'border-box' });
     this.canvasResizeObserver = observer;
     this.register(() => observer.disconnect());
   }
@@ -1596,7 +1634,7 @@ export class NativePowerPointView extends FileView {
       type: 'file',
       cls: 'native-powerpoint-image-file-input'
     });
-    replaceInput.accept = 'image/png,image/jpeg,image/gif,image/webp,image/bmp';
+    replaceInput.accept = POWERPOINT_IMAGE_FILE_ACCEPT;
     replaceInput.addEventListener('change', () => {
       const file = replaceInput.files?.[0];
       replaceInput.value = '';
@@ -2234,12 +2272,17 @@ export class NativePowerPointView extends FileView {
     if (!this.engine || !this.ensureEditable('insert image')) return;
 
     try {
-      const bytes = await this.app.vault.readBinary(file);
+      const rawBytes = new Uint8Array(await this.app.vault.readBinary(file));
+      const normalized = await normalizeImageForPowerPoint(
+        rawBytes,
+        getImageMimeType(file.extension),
+        file.extension,
+      );
       const history = await this.captureHistoryEntry('Insert image');
       const shapeIndex = await this.engine.addImage(
         this.currentSlide,
-        new Uint8Array(bytes),
-        getImageMimeType(file.extension)
+        normalized.bytes,
+        normalized.mimeType,
       );
       this.recordHistoryEntry(history);
       this.markDirty();
@@ -2252,7 +2295,8 @@ export class NativePowerPointView extends FileView {
         slide: this.currentSlide,
         shapeIndex,
         file: file.path,
-        bytes: bytes.byteLength
+        bytes: normalized.bytes.byteLength,
+        convertedFromHeic: normalized.convertedFromHeic,
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint vault image insertion failed', { file: file.path, error });
@@ -2264,12 +2308,17 @@ export class NativePowerPointView extends FileView {
     if (!this.engine || !this.ensureEditable('insert image')) return;
 
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      const rawBytes = new Uint8Array(await file.arrayBuffer());
+      const normalized = await normalizeImageForPowerPoint(
+        rawBytes,
+        file.type || getImageMimeType(file.name.split('.').pop() ?? 'png'),
+        file.name,
+      );
       const history = await this.captureHistoryEntry('Insert image');
       const shapeIndex = await this.engine.addImage(
         this.currentSlide,
-        bytes,
-        file.type || getImageMimeType(file.name.split('.').pop() ?? 'png')
+        normalized.bytes,
+        normalized.mimeType,
       );
       this.recordHistoryEntry(history);
       this.markDirty();
@@ -2282,8 +2331,9 @@ export class NativePowerPointView extends FileView {
         slide: this.currentSlide,
         shapeIndex,
         fileName: file.name,
-        mimeType: file.type || null,
-        bytes: bytes.byteLength
+        convertedFromHeic: normalized.convertedFromHeic,
+        mimeType: normalized.mimeType,
+        bytes: normalized.bytes.byteLength
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint local image insertion failed', {
@@ -2618,11 +2668,20 @@ export class NativePowerPointView extends FileView {
       }
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
-        if (this.objectClipboard) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          void this.pasteCopiedShape();
+        // Arm paste handling but do not preventDefault here — Finder HEIC
+        // files often arrive only on the subsequent paste event's DataTransfer.
+        this.powerpointPasteArmed = true;
+        if (this.powerpointPasteArmTimeout !== null) {
+          window.clearTimeout(this.powerpointPasteArmTimeout);
         }
+        this.powerpointPasteArmTimeout = window.setTimeout(() => {
+          this.powerpointPasteArmTimeout = null;
+          if (!this.powerpointPasteArmed) return;
+          this.powerpointPasteArmed = false;
+          // Paste event never arrived (some hosts swallow it); fall back to
+          // async clipboard image read, then in-app shape clipboard.
+          void this.pasteFromClipboardApiOrObjectClipboard();
+        }, 50);
         return;
       }
 
@@ -2651,6 +2710,42 @@ export class NativePowerPointView extends FileView {
         || event.key === 'ArrowDown'
         || event.key === 'ArrowLeft'
         || event.key === 'ArrowRight';
+      // An open inline editor owns arrow keys even if focus briefly left the
+      // textarea (toolbar / popover). Nudging the selected shape here made
+      // Up/Down look broken during text edit.
+      if (isArrowKey && this.activeEditor) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const editor = this.activeEditor;
+        this.focusEditorWithoutCanvasScroll(editor);
+        if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
+        if (this.inlineRangeSelection !== null || this.inlineWholeShapeSelection !== null) {
+          if (!event.shiftKey) this.clearWholeShapeInlineSelection();
+        }
+        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+          if (!event.shiftKey) {
+            this.moveInlineCaretVertical(event.key === 'ArrowUp' ? 'up' : 'down');
+          }
+          return;
+        }
+        const length = editor.value.length;
+        const start = Math.max(0, Math.min(editor.selectionStart ?? length, length));
+        const end = Math.max(0, Math.min(editor.selectionEnd ?? length, length));
+        const collapsed = start === end;
+        let next = event.key === 'ArrowLeft'
+          ? (collapsed ? start - 1 : Math.min(start, end))
+          : (collapsed ? end + 1 : Math.max(start, end));
+        next = Math.max(0, Math.min(length, next));
+        if (!event.shiftKey) {
+          editor.setSelectionRange(next, next);
+          const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
+          if (element) {
+            this.rememberInlineCaretPlacement(editor, element, next);
+            this.updateInlineCaret(editor, element);
+          }
+        }
+        return;
+      }
       const hasShapeSelection = this.selectedShapeIndex !== null || this.selectedShapeIndices.size > 0;
       if (isArrowKey && hasShapeSelection) {
         event.preventDefault();
@@ -2692,9 +2787,29 @@ export class NativePowerPointView extends FileView {
         // Empty-paragraph Backspace used to fall through after focus flicker and
         // delete the selected shape mid-keystroke.
         if (this.activeEditor) {
+          const editor = this.activeEditor;
+          const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
+          // Focus can leave the invisible textarea (toolbar / chrome) while the
+          // edit session stays open. Route the key into the editor — same idea as
+          // arrow keys — instead of only blocking shape-delete.
+          if (activeDocument.activeElement !== editor && element) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.focusEditorWithoutCanvasScroll(editor);
+            debugLog('text-edit', 'Routed deletion key into inline editor', {
+              slide: this.currentSlide,
+              key: event.key,
+              code: event.code,
+              shapeIndex: this.selectedShapeIndex,
+              backward: isBackwardDeleteKey(event),
+            });
+            this.handleInlineDeleteKey(event, editor, element);
+            return;
+          }
           debugLog('text-edit', 'Ignored shape-delete shortcut during inline text edit', {
             slide: this.currentSlide,
             key: event.key,
+            code: event.code,
             shapeIndex: this.selectedShapeIndex,
           });
           return;
@@ -2708,6 +2823,25 @@ export class NativePowerPointView extends FileView {
 
     this.registerDomEvent(window, 'keydown', handleKeyDown, true);
     this.registerDomEvent(activeDocument, 'keydown', handleKeyDown, true);
+
+    // Prefer the paste event so Finder-copied HEIC files are visible on
+    // DataTransfer. Cmd/Ctrl+V arms this path from keydown.
+    const handlePaste = (event: ClipboardEvent) => {
+      if (!this.isActivePowerPointView() || this.activeEditor) return;
+      const target = isElement(event.target) ? event.target : null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+
+      const armed = this.powerpointPasteArmed;
+      this.powerpointPasteArmed = false;
+      if (this.powerpointPasteArmTimeout !== null) {
+        window.clearTimeout(this.powerpointPasteArmTimeout);
+        this.powerpointPasteArmTimeout = null;
+      }
+      // Context-menu Paste still reaches here even when not keyboard-armed.
+      void this.handlePowerPointPasteEvent(event, armed);
+    };
+    this.registerDomEvent(window, 'paste', handlePaste, true);
+    this.registerDomEvent(activeDocument, 'paste', handlePaste, true);
 
     const syncAdditiveChrome = (event: KeyboardEvent) => {
       this.syncSelectionChromeHitThrough(this.isAdditiveSelectionModifier(event));
@@ -3695,6 +3829,119 @@ export class NativePowerPointView extends FileView {
     }
   }
 
+  /**
+   * Paste event entry: system clipboard raster (incl. HEIC→PNG) first, then
+   * in-app shape clipboard. `armed` is true for Cmd/Ctrl+V; context-menu paste
+   * still inserts images when present.
+   */
+  private async handlePowerPointPasteEvent(event: ClipboardEvent, armed: boolean): Promise<void> {
+    if (!this.engine) return;
+
+    const dataTransferImage = await readDataTransferRasterImage(event.clipboardData);
+    if (dataTransferImage) {
+      if (!this.ensureEditable('paste image')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      await this.insertNormalizedClipboardImage(
+        dataTransferImage.bytes,
+        dataTransferImage.mimeType,
+        dataTransferImage.fileName,
+      );
+      return;
+    }
+
+    const clipboardImage = await readClipboardRasterImage();
+    if (clipboardImage) {
+      if (!this.ensureEditable('paste image')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      await this.insertNormalizedClipboardImage(
+        clipboardImage.bytes,
+        clipboardImage.mimeType,
+        clipboardImage.fileName,
+      );
+      return;
+    }
+
+    if (armed && this.objectClipboard) {
+      if (!this.ensureEditable('paste object')) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      await this.pasteCopiedShape();
+    }
+  }
+
+  /** Fallback when Cmd/Ctrl+V did not produce a paste event. */
+  private async pasteFromClipboardApiOrObjectClipboard(): Promise<void> {
+    if (!this.engine) return;
+    const clipboardImage = await readClipboardRasterImage();
+    if (clipboardImage) {
+      await this.insertNormalizedClipboardImage(
+        clipboardImage.bytes,
+        clipboardImage.mimeType,
+        clipboardImage.fileName,
+      );
+      return;
+    }
+    if (this.objectClipboard) {
+      await this.pasteCopiedShape();
+    }
+  }
+
+  private async insertNormalizedClipboardImage(
+    rawBytes: Uint8Array,
+    mimeType: string | null,
+    fileName: string | null,
+  ): Promise<void> {
+    if (!this.engine || !this.ensureEditable('paste image')) return;
+    if (this.powerpointPasteInFlight) {
+      await this.powerpointPasteInFlight.catch(() => undefined);
+      return;
+    }
+
+    const operation = (async () => {
+      try {
+        const normalized = await normalizeImageForPowerPoint(rawBytes, mimeType, fileName);
+        const history = await this.captureHistoryEntry('Paste image');
+        const shapeIndex = await this.engine!.addImage(
+          this.currentSlide,
+          normalized.bytes,
+          normalized.mimeType,
+        );
+        this.recordHistoryEntry(history);
+        this.markDirty();
+        const rendered = await this.renderCurrentSlide();
+        if (rendered) {
+          this.selectShape(shapeIndex);
+          await this.renderThumbnails();
+        }
+        debugLog('clipboard', 'Pasted PowerPoint image from system clipboard', {
+          slide: this.currentSlide,
+          shapeIndex,
+          mimeType: normalized.mimeType,
+          bytes: normalized.bytes.byteLength,
+          convertedFromHeic: normalized.convertedFromHeic,
+          fileName,
+        });
+      } catch (error) {
+        errorLog('clipboard', 'PowerPoint system clipboard image paste failed', {
+          slide: this.currentSlide,
+          mimeType,
+          fileName,
+          error,
+        });
+        pptNotice('powerpoint:notice.couldNotInsertImage', { message: cleanError(error) });
+      }
+    })();
+
+    this.powerpointPasteInFlight = operation.finally(() => {
+      if (this.powerpointPasteInFlight === operation) {
+        this.powerpointPasteInFlight = null;
+      }
+    });
+    await this.powerpointPasteInFlight;
+  }
+
   private async pasteCopiedShape(): Promise<void> {
     if (!this.engine || !this.objectClipboard) {
       pptNotice('powerpoint:notice.copyObjectFirst');
@@ -3912,25 +4159,35 @@ export class NativePowerPointView extends FileView {
 
   private async replaceImageWithVaultFile(shapeIndex: number, file: TFile): Promise<void> {
     if (!this.engine) return;
-    const bytes = new Uint8Array(await this.app.vault.readBinary(file));
+    const rawBytes = new Uint8Array(await this.app.vault.readBinary(file));
+    const normalized = await normalizeImageForPowerPoint(
+      rawBytes,
+      getImageMimeType(file.extension),
+      file.extension,
+    );
     await this.applyShapeMutation(
       shapeIndex,
       'Replace image',
       'replace image',
       (slideIndex, index) =>
-        this.engine!.replaceImage(slideIndex, index, bytes, getImageMimeType(file.extension)).then(() => undefined)
+        this.engine!.replaceImage(slideIndex, index, normalized.bytes, normalized.mimeType).then(() => undefined)
     );
   }
 
   private async replaceImageWithLocalFile(shapeIndex: number, file: File): Promise<void> {
     if (!this.engine) return;
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const mimeType = file.type || getImageMimeType(file.name.split('.').pop() ?? 'png');
+    const rawBytes = new Uint8Array(await file.arrayBuffer());
+    const normalized = await normalizeImageForPowerPoint(
+      rawBytes,
+      file.type || getImageMimeType(file.name.split('.').pop() ?? 'png'),
+      file.name,
+    );
     await this.applyShapeMutation(
       shapeIndex,
       'Replace image',
       'replace image',
-      (slideIndex, index) => this.engine!.replaceImage(slideIndex, index, bytes, mimeType).then(() => undefined)
+      (slideIndex, index) =>
+        this.engine!.replaceImage(slideIndex, index, normalized.bytes, normalized.mimeType).then(() => undefined)
     );
   }
 
@@ -4514,6 +4771,8 @@ export class NativePowerPointView extends FileView {
     if (!engine || this.activeEditor !== editor || !this.ensureEditable('delete text')) return;
 
     const slideIndex = this.currentSlide;
+    const editorSelectionStart = editor.selectionStart ?? null;
+    const editorSelectionEnd = editor.selectionEnd ?? null;
     const ranges = this.mapRangesToOoxmlOffsets(target.shapeIndex, editorRanges);
     const scrollPosition = this.captureCanvasScroll();
     editor.readOnly = true;
@@ -4523,10 +4782,27 @@ export class NativePowerPointView extends FileView {
       editorRangeCount: editorRanges.length,
       rangeCount: ranges.length,
       paragraphIndexes: [...new Set(ranges.map((range) => range.paragraphIndex))],
+      // Caret debugging: record where the selection actually started so a
+      // deletion that lands the caret at offset 0 can be traced to capture
+      // (editorRanges), OOXML mapping (ooxmlRanges), or the model result.
+      editorSelectionStart,
+      editorSelectionEnd,
+      editorRanges: editorRanges.map((range) => ({
+        paragraphIndex: range.paragraphIndex,
+        start: range.start,
+        end: range.end,
+      })),
+      ooxmlRanges: ranges.map((range) => ({
+        paragraphIndex: range.paragraphIndex,
+        start: range.start,
+        end: range.end,
+      })),
     });
 
     try {
-      const history = await this.captureHistoryEntry('Delete text');
+      // Slide-XML history (sync `getSlideXml`, ~KB) instead of a full-deck
+      // `engine.export()` (~MBs on image-heavy decks) on every keystroke.
+      const history = this.captureSlideXmlHistoryEntry(slideIndex, 'Delete text');
       const result: TextRangeDeletionResult = await engine.deleteTextRanges(slideIndex, target.shapeIndex, ranges);
       if (!result.changed) {
         debugLog('text-edit', 'Skipped inline range deletion without text', {
@@ -4536,7 +4812,7 @@ export class NativePowerPointView extends FileView {
         });
         return;
       }
-      this.recordHistoryEntry(history);
+      this.recordHistoryEntry(this.completeSlideXmlHistoryEntry(history));
       this.markDirty();
 
       if (slideIndex !== this.currentSlide || this.activeEditor !== editor) {
@@ -4556,7 +4832,9 @@ export class NativePowerPointView extends FileView {
         throw new Error('Could not re-render after deleting the selected PowerPoint text.');
       }
       this.restoreCanvasScrollSoon(scrollPosition);
-      await this.renderThumbnails();
+      // Defer/coalesce the filmstrip repaint (full-slide SVG, ~200ms) instead of
+      // blocking each keystroke on it; the edited shape already re-rendered.
+      this.scheduleThumbnailRefresh(this.currentSlide);
 
       if (!this.refreshActiveShapeEditorAfterRender()) {
         throw new Error('Could not restore the inline editor after deleting the selected PowerPoint text.');
@@ -4575,6 +4853,9 @@ export class NativePowerPointView extends FileView {
         rangeCount: result.deletedRangeCount,
         paragraphIndex: result.paragraphIndex,
         caretOffset,
+        resultCaretOffset: result.caretOffset,
+        firstRangeStart: ranges[0]?.start ?? null,
+        appliedCaretMatchesSelectionStart: caretOffset === (ranges[0]?.start ?? caretOffset),
         removedParagraphCount: result.removedParagraphCount,
         mergedParagraphs: result.mergedParagraphs,
       });
@@ -4616,7 +4897,9 @@ export class NativePowerPointView extends FileView {
     });
 
     try {
-      const history = await this.captureHistoryEntry('Delete empty paragraph');
+      // Slide-XML history (sync `getSlideXml`, ~KB) instead of a full-deck
+      // `engine.export()` (~MBs on image-heavy decks) on every keystroke.
+      const history = this.captureSlideXmlHistoryEntry(slideIndex, 'Delete empty paragraph');
       const response = await this.session.applyCommand({
         type: 'remove-empty-preceding-paragraph',
         slideIndex,
@@ -4633,7 +4916,7 @@ export class NativePowerPointView extends FileView {
         });
         return;
       }
-      this.recordHistoryEntry(history);
+      this.recordHistoryEntry(this.completeSlideXmlHistoryEntry(history));
 
       if (slideIndex !== this.currentSlide || this.activeEditor !== editor) {
         debugLog('text-edit', 'Empty paragraph removal committed after editor or slide changed', {
@@ -4652,7 +4935,9 @@ export class NativePowerPointView extends FileView {
         throw new Error('Could not re-render after deleting the empty PowerPoint paragraph.');
       }
       this.restoreCanvasScrollSoon(scrollPosition);
-      await this.renderThumbnails();
+      // Defer/coalesce the filmstrip repaint (full-slide SVG, ~200ms) instead of
+      // blocking each keystroke on it; the edited shape already re-rendered.
+      this.scheduleThumbnailRefresh(this.currentSlide);
 
       if (!this.refreshActiveShapeEditorAfterRender()) {
         throw new Error('Could not restore the inline editor after deleting the empty PowerPoint paragraph.');
@@ -4720,7 +5005,9 @@ export class NativePowerPointView extends FileView {
     });
 
     try {
-      const history = await this.captureHistoryEntry('Merge paragraphs');
+      // Slide-XML history (sync `getSlideXml`, ~KB) instead of a full-deck
+      // `engine.export()` (~MBs on image-heavy decks) on every keystroke.
+      const history = this.captureSlideXmlHistoryEntry(slideIndex, 'Merge paragraphs');
       const response = await this.session.applyCommand({
         type: 'merge-preceding-paragraph',
         slideIndex,
@@ -4738,7 +5025,7 @@ export class NativePowerPointView extends FileView {
         });
         return;
       }
-      this.recordHistoryEntry(history);
+      this.recordHistoryEntry(this.completeSlideXmlHistoryEntry(history));
 
       if (slideIndex !== this.currentSlide || this.activeEditor !== editor) {
         debugLog('text-edit', 'Paragraph merge committed after editor or slide changed', {
@@ -4757,7 +5044,9 @@ export class NativePowerPointView extends FileView {
         throw new Error('Could not re-render after merging PowerPoint paragraphs.');
       }
       this.restoreCanvasScrollSoon(scrollPosition);
-      await this.renderThumbnails();
+      // Defer/coalesce the filmstrip repaint (full-slide SVG, ~200ms) instead of
+      // blocking each keystroke on it; the edited shape already re-rendered.
+      this.scheduleThumbnailRefresh(this.currentSlide);
 
       if (!this.refreshActiveShapeEditorAfterRender()) {
         throw new Error('Could not restore the inline editor after merging PowerPoint paragraphs.');
@@ -4843,13 +5132,21 @@ export class NativePowerPointView extends FileView {
       textLength: rawText.length,
       normalizedTextLength: normalizedText.length,
       ooxmlTextLength: ooxmlText.length,
+      // Soft breaks (`<a:br/>`) live in the editor as `\n` but carry zero width
+      // in OOXML run text; before the offset-map fix each one preceding the
+      // caret shifted the split target by +1. Log the counts (not the text) so a
+      // wrong-split repro is unambiguous about whether soft breaks were present.
+      editorSoftBreaks: (rawText.match(/\n/g) ?? []).length,
+      softBreaksBeforeCaret: (rawText.slice(0, rawStart).match(/\n/g) ?? []).length,
       listStyle: engine.getParagraphListStyle(slideIndex, target.shapeIndex, target.paragraphIndex),
       hasPendingText,
       atEditorEnd,
     });
 
     try {
-      const history = await this.captureHistoryEntry('Split paragraph');
+      // Slide-XML history (sync `getSlideXml`, ~KB) instead of a full-deck
+      // `engine.export()` (~MBs on image-heavy decks) on every keystroke.
+      const history = this.captureSlideXmlHistoryEntry(slideIndex, 'Split paragraph');
       const response = await this.session.applyCommand({
         type: 'split-paragraph',
         slideIndex,
@@ -4859,7 +5156,7 @@ export class NativePowerPointView extends FileView {
         text: hasPendingText ? normalizedText : undefined,
       });
       const result = response as ParagraphSplitResult;
-      this.recordHistoryEntry(history);
+      this.recordHistoryEntry(this.completeSlideXmlHistoryEntry(history));
 
       if (slideIndex !== this.currentSlide || this.activeEditor !== editor) {
         debugLog('text-edit', 'Paragraph split committed after editor or slide changed', {
@@ -4877,7 +5174,9 @@ export class NativePowerPointView extends FileView {
         throw new Error('Could not re-render the split PowerPoint paragraph.');
       }
       this.restoreCanvasScrollSoon(scrollPosition);
-      await this.renderThumbnails();
+      // Defer/coalesce the filmstrip repaint (full-slide SVG, ~200ms) instead of
+      // blocking each keystroke on it; the edited shape already re-rendered.
+      this.scheduleThumbnailRefresh(this.currentSlide);
 
       target.paragraphIndex = result.paragraphIndex;
       if (!this.refreshActiveShapeEditorAfterRender()) {
@@ -5115,17 +5414,28 @@ export class NativePowerPointView extends FileView {
       this.clearBrowserTextSelection();
       this.extendInlineSelectionDrag(upEvent.clientX, upEvent.clientY);
       const drag = this.inlineSelectionDrag;
+      const endShapeIndex = this.activeShapeTextTarget?.shapeIndex ?? this.selectedShapeIndex;
       debugLog('text-select', 'inline drag ended', {
         slide: this.currentSlide,
-        shapeIndex: this.activeShapeTextTarget?.shapeIndex ?? this.selectedShapeIndex,
+        shapeIndex: endShapeIndex,
         paragraphIndex: this.activeShapeTextTarget?.paragraphIndex ?? null,
         pointerId: upEvent.pointerId,
         eventType: upEvent.type,
         pointer: { x: upEvent.clientX, y: upEvent.clientY },
         isSelecting: drag?.isSelecting ?? false,
         capturedPointer,
+        anchorOffset: drag?.anchorOffset ?? null,
         selectionStart: editor.selectionStart ?? 0,
         selectionEnd: editor.selectionEnd ?? 0,
+        // Caret debugging: the resolved cross-paragraph selection with its start
+        // offsets, so a later deletion caret can be checked against it.
+        rangeSelection: this.inlineRangeSelection?.shapeIndex === endShapeIndex
+          ? this.inlineRangeSelection.ranges.map((range) => ({
+            paragraphIndex: range.paragraphIndex,
+            start: range.start,
+            end: range.end,
+          }))
+          : null,
       });
       this.stopInlineSelectionDrag();
     };
@@ -6194,17 +6504,83 @@ export class NativePowerPointView extends FileView {
     editor.addEventListener('mouseup', updateCaret);
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
+      const isVerticalArrow = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+      const isCaretNavKey = isVerticalArrow
+        || event.key === 'ArrowLeft'
+        || event.key === 'ArrowRight'
+        || event.key === 'Home'
+        || event.key === 'End';
+      if (!isVerticalArrow) {
+        // Any non-vertical key ends the current vertical run and its goal column.
+        this.inlineVerticalGoalX = null;
+      }
+      // Double-click / drag leave `inlineRangeSelection` set even after the
+      // textarea caret collapses. Guarding vertical nav on that flag forced the
+      // single-paragraph textarea's native Up/Down (= Home/End). Clear the SVG
+      // range chrome on plain caret navigation so geometry nav can run.
+      if (
+        isCaretNavKey
+        && !event.shiftKey
+        && !event.metaKey
+        && !event.ctrlKey
+        && !event.altKey
+        && !event.isComposing
+        && (this.inlineRangeSelection !== null || this.inlineWholeShapeSelection !== null)
+      ) {
+        debugLog('text-edit', 'Inline caret nav cleared stale range selection', {
+          slide: this.currentSlide,
+          shapeIndex: target.shapeIndex,
+          paragraphIndex: target.kind === 'shape-paragraph' ? target.paragraphIndex : null,
+          key: event.key,
+          hadRangeSelection: this.inlineRangeSelection !== null,
+          hadWholeShapeSelection: this.inlineWholeShapeSelection !== null,
+        });
+        this.clearWholeShapeInlineSelection();
+      }
+      if (
+        isVerticalArrow
+        && !event.shiftKey
+        && !event.metaKey
+        && !event.ctrlKey
+        && !event.altKey
+        && !event.isComposing
+      ) {
+        // The invisible per-paragraph textarea cannot move the caret across its
+        // own wrapped lines or into sibling paragraphs, so drive vertical caret
+        // motion from on-slide geometry instead of the native textarea.
+        if (this.moveInlineCaretVertical(event.key === 'ArrowUp' ? 'up' : 'down')) {
+          event.preventDefault();
+          return;
+        }
+        debugLog('text-edit', 'Inline caret vertical move deferred to native', {
+          slide: this.currentSlide,
+          shapeIndex: target.shapeIndex,
+          paragraphIndex: target.kind === 'shape-paragraph' ? target.paragraphIndex : null,
+          direction: event.key === 'ArrowUp' ? 'up' : 'down',
+          hasShapeTarget: this.activeShapeTextTarget !== null,
+        });
+      }
       if (event.key === 'Delete' || event.key === 'Backspace') {
         pendingInlineDeleteKeySeen = true;
-        captureInlineEditScroll(event.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward');
+        const backward = isBackwardDeleteKey(event);
+        captureInlineEditScroll(backward ? 'deleteContentBackward' : 'deleteContentForward');
+        const selectionStart = editor.selectionStart ?? 0;
+        const selectionEnd = editor.selectionEnd ?? 0;
+        const value = editor.value;
         debugLog('text-edit', 'Inline editor deletion keydown', {
           slide: this.currentSlide,
           shapeIndex: target.shapeIndex,
           paragraphIndex: target.kind === 'shape-paragraph' ? target.paragraphIndex : null,
           key: event.key,
-          selectionStart: editor.selectionStart ?? 0,
-          selectionEnd: editor.selectionEnd ?? 0,
-          textLength: editor.value.length,
+          code: event.code,
+          backward,
+          selectionStart,
+          selectionEnd,
+          textLength: value.length,
+          charBefore: selectionStart > 0 ? value[selectionStart - 1] ?? null : null,
+          charAfter: selectionStart < value.length ? value[selectionStart] ?? null : null,
+          placementOffset: this.lastInlineCaretPlacement?.offset ?? null,
+          activeElementIsEditor: activeDocument.activeElement === editor,
         });
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
@@ -7478,6 +7854,9 @@ export class NativePowerPointView extends FileView {
     clientY: number | undefined,
     box: { left: number; top: number; width: number; height: number }
   ): void {
+    // Pointer placement establishes a fresh column; drop any vertical goal so the
+    // next ArrowUp/ArrowDown recomputes from the clicked position.
+    this.inlineVerticalGoalX = null;
     this.activeInlineCaretRow = this.getInlineCaretRowFromClientY(element, clientY, box);
     const text = editor.value;
     if (clientX === undefined || box.width <= 0 || text.length === 0) {
@@ -7505,6 +7884,350 @@ export class NativePowerPointView extends FileView {
       offset: Math.max(0, Math.min(offset, editor.value.length)),
       timestamp: Date.now()
     };
+  }
+
+  /**
+   * Move the inline caret one visual line up/down using on-slide geometry.
+   *
+   * The invisible textarea holds only the active OOXML paragraph, so the native
+   * textarea has no line above/below a single-line paragraph and collapses
+   * ArrowUp/ArrowDown to Home/End (the caret appears to jump left/right). This
+   * resolves the adjacent visual line geometrically — a wrapped line inside the
+   * same paragraph, or the previous/next paragraph in the same text box — and
+   * places the caret there at the remembered goal column. Returns true when it
+   * handled the movement (caller should preventDefault).
+   */
+  private moveInlineCaretVertical(direction: 'up' | 'down'): boolean {
+    const editor = this.activeEditor;
+    if (!editor) return false;
+    const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
+    if (!element) return false;
+    const paneRect = this.canvasPane?.getBoundingClientRect();
+    if (!paneRect) return false;
+    const box = this.getElementBox(element);
+    if (!box) return false;
+
+    const valueLength = editor.value.length;
+    const selectionStart = Math.max(0, Math.min(editor.selectionStart ?? valueLength, valueLength));
+    const selectionEnd = Math.max(0, Math.min(editor.selectionEnd ?? valueLength, valueLength));
+    // Collapse an existing selection toward the direction of travel first.
+    const offset = selectionStart !== selectionEnd
+      ? (direction === 'up' ? Math.min(selectionStart, selectionEnd) : Math.max(selectionStart, selectionEnd))
+      : selectionEnd;
+
+    const caret = this.getInlineCaretGeometry(element, editor, offset, box);
+    const caretCenterY = caret.top + caret.height / 2;
+    const goalX = this.inlineVerticalGoalX ?? caret.left;
+    this.inlineVerticalGoalX = goalX;
+
+    const scrollLeft = this.canvasPane?.scrollLeft ?? 0;
+    const scrollTop = this.canvasPane?.scrollTop ?? 0;
+    const toClient = (localX: number, localY: number): { x: number; y: number } => ({
+      x: localX + paneRect.left - scrollLeft,
+      y: localY + paneRect.top - scrollTop,
+    });
+
+    const shapeTarget = this.activeShapeTextTarget;
+
+    // Look for an adjacent visual line inside the current paragraph first.
+    const currentLines = shapeTarget
+      ? this.getInlineParagraphLineBoxes(shapeTarget.shapeIndex, shapeTarget.paragraphIndex)
+      : [];
+    let currentLineIndex = 0;
+    if (currentLines.length > 1) {
+      currentLineIndex = this.findInlineLineIndexAtCenterY(currentLines, caretCenterY);
+      const neighborLineIndex = direction === 'up' ? currentLineIndex - 1 : currentLineIndex + 1;
+      const neighborLine = currentLines[neighborLineIndex];
+      if (neighborLine) {
+        const targetCenterY = neighborLine.top + neighborLine.height / 2;
+        const point = toClient(goalX, targetCenterY);
+        const newOffset = Math.max(
+          0,
+          Math.min(valueLength, this.getInlineTextOffsetAtClientPoint(element, editor, point.x, point.y, box)),
+        );
+        editor.setSelectionRange(newOffset, newOffset);
+        this.rememberInlineCaretPlacement(editor, element, newOffset);
+        this.updateInlineCaret(editor, element);
+        debugLog('text-edit', 'Inline caret vertical move', {
+          slide: this.currentSlide,
+          shapeIndex: shapeTarget?.shapeIndex ?? this.selectedShapeIndex,
+          paragraphIndex: shapeTarget?.paragraphIndex ?? null,
+          direction,
+          scope: 'wrapped-line',
+          fromOffset: offset,
+          toOffset: newOffset,
+          goalX: Math.round(goalX),
+          lineCount: currentLines.length,
+          fromLine: currentLineIndex,
+          toLine: neighborLineIndex,
+        });
+        return true;
+      }
+    }
+
+    // OOXML line tspans can under-count soft-wrapped glyph rows inside one
+    // container. Probe caret geometry before treating this as a paragraph edge.
+    // Skip the O(n) scan when multi-container nav already knows we're on the
+    // first/last tspan line (cross-paragraph / edge is the right next step).
+    const atContainerEdge = currentLines.length <= 1
+      || (direction === 'up' ? currentLineIndex === 0 : currentLineIndex === currentLines.length - 1);
+    if (
+      (currentLines.length <= 1 || !atContainerEdge)
+      && this.moveInlineCaretVerticalByGlyphRows(
+        editor,
+        element,
+        offset,
+        direction,
+        goalX,
+        box,
+        toClient,
+        shapeTarget,
+      )
+    ) {
+      return true;
+    }
+
+    // Without a paragraph model (plain/generated text run) there is no reliable
+    // per-line geometry, so defer to the native textarea instead of guessing.
+    if (!shapeTarget) {
+      debugLog('text-edit', 'Inline caret vertical move skipped', {
+        slide: this.currentSlide,
+        direction,
+        reason: 'no-shape-target',
+        lineCount: currentLines.length,
+      });
+      return false;
+    }
+
+    // No adjacent wrapped line: cross into the previous/next paragraph if one
+    // exists, otherwise clamp to the very start/end of the text box.
+    const neighborParagraphIndex = this.getAdjacentParagraphIndex(
+      shapeTarget.shapeIndex,
+      shapeTarget.paragraphIndex,
+      direction,
+    );
+    if (neighborParagraphIndex === null) {
+      const onEdgeVisualLine = currentLines.length <= 1
+        || (direction === 'up' ? currentLineIndex === 0 : currentLineIndex === currentLines.length - 1);
+      const edge = direction === 'up' ? 0 : valueLength;
+      if (!onEdgeVisualLine) {
+        // Line Y matching failed mid-paragraph — do not Home/End-jump.
+        debugLog('text-edit', 'Inline caret vertical move skipped', {
+          slide: this.currentSlide,
+          shapeIndex: shapeTarget.shapeIndex,
+          paragraphIndex: shapeTarget.paragraphIndex,
+          direction,
+          reason: 'edge-clamp-suppressed',
+          fromOffset: offset,
+          lineCount: currentLines.length,
+          currentLineIndex,
+        });
+        return false;
+      }
+      if (offset === edge) {
+        debugLog('text-edit', 'Inline caret vertical move', {
+          slide: this.currentSlide,
+          shapeIndex: shapeTarget.shapeIndex,
+          paragraphIndex: shapeTarget.paragraphIndex,
+          direction,
+          scope: 'text-box-edge',
+          toOffset: edge,
+          goalX: Math.round(goalX),
+          alreadyAtEdge: true,
+        });
+        return true;
+      }
+      editor.setSelectionRange(edge, edge);
+      this.rememberInlineCaretPlacement(editor, element, edge);
+      this.updateInlineCaret(editor, element);
+      debugLog('text-edit', 'Inline caret vertical move', {
+        slide: this.currentSlide,
+        shapeIndex: shapeTarget.shapeIndex,
+        paragraphIndex: shapeTarget.paragraphIndex,
+        direction,
+        scope: 'text-box-edge',
+        fromOffset: offset,
+        toOffset: edge,
+        goalX: Math.round(goalX),
+        lineCount: currentLines.length,
+      });
+      return true;
+    }
+
+    const neighborTarget = this.buildParagraphEditTarget(shapeTarget.shapeIndex, neighborParagraphIndex);
+    if (!neighborTarget) {
+      debugLog('text-edit', 'Inline caret vertical move skipped', {
+        slide: this.currentSlide,
+        shapeIndex: shapeTarget.shapeIndex,
+        direction,
+        reason: 'neighbor-target-missing',
+        neighborParagraphIndex,
+      });
+      return false;
+    }
+
+    const neighborLines = this.getInlineParagraphLineBoxes(shapeTarget.shapeIndex, neighborParagraphIndex);
+    const landingLine = direction === 'up' ? neighborLines.at(-1) : neighborLines[0];
+    const neighborBox = this.getElementBox(neighborTarget.element);
+    const landingCenterY = landingLine
+      ? landingLine.top + landingLine.height / 2
+      : neighborBox
+        ? neighborBox.top + neighborBox.height / 2
+        : caretCenterY;
+    const point = toClient(goalX, landingCenterY);
+
+    debugLog('text-edit', 'Inline caret vertical move', {
+      slide: this.currentSlide,
+      shapeIndex: shapeTarget.shapeIndex,
+      direction,
+      scope: 'cross-paragraph',
+      fromParagraph: shapeTarget.paragraphIndex,
+      toParagraph: neighborParagraphIndex,
+      fromOffset: offset,
+      goalX: Math.round(goalX),
+    });
+
+    // startTextEditor commits the current paragraph and rebuilds the editor,
+    // which clears vertical state; restore the goal column afterward so a run of
+    // Up/Down keeps the caret in the same column.
+    this.startTextEditor(neighborTarget, point.x, point.y);
+    this.inlineVerticalGoalX = goalX;
+    return true;
+  }
+
+  /**
+   * Vertical step when OOXML only exposed one run-line container but glyphs
+   * still wrap onto multiple visual rows (soft wrap inside a single tspan).
+   * Uses caret geometry row breaks — same idea as click-to-offset row picking.
+   */
+  private moveInlineCaretVerticalByGlyphRows(
+    editor: HTMLTextAreaElement,
+    element: SVGTextElement | SVGTSpanElement,
+    offset: number,
+    direction: 'up' | 'down',
+    goalX: number,
+    box: { left: number; top: number; width: number; height: number },
+    toClient: (localX: number, localY: number) => { x: number; y: number },
+    shapeTarget: ShapeTextEditTarget | null,
+  ): boolean {
+    const valueLength = editor.value.length;
+    if (valueLength <= 0) return false;
+
+    const rowStarts: number[] = [];
+    let previousCenterY: number | null = null;
+    let previousHeight = 12;
+    for (let probe = 0; probe <= valueLength; probe++) {
+      const geometry = this.getInlineCaretGeometry(element, editor, probe, box);
+      const centerY = geometry.top + geometry.height / 2;
+      if (
+        rowStarts.length === 0
+        || previousCenterY === null
+        || Math.abs(centerY - previousCenterY) > Math.max(4, previousHeight * 0.45)
+      ) {
+        rowStarts.push(probe);
+      }
+      previousCenterY = centerY;
+      previousHeight = geometry.height;
+    }
+    if (rowStarts.length <= 1) return false;
+
+    let currentRow = 0;
+    for (let index = 0; index < rowStarts.length; index++) {
+      const start = rowStarts[index] ?? 0;
+      const end = rowStarts[index + 1] ?? (valueLength + 1);
+      if (offset >= start && offset < end) {
+        currentRow = index;
+        break;
+      }
+      if (offset === valueLength && index === rowStarts.length - 1) currentRow = index;
+    }
+
+    const neighborRow = direction === 'up' ? currentRow - 1 : currentRow + 1;
+    if (neighborRow < 0 || neighborRow >= rowStarts.length) return false;
+
+    const rowStart = rowStarts[neighborRow] ?? 0;
+    const rowEnd = (rowStarts[neighborRow + 1] ?? (valueLength + 1)) - 1;
+    const sampleOffset = Math.min(valueLength, Math.max(rowStart, rowEnd));
+    const sample = this.getInlineCaretGeometry(element, editor, sampleOffset, box);
+    const targetCenterY = sample.top + sample.height / 2;
+    const point = toClient(goalX, targetCenterY);
+    const newOffset = Math.max(
+      0,
+      Math.min(valueLength, this.getInlineTextOffsetAtClientPoint(element, editor, point.x, point.y, box)),
+    );
+    // Keep the caret inside the destination glyph row even if hit-testing
+    // snaps to a neighboring wrapped container.
+    const clampedOffset = Math.max(rowStart, Math.min(rowEnd, newOffset));
+
+    editor.setSelectionRange(clampedOffset, clampedOffset);
+    this.rememberInlineCaretPlacement(editor, element, clampedOffset);
+    this.updateInlineCaret(editor, element);
+    debugLog('text-edit', 'Inline caret vertical move', {
+      slide: this.currentSlide,
+      shapeIndex: shapeTarget?.shapeIndex ?? this.selectedShapeIndex,
+      paragraphIndex: shapeTarget?.paragraphIndex ?? null,
+      direction,
+      scope: 'glyph-row',
+      fromOffset: offset,
+      toOffset: clampedOffset,
+      goalX: Math.round(goalX),
+      rowCount: rowStarts.length,
+      fromRow: currentRow,
+      toRow: neighborRow,
+    });
+    return true;
+  }
+
+  /** Pane-local bounding boxes of each visual (wrapped) line in a paragraph. */
+  private getInlineParagraphLineBoxes(
+    shapeIndex: number,
+    paragraphIndex: number,
+  ): { top: number; height: number }[] {
+    const boxes: { top: number; height: number }[] = [];
+    for (const container of this.getRunLineContainers(shapeIndex, paragraphIndex)) {
+      const box = this.getElementBox(container);
+      if (box) boxes.push({ top: box.top, height: box.height });
+    }
+    return boxes.sort((a, b) => a.top - b.top);
+  }
+
+  private findInlineLineIndexAtCenterY(
+    lines: { top: number; height: number }[],
+    centerY: number,
+  ): number {
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < lines.length; index++) {
+      const line = lines[index];
+      if (!line) continue;
+      if (centerY >= line.top && centerY <= line.top + line.height) return index;
+      const distance = Math.abs(centerY - (line.top + line.height / 2));
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    }
+    return bestIndex;
+  }
+
+  /** Nearest existing paragraph index above (up) or below (down) in the shape. */
+  private getAdjacentParagraphIndex(
+    shapeIndex: number,
+    paragraphIndex: number,
+    direction: 'up' | 'down',
+  ): number | null {
+    const shape = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
+    if (!shape) return null;
+    let best: number | null = null;
+    for (const paragraph of this.getShapeTextParagraphs(shape)) {
+      const index = this.getParagraphIndexFromInlineElement(paragraph);
+      if (index === null) continue;
+      if (direction === 'up' ? index >= paragraphIndex : index <= paragraphIndex) continue;
+      if (best === null || (direction === 'up' ? index > best : index < best)) {
+        best = index;
+      }
+    }
+    return best;
   }
 
   /**
@@ -7624,6 +8347,7 @@ export class NativePowerPointView extends FileView {
   ): boolean {
     if (event.key !== 'Delete' && event.key !== 'Backspace') return false;
     if (event.metaKey || event.ctrlKey || event.altKey) return false;
+    const backward = isBackwardDeleteKey(event);
 
     const text = editor.value;
     const selectionStart = Math.max(0, Math.min(editor.selectionStart ?? text.length, text.length));
@@ -7672,7 +8396,7 @@ export class NativePowerPointView extends FileView {
       this.clearWholeShapeInlineSelection();
     }
     if (
-      event.key === 'Backspace'
+      backward
       && selectionStart === 0
       && selectionEnd === 0
       && target?.element === element
@@ -7689,6 +8413,8 @@ export class NativePowerPointView extends FileView {
           paragraphIndex: target.paragraphIndex,
           reason: 'no-previous-paragraph',
           textLength: text.length,
+          key: event.key,
+          code: event.code,
         });
         return true;
       }
@@ -7705,6 +8431,8 @@ export class NativePowerPointView extends FileView {
         paragraphIndex: target.paragraphIndex,
         textLength: text.length,
         hasEmptyPrecedingParagraph,
+        key: event.key,
+        code: event.code,
       });
       if (hasEmptyPrecedingParagraph) {
         this.startInlineEmptyParagraphRemoval(editor, target);
@@ -7724,10 +8452,10 @@ export class NativePowerPointView extends FileView {
     const hasSelection = selectionEnd > selectionStart;
     const deleteStart = hasSelection
       ? selectionStart
-      : event.key === 'Backspace' ? selectionStart - 1 : selectionStart;
+      : backward ? selectionStart - 1 : selectionStart;
     const deleteEnd = hasSelection
       ? selectionEnd
-      : event.key === 'Backspace' ? selectionStart : selectionStart + 1;
+      : backward ? selectionStart : selectionStart + 1;
     if (deleteStart < 0 || deleteEnd > text.length || deleteStart >= deleteEnd) return false;
 
     event.preventDefault();
@@ -7735,6 +8463,7 @@ export class NativePowerPointView extends FileView {
 
     const scrollPosition = this.captureCanvasScroll();
     this.recordInlineEditSnapshot(editor);
+    const deletedChar = text.slice(deleteStart, deleteEnd);
     const nextText = text.slice(0, deleteStart) + text.slice(deleteEnd);
     const deletedWholeParagraph = hasSelection && deleteStart === 0 && deleteEnd === text.length;
     // Any destructive edit can hit Chromium's stale-glyph path. Repaint the
@@ -7761,20 +8490,24 @@ export class NativePowerPointView extends FileView {
     this.updateInlineCaret(editor, liveElement);
     this.preserveCanvasScrollAfterInlineTextEdit(
       scrollPosition,
-      event.key === 'Backspace' ? 'deleteContentBackward' : 'deleteContentForward'
+      backward ? 'deleteContentBackward' : 'deleteContentForward'
     );
     debugLog('text-edit', 'Applied inline text deletion to live preview', {
       slide: this.currentSlide,
       shapeIndex: target?.shapeIndex ?? null,
       paragraphIndex: target?.paragraphIndex ?? null,
       key: event.key,
+      code: event.code,
+      backward,
       deleteStart,
       deleteEnd,
+      deletedChar,
       previousTextLength: text.length,
       nextTextLength: nextText.length,
       deletedWholeParagraph,
       replaceTextFrame,
       textFrameReplaced,
+      placementOffset: this.lastInlineCaretPlacement?.offset ?? null,
     });
     return true;
   }
@@ -11946,7 +12679,25 @@ export class NativePowerPointView extends FileView {
       moved,
     });
     this.updateInspectorValues();
-    void this.commitTransform(transform, flipAxes).finally(() => {
+    // Pure moves already show the final position via the live SVG translate.
+    // Keep that preview and skip re-rasterizing the shape (critical for large
+    // pasted pictures); only restore/re-render when resize/rotate/flip need it.
+    const keepLivePreview = moved
+      && mode === 'move'
+      && !flipAxes.horizontal
+      && !flipAxes.vertical;
+    void this.commitTransform(transform, flipAxes, { keepLivePreview }).then((result) => {
+      if (result === 'kept-preview') return;
+      this.restoreShapeDragPreview(previewElement, previewOriginalTransform);
+      if (previewElement) this.restoreShapeTextPreview(previewElement, previewOriginalText);
+      this.restorePictureImagePreview(
+        previewImageElement,
+        previewImageAttrs,
+        previewClipRectElement,
+        previewClipAttrs,
+      );
+    }).catch((error: unknown) => {
+      errorLog('selection', 'PowerPoint transform commit failed', { error: cleanError(error) });
       this.restoreShapeDragPreview(previewElement, previewOriginalTransform);
       if (previewElement) this.restoreShapeTextPreview(previewElement, previewOriginalText);
       this.restorePictureImagePreview(
@@ -11958,25 +12709,38 @@ export class NativePowerPointView extends FileView {
     });
   };
 
+  private applyCommittedTransformToDom(shapeIndex: number, transform: ShapeTransform): void {
+    const element = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
+    if (!isSVGGElement(element)) return;
+    // Nested groups can share the idx; only patch a top-level shape.
+    if (element.parentElement?.closest('g[data-ooxml-shape-idx]')) return;
+    element.setAttribute('data-ooxml-x', String(Math.round(transform.x)));
+    element.setAttribute('data-ooxml-y', String(Math.round(transform.y)));
+    element.setAttribute('data-ooxml-cx', String(Math.max(1, Math.round(transform.cx))));
+    element.setAttribute('data-ooxml-cy', String(Math.max(1, Math.round(transform.cy))));
+    element.setAttribute('data-ooxml-rot', String(Math.round(transform.rot)));
+  }
+
   private async commitTransform(
     transform: ShapeTransform,
     flipAxes: { horizontal: boolean; vertical: boolean } = { horizontal: false, vertical: false },
-  ): Promise<void> {
-    if (!this.engine || this.selectedShapeIndex === null) return;
-    if (!this.ensureEditable('edit object')) return;
+    options: { keepLivePreview?: boolean } = {},
+  ): Promise<'kept-preview' | 'rendered' | 'noop'> {
+    if (!this.engine || this.selectedShapeIndex === null) return 'noop';
+    if (!this.ensureEditable('edit object')) return 'noop';
 
     try {
       const startedAt = performance.now();
       const selected = this.getSelectedShapeElement();
       const shapeIndex = selected ? getShapeIndex(selected) : this.selectedShapeIndex;
-      if (shapeIndex === null) return;
+      if (shapeIndex === null) return 'noop';
       if (!isEditableShapeIndex(shapeIndex)) {
         pptNotice('powerpoint:notice.objectNotEditable');
-        return;
+        return 'noop';
       }
       const before = selected ? cloneTransform(this.engine.getShapeTransform(selected)) : null;
       const shouldFlip = flipAxes.horizontal || flipAxes.vertical;
-      if (before && transformsMatch(before, transform) && !shouldFlip) return;
+      if (before && transformsMatch(before, transform) && !shouldFlip) return 'noop';
 
       // Object moves/resizes record a before/after delta rather than exporting
       // the whole deck, which is what made dragging lag on large presentations.
@@ -12002,6 +12766,29 @@ export class NativePowerPointView extends FileView {
       }
       this.recordHistoryEntry(history);
       this.markDirty();
+
+      const keepLivePreview = Boolean(options.keepLivePreview) && !shouldFlip;
+      if (keepLivePreview) {
+        this.applyCommittedTransformToDom(shapeIndex, transform);
+        this.scheduleThumbnailRefresh(this.currentSlide);
+        debugLog('inspector', 'Committed PowerPoint object transform', {
+          slide: this.currentSlide,
+          shapeIndex,
+          x: transform.x,
+          y: transform.y,
+          width: transform.cx,
+          height: transform.cy,
+          rotation: transform.rot,
+          flippedHorizontal: flipAxes.horizontal,
+          flippedVertical: flipAxes.vertical,
+          keptLivePreview: true,
+          transformMs,
+          renderMs: 0,
+          ms: Math.round(performance.now() - startedAt)
+        });
+        return 'kept-preview';
+      }
+
       const renderStarted = performance.now();
       const rendered = await this.renderEditedShape(shapeIndex);
       const renderMs = Math.round(performance.now() - renderStarted);
@@ -12016,10 +12803,12 @@ export class NativePowerPointView extends FileView {
         rotation: transform.rot,
         flippedHorizontal: flipAxes.horizontal,
         flippedVertical: flipAxes.vertical,
+        keptLivePreview: false,
         transformMs,
         renderMs,
         ms: Math.round(performance.now() - startedAt)
       });
+      return 'rendered';
     } catch (error) {
       errorLog('inspector', 'PowerPoint object transform failed', {
         slide: this.currentSlide,
@@ -12027,6 +12816,7 @@ export class NativePowerPointView extends FileView {
         error
       });
       pptNotice('powerpoint:notice.couldNotUpdateObject', { message: cleanError(error) });
+      return 'noop';
     }
   }
 
@@ -12059,12 +12849,12 @@ export class NativePowerPointView extends FileView {
     if (this.rotationInput) this.rotationInput.value = String(Math.round(this.engine.ooxmlToDegrees(this.selectedTransform.rot) * 100) / 100);
   }
 
-  private updateSlideScale(): void {
+  private updateSlideScale(options: { skipChrome?: boolean } = {}): void {
     if (!this.canvasPane || !this.slideSurface || !this.svgEl) return;
 
     const size = getSvgIntrinsicSize(this.svgEl);
     if (!size) {
-      this.updateSelectionOverlay();
+      if (!options.skipChrome) this.updateSelectionOverlay();
       return;
     }
 
@@ -12075,61 +12865,162 @@ export class NativePowerPointView extends FileView {
     const verticalPadding =
       (Number.parseFloat(computedStyle.paddingTop) || 0) +
       (Number.parseFloat(computedStyle.paddingBottom) || 0);
-    const availableWidth = Math.max(1, this.canvasPane.clientWidth - horizontalPadding);
-    const availableHeight = Math.max(1, this.canvasPane.clientHeight - verticalPadding);
-    const fitScale = Math.min(1, availableWidth / size.width, availableHeight / size.height);
-    const scale = Math.max(0.05, fitScale * this.zoomLevel);
-    const width = Math.max(1, Math.floor(size.width * scale));
-    const height = Math.max(1, Math.floor(size.height * scale));
+    // Use border-box dims (offset*), not client*: clientHeight shrinks when the
+    // horizontal scrollbar appears, which flipped fitScale for tall posters.
+    const borderBoxWidth = this.canvasPane.offsetWidth;
+    const borderBoxHeight = this.canvasPane.offsetHeight;
+    const rawAvailableWidth = Math.max(1, borderBoxWidth - horizontalPadding);
+    const rawAvailableHeight = Math.max(1, borderBoxHeight - verticalPadding);
+    const {
+      fitScale,
+      width,
+      height,
+      reservedScrollbars,
+      availableWidth,
+      availableHeight,
+    } = computeStableSlideDisplaySize({
+      intrinsicWidth: size.width,
+      intrinsicHeight: size.height,
+      availableWidth: rawAvailableWidth,
+      availableHeight: rawAvailableHeight,
+      zoomLevel: this.zoomLevel,
+    });
+
+    const previousWidth = this.slideSurface.style.getPropertyValue('--native-powerpoint-slide-width');
+    const previousHeight = this.slideSurface.style.getPropertyValue('--native-powerpoint-slide-height');
+    const nextWidth = `${width}px`;
+    const nextHeight = `${height}px`;
+    const sizeChanged = previousWidth !== nextWidth || previousHeight !== nextHeight;
 
     this.slideSurface.addClass('is-scaled');
-    this.slideSurface.style.setProperty('--native-powerpoint-slide-width', `${width}px`);
-    this.slideSurface.style.setProperty('--native-powerpoint-slide-height', `${height}px`);
-    this.updateSelectionOverlay();
-    this.refreshActiveInlineEditorGeometry();
+    if (sizeChanged) {
+      this.slideSurface.style.setProperty('--native-powerpoint-slide-width', nextWidth);
+      this.slideSurface.style.setProperty('--native-powerpoint-slide-height', nextHeight);
+      debugLog('view', 'PowerPoint slide scale updated', {
+        zoom: this.zoomLevel,
+        fitScale,
+        reservedScrollbars,
+        borderBoxWidth,
+        borderBoxHeight,
+        clientWidth: this.canvasPane.clientWidth,
+        clientHeight: this.canvasPane.clientHeight,
+        rawAvailableWidth,
+        rawAvailableHeight,
+        availableWidth,
+        availableHeight,
+        width,
+        height,
+        previousWidth: previousWidth || null,
+        previousHeight: previousHeight || null,
+      });
+    }
+    if (!options.skipChrome) {
+      this.updateSelectionOverlay();
+      this.refreshActiveInlineEditorGeometry();
+    }
   }
 
   private handleCanvasWheel(event: WheelEvent): void {
     if (!this.canvasPane || !this.slideSurface || !this.svgEl || !this.engine) return;
     if (!this.isActivePowerPointView()) return;
 
-    event.preventDefault();
-    event.stopPropagation();
-
     // Browsers synthesize Ctrl+wheel for trackpad pinch gestures. All other
     // wheel input, including two-finger trackpad scrolling, pans the canvas.
     if (!event.ctrlKey) {
-      const deltaX = this.normalizeWheelDelta(event, event.deltaX);
-      const deltaY = this.normalizeWheelDelta(event, event.deltaY);
-      if (deltaX === 0 && deltaY === 0) return;
-
-      this.canvasPane.scrollLeft += deltaX;
-      this.canvasPane.scrollTop += deltaY;
-      const maxScrollLeft = Math.max(0, this.canvasPane.scrollWidth - this.canvasPane.clientWidth);
-      const maxScrollTop = Math.max(0, this.canvasPane.scrollHeight - this.canvasPane.clientHeight);
-      debugLog('view', 'Panned PowerPoint canvas', {
-        deltaX,
-        deltaY,
-        scrollLeft: this.canvasPane.scrollLeft,
-        scrollTop: this.canvasPane.scrollTop,
-        maxScrollLeft,
-        maxScrollTop,
-        atScrollFloor: this.canvasPane.scrollTop <= 0 && deltaY < 0,
-        atScrollCeiling: this.canvasPane.scrollTop >= maxScrollTop && deltaY > 0,
-        scrollWidth: this.canvasPane.scrollWidth,
-        scrollHeight: this.canvasPane.scrollHeight,
-        clientWidth: this.canvasPane.clientWidth,
-        clientHeight: this.canvasPane.clientHeight,
-        source: 'wheel'
-      });
+      // Pane already has overflow:auto — let the browser scroll. preventDefault
+      // + JS scrollLeft/Top + layout-forcing pan logs made every trackpad tick
+      // hitch on large slides.
+      event.stopPropagation();
       return;
     }
+
+    event.preventDefault();
+    event.stopPropagation();
 
     const delta = this.normalizeWheelDelta(event);
     if (delta === 0) return;
 
-    const nextZoom = this.zoomLevel * Math.pow(2, -delta / 600);
-    this.setZoom(nextZoom, { clientX: event.clientX, clientY: event.clientY });
+    const baseZoom = this.pendingWheelZoom?.zoom ?? this.zoomLevel;
+    const nextZoom = baseZoom * Math.pow(2, -delta / 600);
+    this.pendingWheelZoom = {
+      zoom: nextZoom,
+      anchor: { clientX: event.clientX, clientY: event.clientY },
+    };
+    this.schedulePendingWheelZoomFlush();
+  }
+
+  private getAnimationFrameApi(): {
+    request: ((callback: FrameRequestCallback) => number) | null;
+    cancel: ((handle: number) => void) | null;
+  } {
+    // Prefer popout-safe hosts. Tests stub RAF on window (or activeWindow).
+    const candidates: Array<Window | null | undefined> = [];
+    if (typeof activeWindow !== 'undefined') candidates.push(activeWindow);
+    if (typeof window !== 'undefined') candidates.push(window);
+
+    for (const scope of candidates) {
+      if (!scope || typeof scope.requestAnimationFrame !== 'function') continue;
+      return {
+        request: scope.requestAnimationFrame.bind(scope),
+        cancel: typeof scope.cancelAnimationFrame === 'function'
+          ? scope.cancelAnimationFrame.bind(scope)
+          : null,
+      };
+    }
+    return { request: null, cancel: null };
+  }
+
+  private schedulePendingWheelZoomFlush(): void {
+    if (this.wheelZoomRaf !== null) return;
+    const { request: raf } = this.getAnimationFrameApi();
+    if (!raf) {
+      this.flushPendingWheelZoom();
+      return;
+    }
+    this.wheelZoomRaf = raf(() => {
+      this.wheelZoomRaf = null;
+      this.flushPendingWheelZoom();
+    });
+  }
+
+  private flushPendingWheelZoom(): void {
+    const pending = this.pendingWheelZoom;
+    this.pendingWheelZoom = null;
+    if (!pending) return;
+    this.setZoom(pending.zoom, pending.anchor, { deferChrome: true });
+  }
+
+  private scheduleWheelZoomChromeSync(): void {
+    if (this.wheelZoomChromeRaf !== null) return;
+    const { request: raf } = this.getAnimationFrameApi();
+    if (!raf) {
+      this.updateSelectionOverlay();
+      this.refreshActiveInlineEditorGeometry();
+      return;
+    }
+    this.wheelZoomChromeRaf = raf(() => {
+      this.wheelZoomChromeRaf = null;
+      // Another pinch frame is still coalescing — wait until the burst ends.
+      if (this.pendingWheelZoom !== null || this.wheelZoomRaf !== null) {
+        this.scheduleWheelZoomChromeSync();
+        return;
+      }
+      this.updateSelectionOverlay();
+      this.refreshActiveInlineEditorGeometry();
+    });
+  }
+
+  private cancelPendingWheelZoomWork(): void {
+    const { cancel } = this.getAnimationFrameApi();
+    if (this.wheelZoomRaf !== null) {
+      cancel?.(this.wheelZoomRaf);
+      this.wheelZoomRaf = null;
+    }
+    if (this.wheelZoomChromeRaf !== null) {
+      cancel?.(this.wheelZoomChromeRaf);
+      this.wheelZoomChromeRaf = null;
+    }
+    this.pendingWheelZoom = null;
   }
 
   private normalizeWheelDelta(event: WheelEvent, value = event.deltaY): number {
@@ -12144,22 +13035,33 @@ export class NativePowerPointView extends FileView {
     return value;
   }
 
-  private setZoom(value: number, anchor?: { clientX: number; clientY: number }): void {
+  private setZoom(
+    value: number,
+    anchor?: { clientX: number; clientY: number },
+    options: { deferChrome?: boolean } = {},
+  ): void {
     const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(value * 1000) / 1000));
     if (nextZoom === this.zoomLevel) return;
 
     const previousZoom = this.zoomLevel;
     const anchorState = anchor ? this.captureZoomAnchor(anchor) : null;
     this.zoomLevel = nextZoom;
-    debugLog('view', 'Changed PowerPoint zoom', {
-      previousZoom,
-      zoom: nextZoom,
-      source: anchor ? 'wheel' : 'toolbar'
-    });
+    // Toolbar zoom only — wheel/pinch is coalesced and too hot for per-tick logs
+    // (each entry also hits the hot-reload file sink).
+    if (!anchor) {
+      debugLog('view', 'Changed PowerPoint zoom', {
+        previousZoom,
+        zoom: nextZoom,
+        source: 'toolbar'
+      });
+    }
     this.updateZoomLabel();
-    this.updateSlideScale();
+    this.updateSlideScale({ skipChrome: Boolean(options.deferChrome) });
     if (anchorState) {
-      this.restoreZoomAnchor(anchorState);
+      this.restoreZoomAnchor(anchorState, { skipChrome: Boolean(options.deferChrome) });
+    }
+    if (options.deferChrome) {
+      this.scheduleWheelZoomChromeSync();
     }
   }
 
@@ -12182,7 +13084,10 @@ export class NativePowerPointView extends FileView {
     };
   }
 
-  private restoreZoomAnchor(anchor: { clientX: number; clientY: number; ratioX: number; ratioY: number }): void {
+  private restoreZoomAnchor(
+    anchor: { clientX: number; clientY: number; ratioX: number; ratioY: number },
+    options: { skipChrome?: boolean } = {},
+  ): void {
     if (!this.canvasPane || !this.slideSurface) return;
 
     const rect = this.slideSurface.getBoundingClientRect();
@@ -12190,8 +13095,10 @@ export class NativePowerPointView extends FileView {
     const nextY = rect.top + rect.height * anchor.ratioY;
     this.canvasPane.scrollLeft += nextX - anchor.clientX;
     this.canvasPane.scrollTop += nextY - anchor.clientY;
-    this.updateSelectionOverlay();
-    this.refreshActiveInlineEditorGeometry();
+    if (!options.skipChrome) {
+      this.updateSelectionOverlay();
+      this.refreshActiveInlineEditorGeometry();
+    }
   }
 
   private refreshActiveInlineEditorGeometry(): void {

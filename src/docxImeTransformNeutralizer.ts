@@ -1,6 +1,6 @@
 import { isHTMLElement } from './domGuards';
 import { DOCX_CARET_SELECTOR, DOCX_EDITOR_PAGES_SELECTOR, DOCX_HIDDEN_PROSEMIRROR_SELECTOR } from './docxEditorChromeMarkers';
-import type { RenderedDomContext } from './docx/runtime';
+import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
 import type { EditorView } from 'prosemirror-view';
 
 const IME_NEUTRALIZED_DATASET_KEY = 'nativePowerPointDocEditorImeNeutralized';

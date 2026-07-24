@@ -728,6 +728,15 @@ export class PresentationEngine {
       assertOk(result, 'Could not update shape transform.');
     }
 
+    debugLog('mutate', 'PowerPoint shape transform using OOXML fallback', {
+      slide: slideIndex,
+      shapeIndex,
+      reason: message || 'unknown',
+      x: Math.round(transform.x),
+      y: Math.round(transform.y),
+      width: Math.max(1, Math.round(transform.cx)),
+      height: Math.max(1, Math.round(transform.cy)),
+    });
     await this.updateShapeTransformInOoxml(slideIndex, shapeIndex, transform);
   }
 
@@ -736,10 +745,11 @@ export class PresentationEngine {
     shapeIndex: number,
     transform: ShapeTransform
   ): Promise<void> {
-    const rawExport = await this.exportRendererState();
+    // Off-slide / out-of-range transforms fall back here from the WASM shortcut.
+    // Use the slide-XML fast path (loadSlideXml) instead of export→zip→reload —
+    // reloading a deck that embeds a large pasted picture was ~0.5–1s per move.
     const slidePath = getSlidePath(slideIndex);
-    const zip = await extractZip(rawExport);
-    const slideXml = zip.textFiles.get(slidePath);
+    const slideXml = this.renderer.getSlideOoxml(slideIndex);
     if (!slideXml) {
       throw new Error(`Missing slide XML part: ${slidePath}`);
     }
@@ -750,8 +760,7 @@ export class PresentationEngine {
       throw new Error('Could not update shape transform.');
     }
 
-    const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
-    await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+    await this.commitSlideDoc(slideIndex, slideDoc);
   }
 
   async updateShapeText(slideIndex: number, shapeIndex: number, text: string): Promise<void> {
@@ -2548,6 +2557,9 @@ export class PresentationEngine {
       return { slideIndex, slideCount: this.slideCountValue };
     }
     order.splice(targetIndex, 0, moved);
+    // Slide-local text edits defer folding pending XML into `currentBuffer`;
+    // permute must see those edits or they vanish when slides move.
+    await this.syncCurrentBuffer();
     const { slideCount } = await this.renderer.reorderSlides(order);
     this.currentBuffer = await permuteSlidesInBuffer(this.currentBuffer, order);
     await this.reloadAfterSlideManagement(slideCount);
@@ -2581,6 +2593,9 @@ export class PresentationEngine {
   }
 
   async reorderSlides(newOrder: number[]): Promise<SlideMoveResult> {
+    // Same deferred-pending invariant as `moveSlide`: fold slide-local edits
+    // before permuting the authoritative package.
+    await this.syncCurrentBuffer();
     const { slideCount } = await this.renderer.reorderSlides(newOrder);
     this.currentBuffer = await permuteSlidesInBuffer(this.currentBuffer, newOrder);
     await this.reloadAfterSlideManagement(slideCount);
@@ -3131,6 +3146,24 @@ export class PresentationEngine {
    */
   async commitMutation(): Promise<void> {
     await this.exportRendererState();
+  }
+
+  /**
+   * Finalize a slide-local text mutation without touching the package zip.
+   *
+   * The op already pushed its result into the renderer (`commitSlideDoc`) and
+   * recorded lossless slide XML in `pendingSlideXml`, and refreshed that
+   * slide's run cache. Folding pending into `currentBuffer` (a full zip patch
+   * of the deck -- ~100ms+ on image-heavy files) is deferred until a
+   * `currentBuffer` reader needs it (`syncCurrentBuffer` at reorder / insert /
+   * list-style / duplicate / export). That is the residual per-keystroke cost
+   * that made Backspace across an empty paragraph feel lagged even after the
+   * full-export commit was removed. Chart/background derived state is not
+   * touched by text edits; commands that can change those keep `commitMutation`.
+   */
+  async commitSlideLocalMutation(): Promise<void> {
+    // Intentionally empty: pending slide XML is already recorded. Eager
+    // `syncCurrentBuffer()` here was the remaining ~100ms+ keystroke tax.
   }
 
   async restoreSnapshot(buffer: ArrayBuffer): Promise<void> {

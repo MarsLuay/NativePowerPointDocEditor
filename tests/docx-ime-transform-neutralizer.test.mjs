@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { docxEditorAliases } from './helpers/docx-esbuild-aliases.mjs';
 import { test } from "node:test";
 import { build } from "esbuild";
 import { mkdtemp } from "node:fs/promises";
@@ -18,7 +17,6 @@ async function loadNeutralizerModule() {
 		const tempDir = await mkdtemp(path.join(os.tmpdir(), "docx-ime-neutralizer-"));
 		const outfile = path.join(tempDir, "neutralizer.cjs");
 		await build({
-		alias: docxEditorAliases,
 			entryPoints: [path.join(projectRoot, "src/docxImeTransformNeutralizer.ts")],
 			bundle: true,
 			format: "cjs",
