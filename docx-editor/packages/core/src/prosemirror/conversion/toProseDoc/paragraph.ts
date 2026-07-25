@@ -193,18 +193,20 @@ function runBoundaryFromConvertedRun(
 
 /**
  * Apply comment marks to PM nodes within a comment range.
- * Only the first active comment ID is used (comments don't overlap visually).
+ * Stamp every active id — overlapping / nested ranges must keep distinct
+ * marks so sidebar anchors and fromProseDoc round-trip all threads.
  */
 function applyCommentMarks(nodes: PMNode[], commentIds: Set<number>): PMNode[] {
   if (commentIds.size === 0) return nodes;
-  const commentId = [...commentIds][0]; // Use first active comment
-  const commentMark = schema.marks.comment.create({ commentId });
+  const ids = [...commentIds];
 
   return nodes.map((node) => {
-    if (node.isText) {
-      return node.mark(commentMark.addToSet(node.marks));
+    if (!node.isText) return node;
+    let marks = node.marks;
+    for (const commentId of ids) {
+      marks = schema.marks.comment.create({ commentId }).addToSet(marks);
     }
-    return node;
+    return node.mark(marks);
   });
 }
 

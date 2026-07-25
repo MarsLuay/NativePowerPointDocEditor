@@ -255,6 +255,60 @@ async function ensureAllCommentParts(zip: JSZip, compressionLevel: number): Prom
   }
 }
 
+const COMMENT_PACKAGE_PARTS = [
+  'word/comments.xml',
+  'word/commentsExtended.xml',
+  'word/commentsIds.xml',
+  'word/commentsExtensible.xml',
+] as const;
+
+/**
+ * Drop leftover comment package parts when the document has no comments.
+ * Full repack copies the original zip first — without this, deleting the last
+ * comment leaves the prior `comments.xml` on disk and reload restores it.
+ */
+async function removeAllCommentParts(zip: JSZip, compressionLevel: number): Promise<void> {
+  let removed = false;
+  for (const path of COMMENT_PACKAGE_PARTS) {
+    if (zip.file(path)) {
+      zip.remove(path);
+      removed = true;
+    }
+  }
+  if (!removed) return;
+
+  const ctFile = zip.file('[Content_Types].xml');
+  if (ctFile) {
+    let ctXml = await ctFile.async('text');
+    const next = ctXml.replace(
+      /<Override[^>]*PartName="\/word\/comments(?:Extended|Ids|Extensible)?\.xml"[^>]*\/>/g,
+      ''
+    );
+    if (next !== ctXml) {
+      zip.file('[Content_Types].xml', next, {
+        compression: 'DEFLATE',
+        compressionOptions: { level: compressionLevel },
+      });
+    }
+  }
+
+  const relsPath = 'word/_rels/document.xml.rels';
+  const relsFile = zip.file(relsPath);
+  if (relsFile) {
+    let relsXml = await relsFile.async('text');
+    const next = relsXml.replace(
+      /<Relationship[^>]*Target="comments(?:Extended|Ids|Extensible)?\.xml"[^>]*\/>/g,
+      ''
+    );
+    if (next !== relsXml) {
+      zip.file(relsPath, next, {
+        compression: 'DEFLATE',
+        compressionOptions: { level: compressionLevel },
+      });
+    }
+  }
+}
+
 /**
  * Serialize all comment-side XML parts (comments + extended + ids + extensible)
  * into the ZIP and register them in content types and rels.
@@ -265,7 +319,10 @@ export async function serializeCommentsToZip(
   compressionLevel: number
 ): Promise<void> {
   const comments = doc.package.document.comments;
-  if (!comments || comments.length === 0) return;
+  if (!comments || comments.length === 0) {
+    await removeAllCommentParts(zip, compressionLevel);
+    return;
+  }
 
   const { xml: commentsXml, paraInfos } = serializeCommentsWithInfo(comments);
   zip.file('word/comments.xml', commentsXml, {

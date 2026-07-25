@@ -285,8 +285,11 @@ export function renderParagraphFragment(
     borderBox.style.position = 'absolute';
     borderBox.style.pointerEvents = 'none';
     borderBox.style.boxSizing = 'border-box';
-    borderBox.style.left = `${indentLeft - (borders.left?.space ?? 0)}px`;
-    borderBox.style.right = `${indentRight - (borders.right?.space ?? 0)}px`;
+    // Paragraph indentation controls the text lines, not the block's outer
+    // border. Keeping this overlay anchored to the fragment gives section
+    // dividers the same full content width as unindented paragraphs.
+    borderBox.style.left = `${-(borders.left?.space ?? 0)}px`;
+    borderBox.style.right = `${-(borders.right?.space ?? 0)}px`;
     borderBox.style.top = `${-(renderedTopBorder?.space ?? 0)}px`;
     borderBox.style.bottom = `${-(renderedBottomBorder?.space ?? 0)}px`;
 

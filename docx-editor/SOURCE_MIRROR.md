@@ -1,6 +1,6 @@
-# NPDE in-repo docx-editor mirror
+# NPDE DOCX source branch
 
-This monorepo is **inside** `Native PowerPoint Doc Editor/docx-editor/`.
+This monorepo exists only on the `docx-editor-source` branch.
 
 | Field | Value |
 |-------|-------|
@@ -9,19 +9,26 @@ This monorepo is **inside** `Native PowerPoint Doc Editor/docx-editor/`.
 | Upstream | gone private; cloned from community archives |
 | License | Apache-2.0 |
 
-Plugin esbuild consumes `packages/{core,react,i18n}/dist` only. Rebuild after source edits:
+Build and test source here:
 
 ```bash
 npm run build:docx-editor   # from plugin root; needs bun
 npm run build               # or npm run dev
 ```
 
-Obsidian release artifacts remain `main.js` / `manifest.json` / `styles.css` — users do not download this tree.
+## Release handoff
 
-### Public GitHub mirror vs vault
+Do not merge or copy `docx-editor/` into `nightly-releases` or `main`.
 
-- **Vault (authoritative):** full monorepo `src` + rebuild tooling.
-- **NativePowerPointDocEditor (catalog):** JS-only `{core,react,i18n}` via `scripts/sync-obsidian-catalog-mirror.mjs` (no package `.d.ts`; types stay in vault). Catalog ESLint fails if package TypeScript sources are committed.
+After source changes are built and tested, a release branch runs `npm run vendor:docx` with this worktree as `DOCX_EDITOR_SOURCE_DIR`. That command copies only the allowlisted runtime output into `vendor/docx-editor-runtime/`, writes provenance, and rejects TypeScript, declarations, workspace metadata, and package build tooling.
+
+Obsidian release artifacts remain `main.js` / `manifest.json` / `styles.css`. Release branches contain the vendor snapshot, not this source tree.
+
+### Branch roles
+
+- `docx-editor-source`: editable DOCX source and Bun package builds.
+- `nightly-releases`: latest vendor-only plugin release candidate.
+- `main`: vendor-only stable plugin release.
 
 ## Former git remotes (nested .git removed so ObsidianNotes tracks this tree)
 mhur	https://github.com/mhurhangee/docx-editor.git (fetch) [blob:none]

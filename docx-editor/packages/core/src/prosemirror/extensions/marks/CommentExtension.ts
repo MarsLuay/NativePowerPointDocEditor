@@ -15,6 +15,10 @@ export const CommentExtension = createMarkExtension({
       /** Comment ID (matches Comment.id) */
       commentId: { default: 0 },
     },
+    // Allow overlapping comments (different commentId) on the same text.
+    // Default same-type exclusion kept only one mark → other threads lost
+    // PM anchors after reload when ranges nested, so sidebar cards hid.
+    excludes: '',
     inclusive: false,
     parseDOM: [
       {

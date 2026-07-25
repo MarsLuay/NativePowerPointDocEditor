@@ -16,10 +16,7 @@ const FIXTURE_PATH = join(
   '..',
   '..',
   '..',
-  '..',
-  '..',
-  'e2e',
-  'fixtures',
+  'testdata',
   'titlePg-header-footer.docx'
 );
 

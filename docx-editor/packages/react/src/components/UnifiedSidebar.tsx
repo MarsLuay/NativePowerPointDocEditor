@@ -205,7 +205,9 @@ export function UnifiedSidebar({
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div style={{ position: 'relative' }}>
-        {items.map((item) => {
+        {(() => {
+          let lastFallbackY = 0;
+          return items.map((item) => {
           const yPos = positionMap.get(item.id);
           const isExpanded = expandedItem === item.id;
           const isKnown = knownCardsRef.current.has(item.id);
@@ -216,17 +218,23 @@ export function UnifiedSidebar({
             ? yPos !== undefined
               ? { position: 'absolute', top: yPos, left: 0, right: 0, opacity: 1 }
               : {
+                  // Keep un-anchored cards visible — overlapping comments used to
+                  // hide here when only one id received a PM mark after reload.
                   position: 'absolute',
-                  top: 0,
+                  top: lastFallbackY,
                   left: 0,
                   right: 0,
-                  opacity: 0,
-                  visibility: 'hidden',
+                  opacity: 1,
                 }
             : { marginBottom: 6 };
+          if (hasPositions && yPos === undefined) {
+            lastFallbackY += (item.estimatedHeight ?? 80) + 8;
+          } else if (yPos !== undefined) {
+            lastFallbackY = Math.max(lastFallbackY, yPos + (item.estimatedHeight ?? 80) + 8);
+          }
 
           const transition = noPosition
-            ? 'none'
+            ? 'opacity 0.2s ease'
             : isNewCard || item.isTemporary
               ? 'opacity 0.2s ease'
               : initialPositionsDone
@@ -242,7 +250,8 @@ export function UnifiedSidebar({
               })}
             </div>
           );
-        })}
+          });
+        })()}
       </div>
     </aside>
   );

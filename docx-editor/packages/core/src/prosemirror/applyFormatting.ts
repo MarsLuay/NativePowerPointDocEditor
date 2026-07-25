@@ -24,6 +24,7 @@ import type { NumberingMap } from '../docx/numberingParser';
 import { mapHexToHighlightName } from '../utils/highlightColors';
 import { pointsToHalfPoints } from '../utils/units';
 import { findParaIdRange, findTextInPmParagraph } from './paraText';
+import { removeMark, setMark } from './extensions/marks/markUtils';
 
 export interface ApplyFormattingOptions {
   paraId: string;
@@ -42,7 +43,8 @@ export interface ApplyFormattingOptions {
 
 /**
  * Apply mark toggles to a paragraph range. Returns false when the paraId /
- * search can't be resolved; true (a no-op) when the resolved range is empty.
+ * search can't be resolved. Empty paragraphs use setMark/removeMark so
+ * defaultTextFormatting (+ _originalFormatting.runProperties) persist.
  */
 export function applyFormatting(view: EditorView, options: ApplyFormattingOptions): boolean {
   const range = findParaIdRange(view.state.doc, options.paraId);
@@ -59,10 +61,75 @@ export function applyFormatting(view: EditorView, options: ApplyFormattingOption
     to = textRange.to;
   }
 
-  if (from >= to) return true;
-
   const { schema } = view.state;
   const m = options.marks;
+
+  if (from >= to) {
+    // Empty paragraph: caret inside + setMark/removeMark so empty-para fonts
+    // and toggles survive save (addMark over an empty range is a no-op).
+    const caret = Math.min(Math.max(from, range.from + 1), range.to - 1);
+    view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, caret)));
+
+    const run = (cmd: ReturnType<typeof setMark>) => {
+      cmd(view.state, view.dispatch);
+    };
+
+    if (m.bold !== undefined && schema.marks.bold) {
+      run(m.bold ? setMark(schema.marks.bold, {}) : removeMark(schema.marks.bold));
+    }
+    if (m.italic !== undefined && schema.marks.italic) {
+      run(m.italic ? setMark(schema.marks.italic, {}) : removeMark(schema.marks.italic));
+    }
+    if (m.underline !== undefined && schema.marks.underline) {
+      if (m.underline) {
+        const style = typeof m.underline === 'object' ? m.underline.style : undefined;
+        run(setMark(schema.marks.underline, { style: style ?? 'single' }));
+      } else {
+        run(removeMark(schema.marks.underline));
+      }
+    }
+    if (m.strike !== undefined && schema.marks.strike) {
+      run(m.strike ? setMark(schema.marks.strike, {}) : removeMark(schema.marks.strike));
+    }
+    if (m.color !== undefined && schema.marks.textColor) {
+      if (m.color && (m.color.rgb || m.color.themeColor)) {
+        run(setMark(schema.marks.textColor, {
+          rgb: m.color.rgb ?? null,
+          themeColor: m.color.themeColor ?? null,
+        }));
+      } else {
+        run(removeMark(schema.marks.textColor));
+      }
+    }
+    if (m.highlight !== undefined && schema.marks.highlight) {
+      if (m.highlight) {
+        const name = mapHexToHighlightName(m.highlight);
+        run(setMark(schema.marks.highlight, { color: name || m.highlight }));
+      } else {
+        run(removeMark(schema.marks.highlight));
+      }
+    }
+    if (m.fontSize !== undefined && schema.marks.fontSize) {
+      if (m.fontSize > 0) {
+        const halfPoints = pointsToHalfPoints(m.fontSize);
+        run(setMark(schema.marks.fontSize, { size: halfPoints, sizeCs: halfPoints }));
+      } else {
+        run(removeMark(schema.marks.fontSize));
+      }
+    }
+    if (m.fontFamily !== undefined && schema.marks.fontFamily) {
+      if (m.fontFamily && (m.fontFamily.ascii || m.fontFamily.hAnsi)) {
+        run(setMark(schema.marks.fontFamily, {
+          ascii: m.fontFamily.ascii ?? null,
+          hAnsi: m.fontFamily.hAnsi ?? m.fontFamily.ascii ?? null,
+        }));
+      } else {
+        run(removeMark(schema.marks.fontFamily));
+      }
+    }
+    return true;
+  }
+
   let tr = view.state.tr;
 
   if (m.bold !== undefined && schema.marks.bold) {

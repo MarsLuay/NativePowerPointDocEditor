@@ -14,7 +14,12 @@ import { extractSelectionContext } from './selectionTracker';
 const schema = new Schema({
   nodes: {
     doc: { content: 'block+' },
-    paragraph: { group: 'block', content: 'inline*', toDOM: () => ['p', 0] },
+    paragraph: {
+      group: 'block',
+      content: 'inline*',
+      attrs: { defaultTextFormatting: { default: null } },
+      toDOM: () => ['p', 0],
+    },
     text: { group: 'inline' },
   },
   marks: {
@@ -27,6 +32,10 @@ const schema = new Schema({
     strike: {
       attrs: { double: { default: false } },
       toDOM: () => ['s', 0],
+    },
+    fontFamily: {
+      attrs: { ascii: { default: null }, hAnsi: { default: null } },
+      toDOM: () => ['span', 0],
     },
   },
 });
@@ -139,5 +148,23 @@ describe('extractSelectionContext > textFormatting', () => {
     const ctx = extractSelectionContext(state);
 
     expect(ctx.textFormatting.bold).toBe(true);
+  });
+
+  test('empty paragraph reports its default font family without stored marks', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', {
+        defaultTextFormatting: {
+          fontFamily: { ascii: 'Times New Roman', hAnsi: 'Times New Roman' },
+        },
+      }),
+    ]);
+    const state = EditorState.create({ doc, selection: TextSelection.create(doc, 1) });
+
+    const ctx = extractSelectionContext(state);
+
+    expect(ctx.textFormatting.fontFamily).toEqual({
+      ascii: 'Times New Roman',
+      hAnsi: 'Times New Roman',
+    });
   });
 });

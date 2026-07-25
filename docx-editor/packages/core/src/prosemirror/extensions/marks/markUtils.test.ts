@@ -24,6 +24,7 @@ const schema = new Schema({
       content: 'inline*',
       attrs: {
         defaultTextFormatting: { default: null },
+        _originalFormatting: { default: null },
       },
       toDOM: () => ['p', 0],
     },
@@ -111,6 +112,28 @@ describe('setMark on empty paragraph', () => {
     });
   });
 
+  test('setMark syncs empty-para font into _originalFormatting.runProperties', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', {
+        _originalFormatting: { alignment: 'left', runProperties: { bold: true } },
+      }, []),
+    ]);
+    let state = EditorState.create({ doc });
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, 1)));
+    const next = applyCommand(
+      state,
+      setMark(schema.marks.fontFamily, { ascii: 'Georgia', hAnsi: 'Georgia' })
+    );
+
+    expect(next.doc.firstChild!.attrs.defaultTextFormatting).toEqual({
+      fontFamily: { ascii: 'Georgia', hAnsi: 'Georgia' },
+    });
+    expect(next.doc.firstChild!.attrs._originalFormatting).toEqual({
+      alignment: 'left',
+      runProperties: { fontFamily: { ascii: 'Georgia', hAnsi: 'Georgia' } },
+    });
+  });
+
   test('multiple setMark calls accumulate stored marks', () => {
     let state = createEmptyParaState();
     state = applyCommand(
@@ -143,6 +166,40 @@ describe('setMark on empty paragraph', () => {
 
     expect(state.storedMarks!.length).toBe(1);
     expect(state.storedMarks![0].attrs.ascii).toBe('Verdana');
+  });
+});
+
+describe('setMark across a mixed selection', () => {
+  test('updates selected empty paragraphs alongside text runs', () => {
+    const doc = schema.node('doc', null, [
+      schema.node('paragraph', null, [schema.text('Before')]),
+      schema.node('paragraph', {
+        defaultTextFormatting: { fontSize: 24 },
+        _originalFormatting: { runProperties: { fontSize: 24 } },
+      }, []),
+      schema.node('paragraph', null, [schema.text('After')]),
+    ]);
+    const state = EditorState.create({
+      doc,
+      selection: TextSelection.create(doc, 1, doc.content.size - 1),
+    });
+
+    const next = applyCommand(
+      state,
+      setMark(schema.marks.fontFamily, { ascii: 'Times New Roman', hAnsi: 'Times New Roman' }),
+    );
+
+    const emptyParagraph = next.doc.child(1);
+    expect(emptyParagraph.attrs.defaultTextFormatting).toEqual({
+      fontSize: 24,
+      fontFamily: { ascii: 'Times New Roman', hAnsi: 'Times New Roman' },
+    });
+    expect(emptyParagraph.attrs._originalFormatting).toEqual({
+      runProperties: {
+        fontSize: 24,
+        fontFamily: { ascii: 'Times New Roman', hAnsi: 'Times New Roman' },
+      },
+    });
   });
 });
 

@@ -1,6 +1,6 @@
 /**
  * Regression coverage for border overlay geometry:
- * - Paragraph borders follow indented text extents, not the full page width.
+ * - Paragraph borders span the full paragraph block, independent of text indentation.
  * - Page borders render as an inset overlay that honors OOXML spacing.
  */
 
@@ -40,7 +40,7 @@ afterAll(() => {
 });
 
 describe('border overlay layout', () => {
-  test('paragraph borders are drawn around indented text extents', () => {
+  test('paragraph borders span the full paragraph block despite text indentation', () => {
     const block: ParagraphBlock = {
       kind: 'paragraph',
       id: 'title',
@@ -101,8 +101,8 @@ describe('border overlay layout', () => {
     const line = el.querySelector<HTMLElement>('.layout-line');
 
     expect(border).toBeTruthy();
-    expect(border!.style.left).toBe('115px');
-    expect(border!.style.right).toBe('84px');
+    expect(border!.style.left).toBe('-5px');
+    expect(border!.style.right).toBe('-6px');
     expect(border!.style.top).toBe('-7px');
     expect(border!.style.bottom).toBe('-9px');
     expect(el.style.borderTop).toBe('');

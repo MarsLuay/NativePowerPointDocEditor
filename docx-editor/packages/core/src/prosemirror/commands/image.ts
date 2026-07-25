@@ -79,7 +79,11 @@ export const INSERT_IMAGE_MAX_WIDTH_PX = 612;
 export function insertImageFromFile(
   view: EditorView,
   file: File,
-  opts?: { maxWidth?: number; onError?: (error: unknown) => void; onInserted?: () => void }
+  opts?: {
+    maxWidth?: number;
+    onError?: (error: unknown) => void;
+    onInserted?: (dimensions: { width: number; height: number }) => void;
+  }
 ): void {
   const maxWidth = opts?.maxWidth ?? INSERT_IMAGE_MAX_WIDTH_PX;
   const reader = new FileReader();
@@ -106,7 +110,7 @@ export function insertImageFromFile(
       });
       insertImageNode(view.state, view.dispatch, imageNode, view.state.selection.from);
       view.focus();
-      opts?.onInserted?.();
+      opts?.onInserted?.({ width, height });
     };
     img.onerror = () => opts?.onError?.(new Error('Failed to decode image'));
     img.src = dataUrl;

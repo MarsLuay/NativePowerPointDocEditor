@@ -4,7 +4,9 @@
  * setMark, removeMark, isMarkActive, getMarkAttr, marksToTextFormatting, textFormattingToMarks, clearFormatting
  */
 
+import { toggleMark } from 'prosemirror-commands';
 import type { Command, EditorState, Transaction } from 'prosemirror-state';
+import { TextSelection } from 'prosemirror-state';
 import type { MarkType, Mark, Schema } from 'prosemirror-model';
 import type { TextFormatting } from '../../../types/document';
 
@@ -14,7 +16,7 @@ type MarkAttrs = Record<string, unknown>;
 // PARAGRAPH DEFAULT FORMATTING HELPERS
 // ============================================================================
 
-function marksToTextFormatting(marks: readonly Mark[]): TextFormatting {
+export function marksToTextFormatting(marks: readonly Mark[]): TextFormatting {
   const formatting: TextFormatting = {};
 
   for (const mark of marks) {
@@ -93,19 +95,42 @@ function saveStoredMarksToParagraph(
   if (paragraph.type.name !== 'paragraph') return tr;
   if (paragraph.textContent.length > 0) return tr;
 
+  const originalFormatting = paragraph.attrs._originalFormatting as
+    | { runProperties?: TextFormatting }
+    | null
+    | undefined;
+
   if (marks.length === 0) {
-    return tr.setNodeMarkup($from.before(), undefined, {
+    const nextAttrs: Record<string, unknown> = {
       ...paragraph.attrs,
       defaultTextFormatting: null,
-    });
+    };
+    // Clear direct pPr/rPr on save so emptied fonts do not resurrect from
+    // _originalFormatting after tab switch / reload.
+    if (originalFormatting) {
+      const nextOriginal = { ...originalFormatting };
+      delete nextOriginal.runProperties;
+      nextAttrs._originalFormatting = nextOriginal;
+    }
+    return tr.setNodeMarkup($from.before(), undefined, nextAttrs);
   }
 
   const defaultTextFormatting = marksToTextFormatting(marks);
-
-  return tr.setNodeMarkup($from.before(), undefined, {
+  const nextAttrs: Record<string, unknown> = {
     ...paragraph.attrs,
     defaultTextFormatting,
-  });
+  };
+  // fromProseDoc serializes via _originalFormatting when present and previously
+  // never copied defaultTextFormatting → runProperties. Sync both so empty-line
+  // font/size survive autosave + tab remount.
+  if (originalFormatting) {
+    nextAttrs._originalFormatting = {
+      ...originalFormatting,
+      runProperties: defaultTextFormatting,
+    };
+  }
+
+  return tr.setNodeMarkup($from.before(), undefined, nextAttrs);
 }
 
 // ============================================================================
@@ -129,6 +154,61 @@ function dispatchStoredMarks(
   dispatch(tr);
 }
 
+/**
+ * A range mark cannot affect an empty paragraph because it has no inline
+ * content. Mirror the requested change into every selected empty paragraph's
+ * defaults so Ctrl+A formatting and later cursor selection agree.
+ */
+function updateSelectedEmptyParagraphDefaults(
+  state: EditorState,
+  tr: Transaction,
+  update: (formatting: TextFormatting) => TextFormatting
+): Transaction {
+  const { from, to, empty } = state.selection;
+  if (empty) return tr;
+
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (node.type.name !== 'paragraph' || node.content.size !== 0) return;
+
+    const current = (node.attrs.defaultTextFormatting as TextFormatting | null | undefined) ?? {};
+    const next = update(current);
+    const hasFormatting = Object.keys(next).length > 0;
+    const nextAttrs: Record<string, unknown> = {
+      ...node.attrs,
+      defaultTextFormatting: hasFormatting ? next : null,
+    };
+    const originalFormatting = node.attrs._originalFormatting as
+      | { runProperties?: TextFormatting }
+      | null
+      | undefined;
+    if (originalFormatting) {
+      const nextOriginal = { ...originalFormatting };
+      const nextRunProperties = update(originalFormatting.runProperties ?? {});
+      if (Object.keys(nextRunProperties).length > 0) {
+        nextOriginal.runProperties = nextRunProperties;
+      } else {
+        delete nextOriginal.runProperties;
+      }
+      nextAttrs._originalFormatting = nextOriginal;
+    }
+
+    tr = tr.setNodeMarkup(pos, undefined, nextAttrs);
+  });
+
+  return tr;
+}
+
+function withoutFormattingKeys(
+  formatting: TextFormatting,
+  keys: readonly string[]
+): TextFormatting {
+  const next = { ...formatting } as Record<string, unknown>;
+  for (const key of keys) {
+    delete next[key];
+  }
+  return next as TextFormatting;
+}
+
 export function setMark(markType: MarkType, attrs: MarkAttrs): Command {
   return (state, dispatch) => {
     const { from, to, empty } = state.selection;
@@ -146,7 +226,13 @@ export function setMark(markType: MarkType, attrs: MarkAttrs): Command {
     }
 
     if (dispatch) {
-      dispatch(state.tr.addMark(from, to, mark).scrollIntoView());
+      const patch = marksToTextFormatting([mark]);
+      const tr = updateSelectedEmptyParagraphDefaults(
+        state,
+        state.tr.addMark(from, to, mark),
+        (formatting) => ({ ...formatting, ...patch })
+      );
+      dispatch(tr.scrollIntoView());
     }
     return true;
   };
@@ -167,7 +253,57 @@ export function removeMark(markType: MarkType): Command {
     }
 
     if (dispatch) {
-      dispatch(state.tr.removeMark(from, to, markType).scrollIntoView());
+      const keys = Object.keys(marksToTextFormatting([markType.create()]));
+      const tr = updateSelectedEmptyParagraphDefaults(
+        state,
+        state.tr.removeMark(from, to, markType),
+        (formatting) => withoutFormattingKeys(formatting, keys)
+      );
+      dispatch(tr.scrollIntoView());
+    }
+    return true;
+  };
+}
+
+/**
+ * Toggle a boolean-ish mark (bold/italic/underline/strike/super/subscript).
+ *
+ * On a non-empty selection this is byte-for-byte stock `toggleMark` behavior
+ * (delegated, not reimplemented, so range semantics never drift).
+ *
+ * On a collapsed cursor, stock `toggleMark` only flips `state.storedMarks`
+ * via `addStoredMark`/`removeStoredMark` — it never touches the paragraph's
+ * `defaultTextFormatting`/`_originalFormatting`, so the toggle is lost on
+ * blur/save for an empty paragraph. Route that case through `setMark`/
+ * `removeMark` instead, which call `dispatchStoredMarks` ->
+ * `saveStoredMarksToParagraph` to keep those attrs in sync (same path
+ * font/size/color already use). The `toggleMark(...)(state, undefined)`
+ * call below reuses its `markApplies` applicability guard without
+ * duplicating it.
+ */
+export function toggleMarkWithParagraphDefaults(
+  markType: MarkType,
+  attrs: MarkAttrs | null = null
+): Command {
+  const rangeToggle = toggleMark(markType, attrs);
+
+  return (state, dispatch) => {
+    const selection = state.selection;
+    const $cursor = selection instanceof TextSelection ? selection.$cursor : null;
+
+    if (!(selection.empty && $cursor)) {
+      return rangeToggle(state, dispatch);
+    }
+
+    if (!rangeToggle(state, undefined)) return false;
+
+    if (dispatch) {
+      const active = markType.isInSet(state.storedMarks || $cursor.marks());
+      if (active) {
+        removeMark(markType)(state, dispatch);
+      } else {
+        setMark(markType, attrs || {})(state, dispatch);
+      }
     }
     return true;
   };

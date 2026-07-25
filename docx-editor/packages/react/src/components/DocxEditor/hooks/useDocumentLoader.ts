@@ -67,6 +67,10 @@ export function useDocumentLoader({
   // result doesn't overwrite a newer load that started while we were
   // parsing.
   const loadGenerationRef = useRef(0);
+  // Hosts often replace `documentBuffer` after a self-save (new ArrayBuffer
+  // identity, same document session). Reloading that package wipes live PM
+  // edits. Remount via React `key` when a new package must load.
+  const hasLoadedDocumentRef = useRef(false);
 
   const loadParsedDocument = useCallback(
     (doc: Document) => {
@@ -113,13 +117,19 @@ export function useDocumentLoader({
     if (externalContent) return;
 
     if (!documentBuffer) {
-      if (initialDocument) {
+      if (initialDocument && !hasLoadedDocumentRef.current) {
+        hasLoadedDocumentRef.current = true;
         loadParsedDocument(initialDocument);
       }
       return;
     }
 
-    loadBuffer(documentBuffer);
+    if (hasLoadedDocumentRef.current) {
+      return;
+    }
+
+    hasLoadedDocumentRef.current = true;
+    void loadBuffer(documentBuffer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentBuffer, initialDocument, externalContent]);
 

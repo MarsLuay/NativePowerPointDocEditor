@@ -1,1 +1,1 @@
-export{a as DEFAULT_NEW_TABLE_LOOK,b as resolvePreferredNewTableStyleId}from'../../chunk-TCNH27CF.mjs';export{a as StyleResolver,b as createStyleResolver}from'../../chunk-YOYA2MKL.mjs';import'../../chunk-DI6CRWSW.mjs';import'../../chunk-JR557W27.mjs';
+export{a as DEFAULT_NEW_TABLE_LOOK,b as resolvePreferredNewTableStyleId}from'../../chunk-TCNH27CF.mjs';export{a as StyleResolver,b as createStyleResolver}from'../../chunk-773XMTCF.mjs';import'../../chunk-6NTMGWTG.mjs';import'../../chunk-JR557W27.mjs';

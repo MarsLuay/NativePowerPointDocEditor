@@ -99,6 +99,8 @@ export type FormattingAction =
   | 'superscript'
   | 'subscript'
   | 'clearFormatting'
+  | 'addParagraphBottomBorder'
+  | 'clearParagraphBorders'
   | 'bulletList'
   | 'numberedList'
   | 'indent'
@@ -931,14 +933,32 @@ export function Toolbar(explicitProps: ToolbarProps) {
       )}
 
       {/* Clear Formatting */}
-      <ToolbarButton
-        onClick={() => handleFormat('clearFormatting')}
-        disabled={disabled}
-        title={t('formattingBar.clearFormatting')}
-        ariaLabel={t('formattingBar.clearFormatting')}
-      >
-        <MaterialSymbol name="format_clear" size={ICON_SIZE} />
-      </ToolbarButton>
+      <ToolbarGroup label={t('formattingBar.groups.paragraph')}>
+        <ToolbarButton
+          onClick={() => handleFormat('addParagraphBottomBorder')}
+          disabled={disabled}
+          title={t('formattingBar.addParagraphBottomBorder')}
+          ariaLabel={t('formattingBar.addParagraphBottomBorder')}
+        >
+          <MaterialSymbol name="border_bottom" size={ICON_SIZE} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => handleFormat('clearParagraphBorders')}
+          disabled={disabled}
+          title={t('formattingBar.clearParagraphBorders')}
+          ariaLabel={t('formattingBar.clearParagraphBorders')}
+        >
+          <MaterialSymbol name="border_clear" size={ICON_SIZE} />
+        </ToolbarButton>
+        <ToolbarButton
+          onClick={() => handleFormat('clearFormatting')}
+          disabled={disabled}
+          title={t('formattingBar.clearFormatting')}
+          ariaLabel={t('formattingBar.clearFormatting')}
+        >
+          <MaterialSymbol name="format_clear" size={ICON_SIZE} />
+        </ToolbarButton>
+      </ToolbarGroup>
 
       {/* Custom toolbar items */}
       {children}

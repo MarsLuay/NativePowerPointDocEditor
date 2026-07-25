@@ -43,13 +43,15 @@ function BreakSubmenu({ items, closeMenu }: { items: BreakSubmenuItem[]; closeMe
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '6px 12px',
+              gap: 'var(--doc-menu-item-gap, 8px)',
+              minHeight: 'var(--doc-menu-item-min-height, 28px)',
+              padding: 'var(--doc-menu-item-padding, 6px 12px)',
               border: 'none',
               background: 'transparent',
+              borderRadius: 'var(--doc-menu-item-radius, 4px)',
               cursor: disabled ? 'default' : 'pointer',
-              fontSize: 13,
-              color: 'var(--doc-text)',
+              fontSize: 'var(--doc-menu-item-font-size, 13px)',
+              color: 'var(--doc-menu-item-text, var(--doc-text))',
               width: '100%',
               textAlign: 'left',
               whiteSpace: 'nowrap',
@@ -64,7 +66,7 @@ function BreakSubmenu({ items, closeMenu }: { items: BreakSubmenuItem[]; closeMe
             onMouseOver={(e) => {
               if (!disabled) {
                 (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                  'var(--doc-bg-hover)';
+                  'var(--doc-menu-item-hover-bg, var(--doc-bg-hover))';
               }
             }}
             onMouseOut={(e) => {

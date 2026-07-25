@@ -17,14 +17,13 @@
 - Prefer CSS2 single-keyword `text-decoration` only. Tint deletes with `box-shadow` / `background` / `color`.
 - After theme/menu/settings changes, run guards: `npm run check:theme-architecture`, `npm run check:theme-css`, `npm run check:shared-ui-patterns`.
 
-### vendored DOCX editor (in-repo monorepo)
+### DOCX source / release boundary
 
-- Source + package dist: `docx-editor/` (pin `npde-mirror-1.9.0` / `66d74702…`, Apache-2.0). Runtime aliases: `scripts/lib/docx-editor-aliases.mjs` → `docx-editor/packages/{core,react,i18n}` plus single-copy `react` / `react-dom` (root `node_modules`). Pin plugin ProseMirror packages to the same versions as `docx-editor` and map them in `tsconfig.json` `paths` so `tsc` does not see dual package identities. No agents package and no `packages/core/src/agent/` — plugin AI is `src/ai` only; React save uses `Document` + packers (`exportDocxBuffer` / selective / rezip). Content controls: `@npde/docx-editor-core/contentControls`.
-- Edit source → `npm run build:docx-editor` (needs bun) → `npm run build` / `dev`. Users still only get `main.js`; monorepo is not an Obsidian download.
-- **Publish always fresh-rebuilds:** when publishing this plugin, run `npm run build:docx-editor` then `npm run build` (see vault publish skill). Fail if bun/rebuild tooling is missing — do not release stale package dist.
-- **Vault code-analysis:** scans Obsidian-runtime `docx-editor/packages/{core,react,i18n}` source. Unused monorepo trees (vue/nuxt/full agents/examples/docs/e2e tests) were removed from this vault tree. Core unit fixtures: `docx-editor/packages/core/testdata/` (`manual/` = unwired samples).
-- **Public catalog mirror (NativePowerPointDocEditor):** sync with `node scripts/sync-obsidian-catalog-mirror.mjs <clone>` so the public tree is **JS-only dist** for `docx-editor/packages/{core,react,i18n}` (no `src/`, no package `.d.ts`, no agents/vue/nuxt). Obsidian Community catalog ESLint scans all public `.ts`/`.tsx` — full monorepo source fails catalog (1.0.35–1.0.38). Vault keeps full source and typings.
-- Do **not** add `@npde/*` to root `package.json`. Details: `src/docx/editor/README.md`.
+- This `docx-editor-source` branch exclusively owns editable `docx-editor/` source and package builds. Build and test it here with Bun before publishing a snapshot.
+- Release branches (`nightly-releases`, then `main`) must not contain `docx-editor/`. Refresh their `vendor/docx-editor-runtime/` snapshot from this branch with `npm run vendor:docx`, then build the plugin against that vendor runtime.
+- Never merge, fast-forward, or copy this branch's `docx-editor/` tree onto a release branch. A source-tree copy is a review-surface regression even when it contains only package `dist/`.
+- The vendor snapshot is limited to generated runtime JS/CSS, sanitized package manifests, licenses, and `provenance.json`. It must not contain TypeScript, declaration files, workspace metadata, build scripts, agents, examples, or package sources.
+- Do **not** add `@npde/*` to root `package.json`. Plugin imports cross the vendor boundary only through `src/docx/runtime/bridge.mjs`; vendored CSS only through `src/docx/runtime/styles.ts`.
 
 ### PPTX action logging
 

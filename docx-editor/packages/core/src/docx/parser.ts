@@ -48,6 +48,7 @@ import {
 } from './footnoteParser';
 import { parseComments } from './commentParser';
 import { removeOrphanCommentRanges } from './commentRangeIntegrity';
+import { repairEmptyCommentRanges } from './injectReplyRangeMarkers';
 import { dedupeParagraphIds } from './paragraphIdIntegrity';
 import { loadFontsWithMapping } from '../utils/fontLoader';
 import { loadEmbeddedFonts } from '../utils/embeddedFonts';
@@ -332,6 +333,11 @@ export async function parseDocx(input: DocxInput, options: ParseOptions = {}): P
     // Drop comment-range markers that don't resolve to a parsed comment, so the
     // model never carries orphan anchors that Word/validators reject on export.
     removeOrphanCommentRanges(document);
+
+    // Re-wrap comment ranges that enclose no text so toProseDoc can stamp PM marks.
+    if ((document.package.document.comments?.length ?? 0) > 0) {
+      repairEmptyCommentRanges(document.package.document.content);
+    }
 
     // Give every paragraph a unique w14:paraId; foreign exporters sometimes
     // duplicate them, which Word flags as a collaboration-identity collision.

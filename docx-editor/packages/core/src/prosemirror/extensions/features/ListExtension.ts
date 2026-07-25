@@ -6,12 +6,14 @@
  */
 
 import type { Command, EditorState } from 'prosemirror-state';
+import { canSplit } from 'prosemirror-transform';
 import { createExtension } from '../create';
 import { Priority } from '../types';
 import type { ExtensionRuntime } from '../types';
 import { makeRevisionInfo } from '../../plugins/revisionIds';
 import { SUGGESTION_META } from '../../plugins/suggestionMode/state';
 import type { RevisionInfo } from '../../../types/content/trackedChange';
+import { mergeParagraphAttrsWithOriginalFormatting } from '../../syncOriginalFormatting';
 
 // ============================================================================
 // CHAIN COMMANDS HELPER
@@ -97,22 +99,20 @@ function toggleList(numId: number): Command {
         const priorNumPr = node.attrs.numPr;
         let nextAttrs: Record<string, unknown>;
         if (isInSameList) {
-          nextAttrs = {
-            ...node.attrs,
+          nextAttrs = mergeParagraphAttrsWithOriginalFormatting(node.attrs, {
             numPr: null,
             listIsBullet: null,
             listNumFmt: null,
             listMarker: null,
-          };
+          });
         } else {
           const isBullet = numId === 1;
-          nextAttrs = {
-            ...node.attrs,
+          nextAttrs = mergeParagraphAttrsWithOriginalFormatting(node.attrs, {
             numPr: { numId, ilvl: node.attrs.numPr?.ilvl || 0 },
             listIsBullet: isBullet,
             listNumFmt: isBullet ? null : 'decimal',
             listMarker: null,
-          };
+          });
         }
         if (rev) {
           nextAttrs = appendParagraphPropertyChange(nextAttrs, { numPr: priorNumPr ?? null }, rev);
@@ -153,14 +153,17 @@ const increaseListLevel: Command = (state, dispatch) => {
 
   dispatch(
     state.tr
-      .setNodeMarkup(paragraphPos, undefined, {
-        ...paragraph.attrs,
-        numPr: { ...paragraph.attrs.numPr, ilvl: currentLevel + 1 },
-        // Clear explicit indentation so layout engine computes from new level
-        indentLeft: null,
-        indentFirstLine: null,
-        hangingIndent: null,
-      })
+      .setNodeMarkup(
+        paragraphPos,
+        undefined,
+        mergeParagraphAttrsWithOriginalFormatting(paragraph.attrs, {
+          numPr: { ...paragraph.attrs.numPr, ilvl: currentLevel + 1 },
+          // Clear explicit indentation so layout engine computes from new level
+          indentLeft: null,
+          indentFirstLine: null,
+          hangingIndent: null,
+        })
+      )
       .scrollIntoView()
   );
 
@@ -183,28 +186,34 @@ const decreaseListLevel: Command = (state, dispatch) => {
   if (currentLevel <= 0) {
     dispatch(
       state.tr
-        .setNodeMarkup(paragraphPos, undefined, {
-          ...paragraph.attrs,
-          numPr: null,
-          listIsBullet: null,
-          listNumFmt: null,
-          listMarker: null,
-          indentLeft: null,
-          indentFirstLine: null,
-          hangingIndent: null,
-        })
+        .setNodeMarkup(
+          paragraphPos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(paragraph.attrs, {
+            numPr: null,
+            listIsBullet: null,
+            listNumFmt: null,
+            listMarker: null,
+            indentLeft: null,
+            indentFirstLine: null,
+            hangingIndent: null,
+          })
+        )
         .scrollIntoView()
     );
   } else {
     dispatch(
       state.tr
-        .setNodeMarkup(paragraphPos, undefined, {
-          ...paragraph.attrs,
-          numPr: { ...paragraph.attrs.numPr, ilvl: currentLevel - 1 },
-          indentLeft: null,
-          indentFirstLine: null,
-          hangingIndent: null,
-        })
+        .setNodeMarkup(
+          paragraphPos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(paragraph.attrs, {
+            numPr: { ...paragraph.attrs.numPr, ilvl: currentLevel - 1 },
+            indentLeft: null,
+            indentFirstLine: null,
+            hangingIndent: null,
+          })
+        )
         .scrollIntoView()
     );
   }
@@ -223,13 +232,16 @@ const removeList: Command = (state, dispatch) => {
   state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
     if (node.type.name === 'paragraph' && node.attrs.numPr && !seen.has(pos)) {
       seen.add(pos);
-      tr = tr.setNodeMarkup(pos, undefined, {
-        ...node.attrs,
-        numPr: null,
-        listIsBullet: null,
-        listNumFmt: null,
-        listMarker: null,
-      });
+      tr = tr.setNodeMarkup(
+        pos,
+        undefined,
+        mergeParagraphAttrsWithOriginalFormatting(node.attrs, {
+          numPr: null,
+          listIsBullet: null,
+          listNumFmt: null,
+          listMarker: null,
+        })
+      );
     }
   });
 
@@ -277,17 +289,29 @@ function exitListOnEmptyEnter(): Command {
     const numPr = paragraph.attrs.numPr;
     if (!numPr) return false;
 
-    if (paragraph.textContent.length > 0) return false;
+    // Only exit when the item is truly empty. Hard breaks / tabs still count
+    // as content — exiting those silently looks like Enter did nothing.
+    if (paragraph.content.size > 0 || paragraph.textContent.length > 0) return false;
 
     if (dispatch) {
-      const tr = state.tr.setNodeMarkup($from.before(), undefined, {
-        ...paragraph.attrs,
+      const clearedAttrs = mergeParagraphAttrsWithOriginalFormatting(paragraph.attrs, {
         numPr: null,
         listIsBullet: null,
         listNumFmt: null,
         listMarker: null,
+        borders: null,
       });
-      dispatch(tr);
+      let tr = state.tr.setNodeMarkup($from.before(), undefined, clearedAttrs);
+      // Word's first Enter on an empty bullet only clears the marker. Users
+      // report that as "Enter didn't move the line" — also split so the caret
+      // advances onto a new body paragraph in one keypress.
+      const pos = tr.mapping.map($from.pos);
+      if (canSplit(tr.doc, pos)) {
+        tr = tr.split(pos, 1, [
+          { type: state.schema.nodes.paragraph, attrs: { ...clearedAttrs } },
+        ]);
+      }
+      dispatch(tr.scrollIntoView());
     }
     return true;
   };
@@ -304,19 +328,21 @@ function splitListItem(): Command {
     const numPr = paragraph.attrs.numPr;
     if (!numPr) return false;
 
+    const pos = $from.pos;
+    if (!canSplit(state.doc, pos)) {
+      return false;
+    }
+
     if (dispatch) {
       const { tr } = state;
-      const pos = $from.pos;
-
       tr.split(pos, 1, [{ type: state.schema.nodes.paragraph, attrs: { ...paragraph.attrs } }]);
-
       dispatch(tr.scrollIntoView());
     }
     return true;
   };
 }
 
-function backspaceExitList(): Command {
+export function exitListAtCaretStart(): Command {
   return (state, dispatch) => {
     const { $from, empty } = state.selection;
     if (!empty) return false;
@@ -330,13 +356,19 @@ function backspaceExitList(): Command {
     if (!numPr) return false;
 
     if (dispatch) {
-      const tr = state.tr.setNodeMarkup($from.before(), undefined, {
-        ...paragraph.attrs,
-        numPr: null,
-        listIsBullet: null,
-        listNumFmt: null,
-        listMarker: null,
-      });
+      const tr = state.tr.setNodeMarkup(
+        $from.before(),
+        undefined,
+        mergeParagraphAttrsWithOriginalFormatting(paragraph.attrs, {
+          numPr: null,
+          listIsBullet: null,
+          listNumFmt: null,
+          listMarker: null,
+          indentLeft: null,
+          indentFirstLine: null,
+          hangingIndent: null,
+        })
+      );
       dispatch(tr);
     }
     return true;
@@ -364,13 +396,16 @@ function increaseListIndent(): Command {
       let tr = state.tr;
       for (const { pos, attrs } of positions) {
         const numPr = attrs.numPr as { ilvl?: number; numId?: number };
-        tr = tr.setNodeMarkup(pos, undefined, {
-          ...attrs,
-          numPr: { ...numPr, ilvl: (numPr.ilvl ?? 0) + 1 },
-          indentLeft: null,
-          indentFirstLine: null,
-          hangingIndent: null,
-        });
+        tr = tr.setNodeMarkup(
+          pos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(attrs, {
+            numPr: { ...numPr, ilvl: (numPr.ilvl ?? 0) + 1 },
+            indentLeft: null,
+            indentFirstLine: null,
+            hangingIndent: null,
+          })
+        );
       }
       dispatch(tr);
     }
@@ -398,24 +433,30 @@ function decreaseListIndent(): Command {
         const numPr = attrs.numPr as { ilvl?: number; numId?: number };
         const currentLevel = numPr.ilvl ?? 0;
         if (currentLevel <= 0) {
-          tr = tr.setNodeMarkup(pos, undefined, {
-            ...attrs,
-            numPr: null,
-            listIsBullet: null,
-            listNumFmt: null,
-            listMarker: null,
-            indentLeft: null,
-            indentFirstLine: null,
-            hangingIndent: null,
-          });
+          tr = tr.setNodeMarkup(
+            pos,
+            undefined,
+            mergeParagraphAttrsWithOriginalFormatting(attrs, {
+              numPr: null,
+              listIsBullet: null,
+              listNumFmt: null,
+              listMarker: null,
+              indentLeft: null,
+              indentFirstLine: null,
+              hangingIndent: null,
+            })
+          );
         } else {
-          tr = tr.setNodeMarkup(pos, undefined, {
-            ...attrs,
-            numPr: { ...numPr, ilvl: currentLevel - 1 },
-            indentLeft: null,
-            indentFirstLine: null,
-            hangingIndent: null,
-          });
+          tr = tr.setNodeMarkup(
+            pos,
+            undefined,
+            mergeParagraphAttrsWithOriginalFormatting(attrs, {
+              numPr: { ...numPr, ilvl: currentLevel - 1 },
+              indentLeft: null,
+              indentFirstLine: null,
+              hangingIndent: null,
+            })
+          );
         }
       }
       dispatch(tr);
@@ -465,7 +506,10 @@ export const ListExtension = createExtension({
         'Shift-Tab': chainCommands(goToPrevCell(), decreaseListIndent()),
         'Shift-Enter': () => false, // Let base keymap handle this
         Enter: chainCommands(exitListOnEmptyEnter(), splitListItem()),
-        Backspace: backspaceExitList(),
+        // Both deletion keys remove a marker at the start of a list paragraph.
+        // Once the cursor has moved into content, they fall through to ProseMirror.
+        Backspace: exitListAtCaretStart(),
+        Delete: exitListAtCaretStart(),
       },
     };
   },

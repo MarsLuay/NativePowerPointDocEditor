@@ -557,6 +557,14 @@ function isClippedOutOfTableFragment(el: HTMLElement, rect: DOMRect): boolean {
   return mid < t.top - 0.5 || mid > t.bottom + 0.5;
 }
 
+/** Cap caret height so a mis-resolved paragraph box never paints a page-tall bar. */
+const MAX_CARET_HEIGHT_PX = 72;
+
+function clampCaretHeight(height: number): number {
+  if (!Number.isFinite(height) || height <= 0) return 16;
+  return Math.min(height, MAX_CARET_HEIGHT_PX);
+}
+
 /** Build the caret position from a matched span (tab / text / empty run). */
 function caretFromSpan(
   spanEl: HTMLElement,
@@ -568,7 +576,7 @@ function caretFromSpan(
   const pageEl = spanEl.closest('.layout-page') as HTMLElement | null;
   const pageIndex = pageEl ? Number(pageEl.dataset.pageNumber || 1) - 1 : 0;
   const lineEl = spanEl.closest('.layout-line');
-  const lineHeight = lineEl ? (lineEl as HTMLElement).offsetHeight : 16;
+  const lineHeight = clampCaretHeight(lineEl ? (lineEl as HTMLElement).offsetHeight : 16);
 
   const textNode = spanEl.firstChild;
   const isTab = spanEl.classList.contains('layout-run-tab');
@@ -602,10 +610,11 @@ function caretFromSpan(
   // space (scaled by `zoom`); divide it back to layout px so the returned
   // height matches the offsetHeight-based fallbacks. Consumers paint the caret
   // inside the zoom-scaled container and so expect layout px (#928).
+  const rawHeight = rangeRect.height ? rangeRect.height / zoom : lineHeight;
   return {
     x: rangeRect.left - overlayRect.left,
     y: rangeRect.top - overlayRect.top,
-    height: rangeRect.height ? rangeRect.height / zoom : lineHeight,
+    height: clampCaretHeight(rawHeight),
     pageIndex,
   };
 }
@@ -687,13 +696,15 @@ function caretFromParagraph(
   const rect = targetEl.getBoundingClientRect();
   const pageEl = pEl.closest('.layout-page') as HTMLElement | null;
   const pageIndex = pageEl ? Number(pageEl.dataset.pageNumber || 1) - 1 : 0;
-  const lineEl = targetEl.closest('.layout-line') || targetEl;
-  const lineHeight = (lineEl as HTMLElement).offsetHeight || 16;
+  // Prefer the line box; never fall back to the paragraph element itself —
+  // empty paras with large spacingBefore/After report a huge offsetHeight.
+  const lineEl = targetEl.closest('.layout-line') as HTMLElement | null;
+  const lineHeight = lineEl?.offsetHeight || rect.height || 16;
 
   return {
     x: rect.left - overlayRect.left,
     y: rect.top - overlayRect.top,
-    height: lineHeight,
+    height: clampCaretHeight(lineHeight),
     pageIndex,
   };
 }

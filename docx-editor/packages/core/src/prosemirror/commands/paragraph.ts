@@ -15,6 +15,7 @@ import type {
   TabStopAlignment,
   TabLeader,
 } from '../../types/document';
+import type { BorderSpec } from '../../types/colors';
 import { singletonManager } from '../schema';
 
 // Re-export types and query helpers from extensions
@@ -82,6 +83,10 @@ export function setSpaceBefore(twips: number): Command {
 export function setSpaceAfter(twips: number): Command {
   return cmds.setSpaceAfter(twips);
 }
+export function setParagraphBottomBorder(border?: BorderSpec): Command {
+  return cmds.setParagraphBottomBorder(border);
+}
+export const clearParagraphBorders: Command = cmds.clearParagraphBorders();
 
 // Paragraph styles
 export function applyStyle(styleId: string, resolvedAttrs?: ResolvedStyleAttrs): Command {

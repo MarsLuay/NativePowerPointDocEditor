@@ -19,6 +19,7 @@ import type { CSSProperties } from 'react';
 import { TextSelection, type EditorState, type Transaction, type Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { Node as PMNode } from 'prosemirror-model';
+import { enterCommand } from '@npde/docx-editor-core/prosemirror';
 
 // Internal components
 import { HiddenProseMirror, type HiddenProseMirrorRef } from './HiddenProseMirror';
@@ -277,6 +278,29 @@ export interface PagedEditorRef {
 // =============================================================================
 // Module-scope helpers extracted to per-domain files — see top of file
 // for the import block.
+function deleteCharacterAfterFocusRecovery(
+  view: Pick<EditorView, 'dispatch' | 'state'>,
+  key: 'Backspace' | 'Delete',
+): boolean {
+  const { selection } = view.state;
+  if (!selection.empty) {
+    view.dispatch(view.state.tr.delete(selection.from, selection.to).scrollIntoView());
+    return true;
+  }
+
+  const { $from } = selection;
+  if (key === 'Backspace' && $from.parentOffset > 0) {
+    view.dispatch(view.state.tr.delete(selection.from - 1, selection.from).scrollIntoView());
+    return true;
+  }
+  if (key === 'Delete' && $from.parentOffset < $from.parent.content.size) {
+    view.dispatch(view.state.tr.delete(selection.from, selection.from + 1).scrollIntoView());
+    return true;
+  }
+
+  return false;
+}
+
 // =============================================================================
 // COMPONENT
 // =============================================================================
@@ -529,13 +553,10 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
         // Request selection update (will only execute when layout is current)
         syncCoordinator.requestRender();
 
-        // Only update selection overlay immediately for non-doc-changing transactions
-        // (e.g. arrow keys, clicks). For doc changes, the overlay will be updated
-        // after layout completes via the useEffect([layout]) hook, avoiding cursor
-        // flicker from stale DOM positions.
-        if (!transaction.docChanged) {
-          updateSelectionOverlay(newState);
-        }
+        // Always refresh caret immediately. After Enter/split, DOM paint is
+        // stale — prefer layout-math so the caret moves with the new selection
+        // instead of leaving a stuck tall bar until layout settles.
+        updateSelectionOverlay(newState, { preferLayout: transaction.docChanged });
       },
       [scheduleLayout, updateSelectionOverlay, syncCoordinator, notifyDecorationLayer]
       // NOTE: onDocumentChange removed from dependencies - accessed via ref to prevent infinite loops
@@ -624,8 +645,14 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
         if (target.closest('[data-hf-r-id]')) return;
         hiddenPMRef.current?.focus();
         setIsFocused(true);
+        // Blur clears caretPosition; restore from the live PM selection so
+        // refocus does not wait on the next transaction.
+        const state = hiddenPMRef.current?.getState();
+        if (state) {
+          updateSelectionOverlay(state);
+        }
       },
-      [readOnly]
+      [readOnly, updateSelectionOverlay]
     );
 
     /**
@@ -646,6 +673,9 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
         return;
       }
       setIsFocused(false);
+      // Drop caret geometry on real blur so a stale pre-Enter position cannot
+      // remount a ghost bar if focus returns before the next overlay refresh.
+      setCaretPosition(null);
     }, []);
 
     // Image overlay interactions — resize + drag-to-move. Owns the writes
@@ -674,10 +704,19 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
         if (readOnly) return;
+        const target = e.target as HTMLElement | null;
+        const isDeletionKey = e.key === 'Backspace' || e.key === 'Delete';
+        // The hidden ProseMirror view can already own this event. Because it is
+        // rendered through a React portal, the handled key still bubbles to
+        // this container; replaying it here would insert the same text twice.
+        // Deletion needs one exception: after a synthetic Space, a Backspace
+        // can arrive at hidden PM and still be defaultPrevented without any
+        // browser `beforeinput` deletion being produced. Let the recovery path
+        // below inspect and synthesize that deletion once.
+        if (e.defaultPrevented && !isDeletionKey) return;
         // Don't steal focus from a persistent HF EditorView — body's
         // `isFocused()` check would return false while HF is focused,
         // causing the body PM to grab every keystroke after the first.
-        const target = e.target as HTMLElement | null;
         if (target?.closest('[data-hf-r-id]')) return;
         // Don't hijack keystrokes typed into the hyperlink popup's inputs —
         // refocusing the body PM here would steal focus mid-type and route
@@ -704,6 +743,62 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
             if (!handled) {
               view.dispatch(view.state.tr.insertText(' '));
             }
+          }
+          return;
+        }
+
+        // A click on the paginated surface can leave the tabIndex container
+        // focused instead of the hidden PM view. Backspace/Delete then arrive
+        // too late for the newly focused PM to process them, making list
+        // markers appear undeletable. Replay the keymap once after restoring
+        // PM focus, exactly as the Enter bridge below does.
+        if (
+          (e.key === 'Backspace' || e.key === 'Delete')
+          && !e.ctrlKey
+          && !e.metaKey
+          && !e.altKey
+          && !e.nativeEvent.isComposing
+        ) {
+          const view = hiddenPMRef.current?.getView();
+          if (!view) {
+            return;
+          }
+          e.preventDefault();
+          const docBefore = view.state.doc;
+          const handled = view.someProp('handleKeyDown', (f: Function) => f(view, e.nativeEvent));
+          // Native character deletion normally happens through a `beforeinput`
+          // event on the focused editable. The original event targeted this
+          // paginated container, so that follow-up never reaches hidden PM.
+          // Keymap commands still get first chance to unlist, join blocks, or
+          // delete a range; only synthesize an inline deletion when none did.
+          if (!handled || view.state.doc === docBefore) {
+            deleteCharacterAfterFocusRecovery(view, e.key);
+          }
+          return;
+        }
+
+        // Enter lands on this tabIndex container after toolbar/font UI steals
+        // focus from the hidden PM. Space is synthesized above; without the
+        // same bridge Enter is a no-op (caret never splits the paragraph).
+        if (
+          (e.key === 'Enter' || e.code === 'NumpadEnter')
+          && !e.ctrlKey
+          && !e.metaKey
+          && !e.altKey
+          && !e.nativeEvent.isComposing
+        ) {
+          const view = hiddenPMRef.current?.getView();
+          if (!view) {
+            return;
+          }
+          e.preventDefault();
+          const docBefore = view.state.doc;
+          // Keymap + list/suggestion Enter handlers live on handleKeyDown props.
+          const handled = view.someProp('handleKeyDown', (f: Function) => f(view, e.nativeEvent));
+          // Focus-steal path already preventDefault'd. Also recover when a
+          // handler claims Enter but leaves the doc unchanged (Enter no-op).
+          if (!handled || view.state.doc === docBefore) {
+            enterCommand(view.state, view.dispatch, view);
           }
           return;
         }

@@ -349,6 +349,13 @@ export function renderLine(
     const emptySpan = doc.createElement('span');
     emptySpan.className = `${PARAGRAPH_CLASS_NAMES.run} layout-empty-run`;
     emptySpan.textContent = '\u00a0';
+    // Empty paras have no text runs. Without pm attrs, caret lookup falls
+    // through to the whole paragraph box — often huge with spacingBefore —
+    // and paints a tall left-edge bar that looks stuck after Enter.
+    if (block.pmStart !== undefined) {
+      const contentPos = block.pmStart + 1;
+      applyPmPositions(emptySpan, contentPos, contentPos);
+    }
     lineEl.appendChild(emptySpan);
     return lineEl;
   }

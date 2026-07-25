@@ -1,1 +1,1 @@
-export{e as clickToPositionDom,f as clipRectToTableWindow,h as getCaretPositionFromDom,g as getSelectionRectsFromDom}from'../chunk-J5TRNNJW.mjs';import'../chunk-JR557W27.mjs';
+export{e as clickToPositionDom,f as clipRectToTableWindow,h as getCaretPositionFromDom,g as getSelectionRectsFromDom}from'../chunk-QTAEPN35.mjs';import'../chunk-JR557W27.mjs';

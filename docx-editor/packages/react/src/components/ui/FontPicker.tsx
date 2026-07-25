@@ -119,13 +119,16 @@ export function FontPicker({
   // Find current font name for display
   const displayValue = React.useMemo(() => {
     if (!value) return placeholder;
+    const primaryValue = getPrimaryFontFamily(value);
     const font = lookupFonts.find(
       (f) =>
         f.fontFamily === value ||
         f.name.toLowerCase() === value.toLowerCase() ||
-        getPrimaryFontFamily(f.fontFamily).toLowerCase() === value.toLowerCase()
+        getPrimaryFontFamily(f.fontFamily).toLowerCase() === value.toLowerCase() ||
+        f.name.toLowerCase() === primaryValue.toLowerCase() ||
+        getPrimaryFontFamily(f.fontFamily).toLowerCase() === primaryValue.toLowerCase()
     );
-    return font?.name || value;
+    return font?.name || primaryValue || value;
   }, [value, lookupFonts, placeholder]);
 
   const handleValueChange = React.useCallback(

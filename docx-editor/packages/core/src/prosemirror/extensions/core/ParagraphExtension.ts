@@ -18,6 +18,7 @@ import type {
   TabStopAlignment,
   TabLeader,
 } from '../../../types/document';
+import type { BorderSpec, ColorValue } from '../../../types/colors';
 import { paragraphToStyle } from '../../../utils/formatToStyle';
 import { collectHeadings } from '../../../utils/headingCollector';
 import { createNodeExtension } from '../create';
@@ -28,6 +29,10 @@ import {
   listAttrsFromResolvedStyle,
 } from '../../styles/resolvedStyleAttrs';
 import type { NumberingMap } from '../../../docx/numberingParser';
+import {
+  mergeParagraphAttrsWithOriginalFormatting,
+  originalFormattingAfterApplyStyle,
+} from '../../syncOriginalFormatting';
 import {
   DOC_X_P_BLOCK_IMAGE_CLASS,
   createParagraphImageLayoutPlugin,
@@ -111,6 +116,182 @@ function getListClass(
 
   const formatClass = numFmtToClass(listNumFmt);
   return `docx-list-numbered ${formatClass} docx-list-level-${level}`;
+}
+
+function parsePositiveInteger(value: string | undefined): number | undefined {
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return parsed > 0 ? parsed : undefined;
+}
+
+function parseListLevel(value: string | undefined): number | undefined {
+  if (!value || !/^\d+$/.test(value)) return undefined;
+  const parsed = Number.parseInt(value, 10);
+  return parsed >= 0 && parsed <= 8 ? parsed : undefined;
+}
+
+function listFormatFromClassList(classList: DOMTokenList): NumberFormat | undefined {
+  if (classList.contains('docx-list-upper-roman')) return 'upperRoman';
+  if (classList.contains('docx-list-lower-roman')) return 'lowerRoman';
+  if (classList.contains('docx-list-upper-alpha')) return 'upperLetter';
+  if (classList.contains('docx-list-lower-alpha')) return 'lowerLetter';
+  if (classList.contains('docx-list-decimal')) return 'decimal';
+  return undefined;
+}
+
+function getExternalListLevel(listElement: HTMLElement): number {
+  let level = 0;
+  let ancestor = listElement.parentElement?.closest('ul, ol') as HTMLElement | null;
+  while (ancestor) {
+    level += 1;
+    ancestor = ancestor.parentElement?.closest('ul, ol') as HTMLElement | null;
+  }
+  return level;
+}
+
+/**
+ * Lists are paragraph attrs rather than ProseMirror list nodes. Preserve the
+ * editor's list metadata on its HTML clipboard format and recognize native
+ * HTML list items from other apps.
+ */
+function extractListAttrsFromElement(element: HTMLElement): Partial<ParagraphAttrs> {
+  const classList = element.classList;
+  const listItem = element.tagName.toLowerCase() === 'li'
+    ? element
+    : (element.closest('li') as HTMLElement | null);
+  const htmlList = listItem?.parentElement?.closest('ul, ol') as HTMLElement | null;
+  const listTag = htmlList?.tagName.toLowerCase();
+  const internalBullet = classList.contains('docx-list-bullet');
+  const internalNumbered = classList.contains('docx-list-numbered');
+  const hasInternalListData = Boolean(element.dataset.listNumId) || internalBullet || internalNumbered;
+  const hasExternalList = listTag === 'ul' || listTag === 'ol';
+  if (!hasInternalListData && !hasExternalList) return {};
+
+  const isBullet = element.dataset.listIsBullet === 'true' || internalBullet || listTag === 'ul';
+  const levelClass = [...classList].find((name) => /^docx-list-level-\d+$/.test(name));
+  const levelFromClass = levelClass ? parseListLevel(levelClass.replace('docx-list-level-', '')) : undefined;
+  const level = parseListLevel(element.dataset.listLevel)
+    ?? levelFromClass
+    ?? (htmlList ? getExternalListLevel(htmlList) : 0);
+  const numId = parsePositiveInteger(element.dataset.listNumId) ?? (isBullet ? 1 : 2);
+  const listNumFmt = isBullet ? 'bullet' : (listFormatFromClassList(classList) ?? 'decimal');
+  const listMarker = element.dataset.listMarker || (isBullet ? '•' : undefined);
+
+  return {
+    numPr: { numId, ilvl: level },
+    listIsBullet: isBullet,
+    listNumFmt,
+    listMarker,
+  };
+}
+
+function parseClipboardJsonObject<T>(value: string | undefined): T | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? parsed as T
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseDefaultTextFormatting(value: string | undefined): TextFormatting | undefined {
+  return parseClipboardJsonObject<TextFormatting>(value);
+}
+
+function cssBorderStyleToOoxml(cssStyle: string): BorderSpec['style'] {
+  switch (cssStyle.toLowerCase()) {
+    case 'solid':
+      return 'single';
+    case 'double':
+      return 'double';
+    case 'dotted':
+      return 'dotted';
+    case 'dashed':
+      return 'dashed';
+    case 'groove':
+      return 'threeDEngrave';
+    case 'ridge':
+      return 'threeDEmboss';
+    case 'inset':
+      return 'inset';
+    case 'outset':
+      return 'outset';
+    default:
+      return 'single';
+  }
+}
+
+function cssBorderWidthToEighths(cssWidth: string): number {
+  const trimmed = cssWidth.trim().toLowerCase();
+  if (trimmed === 'thin') return 4;
+  if (trimmed === 'medium') return 8;
+  if (trimmed === 'thick') return 16;
+  const value = Number.parseFloat(trimmed);
+  if (Number.isNaN(value)) return 8;
+  if (trimmed.endsWith('pt')) return Math.round(value * 8);
+  return Math.round(value * 6); // CSS pixels or unitless widths
+}
+
+function parseCssBorderColor(value: string): ColorValue | undefined {
+  const hex = value.match(/#([0-9a-f]{6})/i);
+  if (hex) return { rgb: hex[1].toUpperCase() };
+  const shortHex = value.match(/#([0-9a-f]{3})$/i);
+  if (shortHex) {
+    const [red, green, blue] = shortHex[1];
+    return { rgb: `${red}${red}${green}${green}${blue}${blue}`.toUpperCase() };
+  }
+  const rgb = value.match(/rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)/i);
+  if (!rgb) return undefined;
+  return {
+    rgb: [rgb[1], rgb[2], rgb[3]]
+      .map((component) => Number.parseInt(component, 10).toString(16).padStart(2, '0'))
+      .join('')
+      .toUpperCase(),
+  };
+}
+
+function extractParagraphBordersFromStyle(style: CSSStyleDeclaration): ParagraphAttrs['borders'] | undefined {
+  const parseSide = (cssStyle: string, cssColor: string, cssWidth: string): BorderSpec | undefined => {
+    if (!cssStyle || cssStyle === 'none' || cssStyle === 'hidden') return undefined;
+    return {
+      style: cssBorderStyleToOoxml(cssStyle),
+      color: parseCssBorderColor(cssColor),
+      size: cssBorderWidthToEighths(cssWidth),
+    };
+  };
+  const top = parseSide(style.borderTopStyle, style.borderTopColor, style.borderTopWidth);
+  const bottom = parseSide(style.borderBottomStyle, style.borderBottomColor, style.borderBottomWidth);
+  const left = parseSide(style.borderLeftStyle, style.borderLeftColor, style.borderLeftWidth);
+  const right = parseSide(style.borderRightStyle, style.borderRightColor, style.borderRightWidth);
+  return top || bottom || left || right ? { top, bottom, left, right } : undefined;
+}
+
+function extractParagraphBorders(element: HTMLElement): ParagraphAttrs['borders'] | undefined {
+  return parseClipboardJsonObject<NonNullable<ParagraphAttrs['borders']>>(element.dataset.paragraphBorders)
+    ?? extractParagraphBordersFromStyle(element.style);
+}
+
+function extractEmptyParagraphTextFormatting(element: HTMLElement): TextFormatting | undefined {
+  const copiedFormatting = parseDefaultTextFormatting(element.dataset.defaultTextFormatting);
+  if (copiedFormatting) return copiedFormatting;
+  if (element.textContent?.trim()) return undefined;
+
+  const fontSize = element.style.fontSize.trim();
+  const ptMatch = fontSize.match(/^([\d.]+)pt$/);
+  const pxMatch = fontSize.match(/^([\d.]+)px$/);
+  const halfPoints = ptMatch
+    ? Math.round(Number.parseFloat(ptMatch[1]) * 2)
+    : (pxMatch ? Math.round(Number.parseFloat(pxMatch[1]) * 1.5) : undefined);
+  const fontFamily = element.style.fontFamily.trim();
+  if (halfPoints == null && !fontFamily) return undefined;
+
+  return {
+    ...(halfPoints != null ? { fontSize: halfPoints, fontSizeCs: halfPoints } : {}),
+    ...(fontFamily ? { fontFamily: { ascii: fontFamily, hAnsi: fontFamily } } : {}),
+  };
 }
 
 // ============================================================================
@@ -258,6 +439,11 @@ function extractParagraphAttrsFromStyle(element: HTMLElement): Partial<Paragraph
     if (twips != null) attrs.spaceAfter = twips;
   }
 
+  const borders = extractParagraphBordersFromStyle(style);
+  if (borders) {
+    attrs.borders = borders;
+  }
+
   return attrs;
 }
 
@@ -325,6 +511,8 @@ const paragraphNodeSpec: NodeSpec = {
       tag: 'p',
       getAttrs(dom): ParagraphAttrs {
         const element = dom as HTMLElement;
+        const listAttrs = extractListAttrsFromElement(element);
+        const borders = extractParagraphBorders(element);
 
         // Start with data-attribute values (from our own editor's copy/paste)
         const attrs: ParagraphAttrs = {
@@ -333,6 +521,9 @@ const paragraphNodeSpec: NodeSpec = {
           styleId: element.dataset.styleId || undefined,
           sectionBreakType:
             (element.dataset.sectionBreak as ParagraphAttrs['sectionBreakType']) || undefined,
+          ...listAttrs,
+          borders,
+          defaultTextFormatting: extractEmptyParagraphTextFormatting(element),
         };
 
         // Extract paragraph formatting from inline CSS styles
@@ -345,6 +536,22 @@ const paragraphNodeSpec: NodeSpec = {
           ...attrs,
           // For alignment, prefer data-attribute if present, otherwise use CSS
           alignment: attrs.alignment || styleAttrs.alignment || undefined,
+        };
+      },
+    },
+    {
+      // HTML clipboard content from browsers, Word, and Google Docs commonly
+      // represents bullets as `<ul><li>…</li></ul>`. Flatten each item into
+      // our paragraph-with-list-attrs model rather than dropping the marker.
+      tag: 'li',
+      getAttrs(dom): ParagraphAttrs {
+        const element = dom as HTMLElement;
+        const styleAttrs = extractParagraphAttrsFromStyle(element);
+        return {
+          ...styleAttrs,
+          ...extractListAttrsFromElement(element),
+          borders: extractParagraphBorders(element),
+          defaultTextFormatting: extractEmptyParagraphTextFormatting(element),
         };
       },
     },
@@ -407,6 +614,20 @@ const paragraphNodeSpec: NodeSpec = {
       domAttrs['data-list-marker'] = attrs.listMarker;
     }
 
+    if (attrs.numPr?.numId) {
+      domAttrs['data-list-num-id'] = String(attrs.numPr.numId);
+      domAttrs['data-list-level'] = String(attrs.numPr.ilvl ?? 0);
+      domAttrs['data-list-is-bullet'] = String(Boolean(attrs.listIsBullet));
+    }
+
+    if (node.content.size === 0 && attrs.defaultTextFormatting) {
+      domAttrs['data-default-text-formatting'] = JSON.stringify(attrs.defaultTextFormatting);
+    }
+
+    if (attrs.borders) {
+      domAttrs['data-paragraph-borders'] = JSON.stringify(attrs.borders);
+    }
+
     if (attrs.bidi) {
       domAttrs.dir = 'rtl';
     }
@@ -459,10 +680,11 @@ function setParagraphAttr(attr: string, value: unknown): Command {
     state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
       if (node.type.name === 'paragraph' && !seen.has(pos)) {
         seen.add(pos);
-        tr = tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          [attr]: value,
-        });
+        tr = tr.setNodeMarkup(
+          pos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(node.attrs, { [attr]: value })
+        );
       }
     });
 
@@ -483,11 +705,37 @@ function setParagraphAttrsCmd(attrs: Record<string, unknown>): Command {
     state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
       if (node.type.name === 'paragraph' && !seen.has(pos)) {
         seen.add(pos);
-        tr = tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          ...attrs,
-        });
+        tr = tr.setNodeMarkup(
+          pos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(node.attrs, attrs)
+        );
       }
+    });
+
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+function makeSetParagraphBottomBorder(border: BorderSpec): Command {
+  return (state, dispatch) => {
+    const { $from, $to } = state.selection;
+    if (!dispatch) return true;
+
+    let tr = state.tr;
+    const seen = new Set<number>();
+    state.doc.nodesBetween($from.pos, $to.pos, (node, pos) => {
+      if (node.type.name !== 'paragraph' || seen.has(pos)) return;
+      seen.add(pos);
+      const currentBorders = (node.attrs.borders as ParagraphAttrs['borders'] | null | undefined) ?? {};
+      tr = tr.setNodeMarkup(
+        pos,
+        undefined,
+        mergeParagraphAttrsWithOriginalFormatting(node.attrs, {
+          borders: { ...currentBorders, bottom: { ...border } },
+        })
+      );
     });
 
     dispatch(tr.scrollIntoView());
@@ -544,10 +792,13 @@ function makeIncreaseIndent(amount: number = 720): Command {
       if (node.type.name === 'paragraph' && !seen.has(pos)) {
         seen.add(pos);
         const currentIndent = node.attrs.indentLeft || 0;
-        tr = tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          indentLeft: currentIndent + amount,
-        });
+        tr = tr.setNodeMarkup(
+          pos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(node.attrs, {
+            indentLeft: currentIndent + amount,
+          })
+        );
       }
     });
 
@@ -570,10 +821,13 @@ function makeDecreaseIndent(amount: number = 720): Command {
         seen.add(pos);
         const currentIndent = node.attrs.indentLeft || 0;
         const newIndent = Math.max(0, currentIndent - amount);
-        tr = tr.setNodeMarkup(pos, undefined, {
-          ...node.attrs,
-          indentLeft: newIndent > 0 ? newIndent : null,
-        });
+        tr = tr.setNodeMarkup(
+          pos,
+          undefined,
+          mergeParagraphAttrsWithOriginalFormatting(node.attrs, {
+            indentLeft: newIndent > 0 ? newIndent : null,
+          })
+        );
       }
     });
 
@@ -677,6 +931,17 @@ function makeApplyStyle(schema: Schema) {
             if (listAttrs) {
               Object.assign(newAttrs, listAttrs);
             }
+            // Drop stale direct pPr/rPr from load provenance so save does not
+            // resurrect the previous style's spacing/indent/run props.
+            newAttrs._originalFormatting = originalFormattingAfterApplyStyle(
+              node.attrs._originalFormatting as ParagraphFormatting | null | undefined,
+              styleId
+            );
+          } else if (node.attrs._originalFormatting) {
+            newAttrs._originalFormatting = {
+              ...(node.attrs._originalFormatting as ParagraphFormatting),
+              styleId,
+            };
           }
 
           tr = tr.setNodeMarkup(pos, undefined, newAttrs);
@@ -772,6 +1037,14 @@ export const ParagraphExtension = createNodeExtension({
         doubleSpacing: () => makeSetLineSpacing(480),
         setSpaceBefore: (twips: number) => setParagraphAttr('spaceBefore', twips),
         setSpaceAfter: (twips: number) => setParagraphAttr('spaceAfter', twips),
+        setParagraphBottomBorder: (border?: BorderSpec) =>
+          makeSetParagraphBottomBorder(border ?? {
+            style: 'single',
+            size: 6,
+            space: 1,
+            color: { rgb: '000000' },
+          }),
+        clearParagraphBorders: () => setParagraphAttr('borders', null),
         increaseIndent: (amount?: number) => makeIncreaseIndent(amount),
         decreaseIndent: (amount?: number) => makeDecreaseIndent(amount),
         setIndentLeft: (twips: number) => setParagraphAttr('indentLeft', twips > 0 ? twips : null),

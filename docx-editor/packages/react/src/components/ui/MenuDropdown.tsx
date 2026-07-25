@@ -65,13 +65,15 @@ const triggerOpenStyle: CSSProperties = {
 const menuItemStyle: CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: 8,
-  padding: '6px 12px',
+  gap: 'var(--doc-menu-item-gap, 8px)',
+  minHeight: 'var(--doc-menu-item-min-height, 28px)',
+  padding: 'var(--doc-menu-item-padding, 6px 12px)',
   border: 'none',
   background: 'transparent',
+  borderRadius: 'var(--doc-menu-item-radius, 4px)',
   cursor: 'pointer',
-  fontSize: 13,
-  color: 'var(--doc-text)',
+  fontSize: 'var(--doc-menu-item-font-size, 13px)',
+  color: 'var(--doc-menu-item-text, var(--doc-text))',
   width: '100%',
   textAlign: 'left',
   whiteSpace: 'nowrap',
@@ -85,14 +87,14 @@ const menuItemDisabledStyle: CSSProperties = {
 
 const separatorStyle: CSSProperties = {
   height: 1,
-  backgroundColor: 'var(--doc-border)',
-  margin: '4px 0',
+  backgroundColor: 'var(--doc-menu-separator, var(--doc-border))',
+  margin: 'var(--doc-menu-separator-margin, 4px 0)',
 };
 
 const shortcutStyle: CSSProperties = {
   marginLeft: 'auto',
-  fontSize: 12,
-  color: 'var(--doc-text-muted)',
+  fontSize: 'var(--doc-menu-shortcut-font-size, 12px)',
+  color: 'var(--doc-menu-text-muted, var(--doc-text-muted))',
 };
 
 const submenuPanelStyle: CSSProperties = {
@@ -100,12 +102,12 @@ const submenuPanelStyle: CSSProperties = {
   left: '100%',
   top: -4,
   marginLeft: 2,
-  backgroundColor: 'var(--doc-surface)',
-  border: '1px solid var(--doc-border)',
-  borderRadius: 6,
-  boxShadow: '0 4px 12px var(--doc-shadow)',
-  padding: 8,
-  zIndex: 1001,
+  backgroundColor: 'var(--doc-menu-bg, var(--doc-surface))',
+  border: '1px solid var(--doc-menu-border, var(--doc-border))',
+  borderRadius: 'var(--doc-menu-radius, 6px)',
+  boxShadow: 'var(--doc-menu-shadow, 0 4px 12px var(--doc-shadow))',
+  padding: 'var(--doc-menu-padding, 4px 0)',
+  zIndex: 'var(--doc-menu-submenu-z-index, 1001)',
 };
 
 export function MenuDropdown({ label, items, disabled, showChevron = false }: MenuDropdownProps) {
@@ -192,13 +194,13 @@ export function MenuDropdown({ label, items, disabled, showChevron = false }: Me
             position: 'fixed',
             top: dropdownPos.top,
             left: dropdownPos.left,
-            backgroundColor: 'var(--doc-surface)',
-            border: '1px solid var(--doc-border)',
-            borderRadius: 6,
-            boxShadow: '0 4px 12px var(--doc-shadow)',
-            padding: '4px 0',
-            zIndex: 10000,
-            minWidth: 200,
+            backgroundColor: 'var(--doc-menu-bg, var(--doc-surface))',
+            border: '1px solid var(--doc-menu-border, var(--doc-border))',
+            borderRadius: 'var(--doc-menu-radius, 6px)',
+            boxShadow: 'var(--doc-menu-shadow, 0 4px 12px var(--doc-shadow))',
+            padding: 'var(--doc-menu-padding, 4px 0)',
+            zIndex: 'var(--doc-menu-z-index, 10000)',
+            minWidth: 'var(--doc-menu-min-width, 200px)',
           }}
           onMouseDown={(e) => e.preventDefault()}
         >
@@ -233,7 +235,7 @@ export function MenuDropdown({ label, items, disabled, showChevron = false }: Me
                   onMouseOver={(e) => {
                     if (!item.disabled) {
                       (e.currentTarget as HTMLButtonElement).style.backgroundColor =
-                        'var(--doc-bg-hover)';
+                        'var(--doc-menu-item-hover-bg, var(--doc-bg-hover))';
                     }
                   }}
                   onMouseOut={(e) => {

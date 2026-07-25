@@ -35,7 +35,6 @@ import type {
   DrawingContent,
   RunPropertyChange,
   TextFormatting,
-  ColorValue,
   UnderlineStyle,
   Theme,
   Image,

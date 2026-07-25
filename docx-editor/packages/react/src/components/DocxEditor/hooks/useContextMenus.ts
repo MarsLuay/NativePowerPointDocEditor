@@ -319,7 +319,19 @@ export function useContextMenus({
           } catch {
             try {
               const text = await navigator.clipboard.readText();
-              if (text) view.dispatch(view.state.tr.insertText(text));
+              if (text) {
+                // Route through PM paste handlers (host safe-insert) — raw
+                // insertText wipes cross-block selections and drops newlines.
+                const dt = new DataTransfer();
+                dt.setData('text/plain', text);
+                view.dom.dispatchEvent(
+                  new ClipboardEvent('paste', {
+                    clipboardData: dt,
+                    bubbles: true,
+                    cancelable: true,
+                  })
+                );
+              }
             } catch {
               // Clipboard access denied
             }
@@ -329,7 +341,17 @@ export function useContextMenus({
         case 'pasteAsPlainText':
           try {
             const text = await navigator.clipboard.readText();
-            if (text) view.dispatch(view.state.tr.insertText(text));
+            if (text) {
+              const dt = new DataTransfer();
+              dt.setData('text/plain', text);
+              view.dom.dispatchEvent(
+                new ClipboardEvent('paste', {
+                  clipboardData: dt,
+                  bubbles: true,
+                  cancelable: true,
+                })
+              );
+            }
           } catch {
             // Clipboard access denied
           }

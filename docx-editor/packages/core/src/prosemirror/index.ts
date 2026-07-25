@@ -116,6 +116,8 @@ export {
   increaseListLevel,
   decreaseListLevel,
   removeList,
+  setParagraphBottomBorder,
+  clearParagraphBorders,
   getParagraphAlignment,
   getParagraphBidi,
   isInList,
@@ -185,3 +187,4 @@ export { findStartPosForParaId } from './utils/findStartPosForParaId';
 export { findParagraphByParaId } from './utils/findParagraphByParaId';
 export { LayoutSelectionGate } from './utils/LayoutSelectionGate';
 export { ensureParaIdsInState } from './extensions/features/ParaIdAllocatorExtension';
+export { enterCommand, applyPostSplitInheritance } from './extensions/features/BaseKeymapExtension';

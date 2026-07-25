@@ -2,8 +2,8 @@
  * Subscript Mark Extension
  */
 
-import { toggleMark } from 'prosemirror-commands';
 import { createMarkExtension } from '../create';
+import { toggleMarkWithParagraphDefaults } from './markUtils';
 import type { ExtensionContext, ExtensionRuntime } from '../types';
 
 export const SubscriptExtension = createMarkExtension({
@@ -19,7 +19,7 @@ export const SubscriptExtension = createMarkExtension({
   onSchemaReady(ctx: ExtensionContext): ExtensionRuntime {
     return {
       commands: {
-        toggleSubscript: () => toggleMark(ctx.schema.marks.subscript),
+        toggleSubscript: () => toggleMarkWithParagraphDefaults(ctx.schema.marks.subscript),
       },
     };
   },

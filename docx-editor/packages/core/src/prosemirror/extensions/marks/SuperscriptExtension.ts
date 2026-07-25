@@ -2,8 +2,8 @@
  * Superscript Mark Extension
  */
 
-import { toggleMark } from 'prosemirror-commands';
 import { createMarkExtension } from '../create';
+import { toggleMarkWithParagraphDefaults } from './markUtils';
 import type { ExtensionContext, ExtensionRuntime } from '../types';
 
 export const SuperscriptExtension = createMarkExtension({
@@ -19,7 +19,7 @@ export const SuperscriptExtension = createMarkExtension({
   onSchemaReady(ctx: ExtensionContext): ExtensionRuntime {
     return {
       commands: {
-        toggleSuperscript: () => toggleMark(ctx.schema.marks.superscript),
+        toggleSuperscript: () => toggleMarkWithParagraphDefaults(ctx.schema.marks.superscript),
       },
     };
   },

@@ -48,6 +48,13 @@ const TARGETS = {
 const WARMUP_ITERATIONS = 3;
 
 /**
+ * The linearity check measures very small layouts, where a cold JIT cost can
+ * dominate the 50-block sample. Warm the same code path independently so the
+ * result does not depend on test order.
+ */
+const LINEARITY_WARMUP_ITERATIONS = 20;
+
+/**
  * Number of measurement iterations for statistical accuracy.
  */
 const MEASURE_ITERATIONS = 10;
@@ -259,6 +266,11 @@ describe('Layout Engine Performance', () => {
     });
 
     test('layout scales linearly with document size', () => {
+      const warmupDoc = generateNParagraphDocument(400);
+      for (let iteration = 0; iteration < LINEARITY_WARMUP_ITERATIONS; iteration++) {
+        layoutDocument(warmupDoc.blocks, warmupDoc.measures, DEFAULT_OPTIONS);
+      }
+
       // Measure for various document sizes
       const sizes = [50, 100, 200, 400];
       const timePerBlock: number[] = [];

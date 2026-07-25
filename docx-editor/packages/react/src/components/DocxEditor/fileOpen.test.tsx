@@ -44,7 +44,7 @@ function FileIOHarness({
     documentRef,
     pagedEditorRef,
     containerRef,
-    comments: [],
+    getComments: () => [],
     documentName: undefined,
     onSave: undefined,
     onOpen,

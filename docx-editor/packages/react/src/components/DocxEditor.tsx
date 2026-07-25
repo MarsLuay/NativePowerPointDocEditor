@@ -258,6 +258,8 @@ export interface DocxEditorProps {
   onCommentAdd?: (comment: Comment) => void;
   /** Callback when a comment is resolved via the UI */
   onCommentResolve?: (comment: Comment) => void;
+  /** Callback when a resolved comment is reopened via the UI */
+  onCommentUnresolve?: (comment: Comment) => void;
   /** Callback when a comment is deleted via the UI */
   onCommentDelete?: (comment: Comment) => void;
   /** Callback when a reply is added to a comment via the UI */
@@ -617,6 +619,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
     onModeChange,
     onCommentAdd,
     onCommentResolve,
+    onCommentUnresolve,
     onCommentDelete,
     onCommentReply,
     comments: commentsProp,
@@ -690,6 +693,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
   const {
     comments,
     setComments,
+    getComments,
     isAddingComment,
     setIsAddingComment,
     isAddingCommentRef,
@@ -904,7 +908,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
     documentRef,
     pagedEditorRef,
     containerRef,
-    comments,
+    getComments,
     documentName,
     onSave,
     onOpen,
@@ -1243,6 +1247,7 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
     loadParsedDocument,
     loadBuffer,
     comments,
+    getComments,
     setComments,
     setShowCommentsSidebar,
     contentChangeSubscribersRef,
@@ -1320,7 +1325,9 @@ export const DocxEditor = forwardRef<DocxEditorRef, DocxEditorProps>(function Do
       if (target) onCommentResolve?.({ ...target, done: true });
     },
     onCommentUnresolve: (id) => {
+      const target = comments.find((c) => c.id === id);
       setComments((prev) => prev.map((c) => (c.id === id ? { ...c, done: undefined } : c)));
+      if (target) onCommentUnresolve?.({ ...target, done: undefined });
     },
     onCommentDelete: (id) => {
       const target = comments.find((c) => c.id === id);

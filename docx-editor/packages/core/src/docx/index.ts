@@ -182,4 +182,9 @@ export type { ParagraphParserFn, TableParserFn } from './textBoxParser';
 // Reply-range marker injection — pre-serialization step that
 // synthesizes commentRange markers for reply comments. Pure data
 // transform; both adapters call it before saving.
-export { injectReplyRangeMarkers, injectTCReplyRangeMarkers } from './injectReplyRangeMarkers';
+export {
+  injectMissingTopLevelCommentRangeMarkers,
+  injectReplyRangeMarkers,
+  injectTCReplyRangeMarkers,
+  repairEmptyCommentRanges,
+} from './injectReplyRangeMarkers';

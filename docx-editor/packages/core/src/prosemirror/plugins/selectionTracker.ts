@@ -183,6 +183,13 @@ function extractTextFormatting(state: EditorState): TextFormatting {
     }
   }
   const formatting: TextFormatting = {};
+  const paragraph = $from.parent;
+  if (empty && paragraph.type.name === 'paragraph' && paragraph.content.size === 0) {
+    const defaults = paragraph.attrs.defaultTextFormatting as TextFormatting | null | undefined;
+    if (defaults) {
+      Object.assign(formatting, defaults);
+    }
+  }
 
   for (const mark of marks) {
     switch (mark.type.name) {

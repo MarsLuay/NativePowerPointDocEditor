@@ -7,34 +7,26 @@
 import {
   baseKeymap,
   splitBlock,
+  createParagraphNear,
+  liftEmptyBlock,
   deleteSelection,
   joinBackward,
   joinForward,
   selectAll,
   selectParentNode,
+  chainCommands,
 } from 'prosemirror-commands';
 import type { Mark, Node as PMNode, Schema } from 'prosemirror-model';
 import { createExtension } from '../create';
-import { textFormattingToMarks } from '../marks/markUtils';
+import { textFormattingToMarks, marksToTextFormatting } from '../marks/markUtils';
 import { Priority } from '../types';
 import type { ExtensionRuntime, ExtensionContext } from '../types';
 import type { Command, Transaction } from 'prosemirror-state';
 import type { TextFormatting } from '../../../types/document';
-import { mergeFontFamily } from '../../../utils/fontFamilyMerge';
 import type { StyleResolver } from '../../styles/styleResolver';
 import { paragraphAttrsFromResolvedStyle } from '../../styles/resolvedStyleAttrs';
 import { getDocumentStyleResolver } from '../../plugins/documentStyles';
-
-function chainCommands(...commands: Command[]): Command {
-  return (state, dispatch, view) => {
-    for (const cmd of commands) {
-      if (cmd(state, dispatch, view)) {
-        return true;
-      }
-    }
-    return false;
-  };
-}
+import { mergeParagraphAttrsWithOriginalFormatting } from '../../syncOriginalFormatting';
 
 /**
  * Backspace at the start of a paragraph clears first-line indent / hanging indent
@@ -64,12 +56,15 @@ const clearIndentOnBackspace: Command = (state, dispatch) => {
 
   if (dispatch) {
     const pos = $cursor.before();
-    const tr = state.tr.setNodeMarkup(pos, undefined, {
-      ...attrs,
-      indentFirstLine: null,
-      hangingIndent: null,
-      indentLeft: null,
-    });
+    const tr = state.tr.setNodeMarkup(
+      pos,
+      undefined,
+      mergeParagraphAttrsWithOriginalFormatting(attrs, {
+        indentFirstLine: null,
+        hangingIndent: null,
+        indentLeft: null,
+      })
+    );
     dispatch(tr.scrollIntoView());
   }
   return true;
@@ -93,8 +88,18 @@ const INHERITED_PARA_ATTRS = [
   'contextualSpacing',
 ] as const;
 
-/** Mark types that represent style-inherited formatting (font, size, color). */
-export const STYLE_MARK_NAMES = new Set(['fontFamily', 'fontSize', 'textColor']);
+/** Mark types inherited across Enter onto an empty new paragraph. */
+export const STYLE_MARK_NAMES = new Set([
+  'fontFamily',
+  'fontSize',
+  'textColor',
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'superscript',
+  'subscript',
+]);
 
 /**
  * Replace an empty new paragraph's style with `nextStyleId`, projecting that
@@ -191,42 +196,23 @@ export function applyPostSplitInheritance(
   }
   if (effectiveMarks.length === 0) return;
 
-  const dtf: TextFormatting = { ...((newAttrs.defaultTextFormatting as TextFormatting) ?? {}) };
-  let dtfChanged = false;
-  for (const m of effectiveMarks) {
-    if (m.type.name === 'fontSize') {
-      const fontSize = (m.attrs.size ?? m.attrs.sizeCs) as number;
-      if (fontSize !== dtf.fontSize) {
-        dtf.fontSize = fontSize;
-        dtfChanged = true;
-      }
-      // Carry a genuinely distinct complex-script size across the split too, so
-      // a mixed Latin/CS run isn't flattened to the Latin size on Enter (the
-      // write path defaults sizeCs to fontSize when fontSizeCs is absent).
-      // Mirrors the mark read paths; only set when sizeCs is present.
-      const sizeCs = m.attrs.sizeCs as number | null;
-      if (sizeCs != null && sizeCs !== dtf.fontSizeCs) {
-        dtf.fontSizeCs = sizeCs;
-        dtfChanged = true;
-      }
-    }
-    if (m.type.name === 'fontFamily') {
-      const ascii = m.attrs.ascii as string | undefined;
-      if (ascii && (!dtf.fontFamily || dtf.fontFamily.ascii !== ascii)) {
-        dtf.fontFamily = mergeFontFamily(dtf.fontFamily, {
-          ascii,
-          hAnsi: m.attrs.hAnsi as string | undefined,
-        }) as TextFormatting['fontFamily'];
-        dtfChanged = true;
-      }
-    }
+  const fromMarks = marksToTextFormatting(effectiveMarks);
+  const dtf: TextFormatting = {
+    ...((newAttrs.defaultTextFormatting as TextFormatting) ?? {}),
+    ...fromMarks,
+  };
+  const orig = newAttrs._originalFormatting as TextFormatting | Record<string, unknown> | null | undefined;
+  const nextAttrs: Record<string, unknown> = {
+    ...newAttrs,
+    defaultTextFormatting: dtf,
+  };
+  if (orig && typeof orig === 'object') {
+    nextAttrs._originalFormatting = {
+      ...orig,
+      runProperties: dtf,
+    };
   }
-  if (dtfChanged) {
-    tr.setNodeMarkup($from.before(), undefined, {
-      ...newAttrs,
-      defaultTextFormatting: dtf,
-    });
-  }
+  tr.setNodeMarkup($from.before(), undefined, nextAttrs);
 
   // setStoredMarks MUST come after setNodeMarkup — ReplaceStep clears stored marks.
   tr.setStoredMarks(effectiveMarks);
@@ -280,12 +266,27 @@ export const BaseKeymapExtension = createExtension({
         // Base keymap provides default editing commands
         ...baseKeymap,
         // Override some keys with better defaults
-        Enter: splitBlockClearBorders,
+        // Prefer border-clearing split; fall back to stock Enter chain pieces so
+        // NodeSelection / edge gaps are not a total Enter no-op.
+        Enter: chainCommands(splitBlockClearBorders, createParagraphNear, liftEmptyBlock),
         Backspace: chainCommands(deleteSelection, clearIndentOnBackspace, joinBackward),
         Delete: chainCommands(deleteSelection, joinForward),
         'Mod-a': selectAll,
         Escape: selectParentNode,
       },
+      commands: {
+        // Host bridges (PagedEditor) call this when focus-steal + preventDefault
+        // leaves keymap props returning falsy.
+        splitParagraph: () =>
+          chainCommands(splitBlockClearBorders, createParagraphNear, liftEmptyBlock),
+      },
     };
   },
 });
+
+/** Enter command chain used by BaseKeymap and host focus bridges. */
+export const enterCommand: Command = chainCommands(
+  splitBlockClearBorders,
+  createParagraphNear,
+  liftEmptyBlock,
+);

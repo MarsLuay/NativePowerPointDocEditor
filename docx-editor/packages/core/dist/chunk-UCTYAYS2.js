@@ -1,0 +1,1 @@
+'use strict';var chunkBVM5QJR3_js=require('./chunk-BVM5QJR3.js');var t=new chunkBVM5QJR3_js.r(chunkBVM5QJR3_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;

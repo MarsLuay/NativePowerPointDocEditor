@@ -48,6 +48,10 @@ export function useCommentManagement({
   // Synchronous mirrors used by stable callbacks. Assigned on every render so
   // the latest value is always visible from the callbacks that read `.current`.
   const cleanOrphanedCommentsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Comment IDs that have ever had a live PM mark in this editor session. */
+  const seenLiveCommentIdsRef = useRef<Set<number>>(new Set());
+  /** Suppress orphan cleanup briefly after comments are (re)hydrated from the package. */
+  const orphanCleanupArmedAtRef = useRef(0);
   const commentsRef = useRef(comments);
   commentsRef.current = comments;
   const isAddingCommentRef = useRef(isAddingComment);
@@ -68,8 +72,20 @@ export function useCommentManagement({
           ? (next as (prev: Comment[]) => Comment[])(commentsRef.current)
           : next;
       if (resolved === commentsRef.current) return;
+      const previousLength = commentsRef.current.length;
+      // Always sync the live ref before notifying hosts / kicking saves — even
+      // in controlled mode — so immediate autosave does not serialize the
+      // pre-mutation array (resolve/delete race).
+      commentsRef.current = resolved;
+      if (resolved.length === 0 || previousLength === 0) {
+        // Reset / hydrate: never keep "seen mark" IDs from a prior PM body.
+        seenLiveCommentIdsRef.current.clear();
+      }
+      if (resolved.length > 0 && previousLength === 0) {
+        // Fresh package comments — give PM a chance to stamp marks before orphan cleanup.
+        orphanCleanupArmedAtRef.current = Date.now() + 2500;
+      }
       if (!isControlledComments) {
-        commentsRef.current = resolved;
         setInternalComments(resolved);
       }
       onCommentsChangeRef.current?.(resolved);
@@ -77,11 +93,15 @@ export function useCommentManagement({
     [isControlledComments]
   );
 
+  const getComments = useCallback(() => commentsRef.current, []);
+
+
   // Remove comments whose marks no longer exist in the document. Called
   // debounced from the document-change handler so the user doesn't see
   // comments vanish mid-edit.
   const cleanOrphanedComments = useCallback(() => {
     if (isAddingCommentRef.current) return;
+    if (Date.now() < orphanCleanupArmedAtRef.current) return;
     const view = pagedEditorRef.current?.getView();
     if (!view) return;
     const { doc, schema } = view.state;
@@ -98,10 +118,22 @@ export function useCommentManagement({
       }
     });
 
+    for (const id of liveIds) {
+      seenLiveCommentIdsRef.current.add(id);
+    }
+
     const currentComments = commentsRef.current;
     const orphanedIds = new Set<number>();
+    // Only remove top-level comments that previously had a PM mark and then
+    // lost it (user deleted the anchored range). Comments loaded from
+    // comments.xml without document.xml markers must NOT be wiped on the
+    // first edit after reload — that path discarded whole threads.
     for (const c of currentComments) {
-      if (c.parentId == null && !liveIds.has(c.id)) {
+      if (
+        c.parentId == null &&
+        !liveIds.has(c.id) &&
+        seenLiveCommentIdsRef.current.has(c.id)
+      ) {
         orphanedIds.add(c.id);
       }
     }
@@ -127,6 +159,7 @@ export function useCommentManagement({
   return {
     comments,
     setComments,
+    getComments,
     isAddingComment,
     setIsAddingComment,
     isAddingCommentRef,

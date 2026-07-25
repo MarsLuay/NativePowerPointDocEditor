@@ -85,6 +85,7 @@ var en_default = {
       script: "Script",
       alignment: "Alignment",
       listFormatting: "List formatting",
+      paragraph: "Paragraph",
       image: "Image",
       table: "Table"
     },
@@ -110,6 +111,8 @@ var en_default = {
     imageProperties: "Image properties",
     imagePropertiesShortcut: "Image properties (alt text, border)...",
     clearFormatting: "Clear formatting",
+    addParagraphBottomBorder: "Add bottom paragraph border",
+    clearParagraphBorders: "Remove paragraph borders",
     commentsAndChanges: "Comments & Changes",
     moreItems: "{count, plural, one {# more item} other {# more items}}"
   },

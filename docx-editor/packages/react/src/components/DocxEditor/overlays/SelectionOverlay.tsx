@@ -73,7 +73,8 @@ const caretStyles = (
   left: caret.x,
   top: caret.y,
   width: width,
-  height: caret.height,
+  // Guard against mis-resolved empty-para geometry (page-tall black bar).
+  height: Math.min(Math.max(caret.height || 16, 1), 72),
   backgroundColor: color,
   opacity: visible ? 1 : 0,
   transition: 'opacity 0.05s ease-out',
@@ -211,8 +212,10 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
           />
         ))}
 
-      {/* Render caret for collapsed selection */}
-      {hasCollapsedSelection && caretPosition && (
+      {/* Collapsed caret only while focused. Unfocused used to keep the node
+          mounted at opacity:0, which left a thin ghost bar at the last caret
+          after Enter → click-away (stale coords + compositor remnant). */}
+      {hasCollapsedSelection && isFocused && caretPosition && (
         <Caret
           position={caretPosition}
           color={caretColor}

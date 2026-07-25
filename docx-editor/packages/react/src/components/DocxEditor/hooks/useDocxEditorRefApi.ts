@@ -58,6 +58,7 @@ export function useDocxEditorRefApi({
   loadParsedDocument,
   loadBuffer,
   comments,
+  getComments,
   setComments,
   setShowCommentsSidebar,
   contentChangeSubscribersRef,
@@ -77,6 +78,7 @@ export function useDocxEditorRefApi({
   loadParsedDocument: (doc: Document) => void;
   loadBuffer: (buffer: DocxInput) => Promise<void>;
   comments: Comment[];
+  getComments: () => Comment[];
   setComments: React.Dispatch<React.SetStateAction<Comment[]>>;
   setShowCommentsSidebar: React.Dispatch<React.SetStateAction<boolean>>;
   contentChangeSubscribersRef: React.RefObject<Set<(doc: Document) => void>>;
@@ -189,7 +191,7 @@ export function useDocxEditorRefApi({
 
       getSelectionInfo: () => getSelectionInfoCore(pagedEditorRef.current?.getView() ?? null),
 
-      getComments: () => comments,
+      getComments: () => getComments(),
 
       getContentControls: (filter?: ContentControlFilter): PMContentControl[] => {
         const view = pagedEditorRef.current?.getView();
@@ -279,6 +281,7 @@ export function useDocxEditorRefApi({
       loadParsedDocument,
       loadBuffer,
       comments,
+      getComments,
     ]
   );
 }

@@ -15,6 +15,8 @@ import {
   setFontFamily,
   setAlignment,
   setLineSpacing,
+  setParagraphBottomBorder,
+  clearParagraphBorders,
   toggleBulletList,
   toggleNumberedList,
   increaseIndent,
@@ -119,6 +121,12 @@ export function useFormattingActions({
         return;
       }
       if (action === 'clearFormatting') return void clearFormatting(view.state, view.dispatch);
+      if (action === 'addParagraphBottomBorder') {
+        return void setParagraphBottomBorder()(view.state, view.dispatch);
+      }
+      if (action === 'clearParagraphBorders') {
+        return void clearParagraphBorders(view.state, view.dispatch);
+      }
       if (action === 'setRtl') return void setRtl(view.state, view.dispatch);
       if (action === 'setLtr') return void setLtr(view.state, view.dispatch);
       if (action === 'insertLink') {

@@ -319,6 +319,31 @@ function insertCommentRanges(content: ParagraphContent[], paragraph: PMNode): Pa
 
   if (firstIndex.size === 0) return content;
 
+  // Zero-width / empty-run marks (common when selection collapses after text)
+  // produce start/end with no enclosed text → reload loses PM marks. Expand
+  // those spans to cover the paragraph's text-bearing children before emit.
+  for (const cid of [...firstIndex.keys()]) {
+    let markedHasText = false;
+    let textFirst = -1;
+    let textLast = -1;
+    let idx = 0;
+    paragraph.forEach((node) => {
+      const isText = node.isText && (node.text?.length ?? 0) > 0;
+      if (isText) {
+        if (textFirst < 0) textFirst = idx;
+        textLast = idx;
+      }
+      const first = firstIndex.get(cid)!;
+      const last = lastIndex.get(cid)!;
+      if (idx >= first && idx <= last && isText) markedHasText = true;
+      idx++;
+    });
+    if (!markedHasText && textFirst >= 0) {
+      firstIndex.set(cid, textFirst);
+      lastIndex.set(cid, textLast);
+    }
+  }
+
   // Invert into per-child-index start/end lists. When several ranges share a
   // boundary we order them so that nested ranges stay well-formed: at a shared
   // start, the longer-spanning range opens first (outermost); at a shared end,
@@ -513,11 +538,17 @@ function paragraphAttrsToFormatting(attrs: ParagraphAttrs): ParagraphFormatting 
       result.bidi = attrs.bidi || undefined;
     }
 
+    // Empty-para font/size edits sync into _originalFormatting.runProperties via
+    // saveStoredMarksToParagraph. Do not copy attrs.defaultTextFormatting here —
+    // on load it includes style-resolved fonts for caret painting and would
+    // over-inline style rPr into every empty paragraph on save.
+
     return result;
   }
 
   // Fallback: reconstruct formatting from individual attrs (e.g. for
   // newly created paragraphs that don't have _originalFormatting)
+  const runProperties = attrs.defaultTextFormatting || undefined;
   const hasFormatting =
     attrs.alignment ||
     attrs.spaceBefore ||
@@ -534,7 +565,8 @@ function paragraphAttrsToFormatting(attrs: ParagraphAttrs): ParagraphFormatting 
     attrs.outlineLevel != null ||
     attrs.contextualSpacing ||
     attrs.pageBreakBefore ||
-    attrs.bidi;
+    attrs.bidi ||
+    runProperties;
 
   if (!hasFormatting) {
     return undefined;
@@ -559,6 +591,7 @@ function paragraphAttrsToFormatting(attrs: ParagraphAttrs): ParagraphFormatting 
     contextualSpacing: attrs.contextualSpacing || undefined,
     pageBreakBefore: attrs.pageBreakBefore || undefined,
     bidi: attrs.bidi || undefined,
+    runProperties,
   };
 }
 

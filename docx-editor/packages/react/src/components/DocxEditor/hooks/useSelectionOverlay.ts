@@ -48,6 +48,14 @@ export interface UseSelectionOverlayOptions {
   onSelectionChangeRef: React.MutableRefObject<((from: number, to: number) => void) | undefined>;
 }
 
+export interface UpdateSelectionOverlayOptions {
+  /**
+   * After doc changes (Enter/split) the painted DOM is stale — prefer layout
+   * math so the caret jumps with the new selection immediately.
+   */
+  preferLayout?: boolean;
+}
+
 export interface UseSelectionOverlayReturn {
   selectionRects: SelectionRect[];
   caretPosition: CaretPosition | null;
@@ -56,7 +64,7 @@ export interface UseSelectionOverlayReturn {
   setCaretPosition: React.Dispatch<React.SetStateAction<CaretPosition | null>>;
   setSelectedImageInfo: React.Dispatch<React.SetStateAction<ImageSelectionInfo | null>>;
   buildImageSelectionInfo: (el: HTMLElement, pmPos: number) => ImageSelectionInfo;
-  updateSelectionOverlay: (state: EditorState) => void;
+  updateSelectionOverlay: (state: EditorState, options?: UpdateSelectionOverlayOptions) => void;
   handleSelectionChange: (state: EditorState) => void;
 }
 
@@ -99,8 +107,9 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
   );
 
   const updateSelectionOverlay = useCallback(
-    (state: EditorState) => {
+    (state: EditorState, options?: UpdateSelectionOverlayOptions) => {
       const { from, to } = state.selection;
+      const preferLayout = options?.preferLayout === true;
 
       // Notify consumers only on real PM state changes (see regression #268).
       if (lastNotifiedStateRef.current !== state) {
@@ -120,32 +129,34 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
 
       if (from === to) {
         // Collapsed selection — show caret.
-        const domCaret = pagesEl ? getCaretFromDom(pagesEl, from, zoom) : null;
-        if (domCaret) {
-          setCaretPosition(domCaret);
-        } else {
-          // Fallback to layout-based math when the DOM isn't painted yet.
-          const overlay = pagesContainerRef.current?.parentElement?.querySelector(
-            '[data-testid="selection-overlay"]'
-          );
-          const firstPage = pagesContainerRef.current?.querySelector('.layout-page');
-          if (overlay && firstPage) {
-            const overlayRect = overlay.getBoundingClientRect();
-            const pageRect = firstPage.getBoundingClientRect();
-            const caret = getCaretPosition(layout, blocks, measures, from);
-            if (caret) {
-              setCaretPosition({
-                ...caret,
-                x: caret.x + (pageRect.left - overlayRect.left) / zoom,
-                y: caret.y + (pageRect.top - overlayRect.top) / zoom,
-              });
-            } else {
-              setCaretPosition(null);
-            }
-          } else {
-            setCaretPosition(null);
-          }
-        }
+        const overlay = pagesContainerRef.current?.parentElement?.querySelector(
+          '[data-testid="selection-overlay"]'
+        );
+        const firstPage = pagesContainerRef.current?.querySelector('.layout-page');
+        const layoutCaret = (() => {
+          if (!overlay || !firstPage) return null;
+          const overlayRect = overlay.getBoundingClientRect();
+          const pageRect = firstPage.getBoundingClientRect();
+          const caret = getCaretPosition(layout, blocks, measures, from);
+          if (!caret) return null;
+          return {
+            ...caret,
+            x: caret.x + (pageRect.left - overlayRect.left) / zoom,
+            y: caret.y + (pageRect.top - overlayRect.top) / zoom,
+            height: Math.min(Math.max(caret.height || 16, 1), 72),
+          };
+        })();
+
+        const domCaret = !preferLayout && pagesEl ? getCaretFromDom(pagesEl, from, zoom) : null;
+        const nextCaret = preferLayout
+          ? (layoutCaret ?? (pagesEl ? getCaretFromDom(pagesEl, from, zoom) : null))
+          : (domCaret ?? layoutCaret);
+
+        setCaretPosition(
+          nextCaret
+            ? { ...nextCaret, height: Math.min(Math.max(nextCaret.height || 16, 1), 72) }
+            : null
+        );
         setSelectionRects([]);
       } else {
         // Range selection — DOM-walk preferred; fall back to layout math.
@@ -264,6 +275,20 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
       updateSelectionOverlay(state);
     }
   }, [layout, updateSelectionOverlay, hiddenPMRef]);
+
+  // Doc-changing transactions (Enter/split) skip the immediate overlay update
+  // and call syncCoordinator.requestRender() instead. DecorationLayer already
+  // listens here; without the same subscription the caret can stay at the
+  // pre-Enter coordinates until the next selection-only transaction.
+  useEffect(() => {
+    return syncCoordinator.onRender(() => {
+      if (!syncCoordinator.isSafeToRender()) return;
+      const state = hiddenPMRef.current?.getState();
+      if (state) {
+        updateSelectionOverlay(state);
+      }
+    });
+  }, [syncCoordinator, updateSelectionOverlay, hiddenPMRef]);
 
   return {
     selectionRects,

@@ -3,6 +3,7 @@ import type { Comment } from '@npde/docx-editor-core/types/content';
 import type { Document } from '@npde/docx-editor-core/types/document';
 import {
   exportDocxBuffer,
+  injectMissingTopLevelCommentRangeMarkers,
   injectReplyRangeMarkers,
   injectTCReplyRangeMarkers,
   type SelectiveSaveOptions,
@@ -18,6 +19,7 @@ import { insertImageFromFile } from '@npde/docx-editor-core/prosemirror/commands
 import { renderAllPagesNow } from '@npde/docx-editor-core/layout-painter';
 import type { EditorView } from 'prosemirror-view';
 import type { PagedEditorRef } from '../PagedEditor';
+import { isCurrentLiveEditorView } from './fileIOSaveGuards';
 
 function toFileIOError(error: unknown, fallbackMessage: string): Error {
   return error instanceof Error ? error : new Error(fallbackMessage);
@@ -36,7 +38,7 @@ export function useFileIO({
   documentRef,
   pagedEditorRef,
   containerRef,
-  comments,
+  getComments,
   documentName,
   onSave,
   onOpen,
@@ -50,7 +52,8 @@ export function useFileIO({
   documentRef: React.RefObject<Document | null>;
   pagedEditorRef: React.RefObject<PagedEditorRef | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
-  comments: Comment[];
+  /** Live comments snapshot — must read post-mutation state for immediate saves. */
+  getComments: () => Comment[];
   documentName: string | undefined;
   onSave: ((buffer: ArrayBuffer) => void) | undefined;
   onOpen: ((file: File) => void | Promise<void>) | undefined;
@@ -79,14 +82,18 @@ export function useFileIO({
           doc.package.document.content = pmDoc.package.document.content;
         }
 
-        // Sync React comments state (including new replies) back to the document model
-        doc.package.document.comments = comments;
+        // Live comments (resolve/delete/add must be visible in this same tick).
+        const latestComments = getComments();
+        doc.package.document.comments = latestComments;
 
+        // Re-anchor top-level comments missing body markers (reload / stripped ranges).
+        // Also repairs empty ranges that enclose no text (silent reload loss).
+        injectMissingTopLevelCommentRangeMarkers(doc.package.document.content, latestComments);
         // Inject commentRangeStart/End for reply comments that share the parent's range.
         // Pages/Word require every comment (including replies) to have range markers in document.xml.
-        injectReplyRangeMarkers(doc.package.document.content, comments);
+        injectReplyRangeMarkers(doc.package.document.content, latestComments);
         // Also inject range markers for comments that reply to tracked changes.
-        injectTCReplyRangeMarkers(doc.package.document.content, comments);
+        injectTCReplyRangeMarkers(doc.package.document.content, latestComments);
 
         // Build selective save options from change tracker state
         const useSelective = options?.selective !== false;
@@ -95,22 +102,21 @@ export function useFileIO({
 
         if (useSelective && view) {
           const editorState = view.state;
-          // Force full repack if any reply comments exist (both comment replies and
-          // tracked-change replies need range markers injected into document.xml,
-          // which selective save can't handle since the affected paragraphs may not
-          // be in changedParaIds)
-          const hasInjectedReplies = comments.some((c) => c.parentId != null);
+          // Force full repack when any comment needs injected markers (top-level
+          // re-anchor or replies) — selective save may miss document.xml anchors.
+          const needsCommentMarkerInjection = latestComments.length > 0;
           selective = {
             changedParaIds: getChangedParagraphIds(editorState),
-            structuralChange: hasStructuralChanges(editorState) || hasInjectedReplies,
+            structuralChange: hasStructuralChanges(editorState) || needsCommentMarkerInjection,
             hasUntrackedChanges: hasUntrackedChanges(editorState),
           };
         }
 
         const buffer = await exportDocxBuffer(doc, selective ? { selective } : undefined);
 
-        // Clear change tracker after successful save
-        if (view) {
+        // A save can yield while the paged editor reloads. Do not dispatch into a
+        // stale ProseMirror view after that lifecycle boundary.
+        if (isCurrentLiveEditorView(view, pagedEditorRef.current?.getView())) {
           view.dispatch(clearTrackedChanges(view.state));
         }
 
@@ -121,7 +127,7 @@ export function useFileIO({
         return null;
       }
     },
-    [documentRef, pagedEditorRef, comments, onSave, onError]
+    [documentRef, pagedEditorRef, getComments, onSave, onError]
   );
 
   const handleDirectPrint = useCallback(() => {
