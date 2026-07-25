@@ -9,20 +9,23 @@ This monorepo exists only on the `docx-editor-source` branch.
 | Upstream | gone private; cloned from community archives |
 | License | Apache-2.0 |
 
-Build and test source here:
+Build and test source here before refreshing a runtime snapshot:
 
 ```bash
-npm run build:docx-editor   # from plugin root; needs bun
-npm run build               # or npm run dev
+cd docx-editor
+bun install                 # when dependencies are not installed
+bun run build
+bun run typecheck
+bun test
 ```
 
 ## Release handoff
 
 Do not merge or copy `docx-editor/` into `nightly-releases` or `main`.
 
-After source changes are built and tested, a release branch runs `npm run vendor:docx` with this worktree as `DOCX_EDITOR_SOURCE_DIR`. That command copies only the allowlisted runtime output into `vendor/docx-editor-runtime/`, writes provenance, and rejects TypeScript, declarations, workspace metadata, and package build tooling.
+After source changes are built, type-checked, and tested, commit and push this branch. Only then may a release branch run `DOCX_EDITOR_SOURCE_DIR=/path/to/NPDE-docx-editor-source/docx-editor npm run vendor:docx`. That command copies only the allowlisted runtime output into `vendor/docx-editor-runtime/`, writes provenance, and rejects TypeScript, declarations, workspace metadata, and package build tooling.
 
-Obsidian release artifacts remain `main.js` / `manifest.json` / `styles.css`. Release branches contain the vendor snapshot, not this source tree.
+Obsidian release artifacts remain `main.js` / `manifest.json` / `styles.css`. Release branches contain the vendor snapshot, not this source tree. Before tagging a release branch, run `npm run verify:review` and validate a freshly cloned catalog export; source-only tests must stay on this branch and must never require `docx-editor/` in the export.
 
 ### Branch roles
 

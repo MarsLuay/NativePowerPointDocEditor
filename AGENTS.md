@@ -19,11 +19,12 @@
 
 ### DOCX source / release boundary
 
-- This `docx-editor-source` branch exclusively owns editable `docx-editor/` source and package builds. Build and test it here with Bun before publishing a snapshot.
+- This `docx-editor-source` branch exclusively owns editable `docx-editor/` source and package builds. Before publishing a snapshot, run `bun run build`, `bun run typecheck`, and `bun test` from `docx-editor/`, then commit and push this branch.
 - Release branches (`nightly-releases`, then `main`) must not contain `docx-editor/`. Refresh their `vendor/docx-editor-runtime/` snapshot from this branch with `npm run vendor:docx`, then build the plugin against that vendor runtime.
 - Never merge, fast-forward, or copy this branch's `docx-editor/` tree onto a release branch. A source-tree copy is a review-surface regression even when it contains only package `dist/`.
 - The vendor snapshot is limited to generated runtime JS/CSS, sanitized package manifests, licenses, and `provenance.json`. It must not contain TypeScript, declaration files, workspace metadata, build scripts, agents, examples, or package sources.
 - Do **not** add `@npde/*` to root `package.json`. Plugin imports cross the vendor boundary only through `src/docx/runtime/bridge.mjs`; vendored CSS only through `src/docx/runtime/styles.ts`.
+- Before tagging a release branch, validate a fresh catalog export with `npm ci && npm run verify:review`. Plugin tests that inspect editable DOCX source belong only on this branch; release tests must inspect `vendor/docx-editor-runtime/` or skip source-only coverage when the source tree is absent.
 
 ### PPTX action logging
 
