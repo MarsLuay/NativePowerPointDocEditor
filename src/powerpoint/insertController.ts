@@ -36,6 +36,7 @@ export interface InsertHost {
   renderCurrentSlide(keepSelection?: boolean): Promise<boolean>;
   renderEditedShape(shapeIndex: number): Promise<boolean>;
   renderThumbnails(): Promise<void>;
+  syncCurrentThumbnailShape(shapeIndex: number): boolean;
   selectShape(shapeIndex: number): void;
   selectShapeForTextEditing(shapeIndex: number): void;
   startTextEditor(): void;
@@ -465,12 +466,16 @@ export class InsertController {
       });
       this.host.recordHistoryEntry(history);
       const rendered = await this.host.renderEditedShape(shapeIndex);
-      if (rendered) await this.host.renderThumbnails();
+      // A list style changes one shape. Rebuilding the poster filmstrip renders
+      // the entire slide synchronously; clone the canonical edited group instead.
+      const thumbnailSynced = rendered && this.host.syncCurrentThumbnailShape(shapeIndex);
       debugLog('insert', 'Applied PowerPoint list style', {
         slide: this.host.currentSlide,
         shapeIndex,
         paragraphIndex,
-        style
+        style,
+        rendered,
+        thumbnailSynced,
       });
     } catch (error) {
       errorLog('insert', 'PowerPoint list-style update failed', {

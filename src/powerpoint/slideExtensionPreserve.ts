@@ -160,7 +160,6 @@ export interface ShapeIdentity {
   name: string;
   extensionList: Element | null;
   fingerprint: string;
-  shapeKind: string;
 }
 
 // When the renderer re-serializes a slide whose shapes were mutated, it strips each
@@ -182,7 +181,7 @@ function restoreShapeNonVisualIdentity(previousDocument: XMLDocument, exportedDo
   if (previousShapes.length === exportedShapes.length) {
     exportedShapes.forEach((exported, index) => {
       const previous = previousShapes[index];
-      if (previous && previous.shapeKind === exported.shapeKind) {
+      if (previous) {
         pairs.push([previous, exported]);
       }
     });
@@ -191,7 +190,7 @@ function restoreShapeNonVisualIdentity(previousDocument: XMLDocument, exportedDo
     for (const exported of exportedShapes) {
       const matchIndex = remaining.findIndex(
         (candidate) =>
-          candidate.shapeKind === exported.shapeKind && candidate.fingerprint === exported.fingerprint
+          candidate.fingerprint === exported.fingerprint
       );
       const previous = matchIndex >= 0 ? remaining[matchIndex] : undefined;
       if (previous) {
@@ -232,7 +231,6 @@ function collectShapeIdentities(xmlDocument: XMLDocument): ShapeIdentity[] {
       name: cNvPr.getAttribute('name') ?? '',
       extensionList: getDirectChild(cNvPr, 'extLst'),
       fingerprint: getShapeFingerprint(shape),
-      shapeKind: shape?.localName ?? ''
     };
   });
 }
@@ -249,7 +247,7 @@ function getShapeFingerprint(shape: Element | undefined): string {
     extent?.getAttribute('cy') ?? ''
   ].join(',');
   const text = (shape.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 64);
-  return `${shape.localName}|${geometry}|${text}`;
+  return `${geometry}|${text}`;
 }
 
 function isAnonymizedShapeId(id: string): boolean {
@@ -322,7 +320,7 @@ function pairShapeRoots(previousDocument: XMLDocument, exportedDocument: XMLDocu
       if (!previous) return;
       const previousRoot = getShapeRoot(previous);
       const exportedRoot = getShapeRoot(exported);
-      if (previous && previousRoot && exportedRoot && previous.shapeKind === exported.shapeKind) {
+      if (previous && previousRoot && exportedRoot) {
         pairs.push([previousRoot, exportedRoot]);
       }
     });
@@ -335,7 +333,7 @@ function pairShapeRoots(previousDocument: XMLDocument, exportedDocument: XMLDocu
     if (!exportedRoot) continue;
     const matchIndex = remaining.findIndex(
       (candidate) =>
-        candidate.shapeKind === exported.shapeKind && candidate.fingerprint === exported.fingerprint
+        candidate.fingerprint === exported.fingerprint
     );
     const previous = matchIndex >= 0 ? remaining[matchIndex] : undefined;
     const previousRoot = previous ? getShapeRoot(previous) : undefined;

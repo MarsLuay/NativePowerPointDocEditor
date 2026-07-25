@@ -1,1 +1,2 @@
 tests/fixtures/decks/* binary
+vendor/docx-editor-runtime/** -text

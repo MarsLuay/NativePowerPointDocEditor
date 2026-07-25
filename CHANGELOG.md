@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-07-25
+
+### Changed
+
+- Updated compatible editor, build, and type dependencies while retaining the validated Obsidian API package version.
+- Added deterministic, sanitized Lorem Ipsum DOCX and PowerPoint fixtures for release documentation and editor verification.
+
 ## [1.1.7] - 2026-07-25
 
 ### Fixed

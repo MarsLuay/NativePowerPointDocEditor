@@ -91,12 +91,12 @@ function buildShapeFillXml(fill: { red: number; green: number; blue: number } | 
   return `<a:solidFill><a:srgbClr val="${rgbToSrgbHex(fill.red, fill.green, fill.blue)}"/></a:solidFill>`;
 }
 
-// Matches the deliberately small inset used by the poster's authored text
-// boxes: 0.03in horizontally and 0.01in vertically. Explicit values avoid
-// renderer-dependent defaults that place text flush against a text-box edge.
+// Match PowerPoint's normal text-box margins: 0.10in horizontally and 0.05in
+// vertically. Explicit values avoid renderer-dependent defaults that can place
+// text flush against a text-box edge.
 export const TEXT_BOX_INSET_EMU = {
-  horizontal: 27432,
-  vertical: 9144,
+  horizontal: 91440,
+  vertical: 45720,
 } as const;
 
 function buildAutoShapeXml(

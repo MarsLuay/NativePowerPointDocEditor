@@ -112,6 +112,26 @@ test("new-slide layouts (blank/title/titleBody) each add a slide", async () => {
   }
 });
 
+test("template layouts are discovered and a new slide keeps the selected POTX layout relationship", async () => {
+  const { extractZip } = await import("pptx-svg");
+  const engine = await loadEngine("features.potx");
+  const layouts = engine.getSlideLayouts();
+
+  assert.equal(layouts.length, 1);
+  assert.equal(layouts[0]?.name, "Blank");
+  assert.equal(layouts[0]?.layoutPath, "ppt/slideLayouts/slideLayout1.xml");
+
+  const result = await engine.addSlideFromTemplateLayout(0, layouts[0].id);
+  assert.equal(result.slideCount, 2);
+  assert.match(engine.renderSlide(result.slideIndex).svg, /^<svg\b/);
+
+  const exported = await extractZip(await engine.export());
+  const relationships = exported.textFiles.get(
+    `ppt/slides/_rels/slide${result.slideIndex + 1}.xml.rels`,
+  );
+  assert.match(relationships ?? "", /Target="\.\.\/slideLayouts\/slideLayout1\.xml"/);
+});
+
 test("reorder changes slide order and export round-trips to a loadable deck", async () => {
   // The large deck ships with content-distinguishable slides ("Large deck
   // slide N"), so a reorder is observable in the exported XML. Newly added or

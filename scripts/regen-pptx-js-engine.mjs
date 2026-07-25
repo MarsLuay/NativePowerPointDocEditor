@@ -109,7 +109,10 @@ try {
 
   // 7. Verify the regenerated engine renders.
   log('Verifying with smoke:pptx-js ...');
-  run('npm', ['run', 'smoke:pptx-js'], { cwd: projectRoot, env: childEnv });
+  run(process.execPath, [path.join(projectRoot, 'scripts', 'smoke-pptx-js-engine.mjs')], {
+    cwd: projectRoot,
+    env: childEnv,
+  });
 
   log(`Done. Regenerated from pptx-svg ${ref}.`);
 } finally {
@@ -117,7 +120,9 @@ try {
 }
 
 function resolveMoon() {
-  const candidates = ['moon', path.join(homedir(), '.moon/bin/moon')];
+  const moonExecutable = process.platform === 'win32' ? 'moon.exe' : 'moon';
+  const installedMoon = path.join(homedir(), '.moon/bin', moonExecutable);
+  const candidates = ['moon', installedMoon];
   for (const candidate of candidates) {
     if (tryRun(candidate, ['version'])) {
       log(`Using MoonBit at: ${candidate}`);
@@ -127,8 +132,17 @@ function resolveMoon() {
 
   if (process.env.INSTALL_MOONBIT === '1') {
     log('MoonBit not found; installing (INSTALL_MOONBIT=1) ...');
-    run('bash', ['-c', 'curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash']);
-    const installed = path.join(homedir(), '.moon/bin/moon');
+    if (process.platform === 'win32') {
+      run('powershell.exe', [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-Command',
+        'Invoke-RestMethod https://cli.moonbitlang.com/install/powershell.ps1 | Invoke-Expression',
+      ]);
+    } else {
+      run('bash', ['-c', 'curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash']);
+    }
+    const installed = installedMoon;
     if (tryRun(installed, ['version'])) return installed;
     fail('MoonBit install completed but `moon` still not runnable.');
   }

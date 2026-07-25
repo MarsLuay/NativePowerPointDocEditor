@@ -87,8 +87,8 @@ test("insert text box honors a requested slide-space origin and clamps it to the
   assert.match(textBox, new RegExp(`<a:off\\b[^>]*\\bx="0"[^>]*\\by="${maxY}"`));
 	assert.match(
 		textBox,
-		/<a:bodyPr\b[^>]*\blIns="27432"[^>]*\btIns="9144"[^>]*\brIns="27432"[^>]*\bbIns="9144"/,
-		"inserted text boxes need a small interior buffer around their text",
+		/<a:bodyPr\b[^>]*\blIns="91440"[^>]*\btIns="45720"[^>]*\brIns="91440"[^>]*\bbIns="45720"/,
+		"inserted text boxes need PowerPoint's normal interior buffer around their text",
 	);
   await assertExportRoundTrips("positioned text box", engine);
 });

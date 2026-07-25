@@ -129,6 +129,10 @@ import {
   preserveSlideExtensionLists,
 } from './powerpoint/slideExtensionPreserve';
 import {
+  listSlideLayouts,
+  type SlideLayoutDefinition,
+} from './powerpoint/slideLayouts';
+import {
   addProtectedSlideMarkerAllowances,
   collectUnknownElementNames,
   countElementName,
@@ -153,6 +157,57 @@ const SLIDE_MASTER_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const OOXML_PCT_MAX = 100000;
+const RESETTABLE_IMAGE_EFFECTS = new Set([
+  'alphaBiLevel',
+  'alphaCeiling',
+  'alphaFloor',
+  'alphaInv',
+  'alphaMod',
+  'alphaModFix',
+  'alphaRepl',
+  'biLevel',
+  'blend',
+  'blur',
+  'clrChange',
+  'clrRepl',
+  'duotone',
+  'fillOverlay',
+  'grayscl',
+  'hsl',
+  'lum',
+  'tint',
+]);
+
+function getImageResetDetails(shape: Element): {
+  state: ImageResetState;
+  srcRects: Element[];
+  effects: Element[];
+} | null {
+  if (shape.localName !== 'pic') return null;
+
+  const blipFill = getDescendants(shape, 'blipFill')[0];
+  if (!blipFill) return null;
+
+  const srcRects = getElementChildren(blipFill).filter((element) =>
+    element.localName === 'srcRect' && element.namespaceURI === DRAWINGML_NAMESPACE
+  );
+  const blip = getElementChildren(blipFill).find((element) =>
+    element.localName === 'blip' && element.namespaceURI === DRAWINGML_NAMESPACE
+  );
+  const effects = blip
+    ? getElementChildren(blip).filter((element) =>
+      element.namespaceURI === DRAWINGML_NAMESPACE && RESETTABLE_IMAGE_EFFECTS.has(element.localName)
+    )
+    : [];
+  return {
+    state: {
+      hasCrop: srcRects.length > 0,
+      effectNames: effects.map((effect) => effect.localName),
+    },
+    srcRects,
+    effects,
+  };
+}
 
 /** Result metadata for a native DrawingML paragraph split. */
 export interface ParagraphSplitResult {
@@ -375,6 +430,18 @@ export interface ImageCrop {
   bottom: number;
 }
 
+/** The resettable visual state currently authored on a picture. */
+export interface ImageResetState {
+  hasCrop: boolean;
+  effectNames: readonly string[];
+}
+
+/** The visual image state that was actually reset by one operation. */
+export interface ImageResetResult extends ImageResetState {
+  changed: boolean;
+  cropRemoved: boolean;
+}
+
 /** Raw image bytes resolved from an embedded picture, with its MIME type. */
 export interface ShapeImageData {
   bytes: Uint8Array;
@@ -463,6 +530,7 @@ export class PresentationEngine {
   private chartAxisFormats = new Map<string, ChartAxisFormat[]>();
   private chartDataDescriptors = new Map<string, ChartDataDescriptor>();
   private slideBackgroundImages = new Map<number, SlideBackgroundImage>();
+  private slideLayouts: SlideLayoutDefinition[] = [];
   private protectedSlideMarkerRemovalAllowance: ProtectedSlideMarkerRemovalAllowance = {};
   private unknownSlideElementRemovalAllowance = new Map<string, number>();
   /** Package parts removed by explicit deletes; merge funnels must not resurrect them. */
@@ -530,6 +598,11 @@ export class PresentationEngine {
 
   get slideCount(): number {
     return this.slideCountValue;
+  }
+
+  /** Layouts supplied by this template's slide masters, in presentation order. */
+  getSlideLayouts(): readonly SlideLayoutDefinition[] {
+    return this.slideLayouts;
   }
 
   renderSlide(slideIndex: number): RenderedSlide {
@@ -705,7 +778,7 @@ export class PresentationEngine {
     slideIndex: number,
     shapeIndex: number,
     transform: ShapeTransform
-  ): Promise<void> {
+  ): Promise<string | null> {
     // Seed the highlight cache from the still-lossless model before the edit
     // re-serializes the slide (which drops every <a:highlight>); the cache then
     // feeds both the live overlays and the export-funnel reconciliation.
@@ -720,7 +793,10 @@ export class PresentationEngine {
       Math.round(transform.rot)
     );
     if (!result.startsWith('ERROR:')) {
-      return;
+      // The renderer already produced the authoritative updated shape SVG.
+      // Callers that do not need it can ignore this return value; interactive
+      // commits can swap it in without rendering the entire slide again.
+      return result;
     }
 
     const message = result.slice('ERROR:'.length).trim().toLowerCase();
@@ -738,6 +814,9 @@ export class PresentationEngine {
       height: Math.max(1, Math.round(transform.cy)),
     });
     await this.updateShapeTransformInOoxml(slideIndex, shapeIndex, transform);
+    // The OOXML fallback has no renderer fragment. Its callers must use the
+    // existing whole-slide render path to recover an authoritative SVG.
+    return null;
   }
 
   private async updateShapeTransformInOoxml(
@@ -1645,8 +1724,8 @@ export class PresentationEngine {
     shapeIndex: number,
     target: RunTarget | null,
     change: RunStyleChange
-  ): Promise<void> {
-    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
+  ): Promise<boolean> {
+    return this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       const positions = getShapeRunPositions(shape);
       const targets = target
         ? positions.filter(
@@ -1656,8 +1735,7 @@ export class PresentationEngine {
 
       let changed = false;
       for (const { run } of targets) {
-        applyRunPropertyChange(getRunProperties(run, slideDoc), slideDoc, change);
-        changed = true;
+        changed = applyRunPropertyChange(getRunProperties(run, slideDoc), slideDoc, change) || changed;
       }
       if (change.fontSizePt !== undefined && changed) {
         disableShrinkAutofit(shape, slideDoc);
@@ -1678,8 +1756,8 @@ export class PresentationEngine {
     startOffset: number,
     endOffset: number,
     change: RunStyleChange
-  ): Promise<void> {
-    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
+  ): Promise<boolean> {
+    return this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       const paragraph = getDrawingParagraphs(shape)[paragraphIndex];
       if (!paragraph) {
         throw new Error('Could not find the selected text paragraph.');
@@ -1702,15 +1780,15 @@ export class PresentationEngine {
     shapeIndex: number,
     ranges: ParagraphTextRange[],
     change: RunStyleChange
-  ): Promise<void> {
+  ): Promise<boolean> {
     const normalizedRanges = ranges.filter((range) => (
       Number.isFinite(range.paragraphIndex)
       && Number.isFinite(range.start)
       && Number.isFinite(range.end)
     ));
-    if (normalizedRanges.length === 0) return;
+    if (normalizedRanges.length === 0) return false;
 
-    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
+    return this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       const paragraphs = getDrawingParagraphs(shape);
       let changed = false;
       for (const range of normalizedRanges) {
@@ -1836,7 +1914,7 @@ export class PresentationEngine {
     slideIndex: number,
     shapeIndex: number,
     mutate: (shape: Element, slideDoc: XMLDocument) => boolean
-  ): Promise<void> {
+  ): Promise<boolean> {
     const slidePath = getSlidePath(slideIndex);
     const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), slidePath);
     // If a prior in-place Wasm edit stripped this slide's highlights, restore the
@@ -1844,7 +1922,7 @@ export class PresentationEngine {
     this.restoreLostRunPropsIntoSlideDoc(slideIndex, slideDoc);
     const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
     if (!mutate(shape, slideDoc)) {
-      return;
+      return false;
     }
 
     await this.commitSlideDoc(slideIndex, slideDoc);
@@ -1852,6 +1930,7 @@ export class PresentationEngine {
     // again; capture it (this also records highlight applies/clears and any other
     // run-property edit just made).
     this.refreshSlideRunCache(slideIndex);
+    return true;
   }
 
   /**
@@ -2679,6 +2758,23 @@ export class PresentationEngine {
     return result;
   }
 
+  /**
+   * Creates a new slide from an actual template layout. pptx-svg copies the
+   * source slide's layout relationship, so custom masters, placeholders, and
+   * theme bindings remain intact instead of being approximated as shapes.
+   */
+  async addSlideFromTemplateLayout(afterIndex: number, layoutId: string): Promise<SlideMoveResult> {
+    const layout = this.slideLayouts.find((candidate) => candidate.id === layoutId);
+    if (!layout) throw new Error('The selected PowerPoint layout is no longer available in this template.');
+
+    const { slideCount, insertedIdx } = await this.renderer.addSlide(
+      afterIndex,
+      layout.representativeSlideIndex,
+    );
+    await this.reloadAfterSlideManagement(slideCount);
+    return { slideIndex: insertedIdx, slideCount };
+  }
+
   private addLayoutPlaceholder(
     slideIndex: number,
     text: string,
@@ -2880,6 +2976,21 @@ export class PresentationEngine {
   }
 
   /**
+   * Read the resettable visual state of a picture without mutating it.
+   * Reset Image intentionally affects crop and visual effects only; layout and
+   * the embedded media stay unchanged.
+   */
+  getImageResetState(slideIndex: number, shapeIndex: number): ImageResetState | null {
+    try {
+      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const shape = getShapeElementByRendererIndex(slideDoc, shapeIndex);
+      return getImageResetDetails(shape)?.state ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Apply an inset crop to a picture via `<a:srcRect>` inside its `<a:blipFill>`.
    * Percentages are stored in OOXML 1000ths-of-a-percent units. Position and
    * size are untouched.
@@ -2918,36 +3029,41 @@ export class PresentationEngine {
   }
 
   /**
-   * Reset a picture to its original appearance: removes any inset crop
-   * (`<a:srcRect>`) and common recolor effects (duotone, biLevel, grayscl, lum,
-   * clrChange) from the `<a:blip>`. Position, size, and the embedded image are
-   * preserved.
+   * Reset a picture appearance: removes any inset crop (`<a:srcRect>`) and all
+   * supported DrawingML visual effects from the `<a:blip>`. Position, size,
+   * rotation, and the embedded image are preserved.
    */
-  async resetImage(slideIndex: number, shapeIndex: number): Promise<void> {
-    const recolorEffects = new Set(['duotone', 'biLevel', 'grayscl', 'lum', 'clrChange']);
+  async resetImage(slideIndex: number, shapeIndex: number): Promise<ImageResetResult> {
+    let reset: ImageResetResult = { changed: false, cropRemoved: false, hasCrop: false, effectNames: [] };
     await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
       if (shape.localName !== 'pic') {
         throw new Error('The selected object is not an image.');
       }
 
-      const blipFill = getDescendants(shape, 'blipFill')[0];
-      if (!blipFill) return false;
+      const details = getImageResetDetails(shape);
+      if (!details) return false;
 
-      let changed = false;
-      for (const srcRect of getElementChildren(blipFill).filter((element) => element.localName === 'srcRect')) {
-        blipFill.removeChild(srcRect);
-        changed = true;
+      reset = {
+        changed: details.srcRects.length > 0 || details.effects.length > 0,
+        cropRemoved: details.srcRects.length > 0,
+        ...details.state,
+      };
+      for (const srcRect of details.srcRects) {
+        srcRect.parentNode?.removeChild(srcRect);
       }
-
-      const blip = getElementChildren(blipFill).find((element) => element.localName === 'blip');
-      if (blip) {
-        for (const effect of getElementChildren(blip).filter((element) => recolorEffects.has(element.localName))) {
-          blip.removeChild(effect);
-          changed = true;
-        }
+      for (const effect of details.effects) {
+        effect.parentNode?.removeChild(effect);
       }
-      return changed;
+      return reset.changed;
     });
+    debugLog('mutate', 'PowerPoint reset image crop and effects', {
+      slide: slideIndex,
+      shapeIndex,
+      changed: reset.changed,
+      cropRemoved: reset.cropRemoved,
+      effectNames: reset.effectNames,
+    });
+    return reset;
   }
 
   /**
@@ -3270,8 +3386,16 @@ export class PresentationEngine {
   }
 
   private async refreshDerivedState(buffer: ArrayBuffer): Promise<void> {
-    await this.refreshChartTextValues(buffer);
-    await this.refreshSlideBackgroundImages(buffer);
+    await Promise.all([
+      this.refreshChartTextValues(buffer),
+      this.refreshSlideBackgroundImages(buffer),
+      this.refreshSlideLayouts(buffer),
+    ]);
+  }
+
+  private async refreshSlideLayouts(buffer: ArrayBuffer): Promise<void> {
+    const zip = await extractZip(buffer);
+    this.slideLayouts = listSlideLayouts(zip, this.slideCountValue);
   }
 
   private async refreshSlideBackgroundImages(buffer: ArrayBuffer): Promise<void> {

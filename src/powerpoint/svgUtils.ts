@@ -28,6 +28,27 @@ export function getShapeIndex(shape: Element | null): number | null {
 }
 
 /**
+ * True when an already-known SVG group is the selected top-level shape. This
+ * lets drag commits reuse their preview element instead of searching a large
+ * slide SVG again.
+ */
+export function isTopLevelShapeForIndex(
+  shape: Element | null | undefined,
+  shapeIndex: number,
+): boolean {
+  return getShapeIndex(shape ?? null) === shapeIndex
+    && !shape?.parentElement?.closest('g[data-ooxml-shape-idx]');
+}
+
+/** A translated multi-selection preview is already the final visual state. */
+export function canKeepLiveGroupMovePreview(
+  mode: 'move' | 'resize' | 'rotate',
+  flipAxes: { horizontal: boolean; vertical: boolean },
+): boolean {
+  return mode === 'move' && !flipAxes.horizontal && !flipAxes.vertical;
+}
+
+/**
  * Whether a renderer shape index can be persisted back to slide OOXML. The
  * pptx-svg renderer emits negative `data-ooxml-shape-idx` values for shapes it
  * renders but does not store directly on the slide (e.g. inherited layout/master

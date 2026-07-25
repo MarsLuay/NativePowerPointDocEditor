@@ -752,9 +752,9 @@ export function applyRunStyleToParagraphRange(
     const segment = segments.find((candidate) => position >= candidate.start && position <= candidate.end)
       ?? segments.at(-1);
     if (!segment || segment.text.length === 0) return false;
-    applyRunPropertyChange(getRunProperties(segment.run, doc), doc, change);
-    mergeAdjacentRuns(paragraph);
-    return true;
+    const changed = applyRunPropertyChange(getRunProperties(segment.run, doc), doc, change);
+    if (changed) mergeAdjacentRuns(paragraph);
+    return changed;
   }
 
   splitParagraphAtOffset(paragraph, start, doc);
@@ -764,8 +764,7 @@ export function applyRunStyleToParagraphRange(
   for (const segment of getDrawingRunSegments(paragraph)) {
     if (segment.end <= start || segment.start >= end) continue;
     if (segment.text.length === 0) continue;
-    applyRunPropertyChange(getRunProperties(segment.run, doc), doc, change);
-    changed = true;
+    changed = applyRunPropertyChange(getRunProperties(segment.run, doc), doc, change) || changed;
   }
   if (changed) {
     // Collapse the boundary splits (and any prior fragmentation) back down so
@@ -1007,78 +1006,126 @@ function insertRunPropertyChild(rPr: Element, child: Element): void {
   rPr.insertBefore(child, reference);
 }
 
-function setRunHighlight(rPr: Element, doc: XMLDocument, highlight: string | null): void {
-  getElementChildren(rPr)
-    .filter((element) => element.localName === 'highlight' && element.namespaceURI === DRAWINGML_NAMESPACE)
-    .forEach((element) => rPr.removeChild(element));
+function setRunHighlight(rPr: Element, doc: XMLDocument, highlight: string | null): boolean {
+  const highlights = getElementChildren(rPr)
+    .filter((element) => element.localName === 'highlight' && element.namespaceURI === DRAWINGML_NAMESPACE);
 
   if (highlight === null) {
-    return;
+    if (highlights.length === 0) return false;
+    highlights.forEach((element) => rPr.removeChild(element));
+    return true;
   }
 
+  const normalizedHighlight = normalizeHexColor(highlight);
+  if (
+    highlights.length === 1
+    && getElementChildren(highlights[0]!)
+      .filter((element) => element.localName === 'srgbClr' && element.namespaceURI === DRAWINGML_NAMESPACE)
+      .some((element) => element.getAttribute('val') === normalizedHighlight)
+  ) {
+    return false;
+  }
+
+  highlights.forEach((element) => rPr.removeChild(element));
   const highlightElement = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:highlight');
   const colorElement = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:srgbClr');
-  colorElement.setAttribute('val', normalizeHexColor(highlight));
+  colorElement.setAttribute('val', normalizedHighlight);
   highlightElement.appendChild(colorElement);
   insertRunPropertyChild(rPr, highlightElement);
+  return true;
 }
 
 export function normalizeHexColor(hex: string): string {
   return hex.replace(/^#/, '').toUpperCase();
 }
 
-function setRunLatinFont(rPr: Element, doc: XMLDocument, fontFamily: string): void {
-  getElementChildren(rPr)
-    .filter((element) => element.localName === 'latin' && element.namespaceURI === DRAWINGML_NAMESPACE)
-    .forEach((element) => rPr.removeChild(element));
+function setRunLatinFont(rPr: Element, doc: XMLDocument, fontFamily: string): boolean {
+  const latinFonts = getElementChildren(rPr)
+    .filter((element) => element.localName === 'latin' && element.namespaceURI === DRAWINGML_NAMESPACE);
+  if (latinFonts.length === 1 && latinFonts[0]!.getAttribute('typeface') === fontFamily) {
+    return false;
+  }
 
+  latinFonts.forEach((element) => rPr.removeChild(element));
   const latin = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:latin');
   latin.setAttribute('typeface', fontFamily);
   insertRunPropertyChild(rPr, latin);
+  return true;
 }
 
-function setRunSolidFill(rPr: Element, doc: XMLDocument, color: string | null): void {
-  getElementChildren(rPr)
-    .filter((element) => element.localName === 'solidFill' && element.namespaceURI === DRAWINGML_NAMESPACE)
-    .forEach((element) => rPr.removeChild(element));
+function setRunSolidFill(rPr: Element, doc: XMLDocument, color: string | null): boolean {
+  const fills = getElementChildren(rPr)
+    .filter((element) => element.localName === 'solidFill' && element.namespaceURI === DRAWINGML_NAMESPACE);
 
   if (color === null) {
-    return;
+    if (fills.length === 0) return false;
+    fills.forEach((element) => rPr.removeChild(element));
+    return true;
   }
 
+  const normalizedColor = normalizeHexColor(color);
+  if (
+    fills.length === 1
+    && getElementChildren(fills[0]!)
+      .filter((element) => element.localName === 'srgbClr' && element.namespaceURI === DRAWINGML_NAMESPACE)
+      .some((element) => element.getAttribute('val') === normalizedColor)
+  ) {
+    return false;
+  }
+
+  fills.forEach((element) => rPr.removeChild(element));
   const solidFill = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:solidFill');
   const colorElement = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:srgbClr');
-  colorElement.setAttribute('val', normalizeHexColor(color));
+  colorElement.setAttribute('val', normalizedColor);
   solidFill.appendChild(colorElement);
   insertRunPropertyChild(rPr, solidFill);
+  return true;
 }
 
 // Apply every requested run-level property directly to an <a:rPr>. The WASM
 // renderer does not preserve <a:highlight> when it re-serializes a slide, so
 // every run-style edit (not just highlight) is performed via OOXML to keep the
 // highlight from being clobbered by a later renderer mutation on the same run.
-export function applyRunPropertyChange(rPr: Element, doc: XMLDocument, change: RunStyleChange): void {
+export function applyRunPropertyChange(rPr: Element, doc: XMLDocument, change: RunStyleChange): boolean {
+  let changed = false;
   if (change.bold !== undefined) {
-    rPr.setAttribute('b', change.bold ? '1' : '0');
+    const value = change.bold ? '1' : '0';
+    if (rPr.getAttribute('b') !== value) {
+      rPr.setAttribute('b', value);
+      changed = true;
+    }
   }
   if (change.italic !== undefined) {
-    rPr.setAttribute('i', change.italic ? '1' : '0');
+    const value = change.italic ? '1' : '0';
+    if (rPr.getAttribute('i') !== value) {
+      rPr.setAttribute('i', value);
+      changed = true;
+    }
   }
   if (change.underline !== undefined) {
-    rPr.setAttribute('u', change.underline ? 'sng' : 'none');
+    const value = change.underline ? 'sng' : 'none';
+    if (rPr.getAttribute('u') !== value) {
+      rPr.setAttribute('u', value);
+      changed = true;
+    }
   }
   if (change.fontSizePt !== undefined) {
-    rPr.setAttribute('sz', String(Math.round(change.fontSizePt * 100)));
+    const value = String(Math.round(change.fontSizePt * 100));
+    if (rPr.getAttribute('sz') !== value) {
+      rPr.setAttribute('sz', value);
+      changed = true;
+    }
   }
   if (change.fontFamily !== undefined && change.fontFamily !== '') {
-    setRunLatinFont(rPr, doc, change.fontFamily);
+    changed = setRunLatinFont(rPr, doc, change.fontFamily) || changed;
   }
   if (change.color !== undefined) {
-    setRunSolidFill(rPr, doc, change.color);
+    changed = setRunSolidFill(rPr, doc, change.color) || changed;
   }
   if (change.highlight !== undefined) {
-    setRunHighlight(rPr, doc, change.highlight);
+    changed = setRunHighlight(rPr, doc, change.highlight) || changed;
   }
+  return changed;
 }
 
 export function getParagraphProperties(paragraph: Element, doc: XMLDocument): Element {

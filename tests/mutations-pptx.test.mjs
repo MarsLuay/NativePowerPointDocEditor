@@ -113,6 +113,25 @@ test("session command mutations commit a loadable package", async () => {
   session.reset();
 });
 
+test("session leaves unchanged run formatting clean", async () => {
+  const { PresentationSession } = await loadMutationModules();
+  const session = new PresentationSession(createSaveHost(), {
+    mutationExecutor: { execute: async () => false },
+  });
+
+  const result = await session.applyCommand({
+    type: "set-run-style",
+    slideIndex: 0,
+    shapeIndex: 2,
+    target: { paragraphIndex: 0, runIndex: 0 },
+    change: { fontFamily: "Georgia" },
+  });
+
+  assert.equal(result, false);
+  assert.equal(session.dirty, false, "unchanged formatting must not start an autosave");
+  assert.equal(session.editVersion, 0, "unchanged formatting must not increment the document version");
+});
+
 test("PptxMutationService commits successful mutations and restores failed ones", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const calls = [];
@@ -490,6 +509,41 @@ test("PptxMutationService uses slide-local commit for set-run-style-ranges", asy
   ]);
   assert.ok(!calls.includes("export"), "font-size formatting must not export the full deck");
   assert.ok(!calls.includes("commit"), "font-size formatting must not run the full-export commit");
+});
+
+test("PptxMutationService skips commit for unchanged run formatting", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    getSlideXml: (slideIndex) => {
+      calls.push(["getSlideXml", slideIndex]);
+      return `<slide-${slideIndex}/>`;
+    },
+    restoreSlideXml: async () => calls.push("restore-slide-xml"),
+    restoreSnapshot: async () => calls.push("restore-snapshot"),
+    setRunStyleForRanges: async () => {
+      calls.push("set-run-style-ranges");
+      return false;
+    },
+    commitMutation: async () => calls.push("commit"),
+    commitSlideLocalMutation: async () => calls.push("commit-slide-local"),
+  };
+  const service = new PptxMutationService(engine);
+
+  const result = await service.execute({
+    type: "set-run-style-ranges",
+    slideIndex: 0,
+    shapeIndex: 2,
+    ranges: [{ paragraphIndex: 0, start: 0, end: 4 }],
+    change: { fontFamily: "Georgia" },
+  });
+
+  assert.equal(result, false);
+  assert.deepEqual(calls, [["getSlideXml", 0], "set-run-style-ranges"]);
 });
 
 test("PptxMutationService keeps the full-export commit for non-slide-local commands", async () => {

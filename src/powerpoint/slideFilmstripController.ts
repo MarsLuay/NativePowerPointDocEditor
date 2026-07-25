@@ -29,6 +29,8 @@ import {
 export interface SlideFilmstripHost {
   readonly t: TranslateFn;
   readonly engine: PresentationEngine | null;
+  /** Already-rendered active slide; cloning it avoids re-rendering a large poster thumbnail. */
+  readonly svgEl: SVGSVGElement | null;
   readonly thumbnailContainer: HTMLElement | null;
   readonly isLoading: boolean;
   currentSlide: number;
@@ -105,33 +107,63 @@ export class SlideFilmstripController {
     if (!isHTMLElement(preview)) return;
 
     preview.empty();
-    try {
-      const safeSvg = this.host.prepareSvgForRender(this.host.engine.renderSlide(index).svg, true);
-      const thumbnailSvg = createSvgElementFromString(safeSvg.svg, preview.ownerDocument);
-      if (!thumbnailSvg) {
-        throw new Error('Could not read thumbnail SVG.');
+    const activeSlideSvg = index === this.host.currentSlide
+      ? this.cloneActiveSlideSvgForThumbnail()
+      : null;
+    const source = activeSlideSvg ? 'active-slide-dom' : 'engine-render';
+    if (activeSlideSvg) {
+      preview.appendChild(activeSlideSvg);
+    } else {
+      try {
+        const safeSvg = this.host.prepareSvgForRender(this.host.engine.renderSlide(index).svg, true);
+        const thumbnailSvg = createSvgElementFromString(safeSvg.svg, preview.ownerDocument);
+        if (!thumbnailSvg) {
+          throw new Error('Could not read thumbnail SVG.');
+        }
+        preview.appendChild(thumbnailSvg);
+      } catch {
+        preview.createDiv({
+          cls: 'native-powerpoint-thumbnail-error',
+          text: this.host.t('powerpoint:loading.thumbnailError')
+        });
       }
-      preview.appendChild(thumbnailSvg);
-    } catch {
-      preview.createDiv({
-        cls: 'native-powerpoint-thumbnail-error',
-        text: this.host.t('powerpoint:loading.thumbnailError')
-      });
     }
 
     const thumbnailSvg = preview.querySelector('svg');
     if (thumbnailSvg) {
-      this.host.engine.applyFontFidelity(thumbnailSvg);
-      this.host.engine.formatChartAxisLabels(thumbnailSvg, index);
-      normalizeSvgForDisplay(thumbnailSvg);
+      // The active canvas SVG already passed fidelity, chart formatting, and
+      // display normalization in renderCurrentSlide. Repeating that work here
+      // was a multi-second main-thread stall on image-heavy posters.
+      if (source === 'engine-render') {
+        this.host.engine.applyFontFidelity(thumbnailSvg);
+        this.host.engine.formatChartAxisLabels(thumbnailSvg, index);
+        normalizeSvgForDisplay(thumbnailSvg);
+      }
       thumbnailSvg.addClass('native-powerpoint-thumbnail-svg');
     }
 
     debugLog('render', 'PowerPoint renderThumbnailAt complete', {
       index,
+      source,
       ms: Math.round(performance.now() - started)
     });
     this.markThumbnailRendered(index);
+  }
+
+  /** Clone the current canvas SVG without selection/edit-only state for its thumbnail. */
+  private cloneActiveSlideSvgForThumbnail(): SVGSVGElement | null {
+    const source = this.host.svgEl;
+    if (!source) return null;
+
+    const thumbnailSvg = source.cloneNode(true) as SVGSVGElement;
+    thumbnailSvg.removeClass('native-powerpoint-slide-svg');
+    thumbnailSvg
+      .querySelectorAll('.native-powerpoint-shape-selected, .native-powerpoint-text-editing')
+      .forEach((element) => element.classList.remove(
+        'native-powerpoint-shape-selected',
+        'native-powerpoint-text-editing',
+      ));
+    return thumbnailSvg;
   }
 
   /**
@@ -644,6 +676,39 @@ export class SlideFilmstripController {
       });
     } catch (error) {
       errorLog('slide', 'Add slide with layout failed', { layout, error });
+      this.notice('powerpoint:notice.couldNotAddSlide', { message: cleanError(error) });
+    }
+  }
+
+  /** Insert a slide using one of the template's actual master layouts. */
+  async addSlideFromTemplateLayout(layoutId: string): Promise<void> {
+    if (!this.host.engine) return;
+    if (!this.host.ensureEditable('add slide')) return;
+
+    try {
+      const layout = this.host.engine.getSlideLayouts().find((candidate) => candidate.id === layoutId);
+      if (!layout) throw new Error('The selected PowerPoint layout is no longer available.');
+
+      debugLog('slide', 'Add slide from template layout started', {
+        afterSlide: this.host.currentSlide,
+        layoutId,
+        layoutName: layout.name,
+      });
+      const history = await this.host.captureHistoryEntry('New slide');
+      const result = await this.host.engine.addSlideFromTemplateLayout(this.host.currentSlide, layoutId);
+      this.host.currentSlide = result.slideIndex;
+      this.host.clearSelection();
+      this.host.recordHistoryEntry(history);
+      this.host.markDirty();
+      const rendered = await this.host.renderCurrentSlide();
+      if (rendered) await this.renderThumbnails();
+      debugLog('slide', 'Add slide from template layout completed', {
+        slide: this.host.currentSlide,
+        slideCount: this.host.engine.slideCount,
+        layoutId,
+      });
+    } catch (error) {
+      errorLog('slide', 'Add slide from template layout failed', { layoutId, error });
       this.notice('powerpoint:notice.couldNotAddSlide', { message: cleanError(error) });
     }
   }

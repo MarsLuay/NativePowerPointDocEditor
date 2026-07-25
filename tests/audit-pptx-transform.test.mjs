@@ -152,3 +152,37 @@ test("isSelectableShapeIndex rejects layout/master decorations and null", () => 
   assert.equal(svgUtils.isSelectableShapeIndex(-10), false);
   assert.equal(svgUtils.isSelectableShapeIndex(null), false);
 });
+
+test("isTopLevelShapeForIndex accepts the already-known outer SVG group", () => {
+  const outer = {
+    getAttribute: (name) => name === "data-ooxml-shape-idx" ? "18" : null,
+    parentElement: null,
+  };
+  const nested = {
+    getAttribute: (name) => name === "data-ooxml-shape-idx" ? "18" : null,
+    parentElement: { closest: () => outer },
+  };
+
+  assert.equal(svgUtils.isTopLevelShapeForIndex(outer, 18), true);
+  assert.equal(svgUtils.isTopLevelShapeForIndex(nested, 18), false);
+  assert.equal(svgUtils.isTopLevelShapeForIndex(outer, 19), false);
+});
+
+test("canKeepLiveGroupMovePreview only retains a plain move preview", () => {
+  assert.equal(
+    svgUtils.canKeepLiveGroupMovePreview("move", { horizontal: false, vertical: false }),
+    true,
+  );
+  assert.equal(
+    svgUtils.canKeepLiveGroupMovePreview("resize", { horizontal: false, vertical: false }),
+    false,
+  );
+  assert.equal(
+    svgUtils.canKeepLiveGroupMovePreview("rotate", { horizontal: false, vertical: false }),
+    false,
+  );
+  assert.equal(
+    svgUtils.canKeepLiveGroupMovePreview("move", { horizontal: true, vertical: false }),
+    false,
+  );
+});

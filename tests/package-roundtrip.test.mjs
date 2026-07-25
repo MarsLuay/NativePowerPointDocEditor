@@ -5,6 +5,7 @@ import {
   loadPowerPointPackageModule,
   loadPresentationEngineModule,
   loadShapeClipboardModule,
+  loadSlideExtensionPreserveModule,
 } from "./helpers/load-plugin-modules.mjs";
 import { createRenderer, readDeck, toArrayBuffer } from "./helpers/renderer.mjs";
 
@@ -346,6 +347,35 @@ test("shape transforms preserve authored a16:creationId extensions", async () =>
   assert.match(exportedZip.textFiles.get(slidePath) ?? "", new RegExp(`a16:creationId[^>]+id="${seedGuid}"`));
 });
 
+test("connector extension lists survive renderer conversion to ordinary shapes", async () => {
+  const { preserveSlideExtensionLists } = await loadSlideExtensionPreserveModule();
+  const input = await readDeck("simple-edit.pptx");
+  const inputBuffer = toArrayBuffer(input);
+  const slidePath = "ppt/slides/slide1.xml";
+  const seedGuid = "{33333333-3333-3333-3333-333333333333}";
+  const sourceSlide = [
+    '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main">',
+    '<p:cSld><p:spTree><p:cxnSp><p:nvCxnSpPr>',
+    '<p:cNvPr id="9" name="Connector"><a:extLst><a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">',
+    `<a16:creationId id="${seedGuid}"/>`,
+    '</a:ext></a:extLst></p:cNvPr><p:cNvCxnSpPr/><p:nvPr/></p:nvCxnSpPr>',
+    '<p:spPr><a:xfrm><a:off x="100" y="200"/><a:ext cx="300" cy="400"/></a:xfrm></p:spPr>',
+    '</p:cxnSp></p:spTree></p:cSld></p:sld>',
+  ].join("");
+  const renderedSlide = [
+    '<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<p:cSld><p:spTree><p:sp><p:nvSpPr><p:cNvPr id="2" name=""/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>',
+    '<p:spPr><a:xfrm><a:off x="100" y="200"/><a:ext cx="300" cy="400"/></a:xfrm></p:spPr>',
+    '</p:sp></p:spTree></p:cSld></p:sld>',
+  ].join("");
+  const authoritative = await buildZip(inputBuffer, new Map([[slidePath, sourceSlide]]));
+  const rendered = await buildZip(authoritative, new Map([[slidePath, renderedSlide]]));
+  const preserved = await preserveSlideExtensionLists(authoritative, rendered);
+  const zip = await extractZip(preserved);
+
+  assert.match(zip.textFiles.get(slidePath) ?? "", new RegExp(`a16:creationId[^>]+id="${seedGuid}"`));
+});
+
 test("setRunStyleForRange formats only the selected characters within a paragraph", async () => {
   const { PresentationEngine } = await loadPresentationEngineModule();
   const input = await readDeck("features.pptx");
@@ -572,7 +602,7 @@ test("updateShapeTransform allows shapes outside the slide bounds", async () => 
   const input = await readDeck("features.pptx");
   const engine = await PresentationEngine.load(toArrayBuffer(input));
 
-  await engine.updateShapeTransform(0, 0, {
+  const fragment = await engine.updateShapeTransform(0, 0, {
     x: -9000000,
     y: 342900,
     cx: 5943600,
@@ -584,6 +614,7 @@ test("updateShapeTransform allows shapes outside the slide bounds", async () => 
   const zip = await JSZip.loadAsync(exported);
   const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
   assert.match(slideXml, /x="-9000000"/);
+  assert.match(fragment ?? "", /<g\b[^>]*data-ooxml-shape-idx="0"/);
 });
 
 test("slide add, reorder, and delete operations survive export", async () => {

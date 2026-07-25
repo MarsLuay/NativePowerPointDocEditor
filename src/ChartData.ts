@@ -27,7 +27,11 @@ interface ChartDataSeriesDescriptor {
 
 interface CellRange {
   cellReferences: string[];
+  endColumn: number;
+  endRow: number;
   sheetName: string;
+  startColumn: number;
+  startRow: number;
 }
 
 interface WorkbookCellEdit {
@@ -61,8 +65,19 @@ export interface ChartDataUpdateSeries {
   values: string[];
 }
 
+export interface ChartDataRowOperation {
+  count?: number;
+  index: number;
+  type: 'delete' | 'insert';
+}
+
 export interface ChartDataUpdate {
   categories: string[];
+  /**
+   * Optional intent from the chart-data grid. The data arrays remain canonical;
+   * this validates that an insert/delete action agrees with the new grid size.
+   */
+  rowOperation?: ChartDataRowOperation;
   series: ChartDataUpdateSeries[];
 }
 
@@ -199,7 +214,14 @@ function parseCellRange(formula: string): CellRange | null {
     }
   }
 
-  return { cellReferences, sheetName };
+  return {
+    cellReferences,
+    endColumn,
+    endRow,
+    sheetName,
+    startColumn,
+    startRow
+  };
 }
 
 function getReferenceSource(element: Element | undefined): ChartDataSource | null {
@@ -468,31 +490,98 @@ function updateCache(cache: Element, values: string[]): void {
   });
 }
 
-function updateChartCaches(chartDoc: XMLDocument, formula: string, values: string[]): void {
+function updateChartCaches(
+  chartDoc: XMLDocument,
+  formula: string,
+  values: string[],
+  nextFormula = formula
+): void {
   for (const formulaElement of getDescendants(chartDoc, 'f')) {
     if (formulaElement.textContent?.trim() !== formula) continue;
     const cache = getCache(formulaElement.parentElement ?? undefined);
     if (cache) updateCache(cache, values);
+    formulaElement.textContent = nextFormula;
   }
+}
+
+function formatFormulaSheetName(sheetName: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_.]*$/.test(sheetName)
+    ? sheetName
+    : `'${sheetName.replace(/'/g, "''")}'`;
+}
+
+function getResizableVerticalRange(source: ChartDataSource, label: string): CellRange {
+  const range = parseCellRange(source.formula);
+  if (!range || range.startColumn !== range.endColumn) {
+    throw new Error(`${label} uses a non-vertical source range. Adding or deleting chart rows is not supported for this chart.`);
+  }
+  if (range.cellReferences.length !== source.values.length) {
+    throw new Error(`${label} does not match its source range.`);
+  }
+  return range;
+}
+
+function resizeSourceFormula(source: ChartDataSource, rowCount: number, label: string): string {
+  if (rowCount < 1) {
+    throw new Error('A chart must keep at least one category row.');
+  }
+  const range = getResizableVerticalRange(source, label);
+  const endRow = range.startRow + rowCount - 1;
+  const start = `$${getColumnName(range.startColumn)}$${range.startRow}`;
+  const end = `$${getColumnName(range.endColumn)}$${endRow}`;
+  return `${formatFormulaSheetName(range.sheetName)}!${start}${rowCount === 1 ? '' : `:${end}`}`;
 }
 
 function addWorkbookEdit(
   edits: Map<string, WorkbookCellEdit>,
   source: ChartDataSource,
   values: string[],
-  label: string
+  label: string,
+  formula = source.formula
 ): void {
   const normalizedValues = normalizeValues(values, source.kind, label);
-  const range = parseCellRange(source.formula);
+  const range = parseCellRange(formula);
   if (!range || range.cellReferences.length !== normalizedValues.length) {
     throw new Error(`${label} does not match its embedded workbook range.`);
   }
 
-  const existing = edits.get(source.formula);
-  if (existing && existing.values.join('\u0000') !== normalizedValues.join('\u0000')) {
-    throw new Error(`Conflicting edits target the same workbook range: ${source.formula}`);
+  const existing = edits.get(formula);
+  if (existing && (existing.kind !== source.kind || existing.values.join('\u0000') !== normalizedValues.join('\u0000'))) {
+    throw new Error(`Conflicting edits target the same workbook range: ${formula}`);
   }
-  edits.set(source.formula, { kind: source.kind, values: normalizedValues });
+  edits.set(formula, { kind: source.kind, values: normalizedValues });
+}
+
+function addResizedWorkbookEdit(
+  edits: Map<string, WorkbookCellEdit>,
+  source: ChartDataSource,
+  values: string[],
+  nextFormula: string,
+  label: string
+): void {
+  const previousRange = parseCellRange(source.formula);
+  if (!previousRange) {
+    throw new Error(`${label} does not match its embedded workbook range.`);
+  }
+
+  // A shrunken range no longer references its old trailing cells. Clear those
+  // cells in the embedded workbook so reopening the chart in PowerPoint never
+  // exposes stale data outside the resized range.
+  if (values.length < previousRange.cellReferences.length) {
+    addWorkbookEdit(
+      edits,
+      source,
+      [
+        ...values,
+        ...Array.from({ length: previousRange.cellReferences.length - values.length }, () => '')
+      ],
+      label,
+      source.formula
+    );
+    return;
+  }
+
+  addWorkbookEdit(edits, source, values, label, nextFormula);
 }
 
 function getSheetPaths(workbookFiles: ZipContents): Map<string, string> {
@@ -657,6 +746,76 @@ async function updateEmbeddedWorkbook(
   return new Uint8Array(await buildZip(workbookBuffer, modifications));
 }
 
+function validateRowOperation(
+  operation: ChartDataRowOperation | undefined,
+  previousRowCount: number,
+  nextRowCount: number
+): void {
+  if (!operation) return;
+
+  const count = operation.count ?? 1;
+  if (!Number.isInteger(count) || count < 1) {
+    throw new Error('Chart row operation count must be a positive integer.');
+  }
+  if (!Number.isInteger(operation.index) || operation.index < 0) {
+    throw new Error('Chart row operation index must be a non-negative integer.');
+  }
+  if (operation.type === 'insert') {
+    if (operation.index > previousRowCount || nextRowCount !== previousRowCount + count) {
+      throw new Error('Inserted chart rows do not match the updated chart grid.');
+    }
+    return;
+  }
+  if (operation.type === 'delete') {
+    if (
+      operation.index >= previousRowCount
+      || operation.index + count > previousRowCount
+      || nextRowCount !== previousRowCount - count
+    ) {
+      throw new Error('Deleted chart rows do not match the updated chart grid.');
+    }
+    return;
+  }
+  throw new Error('Unsupported chart row operation.');
+}
+
+function getUpdatedSourceFormula(
+  source: ChartDataSource,
+  values: string[],
+  label: string
+): string {
+  return values.length === source.values.length
+    ? source.formula
+    : resizeSourceFormula(source, values.length, label);
+}
+
+function applyChartSourceUpdate(
+  chartDoc: XMLDocument,
+  workbookEdits: Map<string, WorkbookCellEdit>,
+  source: ChartDataSource,
+  values: string[],
+  label: string
+): void {
+  const nextFormula = getUpdatedSourceFormula(source, values, label);
+  updateChartCaches(chartDoc, source.formula, values, nextFormula);
+  addResizedWorkbookEdit(workbookEdits, source, values, nextFormula, label);
+}
+
+function validatePointLabelRowResize(
+  bindings: ChartPointLabelBinding[],
+  previousRowCount: number,
+  seriesIndex: number
+): void {
+  for (const binding of bindings) {
+    if (binding.indexes.length !== previousRowCount) {
+      throw new Error(
+        `Series ${seriesIndex + 1} uses individual point-label bindings. Adding or deleting chart rows is not supported for this series.`
+      );
+    }
+    getResizableVerticalRange(binding.source, `Series ${seriesIndex + 1} point label`);
+  }
+}
+
 export async function updateChartData(
   buffer: ArrayBuffer,
   descriptor: ChartDataDescriptor,
@@ -665,11 +824,37 @@ export async function updateChartData(
   if (!descriptor.grid.editable || !descriptor.categories || !descriptor.workbookPath) {
     throw new Error(descriptor.grid.reason || 'This chart data grid is read-only.');
   }
-  if (update.categories.length !== descriptor.categories.values.length) {
-    throw new Error('The category row count changed. Adding or deleting chart rows is not supported yet.');
-  }
   if (update.series.length !== descriptor.series.length) {
     throw new Error('The series count changed. Adding or deleting chart series is not supported yet.');
+  }
+
+  const previousRowCount = descriptor.categories.values.length;
+  const nextRowCount = update.categories.length;
+  if (nextRowCount < 1) {
+    throw new Error('A chart must keep at least one category row.');
+  }
+  validateRowOperation(update.rowOperation, previousRowCount, nextRowCount);
+  const rowCountChanged = nextRowCount !== previousRowCount;
+
+  descriptor.series.forEach((series, seriesIndex) => {
+    const seriesUpdate = update.series[seriesIndex];
+    if (!seriesUpdate || seriesUpdate.values.length !== nextRowCount) {
+      throw new Error(`Series ${seriesIndex + 1} must have one value for every category row.`);
+    }
+
+    if (rowCountChanged) {
+      getResizableVerticalRange(series.values, `Series ${seriesIndex + 1}`);
+      validatePointLabelRowResize(series.pointLabelBindings, previousRowCount, seriesIndex);
+    }
+
+    const pointLabels = seriesUpdate.pointLabels;
+    if (pointLabels === null && series.pointLabelBindings.length === 0) return;
+    if (!pointLabels || pointLabels.length !== nextRowCount) {
+      throw new Error(`Series ${seriesIndex + 1} point labels must have one value for every category row.`);
+    }
+  });
+  if (rowCountChanged) {
+    getResizableVerticalRange(descriptor.categories, descriptor.grid.categoryLabel);
   }
 
   const zip = await extractZip(buffer);
@@ -681,28 +866,40 @@ export async function updateChartData(
 
   const chartDoc = parseXml(chartXml, descriptor.chartPath);
   const workbookEdits = new Map<string, WorkbookCellEdit>();
-  addWorkbookEdit(workbookEdits, descriptor.categories, update.categories, descriptor.grid.categoryLabel);
-  updateChartCaches(chartDoc, descriptor.categories.formula, update.categories);
+  applyChartSourceUpdate(
+    chartDoc,
+    workbookEdits,
+    descriptor.categories,
+    update.categories,
+    descriptor.grid.categoryLabel
+  );
 
   descriptor.series.forEach((series, seriesIndex) => {
     const seriesUpdate = update.series[seriesIndex];
-    if (!seriesUpdate || seriesUpdate.values.length !== series.values.values.length) {
-      throw new Error(`Series ${seriesIndex + 1} row count changed.`);
-    }
-
-    addWorkbookEdit(workbookEdits, series.values, seriesUpdate.values, `Series ${seriesIndex + 1}`);
-    updateChartCaches(chartDoc, series.values.formula, seriesUpdate.values);
+    if (!seriesUpdate) return;
+    applyChartSourceUpdate(
+      chartDoc,
+      workbookEdits,
+      series.values,
+      seriesUpdate.values,
+      `Series ${seriesIndex + 1}`
+    );
 
     const pointLabels = seriesUpdate.pointLabels;
     if (pointLabels === null && series.pointLabelBindings.length === 0) return;
-    if (!pointLabels || pointLabels.length !== descriptor.categories?.values.length) {
-      throw new Error(`Series ${seriesIndex + 1} point label row count changed.`);
-    }
+    if (!pointLabels) return;
 
     for (const binding of series.pointLabelBindings) {
-      const values = binding.indexes.map((index) => pointLabels[index] ?? '');
-      addWorkbookEdit(workbookEdits, binding.source, values, `Series ${seriesIndex + 1} point label`);
-      updateChartCaches(chartDoc, binding.source.formula, values);
+      const values = rowCountChanged
+        ? pointLabels
+        : binding.indexes.map((index) => pointLabels[index] ?? '');
+      applyChartSourceUpdate(
+        chartDoc,
+        workbookEdits,
+        binding.source,
+        values,
+        `Series ${seriesIndex + 1} point label`
+      );
     }
   });
 

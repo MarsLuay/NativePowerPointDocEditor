@@ -219,18 +219,84 @@ test("updateChartData applies edits to chart caches and the embedded workbook, a
   assert.match(workbookXml, /forceFullCalc="1"/);
 });
 
-test("updateChartData rejects row-count changes instead of corrupting the workbook", async () => {
+test("updateChartData inserts chart rows by extending caches, formulas, and the embedded workbook", async () => {
+  const { extractZip } = zipHelpers;
+  const buffer = await buildEditableChartDeck();
+  const descriptor = chartData.getChartDataDescriptor(await extractZip(buffer), CHART_PATH);
+
+  const output = await chartData.updateChartData(buffer, descriptor, {
+    categories: ["Q1", "Q2", "Q3"],
+    rowOperation: { type: "insert", index: 2 },
+    series: [{ values: ["10", "20", "30"], pointLabels: null }],
+  });
+
+  const reExtracted = await extractZip(output);
+  const reloaded = chartData.getChartDataDescriptor(reExtracted, CHART_PATH);
+  assert.deepEqual(reloaded.grid.categories, ["Q1", "Q2", "Q3"]);
+  assert.deepEqual(reloaded.grid.series[0].values, ["10", "20", "30"]);
+
+  const chartXml = reExtracted.textFiles.get(CHART_PATH);
+  assert.match(chartXml, /Sheet1!\$A\$2:\$A\$4/);
+  assert.match(chartXml, /Sheet1!\$B\$2:\$B\$4/);
+  assert.match(chartXml, /<c:ptCount val="3"\/>/);
+
+  const workbookBytes = reExtracted.binaryFiles.get(WORKBOOK_PATH);
+  const workbookFiles = await extractZip(toArrayBuffer(workbookBytes));
+  const sheetXml = workbookFiles.textFiles.get("xl/worksheets/sheet1.xml");
+  assert.match(sheetXml, /<c r="A4" t="inlineStr"><is><t>Q3<\/t><\/is><\/c>/);
+  assert.match(sheetXml, /<c r="B4"><v>30<\/v><\/c>/);
+});
+
+test("updateChartData deletes chart rows by shrinking formulas and clearing stale workbook cells", async () => {
+  const { extractZip } = zipHelpers;
+  const buffer = await buildEditableChartDeck();
+  const descriptor = chartData.getChartDataDescriptor(await extractZip(buffer), CHART_PATH);
+
+  const output = await chartData.updateChartData(buffer, descriptor, {
+    categories: ["Q2"],
+    rowOperation: { type: "delete", index: 0 },
+    series: [{ values: ["20"], pointLabels: null }],
+  });
+
+  const reExtracted = await extractZip(output);
+  const reloaded = chartData.getChartDataDescriptor(reExtracted, CHART_PATH);
+  assert.deepEqual(reloaded.grid.categories, ["Q2"]);
+  assert.deepEqual(reloaded.grid.series[0].values, ["20"]);
+
+  const chartXml = reExtracted.textFiles.get(CHART_PATH);
+  assert.match(chartXml, /Sheet1!\$A\$2<\/c:f>/);
+  assert.match(chartXml, /Sheet1!\$B\$2<\/c:f>/);
+  assert.match(chartXml, /<c:ptCount val="1"\/>/);
+
+  const workbookBytes = reExtracted.binaryFiles.get(WORKBOOK_PATH);
+  const workbookFiles = await extractZip(toArrayBuffer(workbookBytes));
+  const sheetXml = workbookFiles.textFiles.get("xl/worksheets/sheet1.xml");
+  assert.match(sheetXml, /<c r="A2" t="inlineStr"><is><t>Q2<\/t><\/is><\/c>/);
+  assert.match(sheetXml, /<c r="B2"><v>20<\/v><\/c>/);
+  assert.match(sheetXml, /<c r="A3"\/>/);
+  assert.match(sheetXml, /<c r="B3"\/>/);
+});
+
+test("updateChartData validates row operations and keeps at least one chart row", async () => {
   const { extractZip } = zipHelpers;
   const buffer = await buildEditableChartDeck();
   const descriptor = chartData.getChartDataDescriptor(await extractZip(buffer), CHART_PATH);
 
   await assert.rejects(
-    () =>
-      chartData.updateChartData(buffer, descriptor, {
-        categories: ["Q1", "Q2", "Q3"],
-        series: [{ values: ["10", "20", "30"], pointLabels: null }],
-      }),
-    /Adding or deleting chart rows is not supported yet/,
+    () => chartData.updateChartData(buffer, descriptor, {
+      categories: ["Q1", "Q2", "Q3"],
+      rowOperation: { type: "delete", index: 0 },
+      series: [{ values: ["10", "20", "30"], pointLabels: null }],
+    }),
+    /Deleted chart rows do not match the updated chart grid/,
+  );
+  await assert.rejects(
+    () => chartData.updateChartData(buffer, descriptor, {
+      categories: [],
+      rowOperation: { type: "delete", index: 0, count: 2 },
+      series: [{ values: [], pointLabels: null }],
+    }),
+    /A chart must keep at least one category row/,
   );
 });
 

@@ -772,7 +772,11 @@ export async function executePptxOp(
 			assertEditableShape(slideIndex, shapeIndex);
 			const changedId = pptxShapeId(slideIndex, shapeIndex);
 			if (!context.dryRun) {
-				await context.engine.resetImage(slideIndex, shapeIndex);
+				const reset = await context.engine.resetImage(slideIndex, shapeIndex);
+				if (!reset.changed) {
+					result.warnings.push(`Image ${changedId} already has no crop or visual effects to reset.`);
+					return result;
+				}
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);

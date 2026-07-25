@@ -68,7 +68,7 @@ test("resize and rotate commit through updateShapeTransform", async (t) => {
   const engine = await loadEngine();
   if (!requireEngineApi(t, engine, "updateShapeTransform")) return;
 
-  await engine.updateShapeTransform(SLIDE_INDEX, 0, {
+  const fragment = await engine.updateShapeTransform(SLIDE_INDEX, 0, {
     x: 123456,
     y: 234567,
     cx: 3456789,
@@ -82,5 +82,6 @@ test("resize and rotate commit through updateShapeTransform", async (t) => {
   assert.match(slideXml, /cx="3456789"/);
   assert.match(slideXml, /cy="456789"/);
   assert.match(slideXml, /rot="2700000"/);
+  assert.match(fragment ?? "", /<g\b[^>]*data-ooxml-shape-idx="0"/);
   await assertExportRoundTrips("resize and rotate", engine);
 });

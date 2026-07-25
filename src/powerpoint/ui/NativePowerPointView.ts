@@ -112,6 +112,7 @@ import { TextToolbarController, type TextToolbarHost } from '../textToolbarContr
 import { SaveController, type SaveHost } from '../saveController';
 import { PresentationSession, type PresentationSessionEvent } from '../session/PresentationSession';
 import { PptxMutationService } from '../mutations/PptxMutationService';
+import { commandMayChangePresentationWordCount } from '../wordCountRefresh';
 import {
   annotateShapeGroupTextOffsets,
   annotateSlideTextOffsets as stampSlideTextOffsets,
@@ -134,11 +135,13 @@ import {
   type RunTspanOffset
 } from '../textUtils';
 import {
+  canKeepLiveGroupMovePreview,
   cloneTransform,
   getShapeIndex,
   getSvgIntrinsicSize,
   isEditableShapeIndex,
   isSelectableShapeIndex,
+  isTopLevelShapeForIndex,
   normalizeSvgForDisplay,
   transformsMatch
 } from '../svgUtils';
@@ -322,6 +325,8 @@ export class NativePowerPointView extends FileView {
   private svgSecurityDecision: SvgSecurityDecision = null;
   private presentationWordCount = 0;
   private presentationWordCountEditVersion = -1;
+  /** Set only by text-changing commands; formatting must not re-render the deck. */
+  private presentationWordCountNeedsRefresh = false;
 
   private layoutEl: HTMLElement | null = null;
   private rootEl: HTMLElement | null = null;
@@ -445,6 +450,7 @@ export class NativePowerPointView extends FileView {
     return {
       t: this.t,
       get engine() { return getView().engine; },
+      get svgEl() { return getView().svgEl; },
       get thumbnailContainer() { return getView().thumbnailContainer; },
       get isLoading() { return getView().isLoading; },
       get currentSlide() { return getView().session.currentSlide; },
@@ -574,7 +580,9 @@ export class NativePowerPointView extends FileView {
       renderThumbnails: () => getView().renderThumbnails(),
       applyMultiSelection: (indices) => getView().applyMultiSelection(indices),
       selectShape: (shapeIndex) => getView().selectShape(shapeIndex),
-      commitGroupTransforms: (updates, label) => getView().commitGroupTransforms(updates, label),
+      commitGroupTransforms: async (updates, label) => {
+        await getView().commitGroupTransforms(updates, label);
+      },
       createIconButton: (container, icon, label, onClick) => getView().createIconButton(container, icon, label, onClick),
       updateToolbarButton: (button, enabled) => getView().updateObjectClipboardButton(button, enabled)
     };
@@ -599,6 +607,7 @@ export class NativePowerPointView extends FileView {
       renderCurrentSlide: (keepSelection) => getView().renderCurrentSlide(keepSelection),
       renderEditedShape: (shapeIndex) => getView().renderEditedShape(shapeIndex),
       renderThumbnails: () => getView().renderThumbnails(),
+      syncCurrentThumbnailShape: (shapeIndex) => getView().syncCurrentThumbnailShape(shapeIndex),
       selectShape: (shapeIndex) => getView().selectShape(shapeIndex),
       selectShapeForTextEditing: (shapeIndex) => getView().selectShapeForTextEditing(shapeIndex),
       startTextEditor: () => getView().startTextEditor(),
@@ -747,7 +756,14 @@ export class NativePowerPointView extends FileView {
 
   /** Re-render lightweight chrome when shared presentation state changes. */
   private handlePresentationSessionEvent(event: PresentationSessionEvent): void {
-	if (event.type === 'save' && event.snapshot.editVersion !== this.presentationWordCountEditVersion) {
+	if (event.type === 'command' && commandMayChangePresentationWordCount(event.command)) {
+		this.presentationWordCountNeedsRefresh = true;
+	}
+	if (
+		event.type === 'save'
+		&& this.presentationWordCountNeedsRefresh
+		&& event.snapshot.editVersion !== this.presentationWordCountEditVersion
+	) {
 		this.refreshPresentationWordCount();
 	}
 	if (event.type === 'selection' || event.type === 'slide') {
@@ -767,6 +783,7 @@ export class NativePowerPointView extends FileView {
 			return;
 		}
 
+		const started = performance.now();
 		const parser = new DOMParser();
 		const text = Array.from({ length: engine.slideCount }, (_, slideIndex) => {
 			const svg = renderSlide.call(engine, slideIndex).svg;
@@ -775,7 +792,16 @@ export class NativePowerPointView extends FileView {
 		}).join('\n');
 		this.presentationWordCount = countDocumentWords(text);
 		this.presentationWordCountEditVersion = this.session.editVersion;
+		this.presentationWordCountNeedsRefresh = false;
 		this.publishPresentationWordCount();
+		debugLog('word-count', 'PowerPoint presentation word count refreshed', {
+			slides: engine.slideCount,
+			ms: Math.round(performance.now() - started),
+		});
+	}
+
+	private markPresentationWordCountDirty(): void {
+		this.presentationWordCountNeedsRefresh = true;
 	}
 
 	private getSelectedPresentationText(): string | null {
@@ -1580,13 +1606,22 @@ export class NativePowerPointView extends FileView {
     const slideGroup = toolbar.createDiv({ cls: 'native-powerpoint-toolbar-group' });
     // Primary click adds a blank slide immediately (Google Slides "+" behavior).
     this.createEditIconButton(slideGroup, 'plus', this.tb('newSlide'), () => void this.slideFilmstripController.addSlideWithLayout('blank'));
-    // A caret opens the layout choices without blocking the quick-add action.
+    // A caret lists this presentation's real master layouts. Unlike the former
+    // synthetic title/body choices, these retain the POTX's placeholders,
+    // theme, and custom master bindings exactly as PowerPoint does.
     const newSlideLayoutButton = this.createEditIconButton(slideGroup, 'chevron-down', this.tb('newSlideLayout'), () => {
-      this.toggleInsertMenu(newSlideLayoutButton, [
-        { label: this.tb('blank'), onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank') },
-        { label: this.tb('title'), onClick: () => void this.slideFilmstripController.addSlideWithLayout('title') },
-        { label: this.tb('titleBody'), onClick: () => void this.slideFilmstripController.addSlideWithLayout('titleBody') }
-      ]);
+      const layouts = this.engine?.getSlideLayouts() ?? [];
+      const items = layouts.map((layout) => ({
+        label: layout.name,
+        onClick: () => void this.slideFilmstripController.addSlideFromTemplateLayout(layout.id),
+      }));
+      if (items.length === 0) {
+        items.push({
+          label: this.tb('blank'),
+          onClick: () => void this.slideFilmstripController.addSlideWithLayout('blank'),
+        });
+      }
+      this.toggleInsertMenu(newSlideLayoutButton, items);
     });
     this.createEditIconButton(slideGroup, 'files', this.tb('duplicateSlide'), () => void this.slideFilmstripController.duplicateSlide());
     this.createEditIconButton(slideGroup, 'trash-2', this.tb('deleteSlide'), () => void this.slideFilmstripController.deleteSlide());
@@ -2885,6 +2920,7 @@ export class NativePowerPointView extends FileView {
     this.session.reset();
 		this.presentationWordCount = 0;
 		this.presentationWordCountEditVersion = -1;
+		this.presentationWordCountNeedsRefresh = false;
 		this.onWordCountClear();
     this.removeActiveEditor();
     this.historyController.clear();
@@ -3178,40 +3214,73 @@ export class NativePowerPointView extends FileView {
       return false;
     }
 
-    // Wrap the bare `<g>` fragment in a minimal SVG so it runs through the same
-    // sanitizer/parse path as a full slide render; bail to a full render if the
-    // sanitizer would hide content (the full path surfaces the security prompt).
-    const wrapper = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${shapeSvg}</svg>`;
-    const safeSvg = this.prepareSvgForRender(wrapper);
-    if (!safeSvg.allowed) return false;
+    return this.replaceShapeFragmentsInPlace([{ shapeIndex, svg: shapeSvg }], 'single-shape');
+  }
 
-    const wrapperEl = createSvgElementFromString(safeSvg.svg, svg.ownerDocument);
-    const newGroup = wrapperEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`) ?? null;
-    if (!isSVGGElement(newGroup)) return false;
+  /**
+   * Atomically replace top-level shape groups from renderer fragments. A group
+   * transform receives these fragments from `updateShapeTransform`, so a resize
+   * does not need another full-slide (or per-shape) renderer pass on release.
+   */
+  private replaceShapeFragmentsInPlace(
+    fragments: readonly { shapeIndex: number; svg: string }[],
+    source: 'group-transform' | 'single-shape',
+  ): boolean {
+    const svg = this.svgEl;
+    const engine = this.engine;
+    if (!svg || !engine || fragments.length === 0) return false;
 
-    existing.replaceWith(newGroup);
+    const replacements: { shapeIndex: number; existing: SVGGElement; replacement: SVGGElement }[] = [];
+    for (const fragment of fragments) {
+      const existing = svg.querySelector(`g[data-ooxml-shape-idx="${fragment.shapeIndex}"]`);
+      if (!isSVGGElement(existing) || existing.parentElement?.closest('g[data-ooxml-shape-idx]')) {
+        return false;
+      }
 
-    // Re-run the per-shape render passes on the swapped node. Font fidelity is
-    // scoped to the new group; the grid/halo/chart-axis/editable passes are
-    // idempotent (attribute-only) so running them slide-wide is safe and keeps
-    // unchanged shapes correct.
-    engine.applyFontFidelity(newGroup);
+      // Wrap each bare `<g>` fragment in a minimal SVG so it uses the same
+      // sanitizer/parse funnel as a full render. Build every replacement before
+      // changing the live DOM; any failure can then fall back once, cleanly.
+      const wrapper = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${fragment.svg}</svg>`;
+      const safeSvg = this.prepareSvgForRender(wrapper);
+      if (!safeSvg.allowed) return false;
+
+      const wrapperEl = createSvgElementFromString(safeSvg.svg, svg.ownerDocument);
+      const replacement = wrapperEl?.querySelector(`g[data-ooxml-shape-idx="${fragment.shapeIndex}"]`) ?? null;
+      if (!isSVGGElement(replacement)) return false;
+      replacements.push({ shapeIndex: fragment.shapeIndex, existing, replacement });
+    }
+
+    for (const { existing, replacement } of replacements) {
+      existing.replaceWith(replacement);
+    }
+
+    // Re-run each per-shape pass exactly once for the batch. The slide-wide
+    // passes are idempotent, but doing them once prevents three resize fragments
+    // from repeatedly normalizing the large poster SVG.
+    for (const { replacement } of replacements) engine.applyFontFidelity(replacement);
     engine.formatChartAxisLabels(svg, this.currentSlide);
     normalizeSvgForDisplay(svg);
     this.markGeneratedTextEditability(svg);
-    this.annotateShapeTextOffsets(newGroup);
+    for (const { replacement } of replacements) this.annotateShapeTextOffsets(replacement);
     this.applyRunHighlights();
 
     // The replaced group dropped its `native-powerpoint-shape-selected` class and
     // any selection box geometry; re-apply selection state without re-running the
     // full select choreography.
     this.applySelectionClasses();
-    if (this.selectedShapeIndex === shapeIndex || this.selectedShapeIndices.has(shapeIndex)) {
+    if (replacements.some(({ shapeIndex }) => (
+      this.selectedShapeIndex === shapeIndex || this.selectedShapeIndices.has(shapeIndex)
+    ))) {
       this.updateSelectionOverlay();
     }
 
     this.findController.refreshHighlight();
-    debugLog('render', 'renderShapeInPlace swapped shape', { slide: this.currentSlide, shapeIndex });
+    debugLog('render', 'renderShapeInPlace swapped shape groups', {
+      slide: this.currentSlide,
+      source,
+      shapeIndexes: replacements.map(({ shapeIndex }) => shapeIndex),
+      count: replacements.length,
+    });
     return true;
   }
 
@@ -3223,6 +3292,69 @@ export class NativePowerPointView extends FileView {
   private async renderEditedShape(shapeIndex: number): Promise<boolean> {
     if (this.renderShapeInPlace(shapeIndex)) return true;
     return this.renderCurrentSlide(true);
+  }
+
+  /**
+   * Mirrors one already-rendered shape into the active filmstrip thumbnail.
+   * This is safe for text formatting: it changes no slide-level definitions or
+   * relationships, while avoiding a synchronous full-slide SVG render.
+   */
+  private syncCurrentThumbnailShape(shapeIndex: number): boolean {
+    const started = performance.now();
+    const sourceSvg = this.svgEl;
+    const thumbnailItem = this.thumbnailContainer
+      ?.querySelectorAll('.native-powerpoint-thumbnail')
+      .item(this.currentSlide);
+    const thumbnailSvg = thumbnailItem?.querySelector('svg');
+    if (!sourceSvg || !thumbnailSvg || thumbnailSvg.tagName.toLowerCase() !== 'svg') return false;
+
+    const source = sourceSvg.querySelector(`:scope > g[data-ooxml-shape-idx="${shapeIndex}"]`);
+    const target = thumbnailSvg.querySelector(`:scope > g[data-ooxml-shape-idx="${shapeIndex}"]`);
+    if (!isSVGGElement(source) || !isSVGGElement(target)) return false;
+
+    const replacement = source.cloneNode(true) as SVGGElement;
+    replacement.classList.remove('native-powerpoint-shape-selected', 'native-powerpoint-text-editing');
+    replacement.querySelectorAll('.native-powerpoint-shape-selected, .native-powerpoint-text-editing')
+      .forEach((element) => element.classList.remove(
+        'native-powerpoint-shape-selected',
+        'native-powerpoint-text-editing',
+      ));
+    target.replaceWith(replacement);
+    debugLog('render', 'Synced edited PowerPoint shape into thumbnail', {
+      slide: this.currentSlide,
+      shapeIndex,
+      ms: Math.round(performance.now() - started),
+    });
+    return true;
+  }
+
+  /**
+   * A current-slide object edit has an updated canvas group already. Mirror it
+   * into the matching filmstrip group instead of scheduling a full thumbnail
+   * render: on a 24×36 poster that render blocks the UI for roughly two seconds.
+   * If the thumbnail is not mounted yet, there is nothing visible to refresh;
+   * the filmstrip's normal lazy render will create it when it becomes visible.
+   */
+  private mirrorCurrentThumbnailShape(shapeIndex: number, reason: string): boolean {
+    const started = performance.now();
+    const mirrored = this.syncCurrentThumbnailShape(shapeIndex);
+    debugLog('render', 'PowerPoint current thumbnail update', {
+      slide: this.currentSlide,
+      shapeIndex,
+      reason,
+      strategy: mirrored ? 'shape-mirror' : 'defer-unmounted-thumbnail',
+      ms: Math.round(performance.now() - started),
+    });
+    return mirrored;
+  }
+
+  /** Keep group-move thumbnails current without re-rendering the full poster. */
+  private syncCurrentThumbnailShapes(shapeIndexes: readonly number[]): number {
+    let syncedCount = 0;
+    for (const shapeIndex of new Set(shapeIndexes)) {
+      if (this.syncCurrentThumbnailShape(shapeIndex)) syncedCount += 1;
+    }
+    return syncedCount;
   }
 
   private async renderThumbnails(): Promise<void> {
@@ -4171,12 +4303,64 @@ export class NativePowerPointView extends FileView {
   }
 
   private async resetSelectedImage(shapeIndex: number): Promise<void> {
-    await this.applyShapeMutation(
-      shapeIndex,
-      'Reset image',
-      'reset image',
-      (slideIndex, index) => this.engine!.resetImage(slideIndex, index)
-    );
+    if (!this.engine || !this.ensureEditable('reset crop and effects')) return;
+
+    const state = this.engine.getImageResetState(this.currentSlide, shapeIndex);
+    logPptxAction('inspector', 'reset-image', {
+      slide: this.currentSlide,
+      shapeIndexes: [shapeIndex],
+      hasCrop: state?.hasCrop ?? false,
+      effectNames: state?.effectNames ?? [],
+    });
+    if (!state || (!state.hasCrop && state.effectNames.length === 0)) {
+      debugLog('inspector', 'Skipped PowerPoint image reset because it was already reset', {
+        slide: this.currentSlide,
+        shapeIndex,
+        hasImage: state !== null,
+      });
+      pptNotice('powerpoint:notice.imageAppearanceAlreadyReset');
+      return;
+    }
+
+    try {
+      const history = await this.captureHistoryEntry('Reset crop and effects');
+      const reset = await this.engine.resetImage(this.currentSlide, shapeIndex);
+      if (!reset.changed) {
+        debugLog('inspector', 'Skipped PowerPoint image reset after mutation preflight', {
+          slide: this.currentSlide,
+          shapeIndex,
+          hasCrop: reset.hasCrop,
+          effectNames: reset.effectNames,
+        });
+        pptNotice('powerpoint:notice.imageAppearanceAlreadyReset');
+        return;
+      }
+
+      this.recordHistoryEntry(history);
+      this.markDirty();
+      const rendered = await this.renderEditedShape(shapeIndex);
+      if (rendered) {
+        this.selectShape(shapeIndex);
+        await this.renderThumbnails();
+      }
+      debugLog('inspector', 'Reset PowerPoint image crop and effects', {
+        slide: this.currentSlide,
+        shapeIndex,
+        cropRemoved: reset.cropRemoved,
+        effectNames: reset.effectNames,
+        rendered,
+      });
+    } catch (error) {
+      errorLog('inspector', 'PowerPoint image reset failed', {
+        slide: this.currentSlide,
+        shapeIndex,
+        error,
+      });
+      pptNotice('powerpoint:notice.couldNotAction', {
+        action: 'reset crop and effects',
+        message: cleanError(error),
+      });
+    }
   }
 
   private openReplaceImageVaultPicker(shapeIndex: number): void {
@@ -4670,6 +4854,7 @@ export class NativePowerPointView extends FileView {
         await this.engine.updateShapeText(slideIndex, shapeIndex, text);
       }
       this.recordHistoryEntry(history);
+      this.markPresentationWordCountDirty();
       this.markDirty();
 
       if (slideIndex !== this.currentSlide) {
@@ -7448,7 +7633,88 @@ export class NativePowerPointView extends FileView {
         target: run,
         change
       });
+    }, change.fontSizePt === undefined ? undefined : { fontSizePreviewPt: change.fontSizePt });
+  }
+
+  /**
+   * A slide-local text mutation invalidates pptx-svg 0.5.x's render cache. Its
+   * next render then reparses the complete presentation, which turns one click
+   * on the font-size stepper into a multi-second main-thread stall on posters.
+   *
+   * Font size is safe to preview directly in the live SVG: the OOXML mutation
+   * above remains authoritative for save/reopen, while a later normal render
+   * (slide navigation, another structural edit) performs the exact layout pass.
+   * This keeps repeated size changes responsive without making the document
+   * dirty only in the display layer.
+   */
+  private previewFontSizeChange(
+    shapeIndex: number,
+    fontSizePt: number,
+    run: RunTarget | null,
+    selectionRanges: readonly ParagraphTextRange[] | null,
+  ): boolean {
+    const svg = this.svgEl;
+    const shape = svg?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
+    if (!svg || !isSVGGElement(shape) || !Number.isFinite(fontSizePt) || fontSizePt <= 0) {
+      return false;
+    }
+
+    const renderScale = Number(svg.getAttribute('data-ooxml-scale'));
+    if (!Number.isFinite(renderScale) || renderScale <= 0) return false;
+
+    const rangesByParagraph = new Map<number, ParagraphTextRange[]>();
+    for (const range of selectionRanges ?? []) {
+      const ranges = rangesByParagraph.get(range.paragraphIndex) ?? [];
+      ranges.push(range);
+      rangesByParagraph.set(range.paragraphIndex, ranges);
+    }
+
+    const cursorByParagraph = new Map<number, number>();
+    const renderedFontSize = this.formatSvgNumber(fontSizePt / renderScale);
+    const ooxmlFontSize = String(Math.round(fontSizePt * 100));
+    let updatedRuns = 0;
+
+    for (const candidate of Array.from(shape.querySelectorAll('tspan[data-ooxml-run-idx]'))) {
+      if (!isSVGTSpanElement(candidate)) continue;
+      const paragraph = candidate.closest('tspan[data-ooxml-para-idx]');
+      const paragraphIndex = Number(paragraph?.getAttribute('data-ooxml-para-idx'));
+      const runIndex = Number(candidate.getAttribute('data-ooxml-run-idx'));
+      if (!Number.isFinite(paragraphIndex) || !Number.isFinite(runIndex)) continue;
+
+      const start = cursorByParagraph.get(paragraphIndex) ?? 0;
+      const end = start + (candidate.textContent?.length ?? 0);
+      cursorByParagraph.set(paragraphIndex, end);
+      const ranges = rangesByParagraph.get(paragraphIndex);
+      const selected = ranges
+        ? ranges.some((range) => (
+          range.start === range.end
+            ? range.start >= start && range.start < end
+            : range.start < end && range.end > start
+        ))
+        : run
+          ? run.paragraphIndex === paragraphIndex && run.runIndex === runIndex
+          : true;
+      if (!selected) continue;
+
+      candidate.setAttribute('font-size', renderedFontSize);
+      candidate.setAttribute('data-ooxml-font-size', ooxmlFontSize);
+      updatedRuns += 1;
+    }
+
+    if (updatedRuns === 0) return false;
+
+    // Existing highlight overlays use glyph geometry. Rebuild only when this
+    // slide actually has them; ordinary font-size actions stay DOM-only.
+    if (this.runHighlightRects.length > 0) this.applyRunHighlights();
+
+    debugLog('render', 'Applied immediate font-size SVG preview', {
+      slide: this.currentSlide,
+      shapeIndex,
+      fontSizePt,
+      updatedRuns,
+      scope: selectionRanges?.length ? 'selection' : run ? 'run' : 'shape',
     });
+    return true;
   }
 
   private applyAlignment(align: ParagraphAlignment): void {
@@ -7494,7 +7760,8 @@ export class NativePowerPointView extends FileView {
       shapeIndex: number,
       run: RunTarget | null,
       selection: ParagraphTextRange[] | null
-    ) => Promise<unknown>
+    ) => Promise<unknown>,
+    options: { fontSizePreviewPt?: number } = {},
   ): Promise<void> {
     const engine = this.engine;
     if (!engine || !this.ensureEditable('format text')) {
@@ -7589,15 +7856,43 @@ export class NativePowerPointView extends FileView {
       const engineRanges = selectionRanges
         ? this.mapRangesToOoxmlOffsets(context.shapeIndex, selectionRanges)
         : null;
-      await apply(context.shapeIndex, context.run, engineRanges);
-      this.recordHistoryEntry(this.completeSlideXmlHistoryEntry(history));
+      const applyResult = await apply(context.shapeIndex, context.run, engineRanges);
+      const completedHistory = this.completeSlideXmlHistoryEntry(history);
+      const documentChanged = completedHistory.beforeXml !== completedHistory.afterXml;
+      if (!documentChanged) {
+        // A repeated font/style pick must not create an undo step, mark the
+        // presentation dirty, or force the expensive poster re-render path.
+        this.pendingHighlightClear = null;
+        debugLog('text-format', 'Skipped unchanged PowerPoint text formatting', {
+          label,
+          slide: this.currentSlide,
+          shapeIndex: context.shapeIndex,
+          applyResult,
+        });
+        return;
+      }
+      this.recordHistoryEntry(completedHistory);
 
-      const rendered = await this.renderEditedShape(context.shapeIndex);
+      const previewedFontSize = options.fontSizePreviewPt === undefined
+        ? false
+        : this.previewFontSizeChange(
+          context.shapeIndex,
+          options.fontSizePreviewPt,
+          context.run,
+          selectionRanges,
+        );
+      const rendered = previewedFontSize || await this.renderEditedShape(context.shapeIndex);
       if (rendered) {
         this.restoreCanvasScrollSoon(scrollPosition);
-        this.scheduleThumbnailRefresh(this.currentSlide);
+        // A poster thumbnail is a second full-slide render (over 2s for the
+        // 24x36 poster). The edited shape is already rendered accurately in
+        // the canvas, so copy that group into its thumbnail instead of
+        // rebuilding the entire slide on every font-button press.
+        this.mirrorCurrentThumbnailShape(context.shapeIndex, 'text-format');
         if (editor && this.activeEditor === editor && selectionRanges) {
-          if (this.refreshActiveShapeEditorAfterRender()) {
+          if (previewedFontSize) {
+            this.refreshInlineEditorGeometry();
+          } else if (this.refreshActiveShapeEditorAfterRender()) {
             const length = editor.value.length;
             if (!restoreInlineRangeSelection) {
               this.clearWholeShapeInlineSelection();
@@ -7614,6 +7909,7 @@ export class NativePowerPointView extends FileView {
         label,
         slide: this.currentSlide,
         rendered,
+        renderStrategy: previewedFontSize ? 'font-size-svg-preview' : 'renderer',
         pendingTextCommitted: pendingText !== null,
         selectionRanges: selectionRanges?.map((range) => ({
           paragraphIndex: range.paragraphIndex,
@@ -11225,11 +11521,22 @@ export class NativePowerPointView extends FileView {
     const dy = (point.y - this.groupDrag.startPoint.y) * scale;
 
     if (this.groupDrag.mode === 'resize') {
-      const nextBounds = this.getGroupResizeBounds(this.groupDrag, dx, dy);
+      let nextBounds = this.getGroupResizeBounds(this.groupDrag, dx, dy);
       this.setResizeCrossedHandleState(
         this.groupDrag.crossedHorizontal ?? false,
         this.groupDrag.crossedVertical ?? false,
       );
+      const resizeSnap = this.getResizeSnap(
+        nextBounds,
+        this.groupDrag.handle,
+        new Set(this.selectedShapeIndices),
+        {
+          horizontal: !(this.groupDrag.crossedHorizontal ?? false),
+          vertical: !(this.groupDrag.crossedVertical ?? false),
+        },
+      );
+      nextBounds = resizeSnap.transform;
+      this.snapController.updateSnapGuides(resizeSnap.guideX, resizeSnap.guideY);
       const scaleX = nextBounds.cx / this.groupDrag.startBounds.cx;
       const scaleY = nextBounds.cy / this.groupDrag.startBounds.cy;
       this.groupDrag.latest = this.scaleGroupTransforms(
@@ -11610,6 +11917,23 @@ export class NativePowerPointView extends FileView {
   }
 
   /**
+   * A multi-object move only adds a translate transform. Keep that transform
+   * after the pointer is released, then persist the OOXML coordinates in the
+   * background. This avoids rebuilding a large slide solely to show the exact
+   * position that is already on screen.
+   */
+  private retainGroupMovePreviews(groupDrag: GroupDragState): ReadonlyMap<number, SVGGElement> {
+    const retained = new Map<number, SVGGElement>();
+    for (const index of groupDrag.previewOriginalTransforms?.keys() ?? []) {
+      const shape = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
+      if (!isSVGGElement(shape) || !isTopLevelShapeForIndex(shape, index)) continue;
+      shape.classList.remove('native-powerpoint-shape-drag-preview');
+      retained.set(index, shape);
+    }
+    return retained;
+  }
+
+  /**
    * Restore a cloned text subtree before another preview pass. Reflowing from
    * the rendered baseline avoids accumulating temporary line breaks as the
    * pointer moves back and forth.
@@ -11921,12 +12245,14 @@ export class NativePowerPointView extends FileView {
     const groupDrag = this.groupDrag;
     this.groupDrag = null;
     this.snapController.endDrag();
-    this.restoreGroupShapePreviews(groupDrag);
     this.setResizeCrossedHandleState(false, false);
     this.selectionOverlay?.style.removeProperty('transform');
     this.selectionOverlay?.style.removeProperty('transform-origin');
 
-    if (!groupDrag.moved) return;
+    if (!groupDrag.moved) {
+      this.restoreGroupShapePreviews(groupDrag);
+      return;
+    }
 
     const label = groupDrag.mode === 'resize'
       ? 'Resize objects'
@@ -11939,6 +12265,11 @@ export class NativePowerPointView extends FileView {
       horizontal: groupDrag.mode === 'resize' && (groupDrag.crossedHorizontal ?? false),
       vertical: groupDrag.mode === 'resize' && (groupDrag.crossedVertical ?? false),
     };
+    const keepLivePreview = canKeepLiveGroupMovePreview(groupDrag.mode, flipAxes);
+    const preferredShapes = keepLivePreview
+      ? this.retainGroupMovePreviews(groupDrag)
+      : undefined;
+    if (!keepLivePreview) this.restoreGroupShapePreviews(groupDrag);
     debugLog('selection', 'PowerPoint group transform preview ended', {
       op: 'group-transform-end',
       slide: this.currentSlide,
@@ -11958,8 +12289,18 @@ export class NativePowerPointView extends FileView {
       textReflowPreviewCount: groupDrag.previewTextReflowCount ?? 0,
       textReflowPreviewError: groupDrag.previewTextReflowError ?? null,
       moved: groupDrag.moved,
+      keptLivePreview: keepLivePreview,
     });
-    void this.commitGroupTransforms(updates, label, groupDrag.mode, flipAxes);
+    void this.commitGroupTransforms(updates, label, groupDrag.mode, flipAxes, {
+      keepLivePreview,
+      preferredShapes,
+    }).then((result) => {
+      // A failed persistence must not leave the transient SVG translation on screen.
+      if (keepLivePreview && result === 'noop') {
+        this.restoreGroupShapePreviews(groupDrag);
+        this.updateMultiSelectionBoxes();
+      }
+    });
   }
 
   private async commitGroupTransforms(
@@ -11967,21 +12308,29 @@ export class NativePowerPointView extends FileView {
     label = 'Move objects',
     mode: DragState['mode'] = 'move',
     flipAxes: { horizontal: boolean; vertical: boolean } = { horizontal: false, vertical: false },
-  ): Promise<void> {
-    if (!this.engine || updates.length === 0) return;
+    options: {
+      keepLivePreview?: boolean;
+      preferredShapes?: ReadonlyMap<number, SVGGElement>;
+    } = {},
+  ): Promise<'kept-preview' | 'rendered' | 'noop'> {
+    if (!this.engine || updates.length === 0) return 'noop';
     const action = mode === 'resize' ? 'resize objects' : mode === 'rotate' ? 'rotate objects' : 'move objects';
-    if (!this.ensureEditable(action)) return;
+    if (!this.ensureEditable(action)) return 'noop';
 
     try {
+      const startedAt = performance.now();
       const editableUpdates = updates.filter((update) => isEditableShapeIndex(update.index));
       if (editableUpdates.length < updates.length) {
         pptNotice('powerpoint:notice.objectNotEditable');
       }
-      if (editableUpdates.length === 0) return;
+      if (editableUpdates.length === 0) return 'noop';
 
       const changes: HistoryTransformChange[] = [];
       for (const update of editableUpdates) {
-        const shape = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${update.index}"]`);
+        const preferred = options.preferredShapes?.get(update.index);
+        const shape = isSVGGElement(preferred) && isTopLevelShapeForIndex(preferred, update.index)
+          ? preferred
+          : this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${update.index}"]`);
         if (!isSVGGElement(shape)) continue;
         const before = this.engine.getShapeTransform(shape);
         if (transformsMatch(before, update.transform)) continue;
@@ -11992,13 +12341,18 @@ export class NativePowerPointView extends FileView {
         });
       }
       const shouldFlip = flipAxes.horizontal || flipAxes.vertical;
-      if (changes.length === 0 && !shouldFlip) return;
+      if (changes.length === 0 && !shouldFlip) return 'noop';
 
       let history: HistoryEntry = shouldFlip
         ? this.historyController.captureSlideXml(this.currentSlide, label)
         : this.historyController.captureTransform(this.currentSlide, changes, label);
+      const renderedFragments: { shapeIndex: number; svg: string }[] = [];
+      const shouldCollectRendererFragments = mode === 'resize' && !shouldFlip;
       for (const change of changes) {
-        await this.engine.updateShapeTransform(this.currentSlide, change.shapeIndex, change.after);
+        const fragment = await this.engine.updateShapeTransform(this.currentSlide, change.shapeIndex, change.after);
+        if (shouldCollectRendererFragments && fragment) {
+          renderedFragments.push({ shapeIndex: change.shapeIndex, svg: fragment });
+        }
       }
       if (flipAxes.horizontal || flipAxes.vertical) {
         for (const update of editableUpdates) {
@@ -12012,10 +12366,61 @@ export class NativePowerPointView extends FileView {
       this.recordHistoryEntry(history);
       this.markDirty();
       const indices = updates.map((update) => update.index);
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) {
+      const keepLivePreview = Boolean(options.keepLivePreview)
+        && canKeepLiveGroupMovePreview(mode, flipAxes);
+      let rendered = false;
+      let renderMs = 0;
+      let domSyncMs = 0;
+      let thumbnailSyncCount = 0;
+      let thumbnailSyncMs = 0;
+      let renderStrategy: 'live-preview' | 'shape-fragments' | 'full-slide' = 'full-slide';
+      if (keepLivePreview) {
+        const domSyncStarted = performance.now();
+        for (const change of changes) {
+          this.applyCommittedTransformToDom(
+            change.shapeIndex,
+            change.after,
+            options.preferredShapes?.get(change.shapeIndex) ?? null,
+          );
+        }
+        this.updateMultiSelectionBoxes();
+        const thumbnailSyncStarted = performance.now();
+        thumbnailSyncCount = this.syncCurrentThumbnailShapes(changes.map((change) => change.shapeIndex));
+        thumbnailSyncMs = Math.round(performance.now() - thumbnailSyncStarted);
+        domSyncMs = Math.round(performance.now() - domSyncStarted);
+        rendered = true;
+        renderStrategy = 'live-preview';
+      } else if (
+        mode === 'resize'
+        && !shouldFlip
+        && renderedFragments.length === changes.length
+      ) {
+        const renderStarted = performance.now();
+        // `updateShapeTransform` supplied canonical renderer fragments; swap
+        // them in and mirror the resulting groups without touching the full
+        // slide or filmstrip renderer.
+        rendered = this.replaceShapeFragmentsInPlace(renderedFragments, 'group-transform');
+        renderMs = Math.round(performance.now() - renderStarted);
+        if (rendered) {
+          renderStrategy = 'shape-fragments';
+          const thumbnailSyncStarted = performance.now();
+          thumbnailSyncCount = this.syncCurrentThumbnailShapes(changes.map((change) => change.shapeIndex));
+          thumbnailSyncMs = Math.round(performance.now() - thumbnailSyncStarted);
+        } else {
+          const fallbackRenderStarted = performance.now();
+          rendered = await this.renderCurrentSlide();
+          renderMs += Math.round(performance.now() - fallbackRenderStarted);
+        }
+      } else {
+        const renderStarted = performance.now();
+        rendered = await this.renderCurrentSlide();
+        renderMs = Math.round(performance.now() - renderStarted);
+      }
+      if (rendered && !keepLivePreview) {
         this.applyMultiSelection(indices);
-        this.scheduleThumbnailRefresh(this.currentSlide);
+        if (renderStrategy === 'full-slide') {
+          this.syncCurrentThumbnailShapes(changes.map((change) => change.shapeIndex));
+        }
       }
       debugLog('arrange', 'Committed PowerPoint group transform', {
         slide: this.currentSlide,
@@ -12024,8 +12429,17 @@ export class NativePowerPointView extends FileView {
         changedCount: changes.length,
         flippedHorizontal: flipAxes.horizontal,
         flippedVertical: flipAxes.vertical,
-        indices: editableUpdates.map((update) => update.index)
+        indices: editableUpdates.map((update) => update.index),
+        keptLivePreview: keepLivePreview,
+        renderStrategy,
+        rendererFragmentCount: renderedFragments.length,
+        domSyncMs,
+        thumbnailSyncCount,
+        thumbnailSyncMs,
+        renderMs,
+        ms: Math.round(performance.now() - startedAt),
       });
+      return keepLivePreview ? 'kept-preview' : rendered ? 'rendered' : 'noop';
     } catch (error) {
       errorLog('arrange', 'PowerPoint group transform failed', {
         slide: this.currentSlide,
@@ -12035,6 +12449,7 @@ export class NativePowerPointView extends FileView {
         error
       });
       pptNotice('powerpoint:notice.couldNotMoveObjects', { message: cleanError(error) });
+      return 'noop';
     }
   }
 
@@ -12537,6 +12952,82 @@ export class NativePowerPointView extends FileView {
     return { transform: next, crossedHorizontal, crossedVertical };
   }
 
+  /**
+   * Snap only the edge being resized. Applying a normal move snap would shift
+   * the opposite, fixed edge too; resize snapping changes the matching extent
+   * instead so the dragged handle locks to the guide without moving its anchor.
+   */
+  private getResizeSnap(
+    transform: ShapeTransform,
+    handle: HandleName | undefined,
+    excluded: Set<number>,
+    axes: { horizontal?: boolean; vertical?: boolean } = {},
+  ): { transform: ShapeTransform; guideX: number | null; guideY: number | null } {
+    const horizontal = axes.horizontal !== false && Boolean(handle?.includes('w') || handle?.includes('e'));
+    const vertical = axes.vertical !== false && Boolean(handle?.includes('n') || handle?.includes('s'));
+    if (!horizontal && !vertical) {
+      return { transform: cloneTransform(transform), guideX: null, guideY: null };
+    }
+
+    // A zero-size probe makes computeSnap consider only the moving resize edge
+    // rather than the frame's fixed edge or center.
+    const snap = this.snapController.computeSnap({
+      x: horizontal
+        ? handle?.includes('w') ? transform.x : transform.x + transform.cx
+        : transform.x,
+      y: vertical
+        ? handle?.includes('n') ? transform.y : transform.y + transform.cy
+        : transform.y,
+      cx: 0,
+      cy: 0,
+    }, excluded);
+    const next = cloneTransform(transform);
+    const minSize = this.engine?.pxToEmu(12) ?? 1;
+    let guideX: number | null = null;
+    let guideY: number | null = null;
+
+    if (horizontal && snap.guideX !== null) {
+      const nextWidth = handle?.includes('w') ? next.cx - snap.dx : next.cx + snap.dx;
+      if (nextWidth >= minSize) {
+        if (handle?.includes('w')) next.x += snap.dx;
+        next.cx = nextWidth;
+        guideX = snap.guideX;
+      }
+    }
+    if (vertical && snap.guideY !== null) {
+      const nextHeight = handle?.includes('n') ? next.cy - snap.dy : next.cy + snap.dy;
+      if (nextHeight >= minSize) {
+        if (handle?.includes('n')) next.y += snap.dy;
+        next.cy = nextHeight;
+        guideY = snap.guideY;
+      }
+    }
+
+    return { transform: next, guideX, guideY };
+  }
+
+  /** Apply a snapped transform delta to an unrotated resize outline/image preview. */
+  private getSnappedResizeOverlayBox(
+    box: { left: number; top: number; width: number; height: number },
+    raw: ShapeTransform,
+    snapped: ShapeTransform,
+  ): { left: number; top: number; width: number; height: number } {
+    const paneScaleX = this.dragState?.paneEmuScaleX;
+    const paneScaleY = this.dragState?.paneEmuScaleY;
+    if (!paneScaleX || !paneScaleY) return box;
+
+    const leftDelta = (snapped.x - raw.x) * paneScaleX;
+    const topDelta = (snapped.y - raw.y) * paneScaleY;
+    const rightDelta = (snapped.x + snapped.cx - raw.x - raw.cx) * paneScaleX;
+    const bottomDelta = (snapped.y + snapped.cy - raw.y - raw.cy) * paneScaleY;
+    return {
+      left: box.left + leftDelta,
+      top: box.top + topDelta,
+      width: Math.max(0, box.width + rightDelta - leftDelta),
+      height: Math.max(0, box.height + bottomDelta - topDelta),
+    };
+  }
+
   private handleDragMove = (event: PointerEvent): void => {
     if (this.marquee) {
       this.updateMarquee(event);
@@ -12591,31 +13082,65 @@ export class NativePowerPointView extends FileView {
       if (!overlayBox) return;
       const nextFromOverlay = this.computePictureTransformFromOverlay(overlayBox);
       if (!nextFromOverlay) return;
-      this.dragState.latestTransform = nextFromOverlay;
-      this.selectedTransform = cloneTransform(nextFromOverlay);
-      this.updatePictureImagePreview(overlayBox);
+      const resizeSnap = this.shapeHasRotation(nextFromOverlay)
+        ? { transform: nextFromOverlay, guideX: null, guideY: null }
+        : this.getResizeSnap(
+            nextFromOverlay,
+            this.dragState.handle,
+            new Set(this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex]),
+            {
+              horizontal: !resized.crossedHorizontal,
+              vertical: !resized.crossedVertical,
+            },
+          );
+      this.snapController.updateSnapGuides(resizeSnap.guideX, resizeSnap.guideY);
+      const snappedOverlayBox = this.getSnappedResizeOverlayBox(
+        overlayBox,
+        nextFromOverlay,
+        resizeSnap.transform,
+      );
+      this.dragState.latestTransform = resizeSnap.transform;
+      this.selectedTransform = cloneTransform(resizeSnap.transform);
+      this.updatePictureImagePreview(snappedOverlayBox);
       const selected = this.getSelectedShapeElement();
       const liveBox = selected ? this.getPictureSelectionBox(selected) : null;
-      this.applySelectionOverlayBox(liveBox ?? overlayBox);
+      this.applySelectionOverlayBox(liveBox ?? snappedOverlayBox);
       if (selected) {
         this.logSelectionOverlayLayout(
           'drag',
           selected,
-          nextFromOverlay,
-          liveBox ?? overlayBox,
+          resizeSnap.transform,
+          liveBox ?? snappedOverlayBox,
           'picture-image-bounds-live',
         );
       }
       return;
     }
 
-    this.dragState.latestTransform = resized.transform;
-    this.selectedTransform = cloneTransform(resized.transform);
-    this.updateShapeTransformPreview(resized.transform);
-    if (this.shapeHasRotation(resized.transform)) {
-      this.applySelectionOverlayLayout(resized.transform);
+    const resizeSnap = this.shapeHasRotation(resized.transform)
+      ? { transform: resized.transform, guideX: null, guideY: null }
+      : this.getResizeSnap(
+          resized.transform,
+          this.dragState.handle,
+          new Set(this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex]),
+          {
+            horizontal: !resized.crossedHorizontal,
+            vertical: !resized.crossedVertical,
+          },
+        );
+    this.snapController.updateSnapGuides(resizeSnap.guideX, resizeSnap.guideY);
+    this.dragState.latestTransform = resizeSnap.transform;
+    this.selectedTransform = cloneTransform(resizeSnap.transform);
+    this.updateShapeTransformPreview(resizeSnap.transform);
+    if (this.shapeHasRotation(resizeSnap.transform)) {
+      this.applySelectionOverlayLayout(resizeSnap.transform);
     } else {
-      this.updateSelectionOverlayDuringDrag(event);
+      const rawOverlayBox = this.computeDragOverlayBox(event);
+      if (rawOverlayBox) {
+        this.applySelectionOverlayBox(
+          this.getSnappedResizeOverlayBox(rawOverlayBox, resized.transform, resizeSnap.transform),
+        );
+      }
     }
   };
 
@@ -12711,7 +13236,10 @@ export class NativePowerPointView extends FileView {
       && mode === 'move'
       && !flipAxes.horizontal
       && !flipAxes.vertical;
-    void this.commitTransform(transform, flipAxes, { keepLivePreview }).then((result) => {
+    void this.commitTransform(transform, flipAxes, {
+      keepLivePreview,
+      preferredShape: previewElement,
+    }).then((result) => {
       if (result === 'kept-preview') return;
       this.restoreShapeDragPreview(previewElement, previewOriginalTransform);
       if (previewElement) this.restoreShapeTextPreview(previewElement, previewOriginalText);
@@ -12734,8 +13262,14 @@ export class NativePowerPointView extends FileView {
     });
   };
 
-  private applyCommittedTransformToDom(shapeIndex: number, transform: ShapeTransform): void {
-    const element = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
+  private applyCommittedTransformToDom(
+    shapeIndex: number,
+    transform: ShapeTransform,
+    preferredShape: SVGGElement | null = null,
+  ): void {
+    const element = isSVGGElement(preferredShape) && isTopLevelShapeForIndex(preferredShape, shapeIndex)
+      ? preferredShape
+      : this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
     if (!isSVGGElement(element)) return;
     // Nested groups can share the idx; only patch a top-level shape.
     if (element.parentElement?.closest('g[data-ooxml-shape-idx]')) return;
@@ -12749,14 +13283,20 @@ export class NativePowerPointView extends FileView {
   private async commitTransform(
     transform: ShapeTransform,
     flipAxes: { horizontal: boolean; vertical: boolean } = { horizontal: false, vertical: false },
-    options: { keepLivePreview?: boolean } = {},
+    options: { keepLivePreview?: boolean; preferredShape?: SVGGElement | null } = {},
   ): Promise<'kept-preview' | 'rendered' | 'noop'> {
     if (!this.engine || this.selectedShapeIndex === null) return 'noop';
     if (!this.ensureEditable('edit object')) return 'noop';
 
     try {
       const startedAt = performance.now();
-      const selected = this.getSelectedShapeElement();
+      const selectedLookupStarted = performance.now();
+      const selected = isSVGGElement(options.preferredShape)
+        && isTopLevelShapeForIndex(options.preferredShape, this.selectedShapeIndex)
+        ? options.preferredShape
+        : this.getSelectedShapeElement();
+      const selectedLookupMs = Math.round(performance.now() - selectedLookupStarted);
+      const usedDragPreview = selected === options.preferredShape;
       const shapeIndex = selected ? getShapeIndex(selected) : this.selectedShapeIndex;
       if (shapeIndex === null) return 'noop';
       if (!isEditableShapeIndex(shapeIndex)) {
@@ -12794,8 +13334,12 @@ export class NativePowerPointView extends FileView {
 
       const keepLivePreview = Boolean(options.keepLivePreview) && !shouldFlip;
       if (keepLivePreview) {
-        this.applyCommittedTransformToDom(shapeIndex, transform);
-        this.scheduleThumbnailRefresh(this.currentSlide);
+        const domSyncStarted = performance.now();
+        this.applyCommittedTransformToDom(shapeIndex, transform, selected);
+        const domSyncMs = Math.round(performance.now() - domSyncStarted);
+        const thumbnailSyncStarted = performance.now();
+        const thumbnailSynced = this.mirrorCurrentThumbnailShape(shapeIndex, 'single-shape-live-transform');
+        const thumbnailSyncMs = Math.round(performance.now() - thumbnailSyncStarted);
         debugLog('inspector', 'Committed PowerPoint object transform', {
           slide: this.currentSlide,
           shapeIndex,
@@ -12807,6 +13351,11 @@ export class NativePowerPointView extends FileView {
           flippedHorizontal: flipAxes.horizontal,
           flippedVertical: flipAxes.vertical,
           keptLivePreview: true,
+          usedDragPreview,
+          selectedLookupMs,
+          domSyncMs,
+          thumbnailSynced,
+          thumbnailSyncMs,
           transformMs,
           renderMs: 0,
           ms: Math.round(performance.now() - startedAt)
@@ -12817,7 +13366,11 @@ export class NativePowerPointView extends FileView {
       const renderStarted = performance.now();
       const rendered = await this.renderEditedShape(shapeIndex);
       const renderMs = Math.round(performance.now() - renderStarted);
-      if (rendered) this.scheduleThumbnailRefresh(this.currentSlide);
+      const thumbnailSyncStarted = performance.now();
+      const thumbnailSynced = rendered
+        ? this.mirrorCurrentThumbnailShape(shapeIndex, 'single-shape-rendered-transform')
+        : false;
+      const thumbnailSyncMs = Math.round(performance.now() - thumbnailSyncStarted);
       debugLog('inspector', 'Committed PowerPoint object transform', {
         slide: this.currentSlide,
         shapeIndex,
@@ -12829,6 +13382,10 @@ export class NativePowerPointView extends FileView {
         flippedHorizontal: flipAxes.horizontal,
         flippedVertical: flipAxes.vertical,
         keptLivePreview: false,
+        usedDragPreview,
+        selectedLookupMs,
+        thumbnailSynced,
+        thumbnailSyncMs,
         transformMs,
         renderMs,
         ms: Math.round(performance.now() - startedAt)
@@ -13161,6 +13718,7 @@ export class NativePowerPointView extends FileView {
     this.engine = null;
 		this.presentationWordCount = 0;
 		this.presentationWordCountEditVersion = -1;
+		this.presentationWordCountNeedsRefresh = false;
 		this.onWordCountClear();
     this.loadedFile = null;
     this.sourcePackage = null;

@@ -56,3 +56,19 @@ test("PPTX text edit and formatting matrix round-trips", async () => {
   assert.match(reloaded.renderSlide(slideIndex).svg, />Matrix\s*<\/tspan>/);
   assert.match(reloaded.renderSlide(slideIndex).svg, />text<\/tspan>/);
 });
+
+test("repeating an identical font family is a true slide-XML no-op", async () => {
+  const engine = await loadEngine("features.pptx");
+  const text = engine.getParagraphRunText(0, 0, 0);
+  const ranges = [{ paragraphIndex: 0, start: 0, end: text.length }];
+
+  assert.equal(await engine.setRunStyleForRanges(0, 0, ranges, { fontFamily: "Georgia" }), true);
+  const afterFirstApply = engine.getSlideXml(0);
+
+  assert.equal(await engine.setRunStyleForRanges(0, 0, ranges, { fontFamily: "Georgia" }), false);
+  assert.equal(
+    engine.getSlideXml(0),
+    afterFirstApply,
+    "a repeated font pick must not rewrite the slide XML",
+  );
+});

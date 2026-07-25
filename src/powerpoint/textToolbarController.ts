@@ -13,7 +13,7 @@ import type {
   RunTarget
 } from '../PresentationEngine';
 import type { PresentationEngine } from '../PresentationEngine';
-import { debugLog } from '../logger';
+import { debugLog, logPptxAction } from '../logger';
 import {
   TEXT_TOOLBAR_FONTS,
   TEXT_TOOLBAR_MAX_FONT_SIZE,
@@ -680,6 +680,12 @@ export class TextToolbarController {
         }
         this.bindToolbarButton(item, () => {
           this.closeToolbarPopover();
+          const target = this.host.getTextStyleContext();
+          logPptxAction('text-format', 'change-font', {
+            font,
+            slide: this.host.currentSlide,
+            shapeIndex: target?.shapeIndex ?? null,
+          });
           debugLog('text-format', 'setFontFamily', { font });
           void this.host.applyRunStyle({ fontFamily: font });
         });

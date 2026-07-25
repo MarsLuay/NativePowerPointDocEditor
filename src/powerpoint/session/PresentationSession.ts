@@ -155,6 +155,17 @@ export class PresentationSession implements SaveStateStore {
       return;
     }
     const result = await this.mutationExecutor.execute(command);
+    const unchangedRunFormatting = result === false && (
+      command.type === 'set-run-style'
+      || command.type === 'set-run-style-range'
+      || command.type === 'set-run-style-ranges'
+    );
+    if (unchangedRunFormatting) {
+      debugLog('mutate', 'PowerPoint run formatting made no document change', {
+        operation: command.type,
+      });
+      return result;
+    }
     if (command.type === 'reorder-shapes' && result === null) {
       debugLog('mutate', 'PowerPoint overlap-aware reorder made no structural change', {
         slide: command.slideIndex,

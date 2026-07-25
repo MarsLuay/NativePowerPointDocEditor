@@ -40,6 +40,7 @@ let loggerModulePromise;
 let parseRenderedSlideSvgModulePromise;
 let textToolbarControllerModulePromise;
 let arrangeControllerModulePromise;
+let slideExtensionPreserveModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -59,7 +60,7 @@ function getTempDirectory() {
   return tempDirectoryPromise;
 }
 
-async function bundleSource(entry, outputName, external = [], plugins = []) {
+export async function bundleSource(entry, outputName, external = [], plugins = []) {
   const outputDirectory = await getTempDirectory();
   const outfile = path.join(outputDirectory, outputName);
   await build({
@@ -187,6 +188,14 @@ export function loadPowerPointPackageModule() {
     (outfile) => require(outfile),
   );
   return packageModulePromise;
+}
+
+export function loadSlideExtensionPreserveModule() {
+  slideExtensionPreserveModulePromise ??= bundleSource(
+    "src/powerpoint/slideExtensionPreserve.ts",
+    "slide-extension-preserve.cjs",
+  ).then((outfile) => require(outfile));
+  return slideExtensionPreserveModulePromise;
 }
 
 export function loadPresentationEngineModule() {

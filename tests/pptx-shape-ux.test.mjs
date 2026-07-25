@@ -65,7 +65,11 @@ test("resize previews resize text frames while compensating text glyph scale", a
   view.getSelectedShapeElement = () => previewElement;
   view.isPictureShape = () => false;
   view.shapeHasRotation = () => false;
-  view.updateSelectionOverlayDuringDrag = () => { outlineUpdates += 1; };
+  view.snapController = {
+    computeSnap: () => ({ dx: 0, dy: 0, guideX: null, guideY: null }),
+    updateSnapGuides: () => {},
+  };
+  view.applySelectionOverlayBox = () => { outlineUpdates += 1; };
 
   view.handleDragMove({ pointerId: 7, clientX: 25, clientY: 15 });
   assert.equal(outlineUpdates, 1, "outline and resize handles must continue to track the drag");
@@ -75,6 +79,61 @@ test("resize previews resize text frames while compensating text glyph scale", a
     /^matrix\(0\.8 0 0 0\.769/,
     "the nested text transform cancels the frame scale instead of stretching glyphs",
   );
+});
+
+test("resize snapping locks only the dragged edges and preserves the opposite anchor", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = createView(NativePowerPointView);
+  let probe;
+  view.engine = { pxToEmu: (value) => value };
+  view.snapController = {
+    computeSnap: (box) => {
+      probe = box;
+      return { dx: 5, dy: -3, guideX: 15, guideY: 17 };
+    },
+  };
+
+  const snapped = view.getResizeSnap(
+    { x: 10, y: 20, cx: 100, cy: 50, rot: 0 },
+    "nw",
+    new Set([7]),
+  );
+  assert.deepEqual(probe, { x: 10, y: 20, cx: 0, cy: 0 });
+  assert.deepEqual(snapped, {
+    transform: { x: 15, y: 17, cx: 95, cy: 53, rot: 0 },
+    guideX: 15,
+    guideY: 17,
+  });
+  assert.equal(
+    snapped.transform.x + snapped.transform.cx,
+    110,
+    "west-edge snap must keep the east anchor fixed",
+  );
+  assert.equal(
+    snapped.transform.y + snapped.transform.cy,
+    70,
+    "north-edge snap must keep the south anchor fixed",
+  );
+});
+
+test("resize snapping does not shrink a frame below its minimum size", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = createView(NativePowerPointView);
+  view.engine = { pxToEmu: (value) => value };
+  view.snapController = {
+    computeSnap: () => ({ dx: -4, dy: 0, guideX: 8, guideY: null }),
+  };
+
+  const snapped = view.getResizeSnap(
+    { x: 0, y: 0, cx: 12, cy: 40, rot: 0 },
+    "e",
+    new Set(),
+  );
+  assert.deepEqual(snapped, {
+    transform: { x: 0, y: 0, cx: 12, cy: 40, rot: 0 },
+    guideX: null,
+    guideY: null,
+  });
 });
 
 test("multi-selection transforms scale and rotate every selected shape around one group frame", async () => {

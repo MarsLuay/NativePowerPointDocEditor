@@ -513,7 +513,10 @@ test('PPTX agent ops smoke dispatches every operation', async (t) => {
 		},
 		'pptx.setSlideBackground': () => ({ op: 'pptx.setSlideBackground', slideIndex: 0, colorHex: 'F0F0F0' }),
 		'pptx.setImageCrop': () => ({ op: 'pptx.setImageCrop', slideIndex: 0, shapeIndex: targets.imageShape, crop: { left: 0.1, top: 0.1, right: 0.1, bottom: 0.1 } }),
-		'pptx.resetImage': () => ({ op: 'pptx.resetImage', slideIndex: 0, shapeIndex: targets.imageShape }),
+		'pptx.resetImage': async (eng) => {
+			await eng.setImageCrop(0, targets.imageShape, { left: 0.1, top: 0, right: 0, bottom: 0 });
+			return { op: 'pptx.resetImage', slideIndex: 0, shapeIndex: targets.imageShape };
+		},
 		'pptx.replaceImage': () => ({ op: 'pptx.replaceImage', slideIndex: 0, shapeIndex: targets.imageShape, vaultImagePath: 'assets/smoke.png' }),
 		'pptx.updateChartData': () => ({
 			op: 'pptx.updateChartData',
@@ -544,6 +547,28 @@ test('PPTX agent ops smoke dispatches every operation', async (t) => {
 			}
 		});
 	}
+});
+
+test('PPTX image reset reports no-op state and clears authored crop', async () => {
+	const { PresentationEngine } = await loadPresentationEngineModule();
+	const source = toArrayBuffer(await readDeck('features.pptx'));
+	const engine = await PresentationEngine.load(source);
+	const { imageShape } = discoverPptxTargets(engine);
+
+	assert.deepEqual(engine.getImageResetState(0, imageShape), { hasCrop: false, effectNames: [] });
+	const noOp = await engine.resetImage(0, imageShape);
+	assert.deepEqual(noOp, { changed: false, cropRemoved: false, hasCrop: false, effectNames: [] });
+
+	await engine.setImageCrop(0, imageShape, { left: 12.5, top: 0, right: 0, bottom: 0 });
+	assert.deepEqual(engine.getImageResetState(0, imageShape), { hasCrop: true, effectNames: [] });
+	const reset = await engine.resetImage(0, imageShape);
+	assert.deepEqual(reset, { changed: true, cropRemoved: true, hasCrop: true, effectNames: [] });
+	assert.deepEqual(engine.getImageResetState(0, imageShape), { hasCrop: false, effectNames: [] });
+
+	const exported = await engine.export();
+	await PresentationEngine.validateRoundTrip(exported, engine.slideCount);
+	const reloaded = await PresentationEngine.load(exported);
+	assert.deepEqual(reloaded.getImageResetState(0, imageShape), { hasCrop: false, effectNames: [] });
 });
 
 test('PPTX agent list paragraphs are native and updateShapeText rejects list-like newlines', async () => {

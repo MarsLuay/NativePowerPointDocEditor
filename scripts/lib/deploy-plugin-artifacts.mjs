@@ -51,6 +51,28 @@ async function assertMatchingTree(source, target) {
 	await Promise.all(sourceFiles.map((file) => assertMatchingFile(path.join(source, file), path.join(target, file))));
 }
 
+/**
+ * A dev watch build can replace main.js while another build is staging it.
+ * Copy only a stable snapshot so concurrent rebuilds do not produce a partial
+ * artifact or a false parity failure.
+ */
+async function stageStableSource(stage, assertParity) {
+	let lastError;
+	for (let attempt = 1; attempt <= 3; attempt += 1) {
+		try {
+			await stage();
+			await assertParity();
+			return;
+		} catch (error) {
+			lastError = error;
+			if (attempt < 3) {
+				await new Promise((resolve) => setTimeout(resolve, 25));
+			}
+		}
+	}
+	throw lastError;
+}
+
 async function replaceArtifact({ staged, target, backup }) {
 	const hadTarget = await pathExists(target);
 	if (hadTarget) {
@@ -128,14 +150,21 @@ export async function deployPluginArtifacts({ sourceDir, targetDir, files, direc
 		for (const file of files) {
 			const source = path.join(sourceDir, file);
 			const staged = path.join(stageRoot, file);
-			await copyFile(source, staged);
-			await assertMatchingFile(source, staged);
+			await stageStableSource(
+				() => copyFile(source, staged),
+				() => assertMatchingFile(source, staged),
+			);
 		}
 		for (const directory of directories) {
 			const source = path.join(sourceDir, directory);
 			const staged = path.join(stageRoot, directory);
-			await cp(source, staged, { recursive: true });
-			await assertMatchingTree(source, staged);
+			await stageStableSource(
+				async () => {
+					await rm(staged, { force: true, recursive: true });
+					await cp(source, staged, { recursive: true });
+				},
+				() => assertMatchingTree(source, staged),
+			);
 		}
 
 		for (const file of files) {

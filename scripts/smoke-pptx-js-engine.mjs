@@ -9,19 +9,19 @@
 import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, '..');
 
 const { createPptxJsEngine } = await import(
-  path.join(projectRoot, 'src/powerpoint/backend/pptxJsEngine.mjs')
+  pathToFileURL(path.join(projectRoot, 'src/powerpoint/backend/pptxJsEngine.mjs')).href
 );
 const { extractZip } = await import(
-  path.join(projectRoot, 'node_modules/pptx-svg/dist/zip.js')
+  pathToFileURL(path.join(projectRoot, 'node_modules/pptx-svg/dist/zip.js')).href
 );
 const { bytesToBase64 } = await import(
-  path.join(projectRoot, 'node_modules/pptx-svg/dist/utils.js')
+  pathToFileURL(path.join(projectRoot, 'node_modules/pptx-svg/dist/utils.js')).href
 );
 
 // Prefer an explicit arg, then a committed fixture (available in CI), then the

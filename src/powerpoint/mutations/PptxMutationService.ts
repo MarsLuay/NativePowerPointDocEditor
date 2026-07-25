@@ -34,6 +34,13 @@ function slideLocalRollbackSlideIndex(command: MutationCommand): number | null {
   }
 }
 
+/** Run-format commands return `false` when the requested direct formatting is already present. */
+function isRunStyleCommand(command: MutationCommand): boolean {
+  return command.type === 'set-run-style'
+    || command.type === 'set-run-style-range'
+    || command.type === 'set-run-style-ranges';
+}
+
 /**
  * The sole command-to-engine mutation boundary.
  *
@@ -108,6 +115,14 @@ export class PptxMutationService implements MutationExecutor {
 
     try {
       const result = await this.apply(engine, command);
+      if (isRunStyleCommand(command) && result === false) {
+        debugLog('mutate', 'Skipped unchanged PowerPoint run formatting', {
+          op: command.type,
+          ms: Date.now() - startedAt,
+          rollback: useSlideXmlRollback ? 'slide-xml' : 'snapshot',
+        });
+        return false;
+      }
       if (useSlideLocalCommit) {
         await engine.commitSlideLocalMutation();
       } else {
