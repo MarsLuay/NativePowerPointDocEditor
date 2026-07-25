@@ -91,6 +91,14 @@ function buildShapeFillXml(fill: { red: number; green: number; blue: number } | 
   return `<a:solidFill><a:srgbClr val="${rgbToSrgbHex(fill.red, fill.green, fill.blue)}"/></a:solidFill>`;
 }
 
+// Matches the deliberately small inset used by the poster's authored text
+// boxes: 0.03in horizontally and 0.01in vertically. Explicit values avoid
+// renderer-dependent defaults that place text flush against a text-box edge.
+export const TEXT_BOX_INSET_EMU = {
+  horizontal: 27432,
+  vertical: 9144,
+} as const;
+
 function buildAutoShapeXml(
   geometry: InsertableShapeGeometry,
   x: number,
@@ -102,13 +110,16 @@ function buildAutoShapeXml(
     text?: string;
     fontSize?: number;
     name?: string;
+    textInset?: { horizontal: number; vertical: number };
   } = {},
 ): string {
   const displayName = options.name ?? SHAPE_DISPLAY_NAMES[geometry];
   const extentCy = geometry === 'line' ? Math.max(cy, 1) : Math.max(cy, 1);
   const textBody = options.text
     ? [
-      '<p:txBody><a:bodyPr/><a:lstStyle/>',
+      `<p:txBody><a:bodyPr${options.textInset
+        ? ` lIns="${options.textInset.horizontal}" tIns="${options.textInset.vertical}" rIns="${options.textInset.horizontal}" bIns="${options.textInset.vertical}"`
+        : ''}/><a:lstStyle/>`,
       `<a:p><a:r><a:rPr lang="en-US" sz="${options.fontSize ?? 1800}"/>`,
       `<a:t>${escapeXmlText(options.text)}</a:t></a:r>`,
       `<a:endParaRPr lang="en-US" sz="${options.fontSize ?? 1800}"/></a:p>`,
@@ -185,7 +196,13 @@ export async function insertTextBoxIntoPresentation(
   const slideDocument = parseXml(getRequiredTextFile(zip, slidePath), slidePath);
   const shapeIndex = appendShapeElement(
     slideDocument,
-    buildAutoShapeXml('rect', x, y, cx, cy, { fill: null, text, fontSize: 1800, name: 'TextBox' }),
+    buildAutoShapeXml('rect', x, y, cx, cy, {
+      fill: null,
+      text,
+      fontSize: 1800,
+      name: 'TextBox',
+      textInset: TEXT_BOX_INSET_EMU,
+    }),
     'TextBox',
   );
   const patched = await buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));

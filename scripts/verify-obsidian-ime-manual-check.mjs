@@ -39,7 +39,7 @@ async function bundleHarness() {
 	const outfile = path.join(outputDir, 'harness.js');
 	await build({
 		alias: docxEditorAliases,
-		entryPoints: [path.join(projectRoot, 'scripts/harness/docx-ime-live-verify-entry.tsx')],
+		entryPoints: [path.join(projectRoot, 'src/docx-ime-live-verify-entry.tsx')],
 		bundle: true,
 		format: 'iife',
 		logLevel: 'silent',

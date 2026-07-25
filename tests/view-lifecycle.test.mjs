@@ -296,7 +296,12 @@ test("failed recovery preserves dirty in-memory edits and prevents close reset",
   assert.equal(saveController.isDirty, true);
 
   view.preserveUnsavedChangesForTeardown = async () => false;
+  const disposedControls = [];
+  view.findController = { dispose() { disposedControls.push("find"); } };
+  view.presentController = { dispose() { disposedControls.push("present"); } };
+  view.slideFilmstripController = { dispose() { disposedControls.push("filmstrip"); } };
   await view.onClose();
+  assert.deepEqual(disposedControls, []);
   assert.equal(view.engine, engine);
   assert.notEqual(view.loadedFile, null);
   assert.equal(saveController.isDirty, true);

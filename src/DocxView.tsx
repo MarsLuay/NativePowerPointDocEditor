@@ -1,5 +1,5 @@
 import { App, Component, FileView, Modal, Platform, TFile, WorkspaceLeaf, normalizePath } from 'obsidian';
-import type { Translations } from '@npde/docx-editor-i18n';
+import type { Translations } from './docx/runtime/contract';
 import type { I18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { loadDocxEditorChunk } from './docxEditorLoader';
@@ -1243,7 +1243,19 @@ export class DocxView extends FileView {
 				this.refreshSettings();
 				return;
 			}
-			this.render();
+			// Await flush before remount so empty-para font/size edits land on
+			// disk before another tab's focus triggers vault-buffer reload.
+			void (async () => {
+				try {
+					await this.getReactHandle()?.flushPendingSave?.();
+				} catch (error) {
+					warnLog('save', 'DOCX flush on tab deactivate failed', {
+						file: this.file?.path ?? null,
+						error: error instanceof Error ? error.message : String(error),
+					});
+				}
+				this.render();
+			})();
 		}));
 		this.app.workspace.onLayoutReady(() => {
 			this.render();
@@ -2701,6 +2713,20 @@ export class DocxView extends FileView {
 	}
 
 	private async promptToSaveIfDirty(): Promise<boolean> {
+		// Close often races an in-flight autosave (`state === 'saving'` still counts
+		// as dirty). Flush first so a completed write does not show the modal.
+		const handle = this.getReactHandle();
+		if (handle?.flushPendingSave) {
+			try {
+				await handle.flushPendingSave();
+			} catch (error) {
+				warnLog('save', 'DOCX flush before close failed', {
+					file: this.file?.path ?? null,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
+		}
+
 		if (!this.isDirty || !this.file) {
 			return true;
 		}

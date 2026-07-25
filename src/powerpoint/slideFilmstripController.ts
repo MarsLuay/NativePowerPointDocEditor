@@ -213,9 +213,9 @@ export class SlideFilmstripController {
         await this.renderThumbnailAt(index);
       }
     } else {
-      const priority = preferLazy
-        ? priorityThumbnailIndices(this.host.currentSlide, slideCount, 0)
-        : priorityThumbnailIndices(this.host.currentSlide, slideCount);
+		// Render only the active slide before returning control to the editor. The
+		// rest of the filmstrip fills through the observer/idle path below.
+		const priority = priorityThumbnailIndices(this.host.currentSlide, slideCount, 0);
       await this.renderThumbnailBatch(priority, generation);
       if (generation !== this.thumbnailRenderGeneration) return;
       this.setupThumbnailObserver(generation);

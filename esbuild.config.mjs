@@ -1,10 +1,11 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
-import { access, copyFile, cp, readFile, writeFile } from "fs/promises";
+import { access, readFile, writeFile } from "fs/promises";
 import path from "node:path";
 import { patchPptxRendererSource } from "./scripts/lib/patch-pptx-renderer.mjs";
 import { patchReactDomScriptCreation } from "./scripts/lib/strip-react-dom-script.mjs";
+import { deployPluginArtifacts } from "./scripts/lib/deploy-plugin-artifacts.mjs";
 import {
 	createDocxEditorAliases,
 	resolveDocxEditorPackagesRoot,
@@ -46,25 +47,12 @@ const deployToVaultPlugin = {
 				return;
 			}
 
-			await Promise.all(
-				filesToDeploy.map(async (file) => {
-					try {
-						await copyFile(path.resolve(file), path.join(vaultPluginDir, file));
-					} catch (error) {
-						console.warn(`[deploy] could not copy ${file}: ${error.message}`);
-					}
-				})
-			);
-
-			await Promise.all(
-				dirsToDeploy.map(async (dir) => {
-					try {
-						await cp(path.resolve(dir), path.join(vaultPluginDir, dir), { recursive: true });
-					} catch (error) {
-						console.warn(`[deploy] could not copy ${dir}: ${error.message}`);
-					}
-				})
-			);
+			await deployPluginArtifacts({
+				sourceDir: projectRoot,
+				targetDir: vaultPluginDir,
+				files: filesToDeploy,
+				directories: dirsToDeploy,
+			});
 
 			// Write a fresh build stamp the in-app dev hot-reload watcher polls.
 			// Content-based detection is more reliable than file mtime across
@@ -116,9 +104,9 @@ const stripReactDomScriptPlugin = {
 const stripDocxEditorCssSideEffectImports = {
 	name: "strip-docx-editor-css-side-effect-imports",
 	setup(build) {
-		build.onLoad({ filter: /docx-editor[/\\]packages[/\\]react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
+		build.onLoad({ filter: /vendor[/\\]docx-editor-runtime[/\\]react[/\\]dist[/\\]index\.mjs$/ }, async (args) => {
 			const normalizedPath = args.path.replace(/\\/g, "/");
-			if (!normalizedPath.endsWith("/docx-editor/packages/react/dist/index.mjs")) {
+			if (!normalizedPath.endsWith("/vendor/docx-editor-runtime/react/dist/index.mjs")) {
 				return undefined;
 			}
 

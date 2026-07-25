@@ -7,7 +7,7 @@ import test from 'node:test';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const stylesPath = path.join(
 	projectRoot,
-	'docx-editor/packages/react/dist/styles.css',
+	'vendor/docx-editor-runtime/react/dist/styles.css',
 );
 
 test('react dist styles.css ships .docx-editor-root theme tokens for portaled menus', async () => {

@@ -26,6 +26,7 @@ let docxReviewMarkupModulePromise;
 let docxHiddenTextScannerModulePromise;
 let docxStyleDefaultsModulePromise;
 let docxParagraphLayoutRelayoutModulePromise;
+let docxPlainTextInsertModulePromise;
 let docxTableCellFontSizePreserverModulePromise;
 let docxFloatingLayerLayoutModulePromise;
 let docxEditorChromeMarkersModulePromise;
@@ -263,6 +264,15 @@ export function loadDocxParagraphLayoutRelayoutModule() {
     ["prosemirror-model"],
   ).then((outfile) => require(outfile));
   return docxParagraphLayoutRelayoutModulePromise;
+}
+
+export function loadDocxPlainTextInsertModule() {
+  docxPlainTextInsertModulePromise ??= bundleSource(
+    "src/docxPlainTextInsert.ts",
+    "docx-plain-text-insert.cjs",
+    [],
+  ).then((outfile) => require(outfile));
+  return docxPlainTextInsertModulePromise;
 }
 
 export function loadDocxTableCellFontSizePreserverModule() {

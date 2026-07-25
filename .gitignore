@@ -48,7 +48,10 @@ tests/_probe-*.mjs
 # Local-only AI-interfacing design doc (not for release)
 docs/AGENT-API.md
 
-# In-repo Eigenpal monorepo (source of truth; only dist is bundled into main.js)
+# Editable DOCX source is maintained only on the docx-editor-source branch.
+# Keep a local checkout here for analysis if useful, but never commit it on a
+# vendor-only release branch.
+/docx-editor/
 docx-editor/node_modules/
 docx-editor/**/node_modules/
 docx-editor/**/.turbo/

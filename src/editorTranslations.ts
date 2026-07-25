@@ -1,5 +1,6 @@
 /** @deprecated Use PluginI18nService from `./i18n/pluginI18n` instead. */
-import { createT, deepMerge, en, type Translations, type TranslationKey } from '@npde/docx-editor-i18n';
+import { createT, deepMerge, en } from './docx/runtime/bridge.mjs';
+import type { Translations, TranslationKey } from './docx/runtime/contract';
 
 type TranslationVars = Record<string, string | number>;
 
@@ -11,7 +12,7 @@ function getLocaleLanguage(locale: Translations): string {
 }
 
 export function createEditorTranslator(locale: Translations | undefined): EditorTranslator {
-	const mergedLocale = deepMerge(en, locale) as typeof en;
+	const mergedLocale = deepMerge(en, locale);
 	const translate = createT(mergedLocale, getLocaleLanguage(mergedLocale));
 
 	return (key, vars, fallback = key) => {

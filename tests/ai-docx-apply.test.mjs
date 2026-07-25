@@ -469,3 +469,78 @@ test('DocxDocumentService applies insertText, deleteRange, hyperlink, and paragr
 	assert.equal(snapshot.blocks[0]?.text, 'Hello ');
 	assert.equal(snapshot.blocks[1]?.text, ' world');
 });
+
+test('DocxDocumentService deletes a blank paragraph without merging the next heading', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+
+	const docPath = 'notes/delete-blank.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>Before</w:t></w:r></w:p>',
+			'<w:p/>',
+			'<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>TECHNICAL SKILLS</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{ op: 'docx.deleteBlock', blockId: 'body/p[1]' },
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedBytes = vault.store.get(docPath);
+	const snapshot = await describeDocxFromBuffer(
+		savedBytes.buffer.slice(savedBytes.byteOffset, savedBytes.byteOffset + savedBytes.byteLength),
+		docPath,
+	);
+	assert.equal(snapshot.blockCount, 2);
+	assert.equal(snapshot.blocks[0]?.text, 'Before');
+	assert.equal(snapshot.blocks[1]?.text, 'TECHNICAL SKILLS');
+
+	const savedZip = await JSZip.loadAsync(savedBytes.buffer);
+	const documentXml = await savedZip.file('word/document.xml').async('string');
+	assert.match(documentXml, /<w:p><w:r><w:rPr><w:b\/><\/w:rPr><w:t>TECHNICAL SKILLS<\/w:t><\/w:r><\/w:p>/);
+});
+
+test('DocxDocumentService sets a paragraph bottom border without replacing heading content', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+
+	const docPath = 'notes/heading-rule.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:pPr><w:spacing w:line="252" w:lineRule="auto"/></w:pPr><w:r><w:t>TECHNICAL SKILLS</w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Body</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{
+			op: 'docx.setParagraphBottomBorder',
+			blockId: 'body/p[0]',
+			border: { style: 'single', size: 6, space: 1, color: '000000' },
+		},
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedZip = await JSZip.loadAsync(vault.store.get(docPath).buffer);
+	const documentXml = await savedZip.file('word/document.xml').async('string');
+	assert.match(documentXml, /<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="000000"\/><\/w:pBdr>/);
+	assert.match(documentXml, /<w:t>TECHNICAL SKILLS<\/w:t>/);
+	assert.match(documentXml, /<w:spacing w:line="252" w:lineRule="auto"\/>/);
+});

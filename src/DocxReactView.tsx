@@ -1,19 +1,22 @@
 import type { TFile } from 'obsidian';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type ChangeEvent, type ComponentProps } from 'react';
-import { DocxEditor, type DocxEditorRef, type EditorMode } from '@npde/docx-editor-react';
-import { clearParagraphMeasureCache } from '@npde/docx-editor-core/layout-bridge';
-import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
-import { insertTable, setFontSize, setLineSpacing } from '@npde/docx-editor-core/prosemirror/commands';
-import { loadFontFromBuffer } from '@npde/docx-editor-core/utils';
-import type { FontOption } from '@npde/docx-editor-core/utils/fontOptions';
-import type { Translations } from '@npde/docx-editor-i18n';
 import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
-import type { Mark, Node as ProseMirrorNode } from 'prosemirror-model';
+import type { Mark, Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import proseMirrorViewStyles from 'prosemirror-view/style/prosemirror.css';
-import proseMirrorEditorStyles from '../docx-editor/packages/core/dist/prosemirror/editor.css';
-import editorStyles from '../docx-editor/packages/react/dist/styles.css';
 import type { I18nService } from './i18n/I18nService';
+import {
+	DocxEditor,
+	clearParagraphMeasureCache,
+	insertTable,
+	setFontSize,
+	setFontFamily,
+	setLineSpacing,
+	loadFontFromBuffer,
+	isSuggestionModeActive,
+} from './docx/runtime/bridge.mjs';
+import type { DocxEditorRef, EditorMode, FontOption, RenderedDomContext, Translations } from './docx/runtime/contract';
+import { docxEditorRuntimeStyles } from './docx/runtime/styles';
 import { parsePrimaryFontFamily } from './powerpoint/textUtils';
 import { isClipboardEvent, isElement, isHTMLElement, isHTMLButtonElement, isInputEvent, isNode, isPointerEvent } from './domGuards';
 import { summarizeDocxComment, summarizeDocxComments } from './docxCommentLogging';
@@ -26,6 +29,15 @@ import { countDocumentWords, type DocumentWordCount } from './documentWordCount'
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { exportRenderedPagesToPdf } from './renderedPdfExport';
 import { didListLayoutChange, didParagraphLayoutChange } from './docxParagraphLayoutRelayout';
+import {
+	countDocTextblocks,
+	insertRichClipboardSlice,
+	insertPlainTextAsParagraphs,
+	insertPlainTypedText as dispatchPlainTypedText,
+	summarizeRichClipboardSlice,
+	summarizeTransactionMeta,
+	summarizeTransactionSteps,
+} from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 import type { DocxEditorAdapterController, DocxFindMatch } from './docx/adapter/DocxEditorAdapter';
 import { DocxSession, type DocxSaveSource } from './docx/session/DocxSession';
@@ -58,8 +70,7 @@ let stylesInjected = false;
 let editorInstanceCounter = 0;
 const docxEditorStyles = [
 	proseMirrorViewStyles,
-	proseMirrorEditorStyles,
-	editorStyles,
+	docxEditorRuntimeStyles,
 ].join('\n');
 
 interface DocxSectionProperties {
@@ -236,6 +247,7 @@ function createFindReplaceLabels(i18n: I18nService): FindReplaceLabels {
 const findHighlightPluginKey = new PluginKey<FindHighlightState>('native-powerpoint-doc-editor-find-highlight');
 const paragraphLayoutRelayoutPluginKey = new PluginKey('native-powerpoint-doc-editor-paragraph-layout-relayout');
 const preserveTypedSpacePluginKey = new PluginKey('native-powerpoint-doc-editor-preserve-typed-space');
+const contentShrinkDiagnosticsPluginKey = new PluginKey('native-powerpoint-doc-editor-content-shrink-diagnostics');
 const LIST_PARAGRAPH_DEFAULT_LEFT_INDENT = 720;
 const LIST_PARAGRAPH_DEFAULT_HANGING_INDENT = 360;
 const LIST_LAYOUT_NORMALIZED_META = 'native-powerpoint-doc-editor-list-layout-normalized';
@@ -416,7 +428,28 @@ function logDocxSpaceInputRoute(
 }
 
 function insertPlainTypedText(view: EditorView, text: string, from = view.state.selection.from, to = view.state.selection.to) {
-	view.dispatch(view.state.tr.insertText(text, from, to).scrollIntoView());
+	if (/[\r\n]/.test(text)) {
+		const range = insertPlainTextAsParagraphs(view, text, from, to);
+		debugLog('clipboard', 'DOCX multi-line plain paste inserted as paragraphs', {
+			textLength: text.length,
+			lineCount: text.split(/\r\n|\n|\r/).length,
+			replacedCrossBlock: range.collapsedCrossBlock,
+			replaceFrom: range.from,
+			replaceTo: range.to,
+		});
+		return true;
+	}
+
+	const range = dispatchPlainTypedText(view, text, from, to);
+	if (range.collapsedCrossBlock) {
+		debugLog('text-input', 'DOCX plain insert collapsed cross-block selection', {
+			requestedFrom: from,
+			requestedTo: to,
+			insertAt: range.from,
+			textLength: text.length,
+			hasNewline: false,
+		});
+	}
 	return true;
 }
 
@@ -925,6 +958,17 @@ function getFontFamilyNameFromEditorSelection(view: EditorView): string | null {
 		return getFontFamilyFromMark(mark);
 	}
 
+	const paragraph = view.state.selection.$from.parent;
+	if (paragraph.type.name === 'paragraph' && paragraph.content.size === 0) {
+		const defaults = paragraph.attrs.defaultTextFormatting as {
+			fontFamily?: { ascii?: unknown; hAnsi?: unknown };
+		} | null | undefined;
+		const fontFamily = defaults?.fontFamily?.ascii ?? defaults?.fontFamily?.hAnsi;
+		if (typeof fontFamily === 'string' && fontFamily.trim()) {
+			return fontFamily;
+		}
+	}
+
 	try {
 		const dom = view.domAtPos(view.state.selection.from);
 		const element = isElement(dom.node) ? dom.node : dom.node.parentElement;
@@ -949,49 +993,33 @@ function getActiveTextSelectionRange(
 	return preserved;
 }
 
-function snapSelectionToTextRange(
+function summarizeSelectedEmptyParagraphFonts(
 	doc: ProseMirrorNode,
-	range: TextSelectionRange,
-): TextSelectionRange | null {
-	const { from, to } = clampTextSelectionRange(doc, range);
-	let textFrom: number | null = null;
-	let textTo: number | null = null;
-
-	doc.nodesBetween(from, to, (node, pos) => {
-		if (!node.isText) {
-			return;
-		}
-
-		const nodeEnd = pos + node.nodeSize;
-		const overlapFrom = Math.max(from, pos);
-		const overlapTo = Math.min(to, nodeEnd);
-		if (overlapFrom >= overlapTo) {
-			return;
-		}
-
-		if (textFrom === null) {
-			textFrom = overlapFrom;
-		}
-		textTo = overlapTo;
-	});
-
-	if (textFrom === null || textTo === null) {
-		return null;
+	range: TextSelectionRange | null,
+	fontFamily: string,
+): { emptyParagraphs: number; matchingFontFamily: number } {
+	if (!range || range.to <= range.from) {
+		return { emptyParagraphs: 0, matchingFontFamily: 0 };
 	}
 
-	return { from: textFrom, to: textTo };
-}
+	let emptyParagraphs = 0;
+	let matchingFontFamily = 0;
+	const target = normalizeFontFamilyName(fontFamily).toLowerCase();
+	doc.nodesBetween(range.from, range.to, (node) => {
+		if (node.type.name !== 'paragraph' || node.content.size !== 0) {
+			return;
+		}
+		emptyParagraphs += 1;
+		const defaults = node.attrs.defaultTextFormatting as {
+			fontFamily?: { ascii?: unknown; hAnsi?: unknown };
+		} | null | undefined;
+		const family = defaults?.fontFamily?.ascii ?? defaults?.fontFamily?.hAnsi;
+		if (typeof family === 'string' && normalizeFontFamilyName(family).toLowerCase() === target) {
+			matchingFontFamily += 1;
+		}
+	});
 
-function mergeStoredMarksWithFontFamily(
-	storedMarks: readonly Mark[] | null,
-	activeMarks: readonly Mark[],
-	fontFamilyMark: Mark,
-): Mark[] {
-	const baseMarks = storedMarks ?? activeMarks;
-	return [
-		...baseMarks.filter((mark) => mark.type.name !== 'fontFamily'),
-		fontFamilyMark,
-	];
+	return { emptyParagraphs, matchingFontFamily };
 }
 
 function isFontPickerMenuItem(target: Element): HTMLElement | null {
@@ -1017,68 +1045,32 @@ function applyFontFamilyToEditorView(
 	fontFamily: string,
 	preservedRange: TextSelectionRange | null,
 ): { applied: boolean; range: TextSelectionRange | null } {
-	const fontFamilyType = view.state.schema.marks.fontFamily;
-	if (!fontFamilyType) {
-		return { applied: false, range: null };
-	}
-
-	const fontFamilyMark = fontFamilyType.create({ ascii: fontFamily, hAnsi: fontFamily });
 	const activeRange = getActiveTextSelectionRange(view, preservedRange);
-	const snappedRange = activeRange
-		? snapSelectionToTextRange(view.state.doc, activeRange)
-		: null;
 
-	let transaction = view.state.tr;
-
-	if (snappedRange) {
-		const { from, to } = snappedRange;
-		transaction = transaction.setSelection(TextSelection.create(transaction.doc, from, to));
-		if (to > from) {
-			transaction = transaction.addMark(from, to, fontFamilyMark);
-		}
-		transaction = transaction.setStoredMarks(
-			mergeStoredMarksWithFontFamily(
-				transaction.storedMarks,
-				transaction.selection.$from.marks(),
-				fontFamilyMark,
-			),
-		);
-		view.dispatch(transaction.scrollIntoView());
-		return { applied: true, range: snappedRange };
+	if (activeRange && (
+		activeRange.from !== view.state.selection.from
+		|| activeRange.to !== view.state.selection.to
+	)) {
+		const selection = activeRange.from === 0 && activeRange.to === view.state.doc.content.size
+			? new AllSelection(view.state.doc)
+			: TextSelection.create(view.state.doc, activeRange.from, activeRange.to);
+		view.dispatch(view.state.tr.setSelection(selection));
 	}
 
-	if (!view.state.selection.empty) {
-		const fallbackSnapped = snapSelectionToTextRange(view.state.doc, {
-			from: view.state.selection.from,
-			to: view.state.selection.to,
+	// Use the core command for both a range and an empty paragraph. It updates
+	// text marks plus defaultTextFormatting for every selected empty paragraph;
+	// raw addMark() cannot represent those empty lines.
+	const applied = setFontFamily(fontFamily)(view.state, view.dispatch);
+	const $from = view.state.selection.$from;
+	const emptyPara = $from.parent.isTextblock && $from.parent.textContent.length === 0;
+	if (emptyPara) {
+		debugLog('editor', 'DOCX empty-paragraph font family applied', {
+			fontFamily,
+			applied,
+			hasDefaultTextFormatting: Boolean($from.parent.attrs.defaultTextFormatting),
 		});
-		if (fallbackSnapped) {
-			const { from, to } = fallbackSnapped;
-			transaction = transaction.setSelection(TextSelection.create(transaction.doc, from, to));
-			if (to > from) {
-				transaction = transaction.addMark(from, to, fontFamilyMark);
-			}
-			transaction = transaction.setStoredMarks(
-				mergeStoredMarksWithFontFamily(
-					transaction.storedMarks,
-					transaction.selection.$from.marks(),
-					fontFamilyMark,
-				),
-			);
-			view.dispatch(transaction.scrollIntoView());
-			return { applied: true, range: fallbackSnapped };
-		}
 	}
-
-	transaction = transaction.setStoredMarks(
-		mergeStoredMarksWithFontFamily(
-			view.state.storedMarks,
-			view.state.selection.$from.marks(),
-			fontFamilyMark,
-		),
-	);
-	view.dispatch(transaction.scrollIntoView());
-	return { applied: true, range: null };
+	return { applied, range: activeRange };
 }
 
 function tagFontFamilySelectTrigger(container: HTMLElement) {
@@ -1256,20 +1248,132 @@ const preserveTypedSpacePlugin = new Plugin({
 					return false;
 				}
 
-				const marker = getCurrentParagraphListMarker(view);
-				const strippedText = stripMatchingListMarkerPrefixFromPastedText(
-					getPlainTextFromClipboardEvent(event),
-					marker,
-				);
-				if (strippedText === null) {
+				const html = event.clipboardData?.getData('text/html') ?? '';
+				const hasHtml = Boolean(html.trim());
+				const plainText = getPlainTextFromClipboardEvent(event);
+				const { from, to } = view.state.selection;
+				const $from = view.state.doc.resolve(from);
+				const $to = view.state.doc.resolve(to);
+				const crossBlock = from !== to && !$from.sameParent($to);
+				const multiLine = /[\r\n]/.test(plainText);
+
+				// The editor's own copy command serializes a ProseMirror slice in
+				// `text/html`, which is the only clipboard representation that
+				// retains marks such as bold, italics, and font formatting. Let
+				// ProseMirror parse and replace this slice for every selection
+				// shape; routing multi-line or cross-block HTML through the plain
+				// text helper silently strips those marks.
+				if (hasHtml) {
+					debugLog('clipboard', 'DOCX paste deferred to HTML clipboardParser', {
+						selectionStart: from,
+						selectionEnd: to,
+						sameParent: $from.sameParent($to),
+						crossBlock,
+						plainTextLength: plainText?.length ?? 0,
+						hasNewline: multiLine,
+						htmlLength: html.length,
+					});
 					return false;
 				}
 
+				if (!plainText) {
+					return false;
+				}
+
+				const marker = getCurrentParagraphListMarker(view);
+				const strippedText = stripMatchingListMarkerPrefixFromPastedText(plainText, marker);
+				const pasteText = strippedText ?? plainText;
+
+				debugLog('clipboard', 'DOCX plain paste routed through safe insert', {
+					branch: strippedText !== null
+						? 'list-marker-strip'
+						: (multiLine ? 'multi-line-paragraphs' : (crossBlock ? 'cross-block' : 'single-line')),
+					selectionStart: from,
+					selectionEnd: to,
+					sameParent: $from.sameParent($to),
+					crossBlock,
+					textLength: pasteText.length,
+					hasNewline: multiLine,
+				});
 				event.preventDefault();
-				return insertPlainTypedText(view, strippedText);
+				return insertPlainTypedText(view, pasteText, from, to);
 			},
 		},
+		handlePaste(view, event, slice: Slice) {
+			// Let tracked-changes own paste while suggestions are active. Its
+			// transaction adds insertion/deletion marks that a direct replaceRange
+			// would bypass.
+			if (isSuggestionModeActive(view.state)) {
+				return false;
+			}
+
+			const html = event.clipboardData?.getData('text/html') ?? '';
+			if (!html.trim()) {
+				return false;
+			}
+
+			const { from, to } = view.state.selection;
+			const $from = view.state.doc.resolve(from);
+			const $to = view.state.doc.resolve(to);
+			const crossBlock = from !== to && !$from.sameParent($to);
+			const multiLine = /[\r\n]/.test(event.clipboardData?.getData('text/plain') ?? '');
+			// A collapsed cursor (including a multi-line paste) must use
+			// ProseMirror's native `replaceSelection` behavior. Its open slice
+			// merges at the cursor in source order; forcing it through the
+			// cross-block replacement path can place an opened blank paragraph
+			// before the section heading. Only an actual cross-block selection
+			// needs the closed, structured replacement below.
+			if (!crossBlock) {
+				return false;
+			}
+
+			const sliceSummary = summarizeRichClipboardSlice(slice);
+			const range = insertRichClipboardSlice(view, slice, from, to);
+			debugLog('clipboard', 'DOCX rich paste replaced through structured slice', {
+				selectionStart: from,
+				selectionEnd: to,
+				crossBlock,
+				multiLine,
+				replaceFrom: range.from,
+				replaceTo: range.to,
+				sliceSize: slice.size,
+				openStart: slice.openStart,
+				openEnd: slice.openEnd,
+				...sliceSummary,
+			});
+			return true;
+		},
 		handleKeyDown(view, event) {
+			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+				const { from, to } = view.state.selection;
+				debugLog('history', 'DOCX keyboard history shortcut received', {
+					action: event.shiftKey ? 'redo' : 'undo',
+					selectionStart: from,
+					selectionEnd: to,
+					defaultPrevented: event.defaultPrevented,
+				});
+				// Let the core HistoryExtension consume the shortcut.
+				return false;
+			}
+
+			if (event.key === 'Backspace' || event.key === 'Delete') {
+				const { selection } = view.state;
+				const paragraph = selection.$from.parent;
+				const paragraphAttrs = paragraph.attrs as { numPr?: { ilvl?: number } | null };
+				const listProperties = paragraph.type.name === 'paragraph' ? paragraphAttrs.numPr : null;
+				debugLog('text-input', 'DOCX deletion key received', {
+					key: event.key,
+					code: event.code,
+					selectionStart: selection.from,
+					selectionEnd: selection.to,
+					parentOffset: selection.$from.parentOffset,
+					isList: Boolean(listProperties),
+					listLevel: listProperties?.ilvl ?? null,
+					suggestionMode: isSuggestionModeActive(view.state),
+				});
+				return false;
+			}
+
 			const text = getPlainTextFromKeyboardEvent(event);
 			if (!text) {
 				return false;
@@ -1307,6 +1411,38 @@ const preserveTypedSpacePlugin = new Plugin({
 			}
 			return handled;
 		},
+	},
+});
+
+const contentShrinkDiagnosticsPlugin = new Plugin({
+	key: contentShrinkDiagnosticsPluginKey,
+	appendTransaction(transactions, oldState, newState) {
+		if (!transactions.some((transaction) => transaction.docChanged)) {
+			return null;
+		}
+
+		const paragraphsBefore = countDocTextblocks(oldState.doc);
+		const paragraphsAfter = countDocTextblocks(newState.doc);
+		const charactersBefore = oldState.doc.textContent.length;
+		const charactersAfter = newState.doc.textContent.length;
+		if (paragraphsAfter >= paragraphsBefore && charactersAfter >= charactersBefore) {
+			return null;
+		}
+
+		const { $from, $to, from, to } = oldState.selection;
+		debugLog('editor', 'DOCX content shrunk', {
+			paragraphsBefore,
+			paragraphsAfter,
+			charactersBefore,
+			charactersAfter,
+			selectionStart: from,
+			selectionEnd: to,
+			sameParent: $from.sameParent($to),
+			steps: transactions.flatMap((transaction) => summarizeTransactionSteps(transaction)),
+			meta: transactions.flatMap((transaction) => summarizeTransactionMeta(transaction)),
+			docChangedCount: transactions.filter((transaction) => transaction.docChanged).length,
+		});
+		return null;
 	},
 });
 
@@ -1614,12 +1750,16 @@ async function pasteClipboardIntoEditor(view: EditorView, options: PasteClipboar
 	view.focus();
 	const text = await readPlainTextClipboard();
 	if (!options.preserveFormatting) {
-		return text ? insertPlainTypedText(view, getPasteTextWithListMarkerGuard(view, text)) : false;
+		if (!text) return false;
+		const docBefore = view.state.doc;
+		insertPlainTypedText(view, getPasteTextWithListMarkerGuard(view, text));
+		return view.state.doc !== docBefore;
 	}
 
 	const html = readHtmlClipboard();
 	if (html.trim()) {
 		try {
+			const docBefore = view.state.doc;
 			const clipboardData = new DataTransfer();
 			clipboardData.setData('text/html', html);
 			clipboardData.setData('text/plain', text);
@@ -1629,15 +1769,24 @@ async function pasteClipboardIntoEditor(view: EditorView, options: PasteClipboar
 				clipboardData,
 			});
 			const defaultAllowed = view.dom.dispatchEvent(pasteEvent);
-			if (pasteEvent.defaultPrevented || !defaultAllowed) {
+			if ((pasteEvent.defaultPrevented || !defaultAllowed) && view.state.doc !== docBefore) {
 				return true;
 			}
+			debugLog('clipboard', 'Formatted DOCX paste made no document change; trying plain text', {
+				htmlLength: html.length,
+				plainTextLength: text.length,
+				defaultPrevented: pasteEvent.defaultPrevented,
+				defaultAllowed,
+			});
 		} catch (error) {
 			debugLog('clipboard', 'Could not dispatch formatted paste event; falling back to plain text paste', error);
 		}
 	}
 
-	return text ? insertPlainTypedText(view, getPasteTextWithListMarkerGuard(view, text)) : false;
+	if (!text) return false;
+	const docBefore = view.state.doc;
+	insertPlainTypedText(view, getPasteTextWithListMarkerGuard(view, text));
+	return view.state.doc !== docBefore;
 }
 
 export function ensureEditorStyles() {
@@ -1977,6 +2126,8 @@ export interface DocxReactViewProps {
 
 export interface DocxReactViewHandle {
 	save: () => Promise<boolean>;
+	/** Persist pending/in-flight edits before close prompts; does not cancel autosave. */
+	flushPendingSave: () => Promise<boolean>;
 	prepareForExternalReload: () => Promise<void>;
 	exportBuffer: (options?: ExportDocumentBufferOptions) => Promise<ArrayBuffer | null>;
 	exportRenderedPdf: () => Promise<ArrayBuffer | null>;
@@ -2093,7 +2244,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const renderedPages = renderedDomContextRef.current?.pagesContainer.querySelectorAll(DOCX_RENDERED_PAGE_SELECTOR).length
 				?? activeDocument.querySelectorAll(`.${editorClassNameRef.current} ${DOCX_RENDERED_PAGE_SELECTOR}`).length;
 			const sourceDiagnostics = getDocxPaginationSourceDiagnostics(editorCore?.getView()?.state.doc);
-			const sourceDocument = editor?.getDocument() as DocxDocumentWithSectionProperties | null | undefined;
+			const sourceDocument = editor?.getDocument();
 			const documentProperties = sourceDocument?.package?.[DOCX_PACKAGE_DOCUMENT_KEY];
 			const sectionProperties = {
 				...documentProperties?.sections?.[0]?.properties,
@@ -2171,7 +2322,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		[scheduleParagraphLayoutRelayout],
 	);
 	const externalPlugins = useMemo(
-		() => [preserveTypedSpacePlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
+		() => [preserveTypedSpacePlugin, contentShrinkDiagnosticsPlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
 		[findHighlightPlugin, paragraphLayoutRelayoutPlugin],
 	);
 	const pluginSidebarItems = useMemo<NonNullable<ComponentProps<typeof DocxEditor>['pluginSidebarItems']>>(() => {
@@ -2244,9 +2395,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			scheduleCommentsSidebarToggleSync();
 			return;
 		}
-		// Load/hydrate emits onCommentsChange (often total:0) before the editor can
-		// serialize. Immediate save then throws "serialization returned no document".
-		if (!dirtyTrackingEnabled && reason === 'change') {
+		// Load/hydrate and teardown emit onCommentsChange (often total:0) when the
+		// editor cannot serialize. Marking dirty then forces close prompts / failed
+		// flush-before-close even after a successful content autosave.
+		if (reason === 'change' && (!dirtyTrackingEnabled || !editorReady)) {
 			debugLog('comments', 'DOCX comment dirty skipped (hydrate)', {
 				file: filePath,
 				reason,
@@ -2264,7 +2416,6 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			editorReady,
 			editVersion: sessionRef.current?.editVersion ?? null,
 		});
-		// Flush quickly when ready; otherwise leave it to the normal autosave delay.
 		if (!editorReady) {
 			debugLog('comments', 'DOCX comment dirty flush deferred (editor not ready)', {
 				file: filePath,
@@ -2403,8 +2554,17 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [buffer, documentKey, filePath, isLoading]);
 
 	useEffect(() => {
-		sourceBufferRef.current = buffer;
-	}, [buffer, documentKey, filePath]);
+		// Reset baseline when the open document session changes.
+		sourceBufferRef.current = buffer ?? null;
+	}, [documentKey, filePath]);
+
+	useEffect(() => {
+		// Async first package for this session (null → buffer) without remount.
+		// Ignore later host buffer identity churn from self-save.
+		if (sourceBufferRef.current == null && buffer) {
+			sourceBufferRef.current = buffer;
+		}
+	}, [buffer]);
 
 	const syncListMarkerSelectionHighlights = useCallback(() => {
 		const root = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
@@ -2452,7 +2612,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			window.clearTimeout(timeout);
 			dirtyTrackingEnabledRef.current = false;
 		};
-	}, [file, buffer]);
+		// Gate on document session, not host buffer identity. Post-autosave
+		// `this.buffer = output` used to disable dirty tracking for 500ms and
+		// drop paste/typing from the save pipeline.
+	}, [file, documentKey]);
 
 	useEffect(() => {
 		setDocumentName(file?.name ?? '');
@@ -3526,11 +3689,17 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 
 		const storedFontMark = view.state.storedMarks?.find((mark) => mark.type.name === 'fontFamily');
+		const emptyParagraphSummary = summarizeSelectedEmptyParagraphFonts(
+			view.state.doc,
+			result.range,
+			fontFamily,
+		);
 		debugLog('editor', 'Applied DOCX font family', {
 			file: filePath,
 			fontFamily,
 			applied: result.applied,
-			snappedSelection: Boolean(result.range),
+			restoredSelection: Boolean(result.range),
+			...emptyParagraphSummary,
 			displayName: resolveFontFamilyDisplayName(fontFamily, fontFamiliesRef.current),
 			storedFontFamily: getFontFamilyFromMark(storedFontMark),
 			displaySyncQueued: result.applied,
@@ -4037,8 +4206,45 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		await session.waitForIdle();
 	}, [session]);
 
+	const flushPendingSave = useCallback(async () => {
+		const current = sessionRef.current;
+		if (!current) {
+			return true;
+		}
+
+		const before = {
+			dirty: current.dirty,
+			editVersion: current.editVersion,
+			saveState: current.saveState,
+		};
+		debugLog('save', 'DOCX flush pending save before close', {
+			file: filePath,
+			...before,
+		});
+
+		let saved = true;
+		if (current.dirty) {
+			// Persist scheduled/in-flight edits. Do not clearAutosave alone — that
+			// drops the timer and leaves host isDirty true for the close prompt.
+			saved = await current.save('autosave');
+		}
+		await current.waitForIdle();
+
+		const afterDirty = current.dirty;
+		debugLog('save', 'DOCX flush pending save settled', {
+			file: filePath,
+			saved,
+			dirtyBefore: before.dirty,
+			dirtyAfter: afterDirty,
+			editVersion: current.editVersion,
+			saveState: current.saveState,
+		});
+		return saved && !afterDirty;
+	}, [filePath]);
+
 	useImperativeHandle(ref, () => ({
 		save: () => saveDocument(),
+		flushPendingSave,
 		prepareForExternalReload,
 		exportBuffer: (options?: ExportDocumentBufferOptions) => exportDocumentBuffer(options),
 		exportRenderedPdf: () => exportRenderedPdfBuffer(),
@@ -4076,7 +4282,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			debugLog('editor', 'DOCX zoom changed', { file: filePath, zoom });
 			editorRef.current?.setZoom(zoom);
 		},
-	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, prepareForExternalReload, saveDocument, setMode]);
+	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, flushPendingSave, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, prepareForExternalReload, saveDocument, setMode]);
 
 	if (isLoading) {
 		return null;
@@ -4151,6 +4357,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						}
 						const syncVersion = ++fontFamilyDisplaySyncVersionRef.current;
 						const fontFamily = view ? getFontFamilyNameFromEditorSelection(view) : null;
+						const paragraph = view?.state.selection.$from.parent;
+						if (view && paragraph?.type.name === 'paragraph' && paragraph.content.size === 0) {
+							const defaults = paragraph.attrs.defaultTextFormatting as {
+								fontFamily?: { ascii?: unknown; hAnsi?: unknown };
+							} | null | undefined;
+							const storedFontMark = view.state.storedMarks?.find((mark) => mark.type.name === 'fontFamily');
+							debugLog('editor', 'DOCX empty paragraph font selection changed', {
+								file: filePath,
+								selectionStart: view.state.selection.from,
+								defaultFontFamily: defaults?.fontFamily?.ascii ?? defaults?.fontFamily?.hAnsi ?? null,
+								storedFontFamily: getFontFamilyFromMark(storedFontMark),
+								resolvedFontFamily: fontFamily,
+							});
+						}
 						if (fontFamily) {
 							const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
 							scheduleFontFamilySelectDisplaySync(

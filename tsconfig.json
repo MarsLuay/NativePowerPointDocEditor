@@ -16,27 +16,7 @@
 			"prosemirror-tables": ["../node_modules/prosemirror-tables"],
 			"prosemirror-transform": ["../node_modules/prosemirror-transform"],
 			"prosemirror-view": ["../node_modules/prosemirror-view"],
-			"orderedmap": ["../node_modules/orderedmap"],
-			"@npde/docx-editor-core": [
-				"../docx-editor/packages/core/dist/core.d.ts"
-			],
-			"@npde/docx-editor-core/*": [
-				"../docx-editor/packages/core/dist/*/index.d.ts",
-				"../docx-editor/packages/core/dist/*.d.ts"
-			],
-			"@npde/docx-editor-i18n": [
-				"../docx-editor/packages/i18n/dist/index.d.ts"
-			],
-			"@npde/docx-editor-i18n/*": [
-				"../docx-editor/packages/i18n/dist/*.d.ts"
-			],
-			"@npde/docx-editor-react": [
-				"../docx-editor/packages/react/dist/index.d.ts"
-			],
-			"@npde/docx-editor-react/*": [
-				"../docx-editor/packages/react/dist/*/index.d.ts",
-				"../docx-editor/packages/react/dist/*.d.ts"
-			]
+			"orderedmap": ["../node_modules/orderedmap"]
 		},
 		"jsx": "react-jsx",
 		"noImplicitAny": true,
@@ -62,5 +42,11 @@
 	"include": [
 		"src/**/*.ts",
 		"src/**/*.tsx"
+	],
+	"exclude": [
+		"src/docx-font-roundtrip-entry.tsx",
+		"src/docx-ime-coordinates-entry.tsx",
+		"src/docx-ime-live-verify-entry.tsx",
+		"src/docx-page-count-entry.tsx"
 	]
 }

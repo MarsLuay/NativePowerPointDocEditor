@@ -14,7 +14,7 @@ import {
   VaultImageSuggestModal
 } from '../PowerPointInsertModals';
 import { normalizeImageForPowerPoint } from './heicToPng';
-import type { ParagraphListStyle } from '../SlideInsertions';
+import { TEXT_BOX_INSET_EMU, type ParagraphListStyle } from '../SlideInsertions';
 import { cleanError } from './runtimeCompat';
 import type { PresentationSession } from './session/PresentationSession';
 import type { PptxCommand } from './commands/types';
@@ -294,6 +294,7 @@ export class InsertController {
 			slide: this.host.currentSlide,
 			shapeIndex,
         requestedOrigin: origin ?? null,
+			textInsetEmu: TEXT_BOX_INSET_EMU,
 		});
     } catch (error) {
       errorLog('insert', 'PowerPoint text-box insertion failed', {

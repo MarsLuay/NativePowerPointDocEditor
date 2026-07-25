@@ -37,7 +37,7 @@ export function isWasmGcUnsupportedError(error: unknown): boolean {
 /** Yields so status/progress DOM updates can paint before heavy work continues. */
 export function flushUi(): Promise<void> {
   const requestAnimationFrame =
-    typeof window !== 'undefined' ? window.requestAnimationFrame : undefined;
+		typeof window !== 'undefined' ? window.requestAnimationFrame.bind(window) : undefined;
   if (typeof requestAnimationFrame === 'function') {
     return new Promise((resolve) => {
       requestAnimationFrame(() => {

@@ -869,6 +869,19 @@ export class NativePowerPointView extends FileView {
       file: this.loadedFile?.path ?? this.file?.path ?? null,
       dirty: this.session.dirty
     });
+
+    // Keep the live controls intact until we know dirty edits reached either the
+    // source file or a recovery copy. A failed preservation must leave the view
+    // usable so the user can retry rather than trapping edits in a dead UI.
+    const preserved = await this.preserveUnsavedChangesForTeardown('closing the view');
+    if (!preserved) {
+      warnLog('view', 'Close aborted because unsaved PowerPoint edits could not be preserved', {
+        file: this.loadedFile?.path ?? this.file?.path ?? null,
+      });
+      pptNotice('powerpoint:notice.closeUnsafe');
+      return;
+    }
+
     if (this.powerpointPasteArmTimeout !== null) {
       window.clearTimeout(this.powerpointPasteArmTimeout);
       this.powerpointPasteArmTimeout = null;
@@ -879,12 +892,6 @@ export class NativePowerPointView extends FileView {
     this.presentController?.dispose();
     this.presentController = null;
     this.slideFilmstripController.dispose();
-
-    const preserved = await this.preserveUnsavedChangesForTeardown('closing the view');
-    if (!preserved) {
-      pptNotice('powerpoint:notice.closeUnsafe');
-      return;
-    }
 
     this.resetLoadedPresentation();
     this.contentEl.removeClass('native-powerpoint-view');

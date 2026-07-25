@@ -314,6 +314,38 @@ test("pasted and duplicated shapes receive fresh a16:creationId GUIDs", async ()
   assert.equal(guids.filter((guid) => guid === seedGuid).length, 1, "only the source shape keeps the seed GUID");
 });
 
+test("shape transforms preserve authored a16:creationId extensions", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const { validatePowerPointExportContents } = await loadPowerPointPackageModule();
+  const input = await readDeck("simple-edit.pptx");
+  const inputBuffer = toArrayBuffer(input);
+  const slidePath = "ppt/slides/slide1.xml";
+  const seedGuid = "{22222222-2222-2222-2222-222222222222}";
+  const creationExt =
+    '<a:extLst><a:ext uri="{FF2B5EF4-FFF2-40B4-BE49-F238E27FC236}">' +
+    `<a16:creationId xmlns:a16="http://schemas.microsoft.com/office/drawing/2014/main" id="${seedGuid}"/>` +
+    "</a:ext></a:extLst>";
+  const sourceZip = await extractZip(inputBuffer);
+  const sourceSlide = sourceZip.textFiles.get(slidePath);
+  assert.ok(sourceSlide);
+  const seeded = await buildZip(
+    inputBuffer,
+    new Map([[
+      slidePath,
+      sourceSlide.replace('<p:cNvPr id="2" name="Slide 1 title"/>', `<p:cNvPr id="2" name="Slide 1 title">${creationExt}</p:cNvPr>`),
+    ]]),
+  );
+
+  const engine = await PresentationEngine.load(seeded);
+  await engine.updateShapeTransform(0, 0, { x: 120000, y: 120000, cx: 4000000, cy: 1000000, rot: 0 });
+  const exported = await engine.export();
+  const validation = await validatePowerPointExportContents(seeded, exported);
+  const exportedZip = await extractZip(exported);
+
+  assert.equal(validation.ok, true, validation.errors.join(" "));
+  assert.match(exportedZip.textFiles.get(slidePath) ?? "", new RegExp(`a16:creationId[^>]+id="${seedGuid}"`));
+});
+
 test("setRunStyleForRange formats only the selected characters within a paragraph", async () => {
   const { PresentationEngine } = await loadPresentationEngineModule();
   const input = await readDeck("features.pptx");

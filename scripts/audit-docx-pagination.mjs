@@ -28,7 +28,7 @@ const defaultDocuments = [
 
 async function bundleHarness() {
 	await build({
-		entryPoints: [path.join(projectRoot, 'scripts', 'harness', 'docx-page-count-entry.tsx')],
+		entryPoints: [path.join(projectRoot, 'src', 'docx-page-count-entry.tsx')],
 		bundle: true,
 		format: 'iife',
 		logLevel: 'silent',

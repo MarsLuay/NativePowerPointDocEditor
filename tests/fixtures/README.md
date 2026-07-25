@@ -24,5 +24,8 @@ Office files rather than mocks.
   formatted at 24 pt (`w:sz="48"` and `w:szCs="48"`). If opening or saving the
   file strips direct cell-run formatting, affected cells visibly fall back to the
   small default text size.
+- `lorem-ipsum.docx` and `lorem-ipsum.pptx` contain only inert Lorem Ipsum text.
+  They are the sanitized publication fixtures for the DOCX and PowerPoint editor
+  screenshots.
 
 Regenerate the files with `npm run test:update-fixtures`.

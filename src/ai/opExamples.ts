@@ -52,6 +52,11 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'docx.setRunText': { op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Updated' },
 	'docx.setRunStyle': { op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 	'docx.setParagraphStyle': { op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading1' } },
+	'docx.setParagraphBottomBorder': {
+		op: 'docx.setParagraphBottomBorder',
+		blockId: 'body/p[0]',
+		border: { style: 'single', size: 8, color: '000000' },
+	},
 	'docx.insertTable': { op: 'docx.insertTable', afterBlockId: 'body/p[0]', rows: 2, cols: 2 },
 	'docx.setCellText': { op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Cell' },
 	'docx.setCellStyle': { op: 'docx.setCellStyle', cellId: 'body/tbl[0]/tr[0]/tc[0]', style: { name: 'Normal' } },
@@ -66,6 +71,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 			end: { blockId: 'body/p[0]', offset: 5 },
 		},
 	},
+	'docx.deleteBlock': { op: 'docx.deleteBlock', blockId: 'body/p[1]' },
 	'docx.insertHyperlink': {
 		op: 'docx.insertHyperlink',
 		range: {

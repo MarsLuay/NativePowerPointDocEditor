@@ -16,15 +16,16 @@ async function readJson(relativePath) {
 	return JSON.parse(await readFile(new URL(relativePath, root), 'utf8'));
 }
 
-test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm-scoped upstream packages', async () => {
-	const packagesRoot = resolveDocxEditorPackagesRoot(projectRoot);
-	const [manifest, lockfile, esbuildConfig, testBundler, tsconfig, aliases] = await Promise.all([
+test('DOCX editor packages resolve from the vendor runtime, not source or npm packages', async () => {
+	const runtimeRoot = resolveDocxEditorPackagesRoot(projectRoot);
+	const [manifest, lockfile, esbuildConfig, testBundler, tsconfig, aliases, provenance] = await Promise.all([
 		readJson('package.json'),
 		readJson('package-lock.json'),
 		readFile(new URL('esbuild.config.mjs', root), 'utf8'),
 		readFile(new URL('tests/helpers/load-plugin-modules.mjs', root), 'utf8'),
 		readJson('tsconfig.json'),
-		createDocxEditorAliases(packagesRoot),
+		createDocxEditorAliases(runtimeRoot),
+		readJson('vendor/docx-editor-runtime/provenance.json'),
 	]);
 
 	const declaredDependencies = {
@@ -45,23 +46,20 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm-sc
 	assert.match(esbuildConfig, /resolveDocxEditorPackagesRoot/);
 	assert.match(testBundler, /createDocxEditorAliases/);
 	assert.equal(docxEditorPackages['@npde/docx-editor-agents'], undefined);
-
-	await assert.rejects(
-		() => readFile(new URL('docx-editor/packages/agents/package.json', root)),
-		/ENOENT/,
-	);
+	assert.equal(provenance.sourceBranch, 'docx-editor-source');
+	assert.match(provenance.sourceCommit, /^[0-9a-f]{40}$/);
 	await assert.rejects(
 		() => readFile(new URL('src/vendor/eigenpal/README.md', root)),
 		/ENOENT/,
 	);
 
 	for (const [packageName, dirName] of Object.entries(docxEditorPackages)) {
-		const localManifest = await readJson(`docx-editor/packages/${dirName}/package.json`);
-		assert.equal(localManifest.version, '1.9.0');
-		assert.equal(localManifest.name, packageName);
-		assert.ok(tsconfig.compilerOptions.paths[packageName], `${packageName} needs a local TypeScript path`);
+		const runtimeManifest = await readJson(`vendor/docx-editor-runtime/${dirName}/package.json`);
+		assert.equal(runtimeManifest.version, '1.9.0');
+		assert.equal(runtimeManifest.name, packageName);
+		assert.equal(tsconfig.compilerOptions.paths[packageName], undefined);
 
-		for (const [exportPath, target] of Object.entries(localManifest.exports)) {
+		for (const [exportPath, target] of Object.entries(runtimeManifest.exports)) {
 			const importTarget = typeof target === 'string'
 				? target
 				: target?.import ?? target?.require ?? target?.default;
@@ -71,7 +69,7 @@ test('DOCX editor packages resolve from in-repo docx-editor monorepo, not npm-sc
 				? [target]
 				: Object.values(target).filter((value) => typeof value === 'string');
 			for (const exportTarget of exportTargets) {
-				const relativePath = `docx-editor/packages/${dirName}/${exportTarget.replace(/^\.\//, '')}`;
+				const relativePath = `vendor/docx-editor-runtime/${dirName}/${exportTarget.replace(/^\.\//, '')}`;
 				await readFile(new URL(relativePath, root));
 			}
 
