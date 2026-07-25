@@ -587,6 +587,35 @@ export function applyDeleteRangeInPart(partXml: string, range: DocxTextRange): s
 	return setEditableInner(partXml, startLocation, nextInner);
 }
 
+/**
+ * Delete one complete paragraph without joining it to an adjacent paragraph.
+ * Text-range deletion deliberately merges endpoints, which is wrong for
+ * removing an accidental blank paragraph while retaining the heading after it.
+ */
+export function applyDeleteParagraphInPart(partXml: string, blockId: string): string {
+	const location = resolveParagraphLocation(blockId);
+	const inner = getEditableInner(partXml, location);
+	const idPrefix = idPrefixForLocation(location);
+	const blocks = enumerateTopLevelBlockPositions(inner, idPrefix);
+	const block = blocks.find((entry) => entry.id === blockId);
+	if (!block) {
+		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Block ${blockId} was not found.`, { field: 'blockId' });
+	}
+	if (blocks.length <= 1) {
+		throw createAiError(
+			AI_ERROR_CODES.VALIDATION_FAILED,
+			'Cannot delete the only editable block in a DOCX part.',
+			{ field: 'blockId' },
+		);
+	}
+
+	return setEditableInner(
+		partXml,
+		location,
+		`${inner.slice(0, block.startInBody)}${inner.slice(block.endInBody)}`,
+	);
+}
+
 export function applyInsertParagraphBreakInPart(partXml: string, position: DocxTextPosition): string {
 	const location = resolveParagraphLocation(position.blockId);
 	validateOptionalRunId(position.blockId, position.runId, position.offset, partXml, location);

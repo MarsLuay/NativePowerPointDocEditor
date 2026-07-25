@@ -79,6 +79,13 @@ function shouldPrint(level: NativePowerPointDocEditorLogLevel) {
 	return getLogState().debugLoggingEnabled || level === 'warn' || level === 'error';
 }
 
+function retentionPriority(level: NativePowerPointDocEditorLogLevel) {
+	return level === 'debug' ? 0
+		: level === 'info' ? 1
+			: level === 'warn' ? 2
+				: 3;
+}
+
 function writeConsole(level: NativePowerPointDocEditorLogLevel, area: string, message: string, data?: unknown) {
 	if (!shouldPrint(level)) {
 		return;
@@ -144,6 +151,12 @@ export function configureNativePowerPointDocEditorLogger(enabled: boolean) {
 
 export function logNativePowerPointDocEditor(level: NativePowerPointDocEditorLogLevel, area: string, message: string, data?: unknown) {
 	const state = getLogState();
+	// Debug events are intentionally opt-in. Retaining them while debug logging is
+	// disabled both spends work on hot paths and evicts the warnings/errors needed
+	// to diagnose a real failure.
+	if (level === 'debug' && !state.debugLoggingEnabled) {
+		return;
+	}
 	const entry: NativePowerPointDocEditorLogEntry = {
 		time: new Date().toISOString(),
 		level,
@@ -152,12 +165,22 @@ export function logNativePowerPointDocEditor(level: NativePowerPointDocEditorLog
 		data: normalizeLogData(data),
 	};
 
-	state.entries.push(entry);
 	state.totalEntries += 1;
-	if (state.entries.length > MAX_LOG_ENTRIES) {
-		const overflow = state.entries.length - MAX_LOG_ENTRIES;
-		state.entries.splice(0, overflow);
-		state.droppedEntries += overflow;
+	if (state.entries.length >= MAX_LOG_ENTRIES) {
+		// A long debug session must not erase the warning/error that explains the
+		// failure. Evict the oldest entry from the lowest available severity tier.
+		const incomingPriority = retentionPriority(entry.level);
+		let evictedIndex = -1;
+		for (let priority = 0; priority <= incomingPriority && evictedIndex < 0; priority += 1) {
+			evictedIndex = state.entries.findIndex((candidate) => retentionPriority(candidate.level) === priority);
+		}
+		if (evictedIndex >= 0) {
+			state.entries.splice(evictedIndex, 1);
+		}
+		state.droppedEntries += 1;
+	}
+	if (state.entries.length < MAX_LOG_ENTRIES) {
+		state.entries.push(entry);
 	}
 	syncWindowLogState();
 

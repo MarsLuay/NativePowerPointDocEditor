@@ -20,7 +20,7 @@ const chromeBinary = process.env.CHROME_PATH
 async function bundleHarness() {
 	await build({
 		alias: docxEditorAliases,
-		entryPoints: [path.join(projectRoot, 'scripts', 'harness', 'docx-font-roundtrip-entry.tsx')],
+		entryPoints: [path.join(projectRoot, 'src', 'docx-font-roundtrip-entry.tsx')],
 		bundle: true,
 		format: 'iife',
 		logLevel: 'silent',

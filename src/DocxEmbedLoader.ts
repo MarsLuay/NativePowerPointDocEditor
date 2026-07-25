@@ -1,5 +1,5 @@
 import { App, Component, MarkdownPostProcessorContext, MarkdownRenderChild, Plugin, TFile } from 'obsidian';
-import type { Translations } from '@npde/docx-editor-i18n';
+import type { Translations } from './docx/runtime/contract';
 import { loadDocxEditorChunk } from './docxEditorLoader';
 import { isHTMLElement } from './domGuards';
 import { debugLog, errorLog, infoLog, warnLog } from './logger';
@@ -123,6 +123,7 @@ class LazyDocxFileEmbed extends Component {
 class DocxEmbedScanChild extends MarkdownRenderChild {
 	private observer: MutationObserver | null = null;
 	private readonly scanTimer: CoalescedTimeout;
+	private unloaded = false;
 
 	constructor(
 		containerEl: HTMLElement,
@@ -138,6 +139,7 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 	}
 
 	onload() {
+		this.unloaded = false;
 		this.scan();
 		this.scanTimer.schedule(0);
 		this.scanTimer.schedule(100);
@@ -151,6 +153,7 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 	}
 
 	onunload() {
+		this.unloaded = true;
 		this.scanTimer.cancel();
 		this.observer?.disconnect();
 		this.observer = null;
@@ -158,14 +161,24 @@ class DocxEmbedScanChild extends MarkdownRenderChild {
 	}
 
 	private scan() {
+		if (this.unloaded) {
+			return;
+		}
 		if (!hasRenderableDocxEmbed(this.app, this.containerEl, this.ctx)) {
 			return;
 		}
 
 		void loadDocxEditorChunk().then(({ renderDocxEmbeds }) => {
+			if (this.unloaded) {
+				debugLog('embed', `Discarded DOCX embed scan after unload: ${this.ctx.sourcePath}`);
+				return;
+			}
 			debugLog('embed', `Rendering DOCX embeds in ${this.ctx.sourcePath}`);
 			renderDocxEmbeds(this.app, this.containerEl, this.ctx, this.getEditorLocale);
 		}).catch((error) => {
+			if (this.unloaded) {
+				return;
+			}
 			errorLog('embed', `Could not scan DOCX embeds in ${this.ctx.sourcePath}`, error);
 		});
 	}

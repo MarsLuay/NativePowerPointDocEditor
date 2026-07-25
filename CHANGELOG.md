@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-07-25
+
+### Fixed
+
+- Restored the vendor-only DOCX release boundary: editable DOCX source now lives on `docx-editor-source`, while release branches ship only the checked runtime snapshot and provenance.
+- Restored review-surface validation, strict TypeScript and lint checks, and the missing published-version compatibility mappings.
+- Preserved DOCX paste formatting, empty-paragraph font selection, list deletion, and full-width paragraph-border fixes in the source branch and generated runtime.
+
+## [1.1.6] - 2026-07-24
+
+### Fixed
+
+- Toolbar font-size −/+ no longer pays a full-deck export per click: run-style and paragraph-alignment mutations use slide-XML rollback and deferred package fold (same path as inline text edits).
+- Rapid font-size steps coalesce to the latest size so stacked mutations do not queue behind each other.
+- Bring Forward / slide rebuild no longer throws `HierarchyRequestError` when caret measure runs after the SVG is emptied: measure canvas is created on the window document, and disconnected editor targets skip geometry refresh.
+
 ## [1.1.5] - 2026-07-24
 
 ### Fixed

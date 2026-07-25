@@ -76,10 +76,20 @@ test("insert text box honors a requested slide-space origin and clamps it to the
   assertShapeIndex("positioned text box", shapeIndex);
 
   const slideXml = engine.getSlideXml(SLIDE_INDEX);
-  const textBox = slideXml.match(/<p:sp>[\s\S]*?<p:cNvPr\b[^>]*\bname="TextBox"[\s\S]*?<\/p:sp>/)?.[0];
+  const textBoxNameIndex = slideXml.indexOf('name="TextBox"');
+  const textBoxStart = slideXml.lastIndexOf('<p:sp>', textBoxNameIndex);
+  const textBoxEnd = slideXml.indexOf('</p:sp>', textBoxNameIndex);
+  const textBox = textBoxStart >= 0 && textBoxEnd >= 0
+    ? slideXml.slice(textBoxStart, textBoxEnd + '</p:sp>'.length)
+    : null;
   assert.ok(textBox, "expected the inserted text box shape in slide XML");
   const maxY = slideSize.cy - 685800;
   assert.match(textBox, new RegExp(`<a:off\\b[^>]*\\bx="0"[^>]*\\by="${maxY}"`));
+	assert.match(
+		textBox,
+		/<a:bodyPr\b[^>]*\blIns="27432"[^>]*\btIns="9144"[^>]*\brIns="27432"[^>]*\bbIns="9144"/,
+		"inserted text boxes need a small interior buffer around their text",
+	);
   await assertExportRoundTrips("positioned text box", engine);
 });
 

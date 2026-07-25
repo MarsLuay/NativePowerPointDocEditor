@@ -16,6 +16,7 @@ import {
 	buildEmptyTableXml,
 	patchCellStyle,
 	patchCellText,
+	patchParagraphBottomBorder,
 	patchParagraphStyle,
 	patchRunStyle,
 	patchRunText,
@@ -25,6 +26,7 @@ import {
 import { applyReplaceBodyParagraphs } from './docxBodyParagraphs';
 import { registerExternalHyperlink } from './docxHyperlink';
 import {
+	applyDeleteParagraphInPart,
 	applyDeleteRangeInPart,
 	applyInsertHyperlinkInPart,
 	applyInsertParagraphBreakInPart,
@@ -91,6 +93,23 @@ function asRunStylePatch(value: unknown): DocxRunStylePatch {
 		...(typeof record.fontSizePt === 'number' ? { fontSizePt: record.fontSizePt } : {}),
 		...(typeof record.color === 'string' || record.color === null ? { color: record.color } : {}),
 	};
+}
+
+function asParagraphBottomBorderPatch(value: unknown): {
+	style: string;
+	size?: number;
+	space?: number;
+	color?: string;
+} {
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'border must be an object.', { field: 'border' });
+	}
+	const record = value as Record<string, unknown>;
+	const style = requireNonEmptyString(record.style, 'border.style');
+	const size = record.size === undefined ? undefined : requireInteger(record.size, 'border.size');
+	const space = record.space === undefined ? undefined : requireInteger(record.space, 'border.space');
+	const color = record.color === undefined ? undefined : requireNonEmptyString(record.color, 'border.color');
+	return { style, ...(size !== undefined ? { size } : {}), ...(space !== undefined ? { space } : {}), ...(color ? { color } : {}) };
 }
 
 function requireInteger(value: unknown, field: string): number {
@@ -282,6 +301,28 @@ export async function executeDocxOp(
 			preview.push({ id: blockId, field: 'style', before: null, after: style });
 			break;
 		}
+		case 'docx.setParagraphBottomBorder': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const border = asParagraphBottomBorderPatch(record.border);
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const location = parseStableLocation(blockId);
+			if (!location || location.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, location);
+			partXml = replaceParagraphXml(
+				partXml,
+				location,
+				patchParagraphBottomBorder(getParagraphXml(partXml, location), border),
+			);
+			setPartXmlForLocation(context.session, location, partXml);
+			if (location.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(blockId);
+			preview.push({ id: blockId, field: 'bottomBorder', before: null, after: border });
+			break;
+		}
 		case 'docx.insertTable': {
 			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
 			const rows = requireNumber(record.rows, 'rows');
@@ -467,6 +508,23 @@ export async function executeDocxOp(
 			}
 			changedIds.push(range.start.blockId, range.end.blockId);
 			preview.push({ id: range.start.blockId, field: 'deleteRange', before: range, after: null });
+			break;
+		}
+		case 'docx.deleteBlock': {
+			const blockId = requireString(record.blockId, 'blockId');
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const location = parseStableLocation(blockId);
+			if (!location || location.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, location);
+			partXml = applyDeleteParagraphInPart(partXml, blockId);
+			setPartXmlForLocation(context.session, location, partXml);
+			if (location.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(blockId);
+			preview.push({ id: blockId, field: 'deleteBlock', before: 'paragraph', after: null });
 			break;
 		}
 		case 'docx.insertHyperlink': {

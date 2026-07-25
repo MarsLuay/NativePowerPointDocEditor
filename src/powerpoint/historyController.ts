@@ -86,7 +86,7 @@ export class HistoryController {
       slide: this.host.currentSlide
     });
     try {
-      const buffer = await this.host.engine.export();
+      const buffer = await this.host.engine.snapshotAuthoritativePackage();
       debugLog('history', 'Captured PowerPoint history snapshot', {
         op: 'capture-snapshot',
         label,

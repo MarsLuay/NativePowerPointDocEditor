@@ -148,10 +148,57 @@ test("matrix coordinator serializes queued saves and retains the final dirty ver
 
   releaseFirstSerialization();
   assert.deepEqual(await Promise.all([first, second]), [true, true]);
-  assert.deepEqual(writes, ["deck-1", "deck-2"]);
+  // First in-flight serialize targeted v1, but dirty advanced to v2 mid-flight —
+  // coordinator must re-serialize and persist the live version, not the stale one.
+  assert.deepEqual(writes, ["deck-2", "deck-2"]);
   assert.equal(coordinator.version, 2);
   assert.equal(coordinator.state, "clean");
   await coordinator.waitForIdle();
+});
+
+test("matrix coordinator re-serializes when dirty advances during serialize", async () => {
+  const { DocumentSaveCoordinator } = await loadDocumentSaveCoordinator();
+  const writes = [];
+  let releaseFirstSerialization;
+  const firstSerialization = new Promise((resolve) => {
+    releaseFirstSerialization = resolve;
+  });
+  let serializations = 0;
+  const coordinator = new DocumentSaveCoordinator({
+    adapter: {
+      async serialize(_context, request) {
+        serializations += 1;
+        if (serializations === 1) await firstSerialization;
+        return `deck-${request.targetVersion}`;
+      },
+      async prepareForWrite(serialized) {
+        return serialized;
+      },
+      async validate(prepared) {
+        return prepared;
+      },
+      async persist(prepared) {
+        writes.push(prepared);
+      },
+    },
+    getContext: () => ({ deck: "fixture" }),
+    autosave: {
+      enabled: () => false,
+      delayMs: () => 1,
+      source: "autosave",
+    },
+  });
+
+  coordinator.markDirty();
+  const save = coordinator.save("manual");
+  await Promise.resolve();
+  coordinator.markDirty();
+  releaseFirstSerialization();
+  assert.equal(await save, true);
+  assert.deepEqual(writes, ["deck-2"]);
+  assert.equal(serializations, 2);
+  assert.equal(coordinator.state, "clean");
+  assert.equal(coordinator.version, 2);
 });
 
 test("matrix SaveController persists valid exports and preserves unvalidated recovery copies", async (t) => {

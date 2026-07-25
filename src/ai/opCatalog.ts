@@ -356,6 +356,25 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
+	docxOp('setParagraphBottomBorder', 'font', 'Set the bottom paragraph border without replacing the paragraph or other border sides.', {
+		type: 'object',
+		required: ['blockId', 'border'],
+		properties: {
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[0].' },
+			border: {
+				type: 'object',
+				required: ['style'],
+				properties: {
+					style: { type: 'string', description: 'OOXML border style, e.g. single or double.' },
+					size: { type: 'integer', minimum: 0, description: 'Border width in eighths of a point.' },
+					space: { type: 'integer', minimum: 0, description: 'Spacing from paragraph text in points.' },
+					color: { type: 'string', description: 'Six-digit RGB hex color without #.' },
+				},
+				additionalProperties: false,
+			},
+		},
+		additionalProperties: false,
+	}),
 
 	// DOCX — table
 	docxOp('insertTable', 'table', 'Insert a table at a block anchor.', {
@@ -423,6 +442,14 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		required: ['range'],
 		properties: {
 			range: DOCX_TEXT_RANGE,
+		},
+		additionalProperties: false,
+	}),
+	docxOp('deleteBlock', 'font', 'Delete one complete paragraph block without merging it into adjacent paragraphs.', {
+		type: 'object',
+		required: ['blockId'],
+		properties: {
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[0].' },
 		},
 		additionalProperties: false,
 	}),

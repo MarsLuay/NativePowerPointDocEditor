@@ -45,7 +45,7 @@ export interface TextToolbarHost {
   getSelectedBox(): { left: number; top: number; width: number; height: number } | null;
   getStoredInlineSelectionRanges(shapeIndex: number): ParagraphTextRange[] | null;
   getSelectedRangeFontSizePt(shapeIndex: number, ranges: ParagraphTextRange[]): number | null;
-  applyRunStyle(change: RunStyleChange): void;
+  applyRunStyle(change: RunStyleChange): void | Promise<void>;
   applyAlignment(align: ParagraphAlignment): void;
   flushActiveEditor(): void;
 }
@@ -72,6 +72,9 @@ export class TextToolbarController {
   private toolbarPopoverCleanup: (() => void) | null = null;
   private toolbarFormattingSnapshot: ToolbarFormattingSnapshot | null = null;
   private fontSizeOverride: FontSizeOverride | null = null;
+  /** Latest font size requested while a prior apply is still in flight. */
+  private pendingFontSizePt: number | null = null;
+  private fontSizeApplyRunning = false;
 
   constructor(private readonly host: TextToolbarHost) {}
 
@@ -115,6 +118,8 @@ export class TextToolbarController {
     this.topFontButton = null;
     this.topFontLabel = null;
     this.fontSizeOverride = null;
+    this.pendingFontSizePt = null;
+    this.fontSizeApplyRunning = false;
   }
 
   wireFontFamilyButton(button: HTMLButtonElement, label: HTMLElement): void {
@@ -422,7 +427,7 @@ export class TextToolbarController {
       this.preserveFormattingContext();
       this.openColorPopover(textColorButton, this.textColorValue, false, (color) => {
         debugLog('text-format', 'setTextColor', { color });
-        this.host.applyRunStyle({ color });
+        void this.host.applyRunStyle({ color });
       });
     });
 
@@ -432,7 +437,7 @@ export class TextToolbarController {
       this.preserveFormattingContext();
       this.openColorPopover(highlightButton, this.textHighlightValue, true, (color) => {
         debugLog('text-format', 'setHighlight', { color });
-        this.host.applyRunStyle({ highlight: color });
+        void this.host.applyRunStyle({ highlight: color });
       });
     });
 
@@ -488,7 +493,7 @@ export class TextToolbarController {
       if (selectedRanges?.length) {
         const next = !this.host.engine.areRangesStyled(this.host.currentSlide, context.shapeIndex, selectedRanges, flag);
         debugLog('text-format', 'toggleRunFlag', { flag, path: 'inline-ranges', next, shapeIndex: context.shapeIndex });
-        this.host.applyRunStyle({ [flag]: next });
+        void this.host.applyRunStyle({ [flag]: next });
         return;
       }
     }
@@ -516,14 +521,14 @@ export class TextToolbarController {
           start,
           end
         });
-        this.host.applyRunStyle({ [flag]: next });
+        void this.host.applyRunStyle({ [flag]: next });
         return;
       }
     }
 
     const current = this.host.currentRunStyle?.[flag] ?? false;
     debugLog('text-format', 'toggleRunFlag', { flag, path: 'caret-or-shape', next: !current });
-    this.host.applyRunStyle({ [flag]: !current });
+    void this.host.applyRunStyle({ [flag]: !current });
   }
 
   private applyAlignment(align: ParagraphAlignment): void {
@@ -531,7 +536,7 @@ export class TextToolbarController {
     this.host.applyAlignment(align);
   }
 
-  private stepFontSize(delta: number): void {
+  private stepFontSize(delta: number): Promise<void> {
     const input = this.textToolbarControls?.fontSizeInput;
     const inputValue = Number(input?.value);
     const context = this.host.getTextStyleContext();
@@ -544,8 +549,10 @@ export class TextToolbarController {
     const next = Math.min(TEXT_TOOLBAR_MAX_FONT_SIZE, Math.max(TEXT_TOOLBAR_MIN_FONT_SIZE, Math.round(current) + delta));
     this.reflectOptimisticFontSize(next);
     debugLog('text-format', 'stepFontSize', { delta, current, next, inputValue, optimisticFontSize });
-    if (next === current) return;
-    this.host.applyRunStyle({ fontSizePt: next });
+    if (next === current) return Promise.resolve();
+    // Optimistic UI updates immediately; coalesce rapid −/+ into one mutation
+    // flush so queued full-path applies do not stack per click.
+    return this.enqueueFontSizeApply(next);
   }
 
   private commitFontSizeInput(): void {
@@ -561,7 +568,34 @@ export class TextToolbarController {
     );
     this.reflectOptimisticFontSize(clamped);
     debugLog('text-format', 'commitFontSizeInput', { value, clamped });
-    this.host.applyRunStyle({ fontSizePt: clamped });
+    void this.enqueueFontSizeApply(clamped);
+  }
+
+  /**
+   * Apply the latest requested font size. While an apply is in flight, further
+   * steps only update `pendingFontSizePt` and trigger one trailing flush —
+   * so five rapid − clicks become at most two mutations, not five.
+   */
+  private async enqueueFontSizeApply(fontSizePt: number): Promise<void> {
+    this.pendingFontSizePt = fontSizePt;
+    if (this.fontSizeApplyRunning) {
+      debugLog('text-format', 'fontSize apply coalesced', { pendingFontSizePt: fontSizePt });
+      return;
+    }
+    this.fontSizeApplyRunning = true;
+    try {
+      while (this.pendingFontSizePt !== null) {
+        const size = this.pendingFontSizePt;
+        this.pendingFontSizePt = null;
+        debugLog('text-format', 'fontSize apply flush', { fontSizePt: size });
+        await Promise.resolve(this.host.applyRunStyle({ fontSizePt: size }));
+      }
+    } finally {
+      this.fontSizeApplyRunning = false;
+      if (this.pendingFontSizePt !== null) {
+        void this.enqueueFontSizeApply(this.pendingFontSizePt);
+      }
+    }
   }
 
   private reflectOptimisticFontSize(fontSizePt: number): void {
@@ -647,7 +681,7 @@ export class TextToolbarController {
         this.bindToolbarButton(item, () => {
           this.closeToolbarPopover();
           debugLog('text-format', 'setFontFamily', { font });
-          this.host.applyRunStyle({ fontFamily: font });
+          void this.host.applyRunStyle({ fontFamily: font });
         });
       }
     });

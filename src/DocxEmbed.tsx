@@ -1,9 +1,8 @@
 import type { App, MarkdownPostProcessorContext, Plugin, TFile } from 'obsidian';
 import { useCallback, useEffect, useRef } from 'react';
 import { createRoot, Root } from 'react-dom/client';
-import { DocxEditor } from '@npde/docx-editor-react';
-import type { RenderedDomContext } from '@npde/docx-editor-core/plugin-api';
-import type { Translations } from '@npde/docx-editor-i18n';
+import { DocxEditor } from './docx/runtime/bridge.mjs';
+import type { RenderedDomContext, Translations } from './docx/runtime/contract';
 import { attachDocxImeTransformNeutralizer } from './docxImeTransformNeutralizer';
 import { DOCX_RENDERED_PAGE_SELECTOR } from './docxEditorChromeMarkers';
 import { ensureDocxDefaultStyles } from './docxStyleDefaults';

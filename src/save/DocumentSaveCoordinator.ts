@@ -139,18 +139,42 @@ export class DocumentSaveCoordinator<Context, Serialized, Prepared, Validated, S
 
 		this.setState('saving');
 		try {
-			const serialized = await this.options.adapter.serialize(context, request);
-			const prepared = await this.options.adapter.prepareForWrite(serialized, context, request);
-			const validated = await this.options.adapter.validate(prepared, context, request);
-			await this.options.adapter.persist(prepared, validated, context, request);
+			// Edits can land while serialize/prepare runs. Persist only a snapshot
+			// that still matches live dirtyVersion; otherwise retry so disk does
+			// not lag behind the editor (and host buffer swaps cannot revive it).
+			const maxAttempts = 8;
+			let liveRequest: DocumentSaveRequest<Source> = request;
+			for (let attempt = 0; attempt < maxAttempts; attempt++) {
+				liveRequest = {
+					source: request.source,
+					targetVersion: this.dirtyVersion,
+				};
+				const serialized = await this.options.adapter.serialize(context, liveRequest);
+				if (this.dirtyVersion !== liveRequest.targetVersion) {
+					continue;
+				}
+				const prepared = await this.options.adapter.prepareForWrite(serialized, context, liveRequest);
+				if (this.dirtyVersion !== liveRequest.targetVersion) {
+					continue;
+				}
+				const validated = await this.options.adapter.validate(prepared, context, liveRequest);
+				if (this.dirtyVersion !== liveRequest.targetVersion) {
+					continue;
+				}
+				await this.options.adapter.persist(prepared, validated, context, liveRequest);
 
-			if (this.dirtyVersion === request.targetVersion) {
-				this.setState('clean');
-			} else {
-				this.setState('dirty');
-				this.scheduleAutosave();
+				if (this.dirtyVersion === liveRequest.targetVersion) {
+					this.setState('clean');
+				} else {
+					this.setState('dirty');
+					this.scheduleAutosave();
+				}
+				return true;
 			}
-			return true;
+
+			this.setState('dirty');
+			this.scheduleAutosave();
+			return false;
 		} catch (error) {
 			this.setState('failed', error);
 			if (this.options.autosave.enabled()) this.scheduleAutosave(5000);

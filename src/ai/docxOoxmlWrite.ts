@@ -156,6 +156,44 @@ export function patchParagraphStyle(paragraphXml: string, style: DocxParagraphSt
 	return paragraphXml.replace(/^<w:p\b[^>]*>/, (match) => `${match}<w:pPr>${styleXml}</w:pPr>`);
 }
 
+export interface DocxParagraphBottomBorderPatch {
+	style: string;
+	size?: number;
+	space?: number;
+	color?: string;
+}
+
+/**
+ * Set only w:pBdr/w:bottom while preserving every other paragraph property
+ * and border side. Useful for heading rules without recreating a paragraph.
+ */
+export function patchParagraphBottomBorder(
+	paragraphXml: string,
+	border: DocxParagraphBottomBorderPatch,
+): string {
+	const attrs = [
+		`w:val="${encodeXmlText(border.style)}"`,
+		...(typeof border.size === 'number' ? [`w:sz="${border.size}"`] : []),
+		...(typeof border.space === 'number' ? [`w:space="${border.space}"`] : []),
+		...(border.color ? [`w:color="${encodeXmlText(border.color)}"`] : []),
+	].join(' ');
+	const bottomXml = `<w:bottom ${attrs}/>`;
+
+	if (/<w:pBdr\b/.test(paragraphXml)) {
+		if (/<w:bottom\b[^>]*\/>/.test(paragraphXml)) {
+			return paragraphXml.replace(/<w:bottom\b[^>]*\/>/, bottomXml);
+		}
+		return paragraphXml.replace(/<\/w:pBdr>/, `${bottomXml}</w:pBdr>`);
+	}
+	if (/<w:pPr\b/.test(paragraphXml)) {
+		return paragraphXml.replace(/<w:pPr\b[^>]*>/, (match) => `${match}<w:pBdr>${bottomXml}</w:pBdr>`);
+	}
+	return paragraphXml.replace(
+		/^<w:p\b[^>]*>/,
+		(match) => `${match}<w:pPr><w:pBdr>${bottomXml}</w:pBdr></w:pPr>`,
+	);
+}
+
 export function patchCellText(cellXml: string, text: string): string {
 	const encoded = encodeXmlText(text);
 	const paragraphXml = `<w:p><w:r><w:t>${encoded}</w:t></w:r></w:p>`;

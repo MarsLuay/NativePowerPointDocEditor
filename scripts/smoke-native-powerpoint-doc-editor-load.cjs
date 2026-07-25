@@ -151,10 +151,9 @@ function resolvePluginDir() {
 		return path.resolve(process.env.NATIVE_POWERPOINT_DOC_EDITOR_PLUGIN_DIR);
 	}
 
-	if (fs.existsSync(path.join(installedPluginDir, 'main.js'))) {
-		return installedPluginDir;
-	}
-
+	// main.js is a CommonJS bundle, but this project is ESM-scoped through its
+	// package.json. Smoke a disposable CommonJS-scoped copy of the source bundle
+	// so the test can never silently exercise an older installed artifact.
 	temporaryPluginDir = fs.mkdtempSync(path.join(os.tmpdir(), 'native-powerpoint-doc-editor-smoke-'));
 	for (const fileName of ['main.js', 'manifest.json']) {
 		fs.copyFileSync(path.join(projectRoot, fileName), path.join(temporaryPluginDir, fileName));
@@ -635,6 +634,9 @@ async function runSmoke() {
 		const result = await chunk.hasReviewMarkup(toArrayBuffer(buffer));
 		assert.equal(typeof result, 'boolean', `hasReviewMarkup should return a boolean for ${docxFile}.`);
 	}
+
+	plugin.onunload();
+	await new Promise((resolve) => setTimeout(resolve, 0));
 
 	return {
 		logCount: capturedLogs.length,

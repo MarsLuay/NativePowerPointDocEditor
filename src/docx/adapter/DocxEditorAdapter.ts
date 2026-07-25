@@ -1,4 +1,6 @@
-import type { DocxEditorRef, EditorMode } from '@npde/docx-editor-react';
+import { insertImageFromFile } from '../runtime/bridge.mjs';
+import type { DocxEditorRef, EditorMode } from '../runtime/contract';
+import type { Mark } from 'prosemirror-model';
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
@@ -115,7 +117,8 @@ export function createDocxEditorAdapter(chromeTarget: HTMLElement): DocxEditorAd
 		replace(match, replacement) {
 			const view = getView();
 			if (!view) return false;
-			const textNode = replacement ? view.state.schema.text(replacement) : null;
+			const marks = collectMarksAtRange(view, match.from, match.to);
+			const textNode = replacement ? view.state.schema.text(replacement, marks) : null;
 			view.dispatch(view.state.tr.replaceWith(match.from, match.to, textNode ? [textNode] : []).scrollIntoView());
 			return true;
 		},
@@ -124,7 +127,8 @@ export function createDocxEditorAdapter(chromeTarget: HTMLElement): DocxEditorAd
 			if (!view || matches.length === 0) return false;
 			let transaction = view.state.tr;
 			for (const match of [...matches].sort((a, b) => b.from - a.from)) {
-				const textNode = replacement ? view.state.schema.text(replacement) : null;
+				const marks = collectMarksAtRangeInDoc(transaction.doc, match.from, match.to);
+				const textNode = replacement ? view.state.schema.text(replacement, marks) : null;
 				transaction = transaction.replaceWith(match.from, match.to, textNode ? [textNode] : []);
 			}
 			view.dispatch(transaction.scrollIntoView());
@@ -132,40 +136,31 @@ export function createDocxEditorAdapter(chromeTarget: HTMLElement): DocxEditorAd
 		},
 		async insertImage(file) {
 			const view = getView();
-			const imageNodeType = view?.state.schema.nodes.image;
-			if (!view || !imageNodeType) return null;
+			if (!view?.state.schema.nodes.image) return null;
 
-			const src = await new Promise<string>((resolve, reject) => {
-				const reader = new FileReader();
-				reader.addEventListener('error', () => reject(reader.error ?? new Error('Could not read image file')), { once: true });
-				reader.addEventListener('load', () => typeof reader.result === 'string'
-					? resolve(reader.result)
-					: reject(new Error('Image file did not produce a data URL')), { once: true });
-				reader.readAsDataURL(file);
+			return await new Promise<{ width: number; height: number } | null>((resolve, reject) => {
+				insertImageFromFile(view, file, {
+					maxWidth: MAX_INSERTED_IMAGE_WIDTH,
+					onError: (error) => reject(error instanceof Error ? error : new Error(String(error))),
+					onInserted: (dimensions) => resolve(dimensions ?? null),
+				});
 			});
-			const naturalDimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-				const image = new Image();
-				image.addEventListener('error', () => reject(new Error('Could not load image')), { once: true });
-				image.addEventListener('load', () => resolve({ width: image.naturalWidth, height: image.naturalHeight }), { once: true });
-				image.src = src;
-			});
-			const dimensions = naturalDimensions.width > MAX_INSERTED_IMAGE_WIDTH
-				? {
-					width: MAX_INSERTED_IMAGE_WIDTH,
-					height: Math.round(naturalDimensions.height * (MAX_INSERTED_IMAGE_WIDTH / naturalDimensions.width)),
-				}
-				: naturalDimensions;
-			const imageNode = imageNodeType.create({
-				src,
-				alt: file.name,
-				...dimensions,
-				rId: `rId_img_${Date.now()}`,
-				wrapType: 'inline',
-				displayMode: 'inline',
-			});
-			view.dispatch(view.state.tr.insert(view.state.selection.from, imageNode).scrollIntoView());
-			view.focus();
-			return dimensions;
 		},
 	};
+}
+
+function collectMarksAtRange(view: EditorView, from: number, to: number): readonly Mark[] {
+	return collectMarksAtRangeInDoc(view.state.doc, from, to);
+}
+
+function collectMarksAtRangeInDoc(doc: EditorView['state']['doc'], from: number, to: number): readonly Mark[] {
+	let marks: readonly Mark[] = [];
+	doc.nodesBetween(from, to, (node) => {
+		if (node.isText) {
+			marks = node.marks;
+			return false;
+		}
+		return true;
+	});
+	return marks;
 }

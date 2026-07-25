@@ -53,6 +53,7 @@ const DOCX_LOG_AREAS = new Set([
 	'export',
 	'file',
 	'font-preservation',
+	'history',
 	'ime',
 	'lifecycle',
 	'load',
@@ -244,20 +245,42 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		void this.setupDevHotReload();
 	}
 
-	onunload() {
-		infoLog('plugin', 'Plugin unloaded — flushing open DOCX views if dirty');
-		if (docxSupportModule) {
-			void docxSupportModule.saveDocxViewsBeforePluginReload(this).then((ok) => {
-				infoLog('plugin', 'DOCX unload flush settled', { ok });
-			}).catch((error) => {
-				errorLog('plugin', 'DOCX unload flush failed', error);
-			});
-		}
+	onunload(): void {
+		void this.flushOpenDocumentViewsBeforeUnload().finally(() => {
+			this.cleanupAfterUnload();
+		});
+	}
+
+	private async flushOpenDocumentViewsBeforeUnload(): Promise<void> {
+		const flushes: Array<{ kind: 'DOCX' | 'PPTX'; save: () => Promise<boolean> }> = [];
 		if (pptxSupportModule) {
-			void pptxSupportModule.savePowerPointViewsBeforePluginReload(this).catch((error) => {
-				errorLog('plugin', 'PPTX unload flush failed', error);
+			flushes.push({
+				kind: 'PPTX',
+				save: () => pptxSupportModule!.savePowerPointViewsBeforePluginReload(this),
 			});
 		}
+		if (docxSupportModule) {
+			flushes.push({
+				kind: 'DOCX',
+				save: () => docxSupportModule!.saveDocxViewsBeforePluginReload(this),
+			});
+		}
+
+		infoLog('plugin', 'Plugin unloading — flushing open document views', {
+			formats: flushes.map(({ kind }) => kind),
+		});
+		const results = await Promise.allSettled(flushes.map(async ({ kind, save }) => ({ kind, ok: await save() })));
+		for (const result of results) {
+			if (result.status === 'fulfilled') {
+				const { kind, ok } = result.value;
+				(ok ? infoLog : errorLog)('plugin', `${kind} unload flush settled`, { ok });
+			} else {
+				errorLog('plugin', 'Unload flush failed', result.reason);
+			}
+		}
+	}
+
+	private cleanupAfterUnload(): void {
 		this.editorThemeObserver?.disconnect();
 		this.documentWordCounts.clear();
 		this.activeWordCountLeaf = null;

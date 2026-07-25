@@ -1,5 +1,5 @@
-/** Slide count at or below this renders every thumbnail during initial filmstrip build. */
-export const FULL_THUMBNAIL_RENDER_MAX_SLIDES = 12;
+/** Only a single-slide deck can render its entire filmstrip synchronously. */
+export const FULL_THUMBNAIL_RENDER_MAX_SLIDES = 1;
 
 /** On large decks, render this many slides on each side of the active slide first. */
 export const THUMBNAIL_PRIORITY_RADIUS = 2;

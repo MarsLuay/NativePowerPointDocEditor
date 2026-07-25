@@ -22,8 +22,6 @@ jobs:
               with:
                   node-version: ${{ matrix.node-version }}
                   cache: "npm"
-            - name: Set up Bun
-              uses: oven-sh/setup-bun@v2
             - run: npm ci
-            - run: npm run build:docx-editor
+            - run: npm run check:docx-runtime
             - run: npm run verify
