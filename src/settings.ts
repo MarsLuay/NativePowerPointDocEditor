@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, type SettingDefinitionItem } from 'obsidian';
 import type NativePowerPointDocEditorPlugin from './main';
 import { configureNativePowerPointDocEditorLogger, infoLog } from './logger';
 import type { I18nService } from './i18n/I18nService';
@@ -320,30 +320,6 @@ export function formatZoom(value: number): string {
 	return `${Math.round(value * 100)}%`;
 }
 
-/**
- * Minimal declarative settings shape for Obsidian 1.13+ (insider) search indexing.
- * Typings ship after 1.12.x; keep structural — dual-support with {@link display}.
- */
-type DeclarativeSettingDefinition = {
-	type?: 'group';
-	heading?: string;
-	name?: string;
-	desc?: string;
-	items?: DeclarativeSettingDefinition[];
-	control?: {
-		type: 'toggle' | 'text' | 'dropdown' | 'slider';
-		key: string;
-		placeholder?: string;
-		defaultValue?: string | number | boolean;
-		options?: Record<string, string>;
-		min?: number;
-		max?: number;
-		step?: number;
-	};
-	render?: (setting: Setting) => void;
-	action?: () => void | Promise<void>;
-};
-
 export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 	plugin: NativePowerPointDocEditorPlugin;
 
@@ -360,7 +336,7 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 	 * Obsidian 1.13+: indexes settings for global search and renders this tree
 	 * (skips {@link display}). Pre-1.13 keeps imperative {@link display}.
 	 */
-	getSettingDefinitions(): DeclarativeSettingDefinition[] {
+	getSettingDefinitions(): SettingDefinitionItem[] {
 		const i18n = this.plugin.getI18n()!;
 		const descriptors = getNativePowerPointDocEditorSettingDescriptors(i18n);
 		const sectionLabels = Object.fromEntries(

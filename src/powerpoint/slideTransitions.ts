@@ -15,11 +15,6 @@ const XMLNS_NAMESPACE = 'http://www.w3.org/2000/xmlns/';
 const MAX_POWERPOINT_TIME_MS = 2_147_483_647;
 
 const SUPPORTED_EFFECTS = new Set(['cut', 'fade', 'push', 'wipe', 'split']);
-const STANDARD_EFFECTS = new Set([
-  'blinds', 'checker', 'circle', 'comb', 'cover', 'cut', 'diamond', 'dissolve', 'fade',
-  'newsflash', 'plus', 'pull', 'push', 'random', 'randomBar', 'split', 'strips', 'wedge',
-  'wheel', 'wipe', 'zoom',
-]);
 
 export type SlideTransitionEffect = 'none' | 'cut' | 'fade' | 'push' | 'wipe' | 'split';
 export type SlideTransitionSpeed = 'fast' | 'medium' | 'slow';
@@ -224,11 +219,13 @@ function validateTransitionSettings(update: SlideTransitionSettings): void {
   if (update.kind !== 'split' && (update.splitDirection !== undefined || update.splitOrientation !== undefined)) {
     throw new Error(`${update.kind} transitions do not support split options.`);
   }
-  if (update.splitDirection && update.splitDirection !== 'in' && update.splitDirection !== 'out') {
-    throw new Error(`Unsupported split direction: ${update.splitDirection}`);
+  const splitDirection: string | undefined = update.splitDirection;
+  if (splitDirection && splitDirection !== 'in' && splitDirection !== 'out') {
+    throw new Error(`Unsupported split direction: ${splitDirection}`);
   }
-  if (update.splitOrientation && update.splitOrientation !== 'horizontal' && update.splitOrientation !== 'vertical') {
-    throw new Error(`Unsupported split orientation: ${update.splitOrientation}`);
+  const splitOrientation: string | undefined = update.splitOrientation;
+  if (splitOrientation && splitOrientation !== 'horizontal' && splitOrientation !== 'vertical') {
+    throw new Error(`Unsupported split orientation: ${splitOrientation}`);
   }
   if (update.kind !== 'cut' && update.kind !== 'fade' && update.throughBlack !== undefined) {
     throw new Error(`${update.kind} transitions do not support throughBlack.`);

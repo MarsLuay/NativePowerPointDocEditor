@@ -34,11 +34,13 @@ export async function canUseElectronMainHarness(electronBinary, timeoutMs = 5000
     return electronApiProbeCache.get(electronBinary);
   }
   const probe = await new Promise((resolve) => {
-    const child = spawn(electronBinary, [
-      "-e",
-      'process.stdout.write(typeof require("electron"))',
-    ], {
+    const child = spawn(electronBinary, [electronMainPath], {
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        ELECTRON_API_PROBE: "1",
+        ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
+      },
     });
     let stdout = "";
     const timer = setTimeout(() => {
@@ -53,7 +55,7 @@ export async function canUseElectronMainHarness(electronBinary, timeoutMs = 5000
     });
     child.on("close", (code) => {
       clearTimeout(timer);
-      resolve(code === 0 && stdout.trim() === "object");
+      resolve(code === 0 && stdout.trim() === "HARNESS_API:object");
     });
   });
   electronApiProbeCache.set(electronBinary, probe);

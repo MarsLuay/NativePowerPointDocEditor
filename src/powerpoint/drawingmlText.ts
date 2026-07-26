@@ -1019,7 +1019,7 @@ function setRunHighlight(rPr: Element, doc: XMLDocument, highlight: string | nul
   const normalizedHighlight = normalizeHexColor(highlight);
   if (
     highlights.length === 1
-    && getElementChildren(highlights[0]!)
+    && getElementChildren(highlights[0])
       .filter((element) => element.localName === 'srgbClr' && element.namespaceURI === DRAWINGML_NAMESPACE)
       .some((element) => element.getAttribute('val') === normalizedHighlight)
   ) {
@@ -1066,7 +1066,7 @@ function setRunSolidFill(rPr: Element, doc: XMLDocument, color: string | null): 
   const normalizedColor = normalizeHexColor(color);
   if (
     fills.length === 1
-    && getElementChildren(fills[0]!)
+    && getElementChildren(fills[0])
       .filter((element) => element.localName === 'srgbClr' && element.namespaceURI === DRAWINGML_NAMESPACE)
       .some((element) => element.getAttribute('val') === normalizedColor)
   ) {

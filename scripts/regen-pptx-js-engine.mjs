@@ -6,7 +6,7 @@
 //   node scripts/regen-pptx-js-engine.mjs
 //
 // Environment overrides:
-//   PPTX_SVG_REF=v0.5.10   Clone a specific git ref instead of the tag that
+//   PPTX_SVG_REF=v0.6.4    Clone a specific git ref instead of the tag that
 //                          matches the installed pptx-svg version.
 //   INSTALL_MOONBIT=1      Auto-install the MoonBit toolchain if `moon` is
 //                          missing (otherwise the script prints instructions).
@@ -84,7 +84,8 @@ try {
       `(see https://github.com/t-ujiie-g/pptx-svg/tags).`);
   }
 
-  // 4. Patch src/main/moon.pkg to emit a JS build mirroring the wasm-gc exports.
+  // 4. Migrate legacy MoonBit metadata and emit a JS build mirroring wasm-gc exports.
+  patchMoonMod(path.join(cloneDir, 'moon.mod'));
   patchMoonPkg(path.join(cloneDir, 'src/main/moon.pkg'));
 
   // 5. Compile the JS backend.
@@ -152,6 +153,29 @@ function resolveMoon() {
     '    curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash\n' +
     '  then re-run this script (or re-run with INSTALL_MOONBIT=1).'
   );
+}
+
+/**
+ * MoonBit 0.1.202606+ moved module options under `options(...)`. pptx-svg
+ * 0.6.x still uses the earlier top-level `source = "src"` syntax, which the
+ * current compiler rejects before dependency resolution.
+ */
+function patchMoonMod(moonModPath) {
+  if (!existsSync(moonModPath)) {
+    fail(`Could not find ${moonModPath} in the clone (pptx-svg layout changed?).`);
+  }
+
+  const original = readFileSync(moonModPath, 'utf8');
+  const legacySource = original.match(/^\s*source\s*=\s*"([^"]+)"\s*$/m);
+  if (!legacySource) return;
+  if (/^\s*options\s*\(/m.test(original)) {
+    fail('moon.mod mixes legacy `source =` syntax with `options(...)`; cannot migrate safely.');
+  }
+
+  const source = legacySource[1];
+  const patched = original.replace(legacySource[0], `options(\n  source: "${source}"\n)`);
+  writeFileSync(moonModPath, patched, 'utf8');
+  log('Migrated legacy moon.mod source metadata for the installed MoonBit compiler.');
 }
 
 /**

@@ -401,6 +401,16 @@ interface SlideXmlLoadable {
   loadSlideXml(slideIdx: number, xml: string): void;
 }
 
+/**
+ * pptx-svg 0.6.x exposes `restore_slide_ooxml`, but that reparse converts the
+ * supplied XML through its lossy slide model. Persisting the XML then rebuilding
+ * from the file map retains the authored OOXML for the next read and render.
+ */
+interface SlideXmlLosslessReloadable {
+  persistFile(path: string, content: string): void;
+  reinitializeWasm(): void;
+}
+
 import {
   configureForceJsBackendOverrideReader,
   resetForceJsBackendOverride,
@@ -1936,11 +1946,11 @@ export class PresentationEngine {
   /**
    * Persist an in-memory slide document back into the renderer.
    *
-   * Fast path: when the patched renderer exposes `loadSlideXml`, replace just
-   * this slide's XML in the live file map and re-parse — no full-deck export,
-   * no zip round-trip, no renderer teardown, no chart re-scan. The slide is then
-   * re-rendered by the caller via `renderSlide`. Falls back to the whole-deck
-   * export/patch/reload when the entry point is unavailable (unpatched renderer).
+   * pptx-svg 0.6.x's per-slide restore serializes through a lossy model, so use
+   * its file-map persistence plus in-place renderer reparse when available. This
+   * retains the same renderer instance without a ZIP round trip. Older patched
+   * renderers use `loadSlideXml`; unpatched renderers fall back to a package
+   * export/patch/reload.
    */
   private async commitSlideDoc(slideIndex: number, slideDoc: XMLDocument): Promise<void> {
     const serialized = serializeXml(slideDoc);
@@ -1954,6 +1964,27 @@ export class PresentationEngine {
     });
     try {
       const loader = this.renderer as Partial<SlideXmlLoadable>;
+      const losslessReload = this.renderer as unknown as Partial<SlideXmlLosslessReloadable>;
+      if (
+        typeof losslessReload.persistFile === 'function'
+        && typeof losslessReload.reinitializeWasm === 'function'
+      ) {
+        // pptx-svg 0.6.x's restore_slide_ooxml path eagerly serializes through
+        // its slide model and drops unsupported run, picture, and extension
+        // markup. Rebuilding from the persisted XML preserves the authoritative
+        // OOXML; the renderer instance remains stable for callers.
+        losslessReload.persistFile(slidePath, serialized);
+        losslessReload.reinitializeWasm();
+        this.pptxDocument.recordPendingSlideXml(slideIndex, serialized);
+        debugLog('mutate', 'Slide document commit completed', {
+          op: 'commit-slide-doc',
+          slide: slideIndex,
+          path: slidePath,
+          pathType: 'pending-lossless-reparse',
+          ms: Date.now() - startedAt,
+        });
+        return;
+      }
       if (typeof loader.loadSlideXml === 'function') {
         loader.loadSlideXml(slideIndex, serialized);
         // The renderer now holds this slide; `currentBuffer` is behind for it.

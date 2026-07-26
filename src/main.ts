@@ -110,7 +110,7 @@ function loadPptxSupportModule(): Promise<PptxSupportModule> {
 }
 
 export default class NativePowerPointDocEditorPlugin extends Plugin {
-	pluginSettings: NativePowerPointDocEditorSettings;
+	pluginSettings!: NativePowerPointDocEditorSettings;
 	i18n: PluginI18nService | null = null;
 	private docxSearchIndex: DocxSearchIndex | null = null;
 	private forceJsBackendDevOverride = false;

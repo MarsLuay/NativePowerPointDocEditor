@@ -1,4 +1,3 @@
-import sdl from '@microsoft/eslint-plugin-sdl';
 import obsidianmd from 'eslint-plugin-obsidianmd';
 import noUnsanitizedPlugin from 'eslint-plugin-no-unsanitized';
 import globals from 'globals';
@@ -36,7 +35,6 @@ export default defineConfig([
 		},
 		plugins: {
 			'@typescript-eslint': tseslint.plugin,
-			'@microsoft/sdl': sdl,
 			'no-unsanitized': noUnsanitizedPlugin,
 			obsidianmd,
 		},
@@ -45,9 +43,19 @@ export default defineConfig([
 			'obsidianmd/prefer-create-el': 'error',
 			'obsidianmd/prefer-active-doc': 'error',
 			'obsidianmd/settings-tab/prefer-setting-definitions': 'error',
-			'@microsoft/sdl/no-inner-html': 'error',
 			'no-unsanitized/method': 'error',
 			'no-unsanitized/property': 'error',
+			'no-restricted-syntax': [
+				'error',
+				{
+					selector: "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML)$/]",
+					message: 'Do not write to DOM directly using innerHTML/outerHTML.',
+				},
+				{
+					selector: "CallExpression[callee.type='MemberExpression'][callee.property.name='insertAdjacentHTML']",
+					message: 'Do not write to DOM directly using insertAdjacentHTML.',
+				},
+			],
 			'no-alert': 'error',
 			'no-debugger': 'error',
 			'no-var': 'error',

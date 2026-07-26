@@ -11,6 +11,7 @@
 const { app, BrowserWindow } = require('electron');
 
 const htmlPath = process.env.HARNESS_HTML;
+const apiProbe = process.env.ELECTRON_API_PROBE === '1';
 
 // Keep the offscreen render deterministic and quiet.
 app.disableHardwareAcceleration();
@@ -22,6 +23,12 @@ function emit(line) {
 
 app.whenReady().then(async () => {
   if (app.dock) app.dock.hide();
+
+  if (apiProbe) {
+    emit('HARNESS_API:' + typeof require('electron'));
+    app.exit(0);
+    return;
+  }
 
   if (!htmlPath) {
     emit('HARNESS_ERROR:HARNESS_HTML env var was not provided');
