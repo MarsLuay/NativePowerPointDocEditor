@@ -129,6 +129,7 @@ import {
 
 export type { RunHighlightInfo };
 export type { PptxRendererBackend } from './powerpoint/backend/rendererBackend';
+export { configurePptxRuntimeArtifactLoader } from './powerpoint/runtimeArtifactLoader';
 import {
   normalizeSlideManifest,
   preserveSlideExtensionLists,
@@ -144,6 +145,8 @@ import {
   countProtectedSlideMarkers,
   type ProtectedSlideMarkerRemovalAllowance,
 } from './PowerPointPackage';
+import { computeCenteredCoverCrop, fitImageWithinBounds } from './powerpoint/imageFit';
+import { readRasterImageDimensions } from './powerpoint/imageDimensions';
 import {
   adjacentIntersectingUnselectedShape,
   adjacentUnselectedShape,
@@ -444,6 +447,51 @@ export interface ImageCrop {
   top: number;
   right: number;
   bottom: number;
+}
+
+/** Image replacement behavior. Cover is the default to avoid distortion. */
+export type ImageReplacementFit = 'cover' | 'stretch';
+
+function applyImageCropToShape(shape: Element, slideDoc: XMLDocument, crop: ImageCrop): boolean {
+  if (shape.localName !== 'pic') {
+    throw new Error('The selected object is not an image.');
+  }
+
+  const blipFill = getDescendants(shape, 'blipFill')[0];
+  if (!blipFill) {
+    throw new Error('The selected image has no picture fill to crop.');
+  }
+
+  const srcRects = getElementChildren(blipFill)
+    .filter((element) => element.localName === 'srcRect' && element.namespaceURI === DRAWINGML_NAMESPACE);
+  const isUncropped = crop.left === 0 && crop.top === 0 && crop.right === 0 && crop.bottom === 0;
+  if (isUncropped) {
+    for (const srcRect of srcRects) {
+      srcRect.parentNode?.removeChild(srcRect);
+    }
+    return srcRects.length > 0;
+  }
+
+  const [srcRect, ...duplicates] = srcRects;
+  for (const duplicate of duplicates) {
+    duplicate.parentNode?.removeChild(duplicate);
+  }
+  const target = srcRect ?? slideDoc.createElementNS(DRAWINGML_NAMESPACE, 'a:srcRect');
+  if (!srcRect) {
+    // CT_BlipFillProperties order: blip, srcRect, (tile | stretch).
+    const fillMode = getElementChildren(blipFill)
+      .find((element) => element.localName === 'stretch' || element.localName === 'tile');
+    if (fillMode) {
+      blipFill.insertBefore(target, fillMode);
+    } else {
+      blipFill.appendChild(target);
+    }
+  }
+  target.setAttribute('l', String(cropPercentToPermille(crop.left)));
+  target.setAttribute('t', String(cropPercentToPermille(crop.top)));
+  target.setAttribute('r', String(cropPercentToPermille(crop.right)));
+  target.setAttribute('b', String(cropPercentToPermille(crop.bottom)));
+  return true;
 }
 
 /** The resettable visual state currently authored on a picture. */
@@ -2139,7 +2187,16 @@ export class PresentationEngine {
   ): Promise<number> {
     await this.syncCurrentBuffer();
     this.ensureSlideRunCacheSeeded(slideIndex);
-    const { x, y, cx, cy } = await this.getDefaultInsertExtents('image', widthPx, heightPx);
+    const insertionSize = fitImageWithinBounds(
+      readRasterImageDimensions(imageData),
+      widthPx,
+      heightPx,
+    );
+    const { x, y, cx, cy } = await this.getDefaultInsertExtents(
+      'image',
+      insertionSize.width,
+      insertionSize.height,
+    );
     const result = this.renderer.addImage(slideIndex, imageData, mimeType, x, y, cx, cy);
     const shapeIndex = this.parseInsertedShapeIndex(result, 'Could not insert image.');
     await this.exportRendererState();
@@ -3139,34 +3196,7 @@ export class PresentationEngine {
    */
   async setImageCrop(slideIndex: number, shapeIndex: number, crop: ImageCrop): Promise<void> {
     await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
-      if (shape.localName !== 'pic') {
-        throw new Error('The selected object is not an image.');
-      }
-
-      const blipFill = getDescendants(shape, 'blipFill')[0];
-      if (!blipFill) {
-        throw new Error('The selected image has no picture fill to crop.');
-      }
-
-      let srcRect = getElementChildren(blipFill)
-        .find((element) => element.localName === 'srcRect' && element.namespaceURI === DRAWINGML_NAMESPACE);
-      if (!srcRect) {
-        srcRect = slideDoc.createElementNS(DRAWINGML_NAMESPACE, 'a:srcRect');
-        // CT_BlipFillProperties order: blip, srcRect, (tile | stretch).
-        const fillMode = getElementChildren(blipFill)
-          .find((element) => element.localName === 'stretch' || element.localName === 'tile');
-        if (fillMode) {
-          blipFill.insertBefore(srcRect, fillMode);
-        } else {
-          blipFill.appendChild(srcRect);
-        }
-      }
-
-      srcRect.setAttribute('l', String(cropPercentToPermille(crop.left)));
-      srcRect.setAttribute('t', String(cropPercentToPermille(crop.top)));
-      srcRect.setAttribute('r', String(cropPercentToPermille(crop.right)));
-      srcRect.setAttribute('b', String(cropPercentToPermille(crop.bottom)));
-      return true;
+      return applyImageCropToShape(shape, slideDoc, crop);
     });
   }
 
@@ -3232,16 +3262,15 @@ export class PresentationEngine {
   }
 
   /**
-   * Swap the picture's embedded image for new bytes while preserving its
-   * position, size, and crop. A fresh media part and slide relationship are
-   * added, the `<a:blip r:embed>` is repointed, and the content-type default is
-   * registered for the new extension. The previous media part is left in place.
+   * Swap the picture's embedded image while preserving its frame. The default
+   * center-crops the source to cover the frame; stretch is explicit only.
    */
   async replaceImage(
     slideIndex: number,
     shapeIndex: number,
     bytes: Uint8Array,
-    mimeType: string
+    mimeType: string,
+    fit: ImageReplacementFit = 'cover',
   ): Promise<number> {
     const rawExport = await this.exportRendererState();
     const slidePath = getSlidePath(slideIndex);
@@ -3269,6 +3298,12 @@ export class PresentationEngine {
         cy: box.cy,
         rot: 0,
       });
+      const crop = fit === 'cover'
+        ? computeCenteredCoverCrop(readRasterImageDimensions(bytes), box.cx, box.cy)
+        : { left: 0, top: 0, right: 0, bottom: 0 };
+      if (crop) {
+        await this.setImageCrop(slideIndex, insertedIndex, crop);
+      }
       return insertedIndex;
     }
 
@@ -3281,6 +3316,11 @@ export class PresentationEngine {
     const mediaPath = nextImageMediaPath(zip.textFiles, zip.binaryFiles, extension);
     const relationship = this.buildSlideImageRelationship(zip, slideIndex, mediaPath);
     setBlipEmbedId(blip, relationship.relationshipId);
+    const box = getShapeBox(shape);
+    const crop = (fit === 'cover' && box
+      ? computeCenteredCoverCrop(readRasterImageDimensions(bytes), box.cx, box.cy)
+      : null) ?? { left: 0, top: 0, right: 0, bottom: 0 };
+    applyImageCropToShape(shape, slideDoc, crop);
 
     const contentTypesDoc = parseXml(
       zip.textFiles.get('[Content_Types].xml') ?? '<Types/>',

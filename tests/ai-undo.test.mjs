@@ -5,7 +5,10 @@ import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { loadPresentationEngineModule } from './helpers/load-plugin-modules.mjs';
+import {
+	createPptxRuntimeArtifactResolver,
+	loadPresentationEngineModule,
+} from './helpers/load-plugin-modules.mjs';
 import { readDeck, toArrayBuffer } from './helpers/renderer.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
@@ -74,8 +77,12 @@ async function loadPptxServiceModule() {
 		loader: { '.wasm': 'binary' },
 		plugins: [wasmPlugin],
 	});
+	const serviceModule = require(outfile);
+	serviceModule.configurePptxRuntimeArtifactLoader(
+		await createPptxRuntimeArtifactResolver(outputDirectory),
+	);
 	cachedPptxServiceModule = {
-		...require(outfile),
+		...serviceModule,
 		wasm: await readFile(wasmPath),
 	};
 	return cachedPptxServiceModule;

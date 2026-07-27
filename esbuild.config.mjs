@@ -93,42 +93,6 @@ const deployToVaultPlugin = {
 	}
 };
 
-// Keep optional heavyweight runtimes lazy all the way to the installed plugin.
-// CJS builds otherwise fold them into main.js, exceeding Obsidian Sync
-// Standard's 5 MB per-file limit even though they are only used when opening a
-// PPTX or converting a HEIC image.
-const externalRuntimeArtifactImports = [
-	{
-		importPath: "./pptxJsEngine.mjs",
-		importerSuffix: "/src/powerpoint/backend/rendererBackend.ts",
-		artifact: "pptx-js-engine.mjs",
-	},
-	{
-		importPath: "./pptxWasmRenderer.mjs",
-		importerSuffix: "/src/powerpoint/backend/rendererBackend.ts",
-		artifact: "pptx-wasm-renderer.mjs",
-	},
-	{
-		importPath: "./heicDecode.mjs",
-		importerSuffix: "/src/powerpoint/heicToPng.ts",
-		artifact: "heic-decode.mjs",
-	},
-];
-
-const externalRuntimeArtifactsPlugin = {
-	name: "external-runtime-artifacts",
-	setup(build) {
-		build.onResolve({ filter: /^\.\// }, (args) => {
-			const importer = args.importer.replace(/\\/g, "/");
-			const runtimeArtifact = externalRuntimeArtifactImports.find((candidate) =>
-				args.path === candidate.importPath && importer.endsWith(candidate.importerSuffix));
-			return runtimeArtifact
-				? { path: `./${runtimeArtifact.artifact}`, external: true }
-				: undefined;
-		});
-	}
-};
-
 const emitOptionalRuntimeArtifactsPlugin = {
 	name: "emit-optional-runtime-artifacts",
 	setup(build) {
@@ -249,7 +213,6 @@ const context = await esbuild.context({
 		stripReactDomScriptPlugin,
 		stripDocxEditorCssSideEffectImports,
 		inlinePptxSvgWasmPlugin,
-		externalRuntimeArtifactsPlugin,
 		emitOptionalRuntimeArtifactsPlugin,
 		deployToVaultPlugin,
 	],

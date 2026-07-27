@@ -77,6 +77,17 @@ test('OP_EXAMPLES payloads pass schema validation', async () => {
 	}
 });
 
+test('PPTX image replacement defaults to aspect-ratio-preserving cover', async () => {
+	const { validateDocumentOps } = await loadAiSchemaModules();
+	const errors = validateDocumentOps([{
+		op: 'pptx.replaceImage',
+		slideIndex: 0,
+		shapeIndex: 0,
+		vaultImagePath: 'assets/example.png',
+	}]);
+	assert.deepEqual(errors, []);
+});
+
 test('OP_EXAMPLES reject missing required fields', async () => {
 	const { validateDocumentOps, OP_EXAMPLES, AI_ERROR_CODES } = await loadAiSchemaModules();
 
@@ -109,4 +120,7 @@ test('generated capabilities.json includes per-op schemas and examples', async (
 		assert.ok(operation.example, `${operation.id} missing example in capabilities.json`);
 		assert.equal(operation.example.op, operation.id);
 	}
+	const replaceImage = capabilities.operations.find((operation) => operation.id === 'pptx.replaceImage');
+	assert.ok(replaceImage, 'pptx.replaceImage must be in capabilities.json');
+	assert.deepEqual(replaceImage.parameters.required, ['slideIndex', 'shapeIndex', 'vaultImagePath']);
 });

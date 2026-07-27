@@ -68,10 +68,15 @@ export async function writeVaultBinaryArtifact(
   vault: Vault,
   target: ArtifactWriteTarget,
   data: ArrayBuffer,
-): Promise<TFile> {
+): Promise<{ path: string }> {
   if (target.existingFile) {
     await vault.modifyBinary(target.existingFile, data);
-    return target.existingFile;
+    return { path: target.path };
   }
-  return vault.createBinary(target.path, data);
+
+  // Obsidian writes the artifact before resolving createBinary(). Some vault
+  // adapters resolve that promise with null, so callers must report the target
+  // path they requested rather than depending on an immediately indexed TFile.
+  await vault.createBinary(target.path, data);
+  return { path: target.path };
 }

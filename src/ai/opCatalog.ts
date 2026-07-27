@@ -24,10 +24,13 @@ const TRANSFORM: JsonSchema = {
 	additionalProperties: false,
 };
 
-function slideShapeParams(extra: Record<string, JsonSchema> = {}): JsonSchema {
+function slideShapeParams(
+	extra: Record<string, JsonSchema> = {},
+	requiredExtra: readonly string[] = Object.keys(extra),
+): JsonSchema {
 	return {
 		type: 'object',
-		required: ['slideIndex', 'shapeIndex', ...Object.keys(extra)],
+		required: ['slideIndex', 'shapeIndex', ...requiredExtra],
 		properties: {
 			slideIndex: SLIDE_INDEX,
 			shapeIndex: SHAPE_INDEX,
@@ -196,13 +199,14 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	pptxOp('deleteShape', 'arrange', 'Delete an editable shape. When deleting several shapes, use descending shape indices and describe the slide again.', slideShapeParams()),
 
 	// PPTX — insert
-	pptxOp('addImage', 'insert', 'Insert an image on a slide.', {
+	pptxOp('addImage', 'insert', 'Insert an image on a slide. Default fit is contain: preserve the source aspect ratio and resize it within the requested transform; use fit "stretch" only when explicitly requested.', {
 		type: 'object',
 		required: ['slideIndex', 'vaultImagePath', 'transform'],
 		properties: {
 			slideIndex: SLIDE_INDEX,
 			vaultImagePath: { type: 'string', description: 'Vault path to a raster image file.' },
 			transform: TRANSFORM,
+			fit: { type: 'string', enum: ['contain', 'stretch'], description: 'Optional image fit. Defaults to aspect-ratio-preserving resize.' },
 		},
 		additionalProperties: false,
 	}),
@@ -301,9 +305,10 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		crop: { type: 'object', additionalProperties: true, description: 'Image crop fractions.' },
 	})),
 	pptxOp('resetImage', 'image', 'Reset image crop and effects.', slideShapeParams()),
-	pptxOp('replaceImage', 'image', 'Replace picture media, or convert a non-picture shape/placeholder into a picture that fills the same transform box.', slideShapeParams({
+	pptxOp('replaceImage', 'image', 'Replace picture media, or convert a non-picture shape/placeholder into a picture that fills the same transform box. Default fit is cover: preserve the source aspect ratio and center-crop it to fill the frame; use fit "stretch" only when explicitly requested.', slideShapeParams({
 		vaultImagePath: { type: 'string' },
-	})),
+		fit: { type: 'string', enum: ['cover', 'stretch'], description: 'Optional image fit. Defaults to aspect-ratio-preserving center crop.' },
+	}, ['vaultImagePath'])),
 
 	// PPTX — charts
 	pptxOp('updateChartData', 'charts', 'Update chart series data.', slideShapeParams({

@@ -1,4 +1,4 @@
-import { debugLog } from '../logger';
+import { debugLog, errorLog, logPptxAction } from '../logger';
 import { isPowerPointExtension } from '../powerpoint/extensions';
 import type { AiRuntime } from './aiRuntime';
 import { AI_EDIT_UNDO_LABEL, aiUndoStore } from './aiUndoStore';
@@ -20,6 +20,7 @@ import { getOpDefinition, validateDocumentOps } from './opRegistry';
 import type { ApplyOptions, ApplyPreviewChange, ApplyResult, DescribeResult, DocumentOp } from './types';
 
 export type { ExportPdfOptions, ExportPdfResult };
+export { configurePptxRuntimeArtifactLoader } from '../powerpoint/runtimeArtifactLoader';
 
 function isDocxPath(path: string): boolean {
 	return path.toLowerCase().endsWith('.docx');
@@ -263,6 +264,12 @@ export class PptxDocumentService {
 		const startedAt = performance.now();
 		try {
 			this.assertPptxPath(path);
+			logPptxAction('export', 'ai-export-pdf', {
+				path,
+				outputPath: options.outputPath,
+				slideIndices: options.slideIndices,
+				dpi: options.dpi,
+			});
 			const lease = await this.sessions.acquire(path, { requireEditable: false });
 			const { bytes, slideCount } = await exportPresentationToPdfBytes(lease.engine, options);
 			const written = await writeExportPdfArtifact(this.runtime.vault, lease.file, bytes, options);
@@ -281,6 +288,11 @@ export class PptxDocumentService {
 				errors: [],
 			};
 		} catch (error) {
+			errorLog('export', 'AI PDF export failed', {
+				path,
+				ms: Math.round(performance.now() - startedAt),
+				error,
+			});
 			return toExportPdfFailure(error, path);
 		}
 	}

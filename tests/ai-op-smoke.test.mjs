@@ -571,6 +571,44 @@ test('PPTX image reset reports no-op state and clears authored crop', async () =
 	assert.deepEqual(reloaded.getImageResetState(0, imageShape), { hasCrop: false, effectNames: [] });
 });
 
+test('PPTX image replacements cover-crop by default and stretch only when requested', async () => {
+	const { executePptxOp } = await loadPptxAiModules();
+	const { PresentationEngine } = await loadPresentationEngineModule();
+	const source = toArrayBuffer(await readDeck('features.pptx'));
+	const engine = await PresentationEngine.load(source);
+	const { imageShape } = discoverPptxTargets(engine);
+	const vault = createMockVault(new Map([['assets/square.png', MINIMAL_PNG]]));
+	const context = { engine, vault, filePath: 'features.pptx', dryRun: false };
+	const frame = { x: 914_400, y: 685_800, cx: 1_828_800, cy: 914_400, rot: 0 };
+	const expectedCoverCrop = { left: 0, top: 25, right: 0, bottom: 25 };
+
+	await engine.updateShapeTransform(0, imageShape, frame);
+	// The normal Replace Image UI and mutation service call the engine directly.
+	await engine.replaceImage(0, imageShape, MINIMAL_PNG, 'image/png');
+	assert.deepEqual(engine.getImageCrop(0, imageShape), expectedCoverCrop);
+
+	// The AI path uses the same engine contract.
+	await executePptxOp(context, {
+		op: 'pptx.replaceImage',
+		slideIndex: 0,
+		shapeIndex: imageShape,
+		vaultImagePath: 'assets/square.png',
+	});
+	assert.deepEqual(engine.getImageCrop(0, imageShape), expectedCoverCrop);
+
+	await executePptxOp(context, {
+		op: 'pptx.replaceImage',
+		slideIndex: 0,
+		shapeIndex: imageShape,
+		vaultImagePath: 'assets/square.png',
+		fit: 'stretch',
+	});
+	assert.deepEqual(engine.getImageCrop(0, imageShape), { left: 0, top: 0, right: 0, bottom: 0 });
+
+	const exported = await engine.export();
+	await PresentationEngine.validateRoundTrip(exported, engine.slideCount);
+});
+
 test('PPTX agent list paragraphs are native and updateShapeText rejects list-like newlines', async () => {
 	const { executePptxOp } = await loadPptxAiModules();
 	const { PresentationEngine } = await loadPresentationEngineModule();

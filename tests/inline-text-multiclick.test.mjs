@@ -259,6 +259,42 @@ test("live preview rebinds detached paragraph runs before deleting text", async 
   assert.deepEqual(target.runElements, [liveRun]);
 });
 
+test("inline formatting follows the caret run instead of the paragraph's first run", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  const firstRun = {
+    textContent: "small",
+    getAttribute(name) {
+      return name === "data-ooxml-run-idx" ? "0" : null;
+    },
+  };
+  const caretRun = {
+    textContent: "large",
+    getAttribute(name) {
+      return name === "data-ooxml-run-idx" ? "1" : null;
+    },
+  };
+  const target = {
+    kind: "shape-paragraph",
+    shapeIndex: 7,
+    paragraphIndex: 2,
+    runIndex: 0,
+    text: "smalllarge",
+    element: firstRun,
+    runElements: [firstRun, caretRun],
+  };
+  view.activeEditor = { selectionStart: 5, selectionEnd: 5 };
+  view.activeShapeTextTarget = target;
+
+  const styleTarget = view.getPrimaryStyleRunTarget(target);
+
+  assert.equal(styleTarget.element, caretRun);
+  assert.equal(styleTarget.runIndex, 1);
+});
+
 test("live preview repairs an SVG reflow mismatch before text commit", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
   const view = new NativePowerPointView({ app: { vault: {} } }, () => ({

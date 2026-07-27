@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-07-27
+
+### Fixed
+
+- Resolved optional PowerPoint and HEIC runtime sidecars through the plugin resource URL, preventing PPTX and POTX opens from failing at `app://obsidian.md/`.
+- Configured isolated PowerPoint smoke bundles with temporary runtime sidecars so they exercise the same lazy-load path as Obsidian.
+- Kept the caret run's font metrics while typing in mixed-format text boxes, so live wrapping and line spacing no longer fall back to the first run's font size.
+
 ## [1.1.9] - 2026-07-27
 
 ### Fixed

@@ -125,12 +125,14 @@ import {
   mapEditorRangeToOoxml,
   mapFlatOffsetToRunLine,
   mapFlatRangeToRunLineSegments,
+  measureSegmentedPreviewText,
   parsePrimaryFontFamily,
   previousTextForInlineApply,
   pickInlinePreviewFrameBox,
   previewWrapMaxWidth,
   redistributeTextAcrossVisualRuns,
   wrapTextForPreview,
+  type PreviewTextMeasurementSegment,
   type RunTspanOffset
 } from '../textUtils';
 import {
@@ -5541,7 +5543,7 @@ export class NativePowerPointView extends FileView {
     const textElement = target.element.closest('text');
     const removedLines = this.getParagraphLineContainers(target.shapeIndex, removedParagraphIndex);
     const firstRun = this.collectParagraphRuns(removedLines[0] ?? target.element)[0];
-    const lineStep = firstRun ? this.getLivePreviewLineStep(removedLines, firstRun) : null;
+    const lineStep = firstRun ? this.getLivePreviewLineStep(removedLines, [firstRun]) : null;
     if (!isSVGGElement(shape) || !isSVGTextElement(textElement) || removedLines.length === 0 || lineStep === null) {
       return false;
     }
@@ -5588,7 +5590,7 @@ export class NativePowerPointView extends FileView {
     ).length;
     const sourceLines = this.getParagraphLineContainers(target.shapeIndex, sourceParagraphIndex);
     const firstRun = this.collectParagraphRuns(sourceLines[0] ?? target.element)[0];
-    const lineStep = firstRun ? this.getLivePreviewLineStep(sourceLines, firstRun) : null;
+    const lineStep = firstRun ? this.getLivePreviewLineStep(sourceLines, [firstRun]) : null;
     if (sourceLines.length === 0 || lineStep === null) return false;
 
     this.syncShapeParagraphPreview(mergedTarget, mergedText, { replaceTextFrame: true });
@@ -5850,7 +5852,7 @@ export class NativePowerPointView extends FileView {
     const firstRun = sourceLines[0] ? this.collectParagraphRuns(sourceLines[0])[0] : null;
     if (!templateLine || !firstRun) return false;
 
-    const lineStep = this.getLivePreviewLineStep(sourceLines, firstRun);
+    const lineStep = this.getLivePreviewLineStep(sourceLines, [firstRun]);
     const templateY = Number(templateLine.getAttribute('y'));
     if (lineStep === null || !Number.isFinite(templateY)) return false;
 
@@ -8289,12 +8291,22 @@ export class NativePowerPointView extends FileView {
     // slide actually has them; ordinary font-size actions stay DOM-only.
     if (this.runHighlightRects.length > 0) this.applyRunHighlights();
 
+    let activeEditorFontSize: string | null = null;
+    let activeStyleRunIndex: number | null = null;
+    if (this.activeEditor && this.activeShapeTextTarget?.shapeIndex === shapeIndex) {
+      this.activeTextStyleTarget = this.getPrimaryStyleRunTarget(this.activeShapeTextTarget);
+      activeStyleRunIndex = this.activeTextStyleTarget.runIndex;
+      activeEditorFontSize = this.syncInlineEditorTextMetrics()?.fontSizeCss ?? null;
+    }
+
     debugLog('render', 'Applied immediate font-size SVG preview', {
       slide: this.currentSlide,
       shapeIndex,
       fontSizePt,
       updatedRuns,
       scope: selectionRanges?.length ? 'selection' : run ? 'run' : 'shape',
+      activeStyleRunIndex,
+      activeEditorFontSize,
     });
     return true;
   }
@@ -8574,6 +8586,8 @@ export class NativePowerPointView extends FileView {
     const target = this.activeShapeTextTarget;
     if (!editor || !target) return;
 
+    this.activeTextStyleTarget = this.getPrimaryStyleRunTarget(target);
+    this.syncInlineEditorTextMetrics();
     const box = this.getElementBox(target.element);
     if (box) {
       this.positionTextRunEditor(editor, box);
@@ -10887,9 +10901,50 @@ export class NativePowerPointView extends FileView {
   }
 
   private getPrimaryStyleRunTarget(target: ShapeTextEditTarget): ShapeTextEditTarget {
-    const run = target.runElements[0];
+    const editor = this.activeEditor;
+    const caretOffset = editor && this.activeShapeTextTarget === target
+      ? Math.min(editor.selectionStart ?? 0, editor.selectionEnd ?? 0)
+      : null;
+    let run = target.runElements[0];
+    if (caretOffset !== null) {
+      let offset = 0;
+      for (let index = 0; index < target.runElements.length; index++) {
+        const candidate = target.runElements[index];
+        if (!candidate) continue;
+        const end = offset + (candidate.textContent?.length ?? 0);
+        if (caretOffset < end || index === target.runElements.length - 1) {
+          run = candidate;
+          break;
+        }
+        offset = end;
+      }
+    }
     if (!run) return target;
-    return { ...target, element: run };
+    const runIndex = typeof run.getAttribute === 'function'
+      ? Number(run.getAttribute('data-ooxml-run-idx'))
+      : target.runIndex;
+    return {
+      ...target,
+      element: run,
+      runIndex: Number.isFinite(runIndex) ? runIndex : target.runIndex,
+    };
+  }
+
+  private syncInlineEditorTextMetrics(): { fontSizeCss: string; runIndex: number } | null {
+    const editor = this.activeEditor;
+    const target = this.activeTextStyleTarget;
+    if (!editor || !target || !isSVGTSpanElement(target.element)) return null;
+
+    const style = window.getComputedStyle(target.element);
+    const fontSizeCss = `${this.getScreenFontSize(target.element)}px`;
+    editor.setCssProps({
+      fontFamily: style.fontFamily,
+      fontSize: fontSizeCss,
+      fontStyle: style.fontStyle,
+      fontWeight: style.fontWeight,
+      lineHeight: '1.1',
+    });
+    return { fontSizeCss, runIndex: target.runIndex };
   }
 
   /**
@@ -11138,13 +11193,20 @@ export class NativePowerPointView extends FileView {
     const frame = this.resolveInlinePreviewFrameBox(shape);
     const firstLineBox = this.getElementBox(firstLine);
     const baseY = Number(firstLine.getAttribute('y'));
-    const lineStep = this.getLivePreviewLineStep(lineContainers, firstRun);
+    const previousRunTexts = target.runElements.map((run) => run.textContent || '');
+    const nextRunTexts = redistributeTextAcrossVisualRuns(previousRunTexts, text);
+    const boundaries = [0];
+    for (const runText of nextRunTexts) {
+      boundaries.push((boundaries[boundaries.length - 1] ?? 0) + runText.length);
+    }
+
+    const lineStep = this.getLivePreviewLineStep(lineContainers, target.runElements);
     if (!frame || !firstLineBox || !Number.isFinite(baseY) || lineStep === null) return false;
 
     const maxWidth = previewWrapMaxWidth(frame.box, firstLineBox.left, firstLineBox.width);
     if (maxWidth === null) return false;
 
-    const measure = this.createInlinePreviewTextMeasurer(firstRun);
+    const measure = this.createInlinePreviewRunTextMeasurer(target.runElements, nextRunTexts);
     if (!measure) return false;
     const lines = wrapTextForPreview(text, maxWidth, measure);
     if (lines.join('') !== text) return false;
@@ -11156,13 +11218,6 @@ export class NativePowerPointView extends FileView {
 
     const parent = firstLine.parentNode;
     if (!parent) return false;
-
-    const previousRunTexts = target.runElements.map((run) => run.textContent || '');
-    const nextRunTexts = redistributeTextAcrossVisualRuns(previousRunTexts, text);
-    const boundaries = [0];
-    for (const runText of nextRunTexts) {
-      boundaries.push((boundaries[boundaries.length - 1] ?? 0) + runText.length);
-    }
 
     let offset = 0;
     const nextLines = lines.map((lineText, lineIndex) => {
@@ -11247,35 +11302,74 @@ export class NativePowerPointView extends FileView {
         firstLineWidth: Math.round(firstLineBox.width),
         inset: Math.round(Math.max(0, firstLineBox.left - frame.box.left)),
         usedFrameFallback: maxWidth >= frame.box.width - 0.5,
+        maxRunFontSize: Math.max(
+          ...target.runElements
+            .map((run) => Number(run.getAttribute('font-size')))
+            .filter((fontSize) => Number.isFinite(fontSize) && fontSize > 0),
+        ),
       });
     }
     return true;
   }
 
-  /** Use the first run's effective on-screen font to decide where a word wraps. */
-  private createInlinePreviewTextMeasurer(run: SVGTSpanElement): ((value: string) => number) | null {
-    const canvas = createDetachedMeasureCanvas(run.ownerDocument);
-    const context = canvas?.getContext('2d');
-    if (!canvas || !context) return null;
-    const scopedWindow = run.ownerDocument?.defaultView ?? window;
-    const style = scopedWindow.getComputedStyle(run);
-    context.font = `${style.fontStyle} ${style.fontWeight} ${this.getScreenFontSize(run)}px ${style.fontFamily}`;
-    return (value: string) => context.measureText(value).width;
+  private createInlinePreviewTextMeasurer(
+    run: SVGTSpanElement,
+  ): ((value: string, startOffset?: number) => number) | null {
+    return this.createInlinePreviewRunTextMeasurer([run], [run.textContent || '']);
   }
 
-  /** SVG line coordinates are unscaled, so derive their step in SVG units. */
+  /** Measure each preview fragment with the corresponding rendered run style. */
+  private createInlinePreviewRunTextMeasurer(
+    runs: readonly SVGTSpanElement[],
+    runTexts: readonly string[],
+  ): ((value: string, startOffset?: number) => number) | null {
+    const firstRun = runs[0];
+    if (!firstRun) return null;
+    const canvas = createDetachedMeasureCanvas(firstRun.ownerDocument);
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return null;
+    const segments: PreviewTextMeasurementSegment[] = [];
+    let offset = 0;
+    for (let index = 0; index < runs.length; index++) {
+      const run = runs[index];
+      if (!run) continue;
+      const text = runTexts[index] ?? '';
+      const end = offset + text.length;
+      const scopedWindow = run.ownerDocument?.defaultView ?? window;
+      const style = scopedWindow.getComputedStyle(run);
+      const font = `${style.fontStyle} ${style.fontWeight} ${this.getScreenFontSize(run)}px ${style.fontFamily}`;
+      segments.push({
+        start: offset,
+        end,
+        measure: (value: string) => {
+          context.font = font;
+          return context.measureText(value).width;
+        },
+      });
+      offset = end;
+    }
+    return (value: string, startOffset = 0) =>
+      measureSegmentedPreviewText(value, startOffset, segments);
+  }
+
+  /** SVG line coordinates are unscaled, so derive their step from the largest run. */
   private getLivePreviewLineStep(
     lineContainers: readonly SVGTSpanElement[],
-    firstRun: SVGTSpanElement
+    runs: readonly SVGTSpanElement[],
   ): number | null {
+    const fontSize = Math.max(
+      ...runs
+        .map((run) => Number(run.getAttribute('font-size')))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    );
+    const fontLineStep = Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : null;
     const firstY = Number(lineContainers[0]?.getAttribute('y'));
     const secondY = Number(lineContainers[1]?.getAttribute('y'));
     if (Number.isFinite(firstY) && Number.isFinite(secondY) && secondY > firstY) {
-      return secondY - firstY;
+      return Math.max(secondY - firstY, fontLineStep ?? 0);
     }
 
-    const fontSize = Number(firstRun.getAttribute('font-size'));
-    return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : null;
+    return fontLineStep;
   }
 
   private collectParagraphRuns(paraContainer: Element): SVGTSpanElement[] {
@@ -12773,7 +12867,7 @@ export class NativePowerPointView extends FileView {
 
       const firstLineBox = this.getElementBox(firstLine);
       const baseY = Number(firstLine.getAttribute('y'));
-      const lineStep = this.getLivePreviewLineStep(lineContainers, firstRun);
+      const lineStep = this.getLivePreviewLineStep(lineContainers, [firstRun]);
       if (!firstLineBox || !Number.isFinite(baseY) || lineStep === null) continue;
 
       const maxWidth = previewWrapMaxWidth(frame.box, firstLineBox.left, firstLineBox.width);
