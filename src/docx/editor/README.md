@@ -10,7 +10,7 @@ Obsidian users only download release `main.js` (+ manifest/css) — **not** this
 |------|------|
 | `docx-editor/` | Full clone (TypeScript source + seeded/generated `dist`) |
 | `docx-editor/packages/{core,react,i18n}/` | Wired into the plugin via `scripts/lib/docx-editor-aliases.mjs` |
-| `.Projects/docx-editor-mirror-1.9.0/` (vault) | Optional npm `.tgz` insurance outside this plugin |
+| `Projects/docx-editor-mirror-1.9.0/` (vault) | Optional npm `.tgz` insurance outside this plugin |
 
 Plugin and package imports use `@npde/docx-editor-*` (esbuild path aliases).
 
