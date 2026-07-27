@@ -201,6 +201,17 @@ interface InlineEditSnapshot {
   selectionEnd: number;
 }
 
+/** Editor state to restore after document history temporarily closes the textarea. */
+interface InlineEditorHistoryResumeState {
+  slideIndex: number;
+  shapeIndex: number;
+  paragraphIndex: number;
+  selectionStart: number;
+  selectionEnd: number;
+  rangeSelection: InlineRangeSelection | null;
+  wholeShapeSelected: boolean;
+}
+
 interface InlineWholeShapeReplacement {
   shapeIndex: number;
   /** SVG before the temporary all-text preview was cleared; Escape restores it. */
@@ -215,6 +226,7 @@ interface InlineWholeShapeReplacement {
 const INLINE_EDIT_HISTORY_LIMIT = 200;
 const ROTATION_SNAP_THRESHOLD_DEGREES = 3;
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const EMU_PER_POINT = 12700;
 
 export class NativePowerPointView extends FileView {
   private readonly t: TranslateFn = (key, values) => pptT(key, values);
@@ -7932,7 +7944,6 @@ export class NativePowerPointView extends FileView {
     const runs = this.getRelevantTextRuns(context);
     if (runs.length === 0) return null;
 
-    const EMU_PER_POINT = 12700;
     let detected: number | null = null;
     for (const run of runs) {
       if ((run.textContent || '').length === 0) continue;
@@ -8237,6 +8248,16 @@ export class NativePowerPointView extends FileView {
     run: RunTarget | null,
     selectionRanges: readonly ParagraphTextRange[] | null,
   ): boolean {
+    if (!this.canPreviewFontSizeChange(selectionRanges)) {
+      debugLog('render', 'Skipped immediate font-size SVG preview for multi-paragraph selection', {
+        slide: this.currentSlide,
+        shapeIndex,
+        fontSizePt,
+        paragraphIndexes: Array.from(new Set(selectionRanges?.map((range) => range.paragraphIndex))),
+      });
+      return false;
+    }
+
     const svg = this.svgEl;
     const shape = svg?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
     if (!svg || !isSVGGElement(shape) || !Number.isFinite(fontSizePt) || fontSizePt <= 0) {
@@ -8254,7 +8275,8 @@ export class NativePowerPointView extends FileView {
     }
 
     const cursorByParagraph = new Map<number, number>();
-    const renderedFontSize = this.formatSvgNumber(fontSizePt / renderScale);
+    const renderedFontSize = this.getPreviewFontSizeSvgUnits(fontSizePt, renderScale);
+    if (renderedFontSize === null) return false;
     const ooxmlFontSize = String(Math.round(fontSizePt * 100));
     let updatedRuns = 0;
 
@@ -8305,10 +8327,26 @@ export class NativePowerPointView extends FileView {
       fontSizePt,
       updatedRuns,
       scope: selectionRanges?.length ? 'selection' : run ? 'run' : 'shape',
+      renderScale,
+      renderedFontSize,
+      ooxmlFontSize,
       activeStyleRunIndex,
       activeEditorFontSize,
     });
     return true;
+  }
+
+  /** SVG-only font edits cannot recompute wrapping across real paragraphs. */
+  private canPreviewFontSizeChange(selectionRanges: readonly ParagraphTextRange[] | null): boolean {
+    return !selectionRanges
+      || new Set(selectionRanges.map((range) => range.paragraphIndex)).size <= 1;
+  }
+
+  /** Convert points into the SVG user units used by pptx-svg. */
+  private getPreviewFontSizeSvgUnits(fontSizePt: number, emuPerSvgUnit: number): string | null {
+    if (!Number.isFinite(fontSizePt) || fontSizePt <= 0) return null;
+    if (!Number.isFinite(emuPerSvgUnit) || emuPerSvgUnit <= 0) return null;
+    return this.formatSvgNumber((fontSizePt * EMU_PER_POINT) / emuPerSvgUnit);
   }
 
   private applyAlignment(align: ParagraphAlignment): void {
@@ -9547,6 +9585,82 @@ export class NativePowerPointView extends FileView {
     return this.restoreInlineHistorySnapshot('redo', this.inlineRedoStack, this.inlineUndoStack, editor);
   }
 
+  /** Keep Ctrl/Cmd+Z from needlessly abandoning a clean inline edit session. */
+  private captureInlineEditorHistoryResumeState(editor: HTMLTextAreaElement): InlineEditorHistoryResumeState | null {
+    const target = this.activeShapeTextTarget;
+    if (!target) return null;
+
+    const rangeSelection = this.inlineRangeSelection?.shapeIndex === target.shapeIndex
+      ? {
+        shapeIndex: this.inlineRangeSelection.shapeIndex,
+        ranges: this.inlineRangeSelection.ranges.map((range) => ({ ...range })),
+      }
+      : null;
+    return {
+      slideIndex: this.currentSlide,
+      shapeIndex: target.shapeIndex,
+      paragraphIndex: target.paragraphIndex,
+      selectionStart: editor.selectionStart ?? 0,
+      selectionEnd: editor.selectionEnd ?? 0,
+      rangeSelection,
+      wholeShapeSelected: this.inlineWholeShapeSelected,
+    };
+  }
+
+  /** Reopen the current paragraph after history has rebuilt the slide SVG. */
+  private resumeInlineEditorAfterHistory(
+    state: InlineEditorHistoryResumeState,
+    action: 'undo' | 'redo',
+    applied: boolean,
+  ): void {
+    if (this.activeEditor || this.currentSlide !== state.slideIndex) return;
+
+    this.selectShapeForTextEditing(state.shapeIndex);
+    const target = this.buildParagraphEditTarget(state.shapeIndex, state.paragraphIndex);
+    if (!target) {
+      debugLog('history', 'Skipped inline editor restore after document history', {
+        action,
+        applied,
+        slide: state.slideIndex,
+        shapeIndex: state.shapeIndex,
+        paragraphIndex: state.paragraphIndex,
+        reason: 'paragraph no longer exists',
+      });
+      return;
+    }
+
+    this.startTextEditor(target);
+    // TypeScript retains the earlier `this.activeEditor === null` narrowing
+    // across a method call, although startTextEditor may create one.
+    const editor = this.activeEditor as HTMLTextAreaElement | null;
+    if (!editor) return;
+
+    if (state.wholeShapeSelected) {
+      this.selectAllInlineText(editor, target.element);
+    } else {
+      const length = editor.value.length;
+      const start = Math.max(0, Math.min(state.selectionStart, length));
+      const end = Math.max(start, Math.min(state.selectionEnd, length));
+      editor.setSelectionRange(start, end);
+      this.inlineRangeSelection = state.rangeSelection;
+      if (state.rangeSelection) this.renderInlineRangeSelection(state.rangeSelection);
+      this.rememberInlineCaretPlacement(editor, target.element, end);
+      this.updateInlineCaret(editor, target.element);
+    }
+    this.focusEditorWithoutCanvasScroll(editor);
+    debugLog('history', 'Restored inline editor after document history', {
+      action,
+      applied,
+      slide: state.slideIndex,
+      shapeIndex: state.shapeIndex,
+      paragraphIndex: state.paragraphIndex,
+      selectionStart: editor.selectionStart ?? null,
+      selectionEnd: editor.selectionEnd ?? null,
+      wholeShapeSelected: state.wholeShapeSelected,
+      rangeCount: this.inlineRangeSelection?.ranges.length ?? 0,
+    });
+  }
+
   /**
    * Apply an inline history snapshot before moving it between stacks. A failed
    * SVG preview restore must leave the snapshot retryable instead of silently
@@ -9620,6 +9734,7 @@ export class NativePowerPointView extends FileView {
       documentAvailable,
     });
 
+    const resumeState = editor ? this.captureInlineEditorHistoryResumeState(editor) : null;
     if (editor) {
       const appliedInline = action === 'undo'
         ? this.undoInlineEdit(editor)
@@ -9637,6 +9752,7 @@ export class NativePowerPointView extends FileView {
       canUndo: this.historyController.canUndo,
       canRedo: this.historyController.canRedo,
     });
+    if (resumeState) this.resumeInlineEditorAfterHistory(resumeState, action, applied);
   }
 
   /** Ctrl+Z while editing text first unwinds the in-place editor history. */
@@ -9766,6 +9882,47 @@ export class NativePowerPointView extends FileView {
       }
     }
     return result;
+  }
+
+  /**
+   * Copy shape text by OOXML paragraph, not rendered SVG line. Native list
+   * markers are separate run-less containers, while wrapped run containers are
+   * one logical paragraph; joining raw containers turned `• Item` into
+   * `•\nItem` and inserted line breaks at visual wraps.
+   */
+  private getShapeTextSelectionText(shape: Element): string {
+    const entries: { marker: string; text: string }[] = [];
+    const byTextAndParagraph = new Map<Element | null, Map<number, { marker: string; text: string }>>();
+
+    for (const paragraph of this.getShapeTextParagraphs(shape)) {
+      const textElement = paragraph.closest('text');
+      const paragraphIndex = this.getParagraphIndexFromInlineElement(paragraph);
+      if (paragraphIndex === null) continue;
+
+      let byParagraph = byTextAndParagraph.get(textElement);
+      if (!byParagraph) {
+        byParagraph = new Map();
+        byTextAndParagraph.set(textElement, byParagraph);
+      }
+      let entry = byParagraph.get(paragraphIndex);
+      if (!entry) {
+        entry = { marker: '', text: '' };
+        byParagraph.set(paragraphIndex, entry);
+        entries.push(entry);
+      }
+
+      const runs = this.collectParagraphRuns(paragraph);
+      if (runs.length === 0) {
+        entry.marker += paragraph.textContent ?? '';
+      } else {
+        entry.text += runs.map((run) => run.textContent ?? '').join('');
+      }
+    }
+
+    return entries.map(({ marker, text }) => {
+      if (!marker || !text) return `${marker}${text}`;
+      return /\s$/.test(marker) || /^\s/.test(text) ? `${marker}${text}` : `${marker} ${text}`;
+    }).join('\n');
   }
 
   private getShapeTextRanges(shapeIndex: number): ParagraphTextRange[] {
@@ -10130,7 +10287,7 @@ export class NativePowerPointView extends FileView {
     if (!shape) return;
 
     const paragraphs = this.getShapeTextParagraphs(shape);
-    const combined = paragraphs.map((paragraph) => paragraph.textContent ?? '').join('\n');
+    const combined = this.getShapeTextSelectionText(shape);
     this.inlineWholeShapeSelection = combined;
     this.inlineWholeShapeSelected = true;
     const shapeIndex = this.activeShapeTextTarget?.shapeIndex ?? this.selectedShapeIndex;
@@ -10140,6 +10297,14 @@ export class NativePowerPointView extends FileView {
     this.lastInlineCaretPlacement = null;
     editor.setSelectionRange(0, editor.value.length);
     this.updateInlineCaret(editor, element);
+    debugLog('text-select', 'Selected all PowerPoint text', {
+      slide: this.currentSlide,
+      shapeIndex,
+      renderedContainerCount: paragraphs.length,
+      selectedRangeCount: this.inlineRangeSelection?.ranges.length ?? 0,
+      copyLength: combined.length,
+      hasListMarker: paragraphs.some((paragraph) => this.collectParagraphRuns(paragraph).length === 0),
+    });
   }
 
   private clearWholeShapeInlineSelection(): void {

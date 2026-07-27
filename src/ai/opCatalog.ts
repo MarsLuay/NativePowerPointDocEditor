@@ -304,6 +304,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	pptxOp('setImageCrop', 'image', 'Crop an image shape.', slideShapeParams({
 		crop: { type: 'object', additionalProperties: true, description: 'Image crop fractions.' },
 	})),
+	pptxOp('fitImageToFrame', 'image', 'Center-crop an existing image to fill its current frame while preserving its source aspect ratio.', slideShapeParams()),
 	pptxOp('resetImage', 'image', 'Reset image crop and effects.', slideShapeParams()),
 	pptxOp('replaceImage', 'image', 'Replace picture media, or convert a non-picture shape/placeholder into a picture that fills the same transform box. Default fit is cover: preserve the source aspect ratio and center-crop it to fill the frame; use fit "stretch" only when explicitly requested.', slideShapeParams({
 		vaultImagePath: { type: 'string' },

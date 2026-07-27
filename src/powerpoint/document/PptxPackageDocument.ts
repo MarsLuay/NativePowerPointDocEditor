@@ -35,6 +35,12 @@ export class PptxPackageDocument {
   private _slideCount: number;
   private currentBuffer: ArrayBuffer;
   private pendingSlideXml = new Map<number, string>();
+  /**
+   * Lossless slide XML from OOXML-path mutations. pptx-svg can omit unsupported
+   * nodes such as <a:noAutofit/> when serializing its derived slide model, so
+   * later mutations must retain this source until the document is reloaded.
+   */
+  private authoritativeSlideXml = new Map<number, string>();
 
   private constructor(
     private readonly hooks: PptxPackageDocumentHooks,
@@ -86,10 +92,16 @@ export class PptxPackageDocument {
 
   set packageBuffer(buffer: ArrayBuffer) {
     this.currentBuffer = buffer.slice(0);
+    this.authoritativeSlideXml.clear();
   }
 
   recordPendingSlideXml(slideIndex: number, xml: string): void {
     this.pendingSlideXml.set(slideIndex, xml);
+    this.authoritativeSlideXml.set(slideIndex, xml);
+  }
+
+  getAuthoritativeSlideXml(slideIndex: number): string | null {
+    return this.authoritativeSlideXml.get(slideIndex) ?? null;
   }
 
   async restore(buffer: ArrayBuffer): Promise<void> {
@@ -205,7 +217,7 @@ export class PptxPackageDocument {
     if (typeof reader.getSlideOoxml === 'function') {
       for (let slideIndex = 0; slideIndex < this._slideCount; slideIndex++) {
         try {
-          const slideXml = reader.getSlideOoxml(slideIndex);
+          const slideXml = this.getAuthoritativeSlideXml(slideIndex) ?? reader.getSlideOoxml(slideIndex);
           if (slideXml.includes('</p:sld>')) {
             modifications.set(getSlidePath(slideIndex), slideXml);
           }
@@ -255,7 +267,7 @@ export class PptxPackageDocument {
     const modifications = new Map<string, string>();
     for (let slideIndex = 0; slideIndex < this._slideCount; slideIndex++) {
       try {
-        const slideXml = reader.getSlideOoxml(slideIndex);
+        const slideXml = this.getAuthoritativeSlideXml(slideIndex) ?? reader.getSlideOoxml(slideIndex);
         if (slideXml.includes('</p:sld>')) modifications.set(getSlidePath(slideIndex), slideXml);
       } catch {
         // Keep the renderer export for slides the runtime cannot serialize.

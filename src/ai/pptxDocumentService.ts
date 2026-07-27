@@ -102,6 +102,13 @@ export class PptxDocumentService {
 
 		try {
 			this.assertPptxPath(path);
+			const opIds = ops.slice(0, 20).map((op) => String(op.op));
+			logPptxAction('mutate', 'ai-apply', {
+				path,
+				dryRun,
+				opIds,
+				opCount: ops.length,
+			});
 			const lease = await this.sessions.acquire(path);
 			const changed = new Set<string>();
 			const preview: ApplyPreviewChange[] = [];
@@ -181,6 +188,7 @@ export class PptxDocumentService {
 			debugLog('agent', 'AI apply completed', {
 				path: lease.file.path,
 				dryRun,
+				opIds,
 				opCount: ops.length,
 				changedCount: changed.size,
 				ms: Math.round(performance.now() - startedAt),
@@ -200,6 +208,7 @@ export class PptxDocumentService {
 			debugLog('agent', 'AI apply failed', {
 				path,
 				dryRun,
+				opIds: ops.slice(0, 20).map((op) => String(op.op)),
 				error: isAiErrorDetail(error) ? error.message : String(error),
 				ms: Math.round(performance.now() - startedAt),
 			});

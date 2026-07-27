@@ -686,7 +686,7 @@ export class PresentationEngine {
 
   getSlideXml(slideIndex: number): string {
     const slidePath = getSlidePath(slideIndex);
-    const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), slidePath);
+    const slideDoc = parseXml(this.getMutationSlideXml(slideIndex), slidePath);
     this.restoreLostRunPropsIntoSlideDoc(slideIndex, slideDoc);
     return serializeXml(slideDoc);
   }
@@ -1368,10 +1368,10 @@ export class PresentationEngine {
     return cached;
   }
 
-  /** Parse the renderer's current OOXML and capture its run formatting. */
+  /** Parse the current authoritative OOXML and capture its run formatting. */
   private readSlideRunCacheFromModel(slideIndex: number): SlideRunCacheEntry {
     try {
-      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const slideDoc = parseXml(this.getMutationSlideXml(slideIndex), getSlidePath(slideIndex));
       return readSlideRunCacheFromDoc(slideDoc);
     } catch {
       return { highlights: [], authoredRuns: [] };
@@ -1565,7 +1565,7 @@ export class PresentationEngine {
   ): RunStyleInfo | null {
     let shape: Element;
     try {
-      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const slideDoc = parseXml(this.getMutationSlideXml(slideIndex), getSlidePath(slideIndex));
       shape = getShapeElement(slideDoc, shapeIndex);
     } catch {
       return null;
@@ -1638,7 +1638,7 @@ export class PresentationEngine {
     if (selectedRanges.length === 0) return null;
 
     try {
-      const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+      const slideDoc = parseXml(this.getMutationSlideXml(slideIndex), getSlidePath(slideIndex));
       const shape = getShapeElement(slideDoc, shapeIndex);
       const paragraphs = getDrawingParagraphs(shape);
       let resolved: number | null = null;
@@ -2004,7 +2004,14 @@ export class PresentationEngine {
     mutate: (shape: Element, slideDoc: XMLDocument) => boolean
   ): Promise<boolean> {
     const slidePath = getSlidePath(slideIndex);
-    const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), slidePath);
+    const authoritativeXml = this.pptxDocument.getAuthoritativeSlideXml(slideIndex);
+    if (authoritativeXml) {
+      debugLog('mutate', 'Reused authoritative PowerPoint slide XML for mutation', {
+        slide: slideIndex,
+        shapeIndex,
+      });
+    }
+    const slideDoc = parseXml(authoritativeXml ?? this.renderer.getSlideOoxml(slideIndex), slidePath);
     // If a prior in-place Wasm edit stripped this slide's highlights, restore the
     // cached set before mutating so the edit (and the committed XML) is lossless.
     this.restoreLostRunPropsIntoSlideDoc(slideIndex, slideDoc);
@@ -2019,6 +2026,11 @@ export class PresentationEngine {
     // run-property edit just made).
     this.refreshSlideRunCache(slideIndex);
     return true;
+  }
+
+  private getMutationSlideXml(slideIndex: number): string {
+    return this.pptxDocument.getAuthoritativeSlideXml(slideIndex)
+      ?? this.renderer.getSlideOoxml(slideIndex);
   }
 
   /**
@@ -3198,6 +3210,56 @@ export class PresentationEngine {
     await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       return applyImageCropToShape(shape, slideDoc, crop);
     });
+    debugLog('mutate', 'PowerPoint image crop applied', {
+      slide: slideIndex,
+      shapeIndex,
+      crop,
+    });
+  }
+
+  /**
+   * Calculate the centered, aspect-ratio-preserving crop required for an
+   * existing picture to cover its current frame. The embedded media and frame
+   * transform are left untouched.
+   */
+  async getImageFitCrop(slideIndex: number, shapeIndex: number): Promise<ImageCrop> {
+    const image = await this.getShapeImageData(slideIndex, shapeIndex);
+    const dimensions = image ? readRasterImageDimensions(image.bytes) : null;
+    if (!dimensions) {
+      throw new Error('Could not read the selected image dimensions.');
+    }
+
+    const slideDoc = parseXml(this.renderer.getSlideOoxml(slideIndex), getSlidePath(slideIndex));
+    const shape = getShapeElement(slideDoc, shapeIndex);
+    if (shape.localName !== 'pic') {
+      throw new Error('The selected object is not an image.');
+    }
+    const box = getShapeBox(shape);
+    if (!box || box.cx <= 0 || box.cy <= 0) {
+      throw new Error('The selected image has no usable frame size.');
+    }
+
+    const crop = computeCenteredCoverCrop(dimensions, box.cx, box.cy);
+    if (!crop) {
+      throw new Error('Could not calculate the image crop for its current frame.');
+    }
+    return crop;
+  }
+
+  /**
+   * Center-crop an existing picture to cover its current frame without
+   * distorting the source image. Position, size, rotation, and media stay the
+   * same; only the DrawingML crop rectangle changes.
+   */
+  async fitImageToFrame(slideIndex: number, shapeIndex: number): Promise<ImageCrop> {
+    const crop = await this.getImageFitCrop(slideIndex, shapeIndex);
+    await this.setImageCrop(slideIndex, shapeIndex, crop);
+    debugLog('mutate', 'PowerPoint fit image to frame', {
+      slide: slideIndex,
+      shapeIndex,
+      crop,
+    });
+    return crop;
   }
 
   /**

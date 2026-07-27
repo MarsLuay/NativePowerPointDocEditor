@@ -88,6 +88,19 @@ test('PPTX image replacement defaults to aspect-ratio-preserving cover', async (
 	assert.deepEqual(errors, []);
 });
 
+test('PPTX fitImageToFrame requires only an existing image shape', async () => {
+	const { validateDocumentOps, listOpDefinitions } = await loadAiSchemaModules();
+	const errors = validateDocumentOps([{
+		op: 'pptx.fitImageToFrame',
+		slideIndex: 0,
+		shapeIndex: 0,
+	}]);
+	assert.deepEqual(errors, []);
+	const operation = listOpDefinitions().find((candidate) => candidate.id === 'pptx.fitImageToFrame');
+	assert.ok(operation, 'pptx.fitImageToFrame must be available to agents');
+	assert.deepEqual(operation.parameters.required, ['slideIndex', 'shapeIndex']);
+});
+
 test('OP_EXAMPLES reject missing required fields', async () => {
 	const { validateDocumentOps, OP_EXAMPLES, AI_ERROR_CODES } = await loadAiSchemaModules();
 

@@ -39,6 +39,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'pptx.reorderSlides': { op: 'pptx.reorderSlides', order: [1, 0] },
 	'pptx.setSlideBackground': { op: 'pptx.setSlideBackground', slideIndex: 0, colorHex: 'FFFFFF' },
 	'pptx.setImageCrop': { op: 'pptx.setImageCrop', slideIndex: 0, shapeIndex: 0, crop: { left: 10, top: 10, right: 10, bottom: 10 } },
+	'pptx.fitImageToFrame': { op: 'pptx.fitImageToFrame', slideIndex: 0, shapeIndex: 0 },
 	'pptx.resetImage': { op: 'pptx.resetImage', slideIndex: 0, shapeIndex: 0 },
 	'pptx.replaceImage': { op: 'pptx.replaceImage', slideIndex: 0, shapeIndex: 0, vaultImagePath: 'assets/example.png' },
 	'pptx.updateChartData': {

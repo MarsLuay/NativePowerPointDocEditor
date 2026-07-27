@@ -100,6 +100,22 @@ async function createCroppedLayoutBackgroundFixture() {
   );
 }
 
+async function createCroppedPictureFixture() {
+  const input = await readDeck("features.pptx");
+  const source = toArrayBuffer(input);
+  const sourceZip = await extractZip(source);
+  const slidePath = "ppt/slides/slide1.xml";
+  const slideXml = sourceZip.textFiles.get(slidePath);
+  assert.ok(slideXml);
+
+  const cropped = slideXml.replace(
+    '<p:blipFill><a:blip r:embed="rIdImage"/><a:stretch>',
+    '<p:blipFill><a:blip r:embed="rIdImage"/><a:srcRect l="0" t="23370" r="0" b="23370"/><a:stretch>',
+  );
+  assert.notEqual(cropped, slideXml, "fixture image should accept the authored crop");
+  return buildZip(source, new Map([[slidePath, cropped]]));
+}
+
 test("pptx, ppsx, and potx fixtures load, render, export, and validate", async (t) => {
   const {
     inspectPowerPointPackage,
@@ -201,6 +217,32 @@ test("rendered cropped layout backgrounds reconcile href without duplicating ful
   assert.match(svg, /clip-path="url\(#bgclip-s1\)"/);
   const expectedHref = `data:image/png;base64,${onePixelLayoutBackground.toString("base64")}`;
   assert.ok(svg.includes(`href="${expectedHref}"`), "expected reconciled cropped background href");
+});
+
+test("text formatting keeps authored picture crops through save and reload", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const engine = await PresentationEngine.load(await createCroppedPictureFixture());
+
+  assert.deepEqual(engine.getImageCrop(0, 2), {
+    left: 0,
+    top: 23.37,
+    right: 0,
+    bottom: 23.37,
+  });
+  await engine.setRunStyle(0, 0, { paragraphIndex: 0, runIndex: 0 }, { fontSizePt: 27 });
+
+  const exported = await engine.export();
+  const exportedSlideXml = (await extractZip(exported)).textFiles.get("ppt/slides/slide1.xml");
+  assert.ok(exportedSlideXml);
+  assert.match(exportedSlideXml, /<a:srcRect l="0" t="23370" r="0" b="23370"\/>/);
+
+  const reloaded = await PresentationEngine.load(exported);
+  assert.deepEqual(reloaded.getImageCrop(0, 2), {
+    left: 0,
+    top: 23.37,
+    right: 0,
+    bottom: 23.37,
+  });
 });
 
 test("content validation blocks lossy renderer rewrites of opaque slide markup", async () => {
@@ -476,6 +518,74 @@ test("setRunStyleForRanges applies every run style across paragraph selections",
     assert.equal(style?.color, null);
     assert.equal(style?.highlight, null);
   }
+});
+
+test("font-size readers use authoritative OOXML after a lossless mutation", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const initial = await createTitleParagraphFixture([
+    paragraphXml("Alpha beta"),
+    paragraphXml("Gamma delta"),
+  ]);
+  const engine = await PresentationEngine.load(initial);
+  const renderer = engine.pptxDocument.renderer;
+  const staleSlideXml = renderer.getSlideOoxml(0);
+
+  // Reproduce pptx-svg returning its pre-mutation representation while the
+  // package document already owns the lossless edited slide XML.
+  renderer.getSlideOoxml = () => staleSlideXml;
+  const ranges = [
+    { paragraphIndex: 0, start: 0, end: "Alpha beta".length },
+    { paragraphIndex: 1, start: 0, end: "Gamma delta".length },
+  ];
+
+  await engine.setRunStyleForRanges(0, 0, ranges, { fontSizePt: 27 });
+  assert.equal(engine.getRunStyle(0, 0, 0, 0)?.fontSizePt, 27);
+  assert.equal(engine.getRangesFontSizePt(0, 0, ranges), 27);
+
+  await engine.setRunStyleForRanges(0, 0, ranges, { fontSizePt: 26 });
+  assert.equal(engine.getRunStyle(0, 0, 1, 0)?.fontSizePt, 26);
+  assert.equal(engine.getRangesFontSizePt(0, 0, ranges), 26);
+  assert.match(engine.pptxDocument.getAuthoritativeSlideXml(0), /\bsz="2600"/);
+});
+
+test("font-size formatting survives a later paragraph split without restoring shrink-to-fit", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const initial = await createTitleParagraphFixture([
+    paragraphXml("Alpha beta"),
+    paragraphXml("Gamma delta"),
+  ]);
+  const initialZip = await extractZip(initial);
+  const slidePath = "ppt/slides/slide1.xml";
+  const initialSlideXml = initialZip.textFiles.get(slidePath);
+  assert.ok(initialSlideXml);
+  const withShrinkAutofit = await buildZip(initial, new Map([[
+    slidePath,
+    initialSlideXml.replace("<a:bodyPr/>", "<a:bodyPr><a:normAutofit/></a:bodyPr>"),
+  ]]));
+  const engine = await PresentationEngine.load(withShrinkAutofit);
+
+  await engine.setRunStyleForRanges(0, 0, [
+    { paragraphIndex: 0, start: 0, end: "Alpha beta".length },
+    { paragraphIndex: 1, start: 0, end: "Gamma delta".length },
+  ], { fontSizePt: 31 });
+  assert.match(engine.pptxDocument.getAuthoritativeSlideXml(0), /<a:noAutofit\s*\/>/);
+  // Autosave folds pending OOXML into the package before the next text action.
+  await engine.export();
+  assert.match(engine.pptxDocument.getAuthoritativeSlideXml(0), /<a:noAutofit\s*\/>/);
+  // pptx-svg can omit <a:noAutofit/> when it supplies slide XML for the next
+  // mutation. The package document must retain the lossless version instead.
+  const renderer = engine.pptxDocument.renderer;
+  const getSlideOoxml = renderer.getSlideOoxml.bind(renderer);
+  renderer.getSlideOoxml = (slideIndex) => getSlideOoxml(slideIndex)
+    .replace("<a:noAutofit/>", "<a:normAutofit/>");
+  await engine.splitParagraph(0, 0, 0, 5);
+
+  const exported = await engine.export();
+  const exportedSlideXml = (await extractZip(exported)).textFiles.get(slidePath);
+  assert.ok(exportedSlideXml);
+  assert.match(exportedSlideXml, /<a:noAutofit\s*\/>/);
+  assert.doesNotMatch(exportedSlideXml, /<a:normAutofit\b/);
+  assert.equal((exportedSlideXml.match(/\bsz="3100"/g) ?? []).length, 3);
 });
 
 test("setParagraphAlignmentForRanges aligns only selected paragraphs", async () => {

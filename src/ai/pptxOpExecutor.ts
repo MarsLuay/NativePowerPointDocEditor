@@ -738,6 +738,28 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		case 'pptx.fitImageToFrame': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			if (!context.engine.isImageShape(slideIndex, shapeIndex)) {
+				throw createAiError(
+					AI_ERROR_CODES.OBJECT_NOT_EDITABLE,
+					`Shape ${pptxShapeId(slideIndex, shapeIndex)} is not an image.`,
+				);
+			}
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			const before = context.engine.getImageCrop(slideIndex, shapeIndex);
+			const after = await context.engine.getImageFitCrop(slideIndex, shapeIndex);
+			result.preview.push({ id: changedId, field: 'crop', before, after });
+			if (!context.dryRun) {
+				await context.engine.fitImageToFrame(slideIndex, shapeIndex);
+			}
+			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
 		case 'pptx.resetImage': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');

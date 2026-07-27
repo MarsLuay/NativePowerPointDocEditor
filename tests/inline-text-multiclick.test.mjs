@@ -14,6 +14,36 @@ test("double-click word ranges include the word under the caret", async () => {
   assert.deepEqual(getInlineWordRange("hello", 5), { start: 0, end: 5 });
 });
 
+test("font-size preview converts points to PPTX SVG user units", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+
+  assert.equal(view.getPreviewFontSizeSvgUnits(28, 127), "2800");
+  assert.equal(view.getPreviewFontSizeSvgUnits(28, 12700), "28");
+  assert.equal(view.getPreviewFontSizeSvgUnits(0, 127), null);
+});
+
+test("font-size preview defers multi-paragraph selections to the renderer", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+
+  assert.equal(view.canPreviewFontSizeChange(null), true);
+  assert.equal(view.canPreviewFontSizeChange([
+    { paragraphIndex: 3, start: 0, end: 5 },
+    { paragraphIndex: 3, start: 5, end: 9 },
+  ]), true);
+  assert.equal(view.canPreviewFontSizeChange([
+    { paragraphIndex: 3, start: 0, end: 5 },
+    { paragraphIndex: 4, start: 0, end: 5 },
+  ]), false);
+});
+
 test("inline text multi-click selects a word, then the whole text box", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
   const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
@@ -1178,6 +1208,113 @@ test("failed inline undo restoration keeps the history entry retryable", async (
   await view.requestHistoryAction("undo", "toolbar");
   assert.equal(commits, 0);
   assert.equal(documentUndoCalls, 0);
+});
+
+test("document-history Ctrl/Cmd+Z fallback preserves the active text session", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  const editor = {
+    value: "active paragraph",
+    selectionStart: 3,
+    selectionEnd: 9,
+  };
+  let committed = 0;
+  let resume = null;
+
+  view.activeEditor = editor;
+  view.activeShapeTextTarget = { shapeIndex: 42, paragraphIndex: 1 };
+  view.inlineRangeSelection = {
+    shapeIndex: 42,
+    ranges: [{ paragraphIndex: 1, start: 3, end: 9 }],
+  };
+  view.finishInlineTextEditing = async () => {
+    committed += 1;
+    view.activeEditor = null;
+    view.activeShapeTextTarget = null;
+  };
+  view.session.undo = async () => true;
+  view.resumeInlineEditorAfterHistory = (...args) => { resume = args; };
+
+  await view.requestHistoryAction("undo", "keyboard");
+
+  assert.equal(committed, 1);
+  assert.deepEqual(resume, [{
+    slideIndex: 0,
+    shapeIndex: 42,
+    paragraphIndex: 1,
+    selectionStart: 3,
+    selectionEnd: 9,
+    rangeSelection: {
+      shapeIndex: 42,
+      ranges: [{ paragraphIndex: 1, start: 3, end: 9 }],
+    },
+    wholeShapeSelected: false,
+  }, "undo", true]);
+});
+
+test("Ctrl/Cmd+A copies bullet paragraphs without marker-only or visual-wrap lines", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  const textFrame = {};
+  const marker = {
+    paragraphIndex: 0,
+    textContent: "•",
+    runs: [],
+    closest: () => textFrame,
+  };
+  const firstVisualLine = {
+    paragraphIndex: 0,
+    textContent: "Calibrate ",
+    runs: [{ textContent: "Calibrate " }],
+    closest: () => textFrame,
+  };
+  const secondVisualLine = {
+    paragraphIndex: 0,
+    textContent: "the pump",
+    runs: [{ textContent: "the pump" }],
+    closest: () => textFrame,
+  };
+  const nextParagraph = {
+    paragraphIndex: 1,
+    textContent: "Next step",
+    runs: [{ textContent: "Next step" }],
+    closest: () => textFrame,
+  };
+  const paragraphs = [marker, firstVisualLine, secondVisualLine, nextParagraph];
+  const editor = {
+    value: "Calibrate the pump",
+    selectionStart: 0,
+    selectionEnd: 0,
+    setSelectionRange(start, end) {
+      this.selectionStart = start;
+      this.selectionEnd = end;
+    },
+  };
+
+  view.getSelectedShapeElement = () => ({});
+  view.getShapeTextParagraphs = () => paragraphs;
+  view.getParagraphIndexFromInlineElement = (paragraph) => paragraph.paragraphIndex;
+  view.collectParagraphRuns = (paragraph) => paragraph.runs;
+  view.getShapeTextRanges = () => [
+    { paragraphIndex: 0, start: 0, end: 18 },
+    { paragraphIndex: 1, start: 0, end: 9 },
+  ];
+  view.updateInlineCaret = () => {};
+  view.activeShapeTextTarget = { shapeIndex: 42, paragraphIndex: 0 };
+
+  view.selectAllInlineText(editor, {});
+
+  assert.equal(view.inlineWholeShapeSelection, "• Calibrate the pump\nNext step");
+  assert.deepEqual(
+    { start: editor.selectionStart, end: editor.selectionEnd },
+    { start: 0, end: 18 },
+  );
 });
 
 test("Edit menu history follows the active inline editor before document history", async () => {

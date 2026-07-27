@@ -513,6 +513,7 @@ test('PPTX agent ops smoke dispatches every operation', async (t) => {
 		},
 		'pptx.setSlideBackground': () => ({ op: 'pptx.setSlideBackground', slideIndex: 0, colorHex: 'F0F0F0' }),
 		'pptx.setImageCrop': () => ({ op: 'pptx.setImageCrop', slideIndex: 0, shapeIndex: targets.imageShape, crop: { left: 0.1, top: 0.1, right: 0.1, bottom: 0.1 } }),
+		'pptx.fitImageToFrame': () => ({ op: 'pptx.fitImageToFrame', slideIndex: 0, shapeIndex: targets.imageShape }),
 		'pptx.resetImage': async (eng) => {
 			await eng.setImageCrop(0, targets.imageShape, { left: 0.1, top: 0, right: 0, bottom: 0 });
 			return { op: 'pptx.resetImage', slideIndex: 0, shapeIndex: targets.imageShape };
@@ -571,7 +572,7 @@ test('PPTX image reset reports no-op state and clears authored crop', async () =
 	assert.deepEqual(reloaded.getImageResetState(0, imageShape), { hasCrop: false, effectNames: [] });
 });
 
-test('PPTX image replacements cover-crop by default and stretch only when requested', async () => {
+test('PPTX image fitting center-crops existing media and image replacements cover-crop by default', async () => {
 	const { executePptxOp } = await loadPptxAiModules();
 	const { PresentationEngine } = await loadPresentationEngineModule();
 	const source = toArrayBuffer(await readDeck('features.pptx'));
@@ -604,6 +605,40 @@ test('PPTX image replacements cover-crop by default and stretch only when reques
 		fit: 'stretch',
 	});
 	assert.deepEqual(engine.getImageCrop(0, imageShape), { left: 0, top: 0, right: 0, bottom: 0 });
+
+	const originalMedia = await engine.getShapeImageData(0, imageShape);
+	assert.ok(originalMedia, 'expected the fixture image media');
+	const dryRun = await executePptxOp({ ...context, dryRun: true }, {
+		op: 'pptx.fitImageToFrame',
+		slideIndex: 0,
+		shapeIndex: imageShape,
+	});
+	assert.deepEqual(engine.getImageCrop(0, imageShape), { left: 0, top: 0, right: 0, bottom: 0 });
+	assert.deepEqual(dryRun.preview, [{
+		id: `slide:0/shape:${imageShape}`,
+		field: 'crop',
+		before: { left: 0, top: 0, right: 0, bottom: 0 },
+		after: expectedCoverCrop,
+	}]);
+
+	await executePptxOp(context, {
+		op: 'pptx.fitImageToFrame',
+		slideIndex: 0,
+		shapeIndex: imageShape,
+	});
+	assert.deepEqual(engine.getImageCrop(0, imageShape), expectedCoverCrop);
+	const fittedMedia = await engine.getShapeImageData(0, imageShape);
+	assert.ok(fittedMedia, 'expected fitted image media');
+	assert.deepEqual(fittedMedia.bytes, originalMedia.bytes, 'fitImageToFrame must not replace image media');
+
+	await assert.rejects(
+		() => executePptxOp(context, {
+			op: 'pptx.fitImageToFrame',
+			slideIndex: 0,
+			shapeIndex: discoverPptxTargets(engine).textShape,
+		}),
+		(error) => error?.code === 'OBJECT_NOT_EDITABLE',
+	);
 
 	const exported = await engine.export();
 	await PresentationEngine.validateRoundTrip(exported, engine.slideCount);

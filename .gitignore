@@ -45,6 +45,11 @@ ctxbar-review.mjs
 probe*.mjs
 tests/_probe-*.mjs
 
+# Local agent/analyzer caches and one-off export backups
+/.code-analysis/
+/.serena/
+/tmp/
+
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
