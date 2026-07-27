@@ -119,6 +119,14 @@ export class PptxPackageDocument {
     this._slideCount = state.slideCount;
     this.currentBuffer = buffer.slice(0);
     this.pendingSlideXml.clear();
+    const discardedAuthoritativeSlideCount = this.authoritativeSlideXml.size;
+    this.authoritativeSlideXml.clear();
+    if (discardedAuthoritativeSlideCount > 0) {
+      debugLog('engine', 'Cleared stale authoritative PowerPoint slide XML after package reload', {
+        discardedSlideCount: discardedAuthoritativeSlideCount,
+        slideCount: state.slideCount,
+      });
+    }
     await this.hooks.refreshDerivedState(buffer);
   }
 

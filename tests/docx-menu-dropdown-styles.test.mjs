@@ -30,6 +30,11 @@ test('DOCX top-level menus share the semantic menu surface contract', async () =
 	assert.match(css, /--doc-menu-item-padding:\s*6px 12px/);
 	assert.match(css, /--doc-menu-item-font-size:\s*13px/);
 	assert.match(css, /\.native-powerpoint-doc-editor-edit-menu/);
+	assert.doesNotMatch(
+		css,
+		/\[data-native-powerpoint-doc-editor-menubar\][\s\S]*?\[style\*='position: fixed'\]\s*>\s*div:first-child\s*\{\s*display:\s*none;/,
+		'fixed MenuDropdown panels must retain their first action',
+	);
 	assert.match(menuDropdown, /var\(--doc-menu-bg, var\(--doc-surface\)\)/);
 	assert.match(menuDropdown, /var\(--doc-menu-item-padding, 6px 12px\)/);
 	assert.match(menuDropdown, /var\(--doc-menu-item-hover-bg, var\(--doc-bg-hover\)\)/);

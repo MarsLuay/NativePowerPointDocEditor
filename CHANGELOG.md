@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-07-27
+
+### Fixed
+
+- Created fallback DOCX editor chrome with detached native DOM elements, preventing `HierarchyRequestError` when Obsidian's document helpers would append a second document root.
+- Cleared stale authoritative PowerPoint slide XML whenever the package renderer reloads, keeping find/replace, highlights, and list formatting aligned with the live document.
+- Kept fixed DOCX menu dropdowns from hiding their first action.
+
 ## [1.1.10] - 2026-07-27
 
 ### Fixed

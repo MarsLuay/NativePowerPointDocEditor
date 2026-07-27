@@ -1123,7 +1123,7 @@ function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) 
 		return;
 	}
 
-	const footer = activeDocument.createDiv();
+	const footer = listbox.createDiv();
 	footer.className = 'native-powerpoint-doc-editor-font-menu-footer';
 	footer.setAttribute('data-native-powerpoint-doc-editor-font-menu-footer', 'true');
 
@@ -1139,7 +1139,6 @@ function appendImportFontOption(listbox: HTMLElement, onImportFont: () => void) 
 	button.setAttribute(importAttr, 'true');
 	hardenInjectedMenuOption(button, { onSelect: onImportFont });
 
-	listbox.append(footer);
 	scheduleFontFamilySelectTriggerTag(listbox);
 }
 

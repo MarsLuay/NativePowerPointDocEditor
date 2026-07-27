@@ -7,6 +7,7 @@ import {
 	TOOLBAR_TOOLTIP_CLASS,
 	TOOLBAR_TOOLTIP_DELAY_MS,
 } from './tooltipUtils';
+import { createDetachedDocxEditorChromeElement } from '../docxEditorChromeDom';
 
 export type TooltipTargetResolver = (target: EventTarget | null) => HTMLElement | null;
 
@@ -151,7 +152,7 @@ export class TooltipController {
 		this.removeTooltipElement();
 		this.removeExistingTooltipElements();
 
-		const tooltip = this.ownerDocument.createDiv();
+		const tooltip = createDetachedDocxEditorChromeElement(this.ownerDocument.body, 'div');
 		tooltip.className = this.className;
 		tooltip.id = `${TOOLTIP_ID_PREFIX}-${++tooltipIdCounter}`;
 		tooltip.setAttribute('role', 'tooltip');

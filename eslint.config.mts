@@ -68,4 +68,18 @@ export default defineConfig([
 			'obsidianmd/vault/iterate': 'warn',
 		},
 	},
+	// Obsidian's DOM helpers attach immediately. These factories intentionally
+	// use native Document APIs so SVG/XML owner documents receive detached nodes.
+	{
+		files: ['src/docxEditorChromeDom.ts', 'src/powerpoint/measureCanvas.ts'],
+		rules: {
+			'obsidianmd/prefer-create-el': 'off',
+		},
+	},
+	{
+		files: ['src/powerpoint/measureCanvas.ts'],
+		rules: {
+			'@typescript-eslint/no-deprecated': 'off',
+		},
+	},
 ]);

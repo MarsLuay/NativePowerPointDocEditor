@@ -60,6 +60,7 @@ import {
 	type Disposable,
 	type DocxEditorAdapterController,
 } from './docx/adapter/DocxEditorAdapter';
+import { createDetachedDocxEditorChromeElement } from './docxEditorChromeDom';
 import { DocxAgentReloadGuard, type DocxReloadIdentity } from './docx/DocxAgentReloadGuard';
 
 export { VIEW_TYPE_DOCX };
@@ -983,6 +984,7 @@ export class DocxView extends FileView {
 	private openLoadTrace: LoadTrace | null = null;
 	private stopOpenHeartbeat: (() => void) | null = null;
 	private editorChromeObserversRegistered = false;
+	private lastEditorChromeReconciledSession = -1;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -1230,6 +1232,27 @@ export class DocxView extends FileView {
 		}
 	}
 
+	private reconcileEditorChromeAfterViewReady() {
+		// React's root can commit after the initial mount shell and observer setup.
+		// Reconcile once the vendor confirms that its editor view is ready, instead
+		// of waiting for a later menu interaction to trigger a chrome mutation.
+		this.runEditorChromeSync();
+
+		if (!this.hostEl || this.lastEditorChromeReconciledSession === this.documentSession) {
+			return;
+		}
+
+		this.lastEditorChromeReconciledSession = this.documentSession;
+		debugLog('lifecycle', 'DOCX chrome reconciled after editor view ready', {
+			file: this.file?.path,
+			documentSession: this.documentSession,
+			roots: this.hostEl.querySelectorAll(DOCX_EDITOR_ROOT_SELECTOR).length,
+			menubars: this.hostEl.querySelectorAll(DOCX_EDITOR_MENUBAR_SELECTOR).length,
+			menuButtons: this.hostEl.querySelectorAll(DOCX_EDITOR_MENU_BUTTON_SELECTOR).length,
+			openMenus: this.hostEl.querySelectorAll(DOCX_EDITOR_MENU_DROPDOWN_SELECTOR).length,
+		});
+	}
+
 	private registerActiveLeafMounting() {
 		if (this.activeLeafListenerRegistered) {
 			return;
@@ -1450,6 +1473,9 @@ export class DocxView extends FileView {
 		origin?: DocxSaveOrigin,
 	) => {
 		this.markOpenLoadPhase(phase, data);
+		if (phase === 'editor-view-ready') {
+			this.reconcileEditorChromeAfterViewReady();
+		}
 		if (phase === 'editor-view-ready' && origin && this.agentReloadGuard.complete(origin)) {
 			debugLog('agent', 'Open DOCX editor is ready for the reloaded agent buffer', {
 				file: origin.filePath,
@@ -2844,6 +2870,23 @@ export class DocxView extends FileView {
 		}
 	}
 
+	private createDetachedEditorChromeElement<K extends keyof HTMLElementTagNameMap>(
+		parent: HTMLElement,
+		tagName: K,
+		menu: string,
+	): HTMLElementTagNameMap[K] {
+		const element = createDetachedDocxEditorChromeElement(parent, tagName);
+		debugLog('view', 'DOCX chrome fallback element created', {
+			file: this.file?.path,
+			menu,
+			tagName,
+			parentTagName: parent.tagName,
+			parentConnected: parent.isConnected,
+			ownerDocumentMatchesHost: parent.ownerDocument === this.hostEl?.ownerDocument,
+		});
+		return element;
+	}
+
 	private addEditorEditMenuButton() {
 		if (!this.hostEl) {
 			return;
@@ -2878,7 +2921,7 @@ export class DocxView extends FileView {
 					&& Boolean(child.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR))
 				));
 			const wrapper = existingEditWrapper
-				?? (sourceWrapper ? sourceWrapper.cloneNode(true) as HTMLElement : activeDocument.createDiv());
+				?? (sourceWrapper ? sourceWrapper.cloneNode(true) as HTMLElement : this.createDetachedEditorChromeElement(menubar, 'div', 'edit'));
 			markEditorChromeMenuItem(wrapper, 'edit');
 			wrapper.addClass('native-powerpoint-doc-editor-edit-menu-item');
 			wrapper.setCssProps({ position: 'relative' });
@@ -2891,7 +2934,7 @@ export class DocxView extends FileView {
 				}
 			});
 			if (!button) {
-				button = activeDocument.createEl('button');
+				button = this.createDetachedEditorChromeElement(wrapper, 'button', 'edit');
 				wrapper.appendChild(button);
 			}
 
@@ -3006,7 +3049,7 @@ export class DocxView extends FileView {
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
-					: activeDocument.createDiv();
+					: this.createDetachedEditorChromeElement(menubar, 'div', 'search');
 				markEditorChromeMenuItem(wrapper, 'search');
 				wrapper.addClass('native-powerpoint-doc-editor-search-menu-item');
 				wrapper.setCssProps({ position: 'relative' });
@@ -3019,7 +3062,7 @@ export class DocxView extends FileView {
 					}
 				});
 				if (!button) {
-					button = activeDocument.createEl('button');
+					button = this.createDetachedEditorChromeElement(wrapper, 'button', 'search');
 					wrapper.appendChild(button);
 				}
 				button.type = 'button';
@@ -3202,7 +3245,7 @@ export class DocxView extends FileView {
 				));
 				const wrapper = sourceWrapper
 					? sourceWrapper.cloneNode(true) as HTMLElement
-					: activeDocument.createDiv();
+					: this.createDetachedEditorChromeElement(menubar, 'div', 'settings');
 				markEditorChromeMenuItem(wrapper, 'settings');
 				wrapper.addClass('native-powerpoint-doc-editor-settings-menu-item');
 				wrapper.setCssProps({ position: 'relative' });
@@ -3215,7 +3258,7 @@ export class DocxView extends FileView {
 					}
 				});
 				if (!button) {
-					button = activeDocument.createEl('button');
+					button = this.createDetachedEditorChromeElement(wrapper, 'button', 'settings');
 					wrapper.appendChild(button);
 				}
 
@@ -3298,7 +3341,7 @@ export class DocxView extends FileView {
 				'[data-native-powerpoint-doc-editor-export-chevron], [data-native-power-point-doc-editor-export-chevron]',
 			).forEach(chevron => chevron.remove());
 				if (options.showChevron) {
-					const chevron = activeDocument.createSpan();
+					const chevron = this.createDetachedEditorChromeElement(button, 'span', 'export-as');
 					setDocxEditorDataAttr(chevron, 'export-chevron');
 					chevron.textContent = '›';
 					chevron.addClass('native-powerpoint-doc-editor-export-chevron');
@@ -3339,7 +3382,7 @@ export class DocxView extends FileView {
 				if (!duplicateWrapper) {
 					duplicateWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: this.createDetachedEditorChromeElement(dropdown, 'div', 'duplicate');
 					setDocxEditorDataAttr(duplicateWrapper, 'duplicate-menu-item');
 					duplicateWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-duplicate-menu-item']);
 
@@ -3374,12 +3417,12 @@ export class DocxView extends FileView {
 				if (!exportWrapper) {
 					exportWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: this.createDetachedEditorChromeElement(dropdown, 'div', 'export-as');
 					setDocxEditorDataAttr(exportWrapper, 'export-as-menu-item');
 
 					let exportButton = exportWrapper.querySelector('button');
 					if (!exportButton) {
-						exportButton = activeDocument.createEl('button');
+						exportButton = this.createDetachedEditorChromeElement(exportWrapper, 'button', 'export-as');
 						exportWrapper.appendChild(exportButton);
 					}
 					exportWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-export-menu-item']);
@@ -3402,7 +3445,7 @@ export class DocxView extends FileView {
 					for (const format of DOCX_EXPORT_FORMATS) {
 						const optionWrapper = sourceWrapper
 							? sourceWrapper.cloneNode(true) as HTMLElement
-							: activeDocument.createDiv();
+							: this.createDetachedEditorChromeElement(exportSubmenu, 'div', 'export-format');
 						optionWrapper.removeAttribute('data-native-powerpoint-doc-editor-export-as-menu-item');
 						optionWrapper.removeAttribute('data-native-power-point-doc-editor-export-as-menu-item');
 						const optionButton = optionWrapper.querySelector('button') ?? optionWrapper.createEl('button');
@@ -3440,7 +3483,7 @@ export class DocxView extends FileView {
 				if (!hiddenTextWrapper) {
 					hiddenTextWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: this.createDetachedEditorChromeElement(dropdown, 'div', 'find-hidden-text');
 					setDocxEditorDataAttr(hiddenTextWrapper, 'find-hidden-text-menu-item');
 					hiddenTextWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-find-hidden-text-menu-item']);
 					const hiddenTextButton = hiddenTextWrapper.querySelector('button') ?? hiddenTextWrapper.createEl('button');
@@ -3505,7 +3548,7 @@ export class DocxView extends FileView {
 					const sourceWrapper = itemWrappers.find((itemWrapper) => itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR));
 					const insertImageWrapper = sourceWrapper
 						? sourceWrapper.cloneNode(true) as HTMLElement
-						: activeDocument.createDiv();
+						: this.createDetachedEditorChromeElement(dropdown, 'div', 'insert-image');
 					setDocxEditorDataAttr(insertImageWrapper, 'insert-image-menu-item');
 					insertImageWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-insert-image-menu-item']);
 
