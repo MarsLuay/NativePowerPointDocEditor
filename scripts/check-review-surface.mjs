@@ -17,6 +17,11 @@ const scriptPath = fileURLToPath(import.meta.url);
 const defaultProjectRoot = path.resolve(path.dirname(scriptPath), '..');
 const BRIDGE_RELATIVE_PATH = 'src/docx/runtime/bridge.mjs';
 const STYLES_RELATIVE_PATH = 'src/docx/runtime/styles.ts';
+const GENERATED_STYLES_RELATIVE_PATH = 'src/docx/runtime/styles.js';
+const STYLES_FACADE_PATHS = new Set([
+	STYLES_RELATIVE_PATH,
+	GENERATED_STYLES_RELATIVE_PATH,
+]);
 const FACADE_FILES = [
 	'src/docx/runtime/contract.ts',
 	BRIDGE_RELATIVE_PATH,
@@ -188,7 +193,7 @@ async function checkSourceBoundaries(projectRoot, violations) {
 		if (source.includes('@npde/') && relativePath !== BRIDGE_RELATIVE_PATH) {
 			push(violations, `Direct @npde import/reference outside bridge: ${relativePath}`);
 		}
-		if (source.includes('vendor/docx-editor-runtime') && relativePath !== STYLES_RELATIVE_PATH) {
+		if (source.includes('vendor/docx-editor-runtime') && !STYLES_FACADE_PATHS.has(relativePath)) {
 			push(violations, `Direct vendored runtime reference outside CSS boundary: ${relativePath}`);
 		}
 

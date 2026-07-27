@@ -2357,6 +2357,43 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	margin: 4px 0;
 }
 
+.native-powerpoint-menubar-search-menu {
+	background: var(--background-primary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 8px;
+	box-shadow: var(--npde-menu-shadow);
+	max-width: calc(100vw - 16px);
+	min-width: 260px;
+	padding: 6px;
+	position: fixed;
+	z-index: 100020;
+}
+
+.native-powerpoint-menubar-search-input {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
+	border-radius: 5px;
+	box-shadow: none;
+	color: var(--npde-dialog-text);
+	font: inherit;
+	margin-bottom: 4px;
+	padding: 5px 8px;
+	width: 100%;
+}
+
+.native-powerpoint-menubar-search-results {
+	display: grid;
+	gap: 1px;
+	max-height: 260px;
+	overflow: auto;
+}
+
+.native-powerpoint-menubar-search-empty {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	padding: 8px 10px;
+}
+
 .native-powerpoint-print-frame {
 	position: fixed;
 	left: -10000px;

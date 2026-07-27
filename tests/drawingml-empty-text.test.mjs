@@ -22,6 +22,7 @@ async function loadDrawingMlTextModule() {
 		await build({
 		stdin: {
 			contents: [
+				"export { ensureDefaultShrinkAutofit } from './src/powerpoint/drawingmlText.ts';",
 				"export { deleteDrawingTextRanges } from './src/powerpoint/drawingmlText.ts';",
 				"export { getDrawingParagraphs, getDrawingRunText } from './src/powerpoint/drawingmlText.ts';",
 				"export { setDrawingText } from './src/powerpoint/drawingmlText.ts';",
@@ -44,6 +45,29 @@ async function loadDrawingMlTextModule() {
 	})();
 	return modulePromise;
 }
+
+test('edited text bodies default to shrink-to-fit only when no auto-fit mode is explicit', async () => {
+	const { ensureDefaultShrinkAutofit, getDescendants, parseXml } = await loadDrawingMlTextModule();
+	const defaultShape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>ASAP text</a:t></a:r></a:p></p:txBody>
+		</p:sp>
+	`, 'default-autofit.xml').documentElement;
+	assert.equal(ensureDefaultShrinkAutofit(defaultShape, defaultShape.ownerDocument), true);
+	assert.equal(getDescendants(defaultShape, 'normAutofit').length, 1);
+	assert.equal(ensureDefaultShrinkAutofit(defaultShape, defaultShape.ownerDocument), false);
+
+	const fixedShape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody><a:bodyPr><a:noAutofit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:t>Keep size</a:t></a:r></a:p></p:txBody>
+		</p:sp>
+	`, 'explicit-no-autofit.xml').documentElement;
+	assert.equal(ensureDefaultShrinkAutofit(fixedShape, fixedShape.ownerDocument), false);
+	assert.equal(getDescendants(fixedShape, 'noAutofit').length, 1);
+	assert.equal(getDescendants(fixedShape, 'normAutofit').length, 0);
+});
 
 test('setDrawingText populates an empty template placeholder paragraph', async () => {
 	const { getDescendants, parseXml, setDrawingText } = await loadDrawingMlTextModule();
@@ -80,6 +104,29 @@ test('setDrawingParagraphText populates an empty paragraph while retaining its p
 	assert.equal(getDescendants(paragraph, 'pPr').length, 1);
 	assert.equal(getDescendants(paragraph, 'r').length, 1);
 	assert.equal(getDescendants(paragraph, 'rPr')[0]?.getAttribute('sz'), '2600');
+});
+
+test('setDrawingParagraphText keeps existing run fonts when inline text changes', async () => {
+	const { getDescendants, getDrawingParagraphs, getDrawingRunText, parseXml, setDrawingParagraphText } = await loadDrawingMlTextModule();
+	const shape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody><a:bodyPr/><a:lstStyle/><a:p>
+				<a:r><a:rPr sz="2400"><a:latin typeface="Aptos"/></a:rPr><a:t>ASAP </a:t></a:r>
+				<a:r><a:rPr sz="3400" b="1"><a:latin typeface="Arial"/></a:rPr><a:t>filtration</a:t></a:r>
+				<a:endParaRPr/>
+			</a:p></p:txBody>
+		</p:sp>
+	`, 'preserve-inline-run-fonts.xml').documentElement;
+
+	setDrawingParagraphText(shape, 0, 'ASAP solid-phase filtration');
+	const runs = getDescendants(getDrawingParagraphs(shape)[0], 'r');
+	assert.deepEqual(runs.map(getDrawingRunText), ['ASAP ', 'solid-phase filtration']);
+	assert.equal(getDescendants(runs[0], 'rPr')[0]?.getAttribute('sz'), '2400');
+	assert.equal(getDescendants(runs[0], 'latin')[0]?.getAttribute('typeface'), 'Aptos');
+	assert.equal(getDescendants(runs[1], 'rPr')[0]?.getAttribute('sz'), '3400');
+	assert.equal(getDescendants(runs[1], 'rPr')[0]?.getAttribute('b'), '1');
+	assert.equal(getDescendants(runs[1], 'latin')[0]?.getAttribute('typeface'), 'Arial');
 });
 
 test('removeEmptyDrawingParagraphBefore removes only a structurally empty predecessor', async () => {

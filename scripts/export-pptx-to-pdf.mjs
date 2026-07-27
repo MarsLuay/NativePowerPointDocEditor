@@ -12,7 +12,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
-import { patchPptxRendererSource } from './lib/patch-pptx-renderer.mjs';
+import { createInlinePptxSvgWasmPlugin } from './lib/patch-pptx-renderer.mjs';
 import {
 	canUseElectronMainHarness,
 	projectRoot,
@@ -24,15 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const electronMainPath = path.join(__dirname, 'lib/electron-export-pdf-main.cjs');
 const cacheDir = path.join(projectRoot, 'scripts/.cache');
 
-const inlinePptxSvgWasmPlugin = {
-	name: 'inline-pptx-svg-wasm',
-	setup(buildContext) {
-		buildContext.onLoad({ filter: /pptx-renderer\.js$/ }, async ({ path: modulePath }) => {
-			const contents = patchPptxRendererSource(await readFile(modulePath, 'utf8'));
-			return { contents, loader: 'js' };
-		});
-	},
-};
+const inlinePptxSvgWasmPlugin = createInlinePptxSvgWasmPlugin();
 
 const obsidianShim = `
 export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };

@@ -562,6 +562,165 @@ test("splitParagraph creates a native sibling paragraph and preserves list and r
   assert.match(reloaded.renderSlide(0).svg, /^<svg\b/);
 });
 
+test("applyListStyleForRange isolates selected text as one native bullet paragraph", async () => {
+  const { createRequire } = await import("node:module");
+  const JSZip = createRequire(import.meta.url)("jszip");
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const styledParagraph = [
+    '<a:p><a:pPr algn="l" marL="0" indent="-285750"/><a:r><a:rPr lang="en-US" sz="2800"/><a:t>Prefix </a:t></a:r>',
+    '<a:r><a:rPr lang="en-US" sz="2800" b="1"/><a:t>selected</a:t></a:r>',
+    '<a:r><a:rPr lang="en-US" sz="2800" i="1"/><a:t> suffix</a:t></a:r>',
+    '<a:endParaRPr lang="en-US"/></a:p>',
+  ].join("");
+  const patched = await createTitleParagraphFixture([styledParagraph, paragraphXml("Trailing paragraph")]);
+  const engine = await PresentationEngine.load(patched);
+
+  const result = await engine.applyListStyleForRange(0, 0, {
+    paragraphIndex: 0,
+    start: 7,
+    end: 15,
+  }, "bullet");
+  assert.deepEqual(result, {
+    changed: true,
+    sourceParagraphIndex: 0,
+    selectedParagraphIndex: 1,
+    selectedRange: { paragraphIndex: 1, start: 0, end: 8 },
+    beforeParagraphCount: 2,
+    afterParagraphCount: 4,
+    splitPrefix: true,
+    splitSuffix: true,
+  });
+  assert.equal(engine.getParagraphRunText(0, 0, 0), "Prefix ");
+  assert.equal(engine.getParagraphRunText(0, 0, 1), "selected");
+  assert.equal(engine.getParagraphRunText(0, 0, 2), " suffix");
+  assert.equal(engine.getParagraphRunText(0, 0, 3), "Trailing paragraph");
+  assert.equal(engine.getParagraphListStyle(0, 0, 0), null);
+  assert.equal(engine.getParagraphListStyle(0, 0, 1), "bullet");
+  assert.equal(engine.getParagraphListStyle(0, 0, 2), null);
+  assert.equal(engine.getRunStyle(0, 0, 1, 0)?.bold, true);
+  assert.equal(engine.getRunStyle(0, 0, 2, 0)?.italic, true);
+
+  const exported = await engine.export();
+  const zip = await JSZip.loadAsync(exported);
+  const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+  assert.match(
+    slideXml,
+    /<a:pPr\b[^>]*\bmarL="285750"[^>]*\bindent="-285750"[^>]*><a:buFont\b[^>]*\btypeface="Arial"\/><a:buChar\b[^>]*\bchar="•"/,
+    "selected text replaces inherited zero-margin geometry with a hanging list indent",
+  );
+  assert.doesNotMatch(slideXml, /<a:t>[^<]*•/);
+
+  const reloaded = await PresentationEngine.load(exported);
+  assert.equal(reloaded.getParagraphRunText(0, 0, 1), "selected");
+  assert.equal(reloaded.getParagraphListStyle(0, 0, 1), "bullet");
+  assert.equal(reloaded.getRunStyle(0, 0, 1, 0)?.bold, true);
+  assert.equal(reloaded.getRunStyle(0, 0, 2, 0)?.italic, true);
+  const rendered = reloaded.renderSlide(0).svg;
+  assert.match(rendered, /^<svg\b/);
+  const renderedDocument = new globalThis.DOMParser().parseFromString(rendered, "text/xml");
+  const selectedParagraphContainers = Array.from(renderedDocument.getElementsByTagName("tspan")).filter(
+    (element) => element.getAttribute("data-ooxml-para-idx") === "1",
+  );
+  const hasRun = (element) => Array.from(element.getElementsByTagName("tspan")).some(
+    (child) => child.getAttribute("data-ooxml-run-idx") !== null,
+  );
+  const markerContainer = selectedParagraphContainers.find(
+    (element) => (element.textContent || "").trim().startsWith("•") && !hasRun(element),
+  );
+  const runContainer = selectedParagraphContainers.find((element) => hasRun(element));
+  assert.ok(markerContainer, "selected bullet renders in a marker-only container");
+  assert.ok(runContainer, "selected text renders after the marker");
+  assert.ok(
+    Number(runContainer.getAttribute("x")) > Number(markerContainer.getAttribute("x")),
+    "selected run starts to the right of its bullet marker",
+  );
+});
+
+test("applyListStyleForRanges toggles every selected bullet paragraph in one mutation", async () => {
+  const { createRequire } = await import("node:module");
+  const JSZip = createRequire(import.meta.url)("jszip");
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const texts = ["First line", "Second line", "Third line"];
+  const patched = await createTitleParagraphFixture(texts.map((text) => paragraphXml(text)));
+  const engine = await PresentationEngine.load(patched);
+  const ranges = texts.map((text, paragraphIndex) => ({
+    paragraphIndex,
+    start: 0,
+    end: text.length,
+  }));
+
+  await engine.applyListStyleForRanges(0, 0, ranges, "bullet");
+  for (let paragraphIndex = 0; paragraphIndex < texts.length; paragraphIndex += 1) {
+    assert.equal(engine.getParagraphListStyle(0, 0, paragraphIndex), "bullet");
+    assert.equal(engine.getParagraphRunText(0, 0, paragraphIndex), texts[paragraphIndex]);
+  }
+
+  await engine.applyListStyleForRanges(0, 0, ranges, "none");
+  for (let paragraphIndex = 0; paragraphIndex < texts.length; paragraphIndex += 1) {
+    assert.equal(engine.getParagraphListStyle(0, 0, paragraphIndex), "none");
+    assert.equal(engine.getParagraphRunText(0, 0, paragraphIndex), texts[paragraphIndex]);
+  }
+
+  const exported = await engine.export();
+  const zip = await JSZip.loadAsync(exported);
+  const slideXml = await zip.files["ppt/slides/slide1.xml"].async("string");
+  assert.equal((slideXml.match(/<a:buChar\b/g) || []).length, 0,
+    "removing every selected native bullet must remove all bullet markers from OOXML");
+  assert.equal((slideXml.match(/<a:buNone\b/g) || []).length, 3,
+    "removing every selected native bullet must explicitly suppress inherited markers");
+
+  const reloaded = await PresentationEngine.load(exported);
+  for (let paragraphIndex = 0; paragraphIndex < texts.length; paragraphIndex += 1) {
+    assert.equal(reloaded.getParagraphListStyle(0, 0, paragraphIndex), "none");
+  }
+  const renderedDocument = new globalThis.DOMParser().parseFromString(reloaded.renderSlide(0).svg, "text/xml");
+  const targetShape = Array.from(renderedDocument.getElementsByTagName("g")).find(
+    (element) => element.getAttribute("data-ooxml-shape-idx") === "0",
+  );
+  assert.ok(targetShape, "expected the edited text shape in the rendered slide");
+  assert.doesNotMatch(targetShape.textContent || "", /•/,
+    "removing every selected native bullet must remove all rendered bullet markers");
+});
+
+test("applyListStyleForRanges preserves source indices while partial ranges split paragraphs", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const patched = await createTitleParagraphFixture([
+    paragraphXml("First target"),
+    paragraphXml("Second target"),
+  ]);
+  const engine = await PresentationEngine.load(patched);
+
+  await engine.applyListStyleForRanges(0, 0, [
+    { paragraphIndex: 0, start: 6, end: 12 },
+    { paragraphIndex: 1, start: 7, end: 13 },
+  ], "bullet");
+
+  assert.deepEqual([0, 1, 2, 3].map((paragraphIndex) => (
+    engine.getParagraphRunText(0, 0, paragraphIndex)
+  )), ["First ", "target", "Second ", "target"]);
+  assert.deepEqual([0, 1, 2, 3].map((paragraphIndex) => (
+    engine.getParagraphListStyle(0, 0, paragraphIndex)
+  )), [null, "bullet", null, "bullet"]);
+});
+
+test("list toggle converts an imported literal bullet without leaving a duplicate marker", async () => {
+  const { PresentationEngine } = await loadPresentationEngineModule();
+  const literalBulletParagraph = [
+    '<a:p><a:pPr algn="l"/><a:r><a:rPr lang="en-US" sz="2800"/><a:t>• Imported list item</a:t></a:r>',
+    '<a:endParaRPr lang="en-US"/></a:p>',
+  ].join("");
+  const patched = await createTitleParagraphFixture([literalBulletParagraph]);
+  const engine = await PresentationEngine.load(patched);
+
+  await engine.applyListStyle(0, 0, 0, "bullet", true);
+  assert.equal(engine.getParagraphListStyle(0, 0, 0), "bullet");
+  assert.equal(engine.getParagraphRunText(0, 0, 0), "Imported list item");
+
+  await engine.applyListStyle(0, 0, 0, "none", true);
+  assert.equal(engine.getParagraphListStyle(0, 0, 0), "none");
+  assert.equal(engine.getParagraphRunText(0, 0, 0), "Imported list item");
+});
+
 test("replaceShapeParagraphs writes native list paragraphs and survives a round trip", async () => {
   const { createRequire } = await import("node:module");
   const JSZip = createRequire(import.meta.url)("jszip");

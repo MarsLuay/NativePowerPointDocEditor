@@ -4,9 +4,9 @@ import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
 import { createTranslateNotice } from '../i18n/translate';
 
 import { isElement, isNode } from '../domGuards';
-import { debugLog, errorLog } from '../logger';
+import { debugLog, errorLog, logPptxAction } from '../logger';
 import { createMenuItem, createPopoverShell, positionPopoverBelow } from '../menuControls';
-import type { InsertableShapeGeometry, PresentationEngine, TextBoxInsertOrigin } from '../PresentationEngine';
+import type { InsertableShapeGeometry, ParagraphTextRange, PresentationEngine, TextBoxInsertOrigin } from '../PresentationEngine';
 import {
   getImageMimeType,
   InsertTableModal,
@@ -19,6 +19,8 @@ import { cleanError } from './runtimeCompat';
 import type { PresentationSession } from './session/PresentationSession';
 import type { PptxCommand } from './commands/types';
 import type { HistoryEntry, TextEditTarget } from './types';
+
+const LEADING_MANUAL_BULLET = /^[\t \u00A0]*[•◦▪‣⁃][\t \u00A0]+/;
 
 export interface InsertHost {
   readonly t: TranslateFn;
@@ -42,6 +44,8 @@ export interface InsertHost {
   startTextEditor(): void;
   createEditIconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): HTMLButtonElement;
   getTextEditTarget(target: SVGTextElement | SVGTSpanElement | null): TextEditTarget | null;
+  getListStyleTarget(): { shapeIndex: number; paragraphIndex: number; ranges: ParagraphTextRange[] } | null;
+  finishInlineTextEditing(reason: string): Promise<void>;
   registerDocumentPointerDown(handler: (event: PointerEvent) => void, capture?: boolean): void;
   openToolbarPopover(anchor: HTMLElement, build: (popover: HTMLElement) => void): void;
   bindToolbarButton(button: HTMLElement, action: () => void): void;
@@ -438,10 +442,14 @@ export class InsertController {
   }
 
   async applyListStyle(style: ParagraphListStyle): Promise<void> {
-    if (!this.getInsertEngine('format text', 'PowerPoint list-style update failed', { style })) return;
+    const engine = this.getInsertEngine('format text', 'PowerPoint list-style update failed', { style });
+    if (!engine) return;
 
-    const textTarget = this.host.getTextEditTarget(this.host.activeEditorTarget);
-    const shapeIndex = textTarget?.shapeIndex ?? this.host.selectedShapeIndex;
+    // Resolve before awaiting an inline commit. That commit intentionally clears
+    // the live SVG target, which otherwise makes a paragraph-2 selection fall
+    // back to paragraph 0 of the selected text box.
+    const listTarget = this.host.getListStyleTarget();
+    const shapeIndex = listTarget?.shapeIndex ?? this.host.selectedShapeIndex;
     if (shapeIndex === null) {
       errorLog('insert', 'PowerPoint list-style update failed', {
         slide: this.host.currentSlide,
@@ -452,28 +460,115 @@ export class InsertController {
       return;
     }
 
-    const paragraphIndex = textTarget?.kind === 'shape-paragraph' ? textTarget.paragraphIndex : 0;
+    const paragraphIndex = listTarget?.paragraphIndex ?? 0;
+    const ranges = listTarget?.ranges ?? [];
+    const selectedParagraphIndexes = [...new Set(ranges.map((candidate) => candidate.paragraphIndex))];
+    const targetParagraphIndexes = selectedParagraphIndexes.length > 0
+      ? selectedParagraphIndexes
+      : [paragraphIndex];
+    const rawCurrentStyles = targetParagraphIndexes.map((index) => (
+      engine.getParagraphListStyle(this.host.currentSlide, shapeIndex, index)
+    ));
+    const hasLeadingManualBullets = targetParagraphIndexes.map((index) => {
+      return LEADING_MANUAL_BULLET.test(
+        engine.getParagraphRunText(this.host.currentSlide, shapeIndex, index) ?? '',
+      );
+    });
+    // Imported bullets can be literal text with an explicit `buNone`. Treat
+    // those visible markers as bullets for toggle resolution, so one click
+    // removes them instead of silently converting them into native bullets.
+    const currentStyles = rawCurrentStyles.map((candidate, index) => (
+      candidate === 'none' && hasLeadingManualBullets[index] ? 'bullet' : candidate
+    ));
+    const currentStyle = currentStyles[0] ?? null;
+    const stripLeadingManualBullet = hasLeadingManualBullets.some(Boolean);
+    const resolvedStyle = currentStyles.length > 0 && currentStyles.every((candidate) => candidate === style)
+      ? 'none'
+      : style;
+    // A list marker belongs to a paragraph, not its selected text fragment.
+    // Removing a list from a cross-paragraph drag must therefore expand every
+    // target back to its full run text; otherwise the first partial range splits
+    // and leaves its prefix bullet behind.
+    const removeWholeParagraphLists = resolvedStyle === 'none' && ranges.length > 0;
+    const commandRanges = removeWholeParagraphLists
+      ? targetParagraphIndexes.map((index) => ({
+        paragraphIndex: index,
+        start: 0,
+        end: (engine.getParagraphRunText(this.host.currentSlide, shapeIndex, index) ?? '').length,
+      })).filter((candidate) => candidate.end > candidate.start)
+      : ranges;
+    const range = commandRanges.length === 1 ? commandRanges[0] ?? null : null;
+    logPptxAction('text-format', 'apply-list-style', {
+      slide: this.host.currentSlide,
+      shapeIndex,
+      paragraphIndex,
+      style: resolvedStyle,
+      requestedStyle: style,
+      currentStyle,
+      currentStyles,
+      rawCurrentStyles,
+      hasLeadingManualBullets,
+      toggled: resolvedStyle === 'none',
+      stripLeadingManualBullet,
+      strategy: removeWholeParagraphLists
+        ? 'whole-paragraph-ranges'
+        : commandRanges.length > 1 ? 'selected-text-ranges' : range ? 'selected-text-range' : 'whole-paragraph',
+      range: range ? { start: range.start, end: range.end } : null,
+      selectedRangeCount: ranges.length,
+      appliedRangeCount: commandRanges.length,
+      selectedParagraphIndexes,
+    });
     try {
+      await this.host.finishInlineTextEditing('before-list-formatting');
       const history = await this.host.captureHistoryEntry(
-        style === 'bullet' ? 'Bulleted list' : style === 'number' ? 'Numbered list' : 'Remove list'
+        resolvedStyle === 'bullet' ? 'Bulleted list' : resolvedStyle === 'number' ? 'Numbered list' : 'Remove list'
       );
       await this.host.session.applyCommand({
-        type: 'apply-list-style',
         slideIndex: this.host.currentSlide,
         shapeIndex,
-        paragraphIndex,
-        style
+        style: resolvedStyle,
+        stripLeadingManualBullet,
+        ...(commandRanges.length > 1
+          ? { type: 'apply-list-style-ranges' as const, ranges: commandRanges }
+          : range
+            ? { type: 'apply-list-style-range' as const, range }
+            : { type: 'apply-list-style' as const, paragraphIndex }),
+      });
+      const appliedStyles = targetParagraphIndexes.map((index) => (
+        engine.getParagraphListStyle(this.host.currentSlide, shapeIndex, index)
+      ));
+      debugLog('text-format', 'Read back PowerPoint list style mutation', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        targetParagraphIndexes,
+        expectedStyle: resolvedStyle,
+        appliedStyles,
+        matchesExpected: appliedStyles.every((candidate) => candidate === resolvedStyle),
       });
       this.host.recordHistoryEntry(history);
       const rendered = await this.host.renderEditedShape(shapeIndex);
       // A list style changes one shape. Rebuilding the poster filmstrip renders
       // the entire slide synchronously; clone the canonical edited group instead.
       const thumbnailSynced = rendered && this.host.syncCurrentThumbnailShape(shapeIndex);
-      debugLog('insert', 'Applied PowerPoint list style', {
+      debugLog('text-format', 'Applied PowerPoint list style', {
         slide: this.host.currentSlide,
         shapeIndex,
         paragraphIndex,
-        style,
+        style: resolvedStyle,
+        requestedStyle: style,
+        currentStyle,
+        currentStyles,
+        rawCurrentStyles,
+        hasLeadingManualBullets,
+        toggled: resolvedStyle === 'none',
+        stripLeadingManualBullet,
+        strategy: removeWholeParagraphLists
+          ? 'whole-paragraph-ranges'
+          : commandRanges.length > 1 ? 'selected-text-ranges' : range ? 'selected-text-range' : 'whole-paragraph',
+        range: range ? { start: range.start, end: range.end } : null,
+        selectedRangeCount: ranges.length,
+        appliedRangeCount: commandRanges.length,
+        selectedParagraphIndexes,
         rendered,
         thumbnailSynced,
       });

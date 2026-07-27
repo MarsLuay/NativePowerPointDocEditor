@@ -60,6 +60,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'docx.insertTable': { op: 'docx.insertTable', afterBlockId: 'body/p[0]', rows: 2, cols: 2 },
 	'docx.setCellText': { op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Cell' },
 	'docx.setCellStyle': { op: 'docx.setCellStyle', cellId: 'body/tbl[0]/tr[0]/tc[0]', style: { name: 'Normal' } },
+	'docx.deleteTable': { op: 'docx.deleteTable', tableId: 'body/tbl[0]' },
 	'docx.insertImage': { op: 'docx.insertImage', afterBlockId: 'body/p[0]', vaultImagePath: 'assets/example.png' },
 	'docx.replaceImage': { op: 'docx.replaceImage', blockId: 'body/p[1]', vaultImagePath: 'assets/example.png' },
 	'docx.replaceText': { op: 'docx.replaceText', query: 'old', replacement: 'new', wholeWord: false },

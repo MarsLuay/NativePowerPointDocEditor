@@ -159,6 +159,12 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		void loadDocxEditorLocale(docxLanguage);
 		this.applyEditorThemePreference();
 		configureNativePowerPointDocEditorLogger(this.pluginSettings.debugLogging);
+		// Debug logging is an explicit user setting, not a hot-reload-only feature.
+		// Without this, installed development builds retain an old dev-debug.log but
+		// never attach its file sink unless a separate .hotreload marker exists.
+		if (this.pluginSettings.debugLogging && this.manifest.dir) {
+			await this.setupDevFileLog(this.manifest.dir);
+		}
 		this.aiCore = new AiCore({
 			getEnabled: () => this.pluginSettings.enableAiInterfacing,
 			pluginVersion: this.manifest.version,
@@ -373,7 +379,9 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			return;
 		}
 
-		await this.setupDevFileLog(pluginDir);
+		if (!this.pluginSettings.debugLogging) {
+			await this.setupDevFileLog(pluginDir);
+		}
 
 		const mainPath = `${pluginDir}/main.js`;
 		const stampPath = `${pluginDir}/.build-stamp`;

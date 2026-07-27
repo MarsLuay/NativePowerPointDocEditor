@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-07-27
+
+### Fixed
+
+- Kept PowerPoint text visible after a font change when a rendered shape fragment includes slide-level SVG definitions; the editor now uses a complete fresh slide render instead of dropping those definitions.
+- Prevented a stale filmstrip thumbnail from replacing the updated slide when a text-format render falls back to the full-slide path.
+
+### Changed
+
+- Kept every release artifact under Obsidian Sync Standard's 5 MB file limit by loading optional PowerPoint and HEIC engines on demand.
+
 ## [1.1.8] - 2026-07-25
 
 ### Changed

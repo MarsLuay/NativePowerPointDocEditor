@@ -399,7 +399,9 @@ export class TextToolbarController {
     const underline = this.createTextToolbarButton(styleGroup, 'underline', 'Underline', () => this.toggleRunFlag('underline'));
 
     const sizeGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
-    this.createTextToolbarButton(sizeGroup, 'minus', 'Decrease font size', () => this.stepFontSize(-1));
+    this.createTextToolbarButton(sizeGroup, 'minus', 'Decrease font size', () => {
+      void this.stepFontSize(-1);
+    });
     const fontSizeInput = sizeGroup.createEl('input', {
       cls: 'native-powerpoint-text-toolbar-size',
       type: 'number',
@@ -418,7 +420,9 @@ export class TextToolbarController {
         this.commitFontSizeInput();
       }
     });
-    this.createTextToolbarButton(sizeGroup, 'plus', 'Increase font size', () => this.stepFontSize(1));
+    this.createTextToolbarButton(sizeGroup, 'plus', 'Increase font size', () => {
+      void this.stepFontSize(1);
+    });
 
     const colorGroup = toolbar.createDiv({ cls: 'native-powerpoint-text-toolbar-group' });
     const textColorButton = this.createTextToolbarSwatchButton(colorGroup, 'baseline', 'Text color');

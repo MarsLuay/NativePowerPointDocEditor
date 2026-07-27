@@ -9,10 +9,18 @@ import { debugLog, errorLog } from '../logger';
 import { formatFindResultStatus, wrapMatchIndex } from '../find/findReplaceShell';
 import { createMenuItem, createPopoverShell, createToolbarIconButton } from '../menuControls';
 import { cleanError } from './runtimeCompat';
+import {
+  collectFindMatchesFromSearchIndex,
+  createFindSearchIndexSlideFromOoxml,
+  type PowerPointFindSearchIndexSlide,
+} from './findSearchIndex';
 import { normalizeSearchText } from './textUtils';
 import { getShapeIndex } from './svgUtils';
 import type { PresentationSession } from './session/PresentationSession';
 import type { HistoryEntry, PowerPointFindMatch, SvgInlineSelectionBox } from './types';
+
+const FIND_INDEX_YIELD_BUDGET_MS = 8;
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 /**
  * The slice of `NativePowerPointView` that the find/replace subsystem reaches
@@ -35,6 +43,7 @@ export interface FindReplaceHost {
   clearSelection(): void;
   captureHistoryEntry(label: string): Promise<HistoryEntry>;
   recordHistoryEntry(entry: HistoryEntry): void;
+  navigateToSlide(index: number, reason: string): Promise<void>;
   renderCurrentSlide(keepSelection?: boolean): Promise<boolean>;
   renderThumbnails(): Promise<void>;
   getShapeTextParagraphs(shape: Element): (SVGTextElement | SVGTSpanElement)[];
@@ -54,6 +63,7 @@ export interface FindReplaceHost {
  */
 export class FindReplaceController {
   private findMatches: PowerPointFindMatch[] = [];
+  private findMatchesQuery = '';
   private currentFindMatchIndex = 0;
   private findHighlightRects: SVGRectElement[] = [];
 
@@ -66,6 +76,15 @@ export class FindReplaceController {
   private findPanelDomScope: Component | null = null;
   private findPanelDismissHandler: ((event: Event) => void) | null = null;
   private findPanelRepositionHandler: (() => void) | null = null;
+  private findRefreshRequestId = 0;
+  private findSearchIndex: PowerPointFindSearchIndexSlide[] | null = null;
+  private findSearchIndexEngine: PresentationEngine | null = null;
+  private findSearchIndexBuild: {
+    engine: PresentationEngine;
+    generation: number;
+    promise: Promise<PowerPointFindSearchIndexSlide[] | null>;
+  } | null = null;
+  private findSearchIndexGeneration = 0;
   private isFindReplaceMode = false;
   private readonly notice: TranslateNoticeFn;
 
@@ -155,9 +174,7 @@ export class FindReplaceController {
       ariaLabel: this.host.t('powerpoint:find.replaceAllMatches')
     });
 
-    input.addEventListener('input', () => {
-      void this.refreshFindMatches({ reveal: true });
-    });
+    input.addEventListener('input', () => this.scheduleFindRefresh());
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -245,6 +262,8 @@ export class FindReplaceController {
   /** Tears down the panel and its global listeners. Call from the view's onClose. */
   dispose(): void {
     debugLog('search', 'PowerPoint find panel dispose started', { op: 'dispose' });
+    this.beginFindRefreshRequest();
+    this.invalidateFindSearchIndex('dispose');
     this.detachFindPanelDismissHandlers();
     this.findPanelEl?.remove();
     this.findPanelEl = null;
@@ -253,7 +272,10 @@ export class FindReplaceController {
   /** Clears match state and panel inputs when a presentation is (un)loaded. */
   reset(): void {
     debugLog('search', 'PowerPoint find reset started', { op: 'reset' });
+    this.beginFindRefreshRequest();
+    this.invalidateFindSearchIndex('reset');
     this.findMatches = [];
+    this.findMatchesQuery = '';
     this.currentFindMatchIndex = 0;
     if (this.findInputEl) this.findInputEl.value = '';
     if (this.findReplaceInputEl) this.findReplaceInputEl.value = '';
@@ -264,9 +286,12 @@ export class FindReplaceController {
 
   /** Re-applies in-slide match highlighting after the current slide re-renders. */
   refreshHighlight(): void {
+    this.invalidateFindSearchIndex('slide-render');
+    const panelOpen = this.isFindPanelOpen();
     debugLog('search', 'PowerPoint find highlight refresh started', {
       op: 'refresh-highlight',
-      matchCount: this.findMatches.length
+      matchCount: this.findMatches.length,
+      panelOpen,
     });
     this.applyFindHighlight();
   }
@@ -326,7 +351,7 @@ export class FindReplaceController {
       return;
     }
 
-    if (this.findMatches.length === 0) {
+    if (this.findMatches.length === 0 || this.findMatchesQuery !== query) {
       await this.refreshFindMatches();
       if (this.findMatches.length === 0) {
         this.notice('powerpoint:notice.noMatchesToReplace');
@@ -435,10 +460,22 @@ export class FindReplaceController {
   }
 
   private closeFindPanel(): void {
+    const wasOpen = this.isFindPanelOpen();
+    this.beginFindRefreshRequest();
     this.findPanelEl?.removeClass('is-open');
     this.findButtonEl?.removeClass('is-active');
     this.detachFindPanelDismissHandlers();
     this.clearFindHighlight();
+    debugLog('search', 'PowerPoint find panel closed', {
+      op: 'close',
+      wasOpen,
+      matchCount: this.findMatches.length,
+      slide: this.host.currentSlide,
+    });
+  }
+
+  private isFindPanelOpen(): boolean {
+    return this.findPanelEl?.hasClass('is-open') === true;
   }
 
   private getSelectedFindSeedText(): string {
@@ -455,12 +492,32 @@ export class FindReplaceController {
     return '';
   }
 
-  private async refreshFindMatches(options: { reveal?: boolean } = {}): Promise<void> {
+  private scheduleFindRefresh(): void {
+    const query = this.findInputEl?.value.trim() ?? '';
+    const requestId = this.beginFindRefreshRequest();
+    this.clearFindHighlight();
+    if (!query) {
+      void this.refreshFindMatches({ requestId });
+      return;
+    }
+
+    this.findStatusEl?.setText(this.host.t('powerpoint:find.searching'));
+    void this.refreshFindMatches({ requestId });
+  }
+
+  private beginFindRefreshRequest(): number {
+    this.findRefreshRequestId += 1;
+    return this.findRefreshRequestId;
+  }
+
+  private async refreshFindMatches(options: { reveal?: boolean; requestId?: number } = {}): Promise<void> {
+    const requestId = options.requestId ?? this.beginFindRefreshRequest();
     const query = this.findInputEl?.value.trim() ?? '';
     this.clearFindHighlight();
 
     if (!this.host.engine || !query) {
       this.findMatches = [];
+      this.findMatchesQuery = '';
       this.currentFindMatchIndex = 0;
       this.updateFindStatus();
       debugLog('search', 'PowerPoint find results cleared', {
@@ -471,81 +528,176 @@ export class FindReplaceController {
       return;
     }
 
-    this.findMatches = this.collectFindMatches(query);
-    if (this.findMatches.length === 0) {
-      this.currentFindMatchIndex = 0;
-      this.updateFindStatus();
-      debugLog('search', 'PowerPoint find completed', {
+    const startedAt = performance.now();
+    let searchIndex: PowerPointFindSearchIndexSlide[] | null;
+    try {
+      searchIndex = await this.getFindSearchIndex();
+      debugLog('search', 'PowerPoint find index received by refresh', {
         op: 'refresh-matches',
         queryLength: query.length,
-        matchCount: 0,
-        slideCount: this.host.engine.slideCount
+        hasSearchIndex: Boolean(searchIndex),
+        requestId,
+        activeRequestId: this.findRefreshRequestId,
+      });
+    } catch (error) {
+      if (requestId !== this.findRefreshRequestId) return;
+      this.findMatches = [];
+      this.findMatchesQuery = '';
+      this.currentFindMatchIndex = 0;
+      this.updateFindStatus();
+      errorLog('search', 'PowerPoint find index build failed', {
+        op: 'build-index',
+        queryLength: query.length,
+        error,
       });
       return;
     }
+    try {
+      const activeQuery = this.findInputEl?.value.trim() ?? '';
+      const panelOpen = this.findPanelEl?.hasClass('is-open') === true;
+      if (query !== activeQuery || !panelOpen || !searchIndex) {
+        debugLog('search', 'PowerPoint find result refresh skipped', {
+          op: 'refresh-matches',
+          queryLength: query.length,
+          activeQueryLength: activeQuery.length,
+          panelOpen,
+          hasSearchIndex: Boolean(searchIndex),
+          requestId,
+          activeRequestId: this.findRefreshRequestId,
+        });
+        return;
+      }
 
-    const currentSlideMatchIndex = this.findMatches.findIndex((match) => match.slideIndex >= this.host.currentSlide);
-    this.currentFindMatchIndex = currentSlideMatchIndex === -1 ? 0 : currentSlideMatchIndex;
+      this.findMatches = collectFindMatchesFromSearchIndex(searchIndex, query);
+      this.findMatchesQuery = query;
+      const searchMs = Math.round(performance.now() - startedAt);
+      if (this.findMatches.length === 0) {
+        this.currentFindMatchIndex = 0;
+        this.updateFindStatus();
+        debugLog('search', 'PowerPoint find completed', {
+          op: 'refresh-matches',
+          queryLength: query.length,
+          matchCount: 0,
+          slideCount: this.host.engine.slideCount,
+          searchMs
+        });
+        return;
+      }
 
-    if (options.reveal) {
-      await this.revealCurrentFindMatch();
-    } else {
-      this.applyFindHighlight();
-      this.updateFindStatus();
+      const currentSlideMatchIndex = this.findMatches.findIndex((match) => match.slideIndex >= this.host.currentSlide);
+      this.currentFindMatchIndex = currentSlideMatchIndex === -1 ? 0 : currentSlideMatchIndex;
+
+      if (options.reveal) {
+        await this.revealCurrentFindMatch();
+      } else {
+        this.applyFindHighlight();
+        this.updateFindStatus();
+      }
+      debugLog('search', 'PowerPoint find completed', {
+        op: 'refresh-matches',
+        queryLength: query.length,
+        matchCount: this.findMatches.length,
+        slideCount: this.host.engine.slideCount,
+        selectedMatch: this.currentFindMatchIndex + 1,
+        reveal: options.reveal === true,
+        searchMs
+      });
+    } catch (error) {
+      errorLog('search', 'PowerPoint find refresh failed', {
+        op: 'refresh-matches',
+        queryLength: query.length,
+        requestId,
+        error,
+      });
     }
-    debugLog('search', 'PowerPoint find completed', {
-      op: 'refresh-matches',
-      queryLength: query.length,
-      matchCount: this.findMatches.length,
-      slideCount: this.host.engine.slideCount,
-      selectedMatch: this.currentFindMatchIndex + 1,
-      reveal: options.reveal === true
-    });
   }
 
-  private collectFindMatches(query: string): PowerPointFindMatch[] {
+  private async getFindSearchIndex(): Promise<PowerPointFindSearchIndexSlide[] | null> {
     const engine = this.host.engine;
-    if (!engine) return [];
+    if (!engine) return null;
+    if (this.findSearchIndex && this.findSearchIndexEngine === engine) {
+      return this.findSearchIndex;
+    }
+    const generation = this.findSearchIndexGeneration;
+    if (
+      this.findSearchIndexBuild
+      && this.findSearchIndexBuild.engine === engine
+      && this.findSearchIndexBuild.generation === generation
+    ) {
+      return this.findSearchIndexBuild.promise;
+    }
 
-    const queryLower = query.toLocaleLowerCase();
-    const matches: PowerPointFindMatch[] = [];
-    const parser = new DOMParser();
+    this.findSearchIndexEngine = engine;
+    const promise = this.buildFindSearchIndex(engine, generation);
+    this.findSearchIndexBuild = { engine, generation, promise };
+    const clearBuild = () => {
+      if (this.findSearchIndexBuild?.promise === promise) {
+        this.findSearchIndexBuild = null;
+      }
+    };
+    void promise.then(clearBuild).catch(clearBuild);
+    return promise;
+  }
+
+  private async buildFindSearchIndex(
+    engine: PresentationEngine,
+    generation: number,
+  ): Promise<PowerPointFindSearchIndexSlide[] | null> {
+    const startedAt = performance.now();
+    const searchIndex: PowerPointFindSearchIndexSlide[] = [];
+    let shapeCount = 0;
+    let yieldedAt = startedAt;
+    debugLog('search', 'PowerPoint find index build started', {
+      op: 'build-index',
+      slideCount: engine.slideCount,
+    });
 
     for (let slideIndex = 0; slideIndex < engine.slideCount; slideIndex++) {
-      const { svg } = engine.renderSlide(slideIndex);
-      const slideDocument = parser.parseFromString(svg, 'image/svg+xml');
-      const shapeElements = Array.from(slideDocument.querySelectorAll('g[data-ooxml-shape-idx]'));
-      let foundShapeMatch = false;
-
-      for (const shape of shapeElements) {
-        const shapeIndex = getShapeIndex(shape);
-        if (shapeIndex === null) continue;
-
-        const text = normalizeSearchText(shape.textContent ?? '');
-        if (!text || !text.toLocaleLowerCase().includes(queryLower)) continue;
-
-        foundShapeMatch = true;
-        matches.push({ slideIndex, shapeIndex, text });
+      if (generation !== this.findSearchIndexGeneration || engine !== this.host.engine) {
+        return null;
       }
+      const indexSlide = createFindSearchIndexSlideFromOoxml(slideIndex, engine.getSlideXml(slideIndex));
+      shapeCount += indexSlide.shapeMatches.length;
+      searchIndex.push(indexSlide);
 
-      if (!foundShapeMatch) {
-        const slideText = normalizeSearchText(slideDocument.documentElement.textContent ?? '');
-        if (slideText && slideText.toLocaleLowerCase().includes(queryLower)) {
-          matches.push({ slideIndex, shapeIndex: null, text: slideText });
-        }
+      if (performance.now() - yieldedAt >= FIND_INDEX_YIELD_BUDGET_MS) {
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+        yieldedAt = performance.now();
       }
     }
 
-    return matches;
+    if (generation !== this.findSearchIndexGeneration || engine !== this.host.engine) {
+      return null;
+    }
+    this.findSearchIndex = searchIndex;
+    this.findSearchIndexEngine = engine;
+    debugLog('search', 'PowerPoint find index build completed', {
+      op: 'build-index',
+      slideCount: searchIndex.length,
+      shapeCount,
+      ms: Math.round(performance.now() - startedAt),
+    });
+    return searchIndex;
+  }
+
+  private invalidateFindSearchIndex(reason: string): void {
+    const hadIndex = this.findSearchIndex !== null || this.findSearchIndexBuild !== null;
+    this.findSearchIndexGeneration += 1;
+    this.findSearchIndex = null;
+    this.findSearchIndexEngine = null;
+    if (hadIndex) {
+      debugLog('search', 'PowerPoint find index invalidated', { op: 'invalidate-index', reason });
+    }
   }
 
   private async moveFindMatch(direction: -1 | 1): Promise<void> {
-    if (!this.findInputEl?.value.trim()) {
+    const query = this.findInputEl?.value.trim() ?? '';
+    if (!query) {
       this.open();
       return;
     }
 
-    if (this.findMatches.length === 0) {
+    if (this.findMatches.length === 0 || this.findMatchesQuery !== query) {
       await this.refreshFindMatches();
       if (this.findMatches.length === 0) return;
     }
@@ -562,12 +714,7 @@ export class FindReplaceController {
     }
 
     if (match.slideIndex !== this.host.currentSlide) {
-      this.host.session.setCurrentSlide(match.slideIndex);
-      this.host.clearSelection();
-      const rendered = await this.host.renderCurrentSlide();
-      if (rendered) {
-        await this.host.renderThumbnails();
-      }
+      await this.host.navigateToSlide(match.slideIndex, 'find-match');
     }
 
     // Intentionally do not select the matched shape: a selection would draw a
@@ -589,7 +736,13 @@ export class FindReplaceController {
 
   private applyFindHighlight(): void {
     this.clearFindHighlight();
-    if (!this.host.svgEl) return;
+    if (!this.isFindPanelOpen() || !this.host.svgEl) {
+      debugLog('search', 'PowerPoint find highlight skipped', {
+        op: 'apply-highlight',
+        reason: this.isFindPanelOpen() ? 'missing-slide' : 'panel-closed',
+      });
+      return;
+    }
 
     const query = this.findInputEl?.value ?? '';
     const trimmed = query.trim();
@@ -635,9 +788,13 @@ export class FindReplaceController {
     const textElement = element.closest('text');
     const parent = textElement?.parentNode;
     if (!isSVGTextElement(textElement) || !parent) return;
+    const ownerDocument = textElement.ownerDocument;
 
     for (const box of boxes) {
-      const rect = activeDocument.createSvg('rect');
+      // Obsidian's createSvg helper appends to its receiver. The text can live
+      // in an SVG/XML document, where appending a second root throws
+      // HierarchyRequestError. Create the rect detached, then insert it below.
+      const rect = ownerDocument.createElementNS(SVG_NAMESPACE, 'rect');
       rect.classList.add('native-powerpoint-find-highlight');
       if (isCurrent) rect.classList.add('is-current');
       rect.setAttribute('x', this.host.formatSvgNumber(box.x));

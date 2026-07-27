@@ -170,12 +170,32 @@ test('PresentationSession exposes history outcomes and snapshots', async () => {
   const events = [];
   session.subscribe((event) => events.push(event));
 
-  assert.equal(session.undo(), true);
-  assert.equal(session.redo(), false);
+  assert.equal(await session.undo(), true);
+  assert.equal(await session.redo(), false);
 
   assert.deepEqual(
     events.map(({ type, action }) => [type, action]),
-    [['history', 'undo'], ['history', 'redo']],
+    [['history', 'undo']],
   );
-  assert.notEqual(events[0].snapshot, events[1].snapshot, 'events must each publish a fresh snapshot');
+  assert.ok(events[0].snapshot, 'the successful history action publishes a snapshot');
+});
+
+test('PresentationSession waits for async history completion before reporting an undo', async () => {
+  const { PresentationSession } = await loadPresentationSessionModule();
+  let completeUndo;
+  const session = new PresentationSession(createSaveHost(), {
+    history: {
+      undo: () => new Promise((resolve) => { completeUndo = resolve; }),
+      redo: () => false,
+    },
+  });
+  const events = [];
+  session.subscribe((event) => events.push(event));
+
+  const undo = session.undo();
+  assert.deepEqual(events, [], 'history is not announced before the restore settles');
+
+  completeUndo(true);
+  assert.equal(await undo, true);
+  assert.deepEqual(events.map(({ type, action }) => [type, action]), [['history', 'undo']]);
 });

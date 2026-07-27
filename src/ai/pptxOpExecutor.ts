@@ -12,6 +12,7 @@ import type { ShapeTransform } from 'pptx-svg';
 import type { ParagraphListStyle } from '../SlideInsertions';
 import type { DrawingParagraphText } from '../powerpoint/drawingmlText';
 import { isEditableShapeIndex } from '../powerpoint/svgUtils';
+import { readRasterImageDimensions } from '../powerpoint/imageDimensions';
 import { AI_ERROR_CODES, createAiError } from './errors';
 import { describePptxFromEngine } from './pptxDescribe';
 import { pptxShapeId } from './pptxIds';
@@ -174,56 +175,17 @@ async function applyTransformToInsertedShape(
 	await engine.applyInsertedShapeTransform(slideIndex, shapeIndex, transform);
 }
 
-/** Read pixel size from PNG/JPEG bytes without a native image decoder. */
-function readRasterPixelSize(bytes: Uint8Array, extension: string): { width: number; height: number } | null {
-	const ext = extension.replace(/^\./, '').toLowerCase();
-	const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-	const looksPng =
-		bytes.length >= 24 &&
-		bytes[0] === 0x89 &&
-		bytes[1] === 0x50 &&
-		bytes[2] === 0x4e &&
-		bytes[3] === 0x47;
-	if ((ext === 'png' || ext === 'apng' || looksPng) && looksPng) {
-		const width = view.getUint32(16);
-		const height = view.getUint32(20);
-		return width > 0 && height > 0 ? { width, height } : null;
-	}
-	const looksJpeg = bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8;
-	if ((ext === 'jpg' || ext === 'jpeg' || looksJpeg) && looksJpeg) {
-		let offset = 2;
-		while (offset + 9 < bytes.length) {
-			if (view.getUint8(offset) !== 0xff) {
-				offset += 1;
-				continue;
-			}
-			const marker = view.getUint8(offset + 1);
-			const size = view.getUint16(offset + 2);
-			// SOF0 / SOF2
-			if (marker === 0xc0 || marker === 0xc2) {
-				const height = view.getUint16(offset + 5);
-				const width = view.getUint16(offset + 7);
-				return width > 0 && height > 0 ? { width, height } : null;
-			}
-			if (size < 2) break;
-			offset += 2 + size;
-		}
-	}
-	return null;
-}
-
 /**
  * Cover-fit crop fractions so the source fills the target box (may trim edges).
  * Returns null when no crop is needed or dimensions are unknown.
  */
 function computeCoverCrop(
 	bytes: Uint8Array,
-	extension: string,
 	frameCx: number,
 	frameCy: number,
 ): ImageCrop | null {
 	if (frameCx <= 0 || frameCy <= 0) return null;
-	const size = readRasterPixelSize(bytes, extension);
+	const size = readRasterImageDimensions(bytes);
 	if (!size) return null;
 	const imageAspect = size.width / size.height;
 	const frameAspect = frameCx / frameCy;
@@ -815,7 +777,6 @@ export async function executePptxOp(
 				if (!wasImage && before.transform?.cx && before.transform?.cy) {
 					const cover = computeCoverCrop(
 						image.bytes,
-						image.extension,
 						before.transform.cx,
 						before.transform.cy,
 					);

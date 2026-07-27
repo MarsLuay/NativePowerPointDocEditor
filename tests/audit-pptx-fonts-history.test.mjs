@@ -184,7 +184,7 @@ function createFakeHost() {
       this.state = readBuffer(buffer);
     },
   };
-  const calls = { render: 0, thumbnails: 0, markDirty: 0 };
+  const calls = { render: 0, thumbnails: 0, markDirty: 0, invalidated: [], order: [] };
   const host = {
     t: (key) => key,
     engine,
@@ -204,8 +204,13 @@ function createFakeHost() {
     markDirty() {
       calls.markDirty += 1;
     },
+    invalidateCachedSlideRenders(indices) {
+      calls.invalidated.push(Array.isArray(indices) ? [...indices] : [indices]);
+      calls.order.push("invalidate");
+    },
     async renderCurrentSlide() {
       calls.render += 1;
+      calls.order.push("render");
       return true;
     },
     async renderThumbnails() {
@@ -241,6 +246,22 @@ test("capture snapshots current state; undo then redo round-trips the document",
   assert.equal(engine.state, 20, "redo re-applies the undone state");
   assert.equal(controller.canUndo, true);
   assert.equal(controller.canRedo, false);
+});
+
+test("history invalidates cached thumbnails before rendering a restored snapshot", async () => {
+  const { HistoryController } = await loadHistoryControllerModule();
+  const { host, engine, calls } = createFakeHost();
+  const controller = new HistoryController(host);
+
+  engine.state = 10;
+  const entry = await controller.capture("edit");
+  engine.state = 20;
+  controller.record(entry);
+
+  assert.equal(await controller.undo(), true);
+  assert.deepEqual(calls.invalidated, [[0, 1, 2]], "snapshot restore invalidates every slide cache");
+  assert.deepEqual(calls.order.slice(0, 2), ["invalidate", "render"],
+    "the history redraw must not read a stale thumbnail cache");
 });
 
 test("record() caps the undo stack at HISTORY_LIMIT (20) entries", async () => {

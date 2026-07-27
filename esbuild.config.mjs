@@ -28,7 +28,29 @@ const prod = (process.argv[2] === "production");
 const vaultPluginDir =
 	process.env.OBSIDIAN_PLUGIN_DIR
 	|| path.resolve("../../.obsidian/plugins/native-powerpoint-doc-editor");
-const filesToDeploy = ["main.js", "styles.css", "manifest.json"];
+const optionalRuntimeArtifacts = [
+	{
+		source: "src/powerpoint/backend/pptxJsEngine.mjs",
+		artifact: "pptx-js-engine.mjs",
+		bundle: false,
+	},
+	{
+		source: "src/powerpoint/backend/pptxWasmRenderer.mjs",
+		artifact: "pptx-wasm-renderer.mjs",
+		bundle: true,
+	},
+	{
+		source: "src/powerpoint/heicDecode.mjs",
+		artifact: "heic-decode.mjs",
+		bundle: true,
+	},
+];
+const filesToDeploy = [
+	"main.js",
+	...optionalRuntimeArtifacts.map(({ artifact }) => artifact),
+	"styles.css",
+	"manifest.json",
+];
 const dirsToDeploy = ["locales", "ai"];
 const projectRoot = path.resolve(".");
 const docxEditorAliases = await createDocxEditorAliases(
@@ -67,6 +89,64 @@ const deployToVaultPlugin = {
 			}
 
 			console.log(`[deploy] synced ${filesToDeploy.join(", ")}, ${dirsToDeploy.join(", ")} -> ${vaultPluginDir}`);
+		});
+	}
+};
+
+// Keep optional heavyweight runtimes lazy all the way to the installed plugin.
+// CJS builds otherwise fold them into main.js, exceeding Obsidian Sync
+// Standard's 5 MB per-file limit even though they are only used when opening a
+// PPTX or converting a HEIC image.
+const externalRuntimeArtifactImports = [
+	{
+		importPath: "./pptxJsEngine.mjs",
+		importerSuffix: "/src/powerpoint/backend/rendererBackend.ts",
+		artifact: "pptx-js-engine.mjs",
+	},
+	{
+		importPath: "./pptxWasmRenderer.mjs",
+		importerSuffix: "/src/powerpoint/backend/rendererBackend.ts",
+		artifact: "pptx-wasm-renderer.mjs",
+	},
+	{
+		importPath: "./heicDecode.mjs",
+		importerSuffix: "/src/powerpoint/heicToPng.ts",
+		artifact: "heic-decode.mjs",
+	},
+];
+
+const externalRuntimeArtifactsPlugin = {
+	name: "external-runtime-artifacts",
+	setup(build) {
+		build.onResolve({ filter: /^\.\// }, (args) => {
+			const importer = args.importer.replace(/\\/g, "/");
+			const runtimeArtifact = externalRuntimeArtifactImports.find((candidate) =>
+				args.path === candidate.importPath && importer.endsWith(candidate.importerSuffix));
+			return runtimeArtifact
+				? { path: `./${runtimeArtifact.artifact}`, external: true }
+				: undefined;
+		});
+	}
+};
+
+const emitOptionalRuntimeArtifactsPlugin = {
+	name: "emit-optional-runtime-artifacts",
+	setup(build) {
+		build.onEnd(async (result) => {
+			if (result.errors.length > 0) return;
+			await Promise.all(optionalRuntimeArtifacts.map(async ({ source, artifact, bundle }) => {
+				await esbuild.build({
+					entryPoints: [source],
+					outfile: artifact,
+					bundle,
+					format: "esm",
+					target: "es2020",
+					loader: { ".wasm": "binary" },
+					minify: prod,
+					logLevel: "info",
+					plugins: bundle ? [inlinePptxSvgWasmPlugin] : [],
+				});
+			}));
 		});
 	}
 };
@@ -165,7 +245,14 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: prod ? false : "inline",
 	treeShaking: true,
-	plugins: [stripReactDomScriptPlugin, stripDocxEditorCssSideEffectImports, inlinePptxSvgWasmPlugin, deployToVaultPlugin],
+	plugins: [
+		stripReactDomScriptPlugin,
+		stripDocxEditorCssSideEffectImports,
+		inlinePptxSvgWasmPlugin,
+		externalRuntimeArtifactsPlugin,
+		emitOptionalRuntimeArtifactsPlugin,
+		deployToVaultPlugin,
+	],
 	outdir: ".",
 	entryNames: "[name]",
 	minify: prod,

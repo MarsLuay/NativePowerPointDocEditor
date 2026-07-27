@@ -68,6 +68,7 @@ function createHistoryHost(engine) {
     clearDragState() {},
     clearSelection() {},
     markDirty() {},
+    invalidateCachedSlideRenders() {},
     async renderCurrentSlide() {
       return true;
     },

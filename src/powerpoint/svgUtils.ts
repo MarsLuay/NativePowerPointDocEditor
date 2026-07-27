@@ -88,6 +88,15 @@ export function getSvgIntrinsicSize(svg: SVGSVGElement): SlideSize | null {
   return null;
 }
 
+/**
+ * `pptx-svg` shape fragments may start with a slide-level `<defs>` block.
+ * A caller that swaps only the returned shape group must fall back to a full
+ * slide render: dropping those definitions can make the replacement invisible.
+ */
+export function svgFragmentHasDefinitions(fragment: string): boolean {
+  return /<\s*defs(?:\s|>)/i.test(fragment);
+}
+
 export function transformsMatch(a: ShapeTransform, b: ShapeTransform): boolean {
   return a.x === b.x && a.y === b.y && a.cx === b.cx && a.cy === b.cy && a.rot === b.rot;
 }
@@ -106,7 +115,7 @@ export function ensureSvgViewBox(svg: SVGSVGElement): void {
   }
 }
 
-export function bringGridTextToFront(svg: SVGSVGElement): void {
+export function bringGridTextToFront(svg: Element): void {
   const gridGroups = svg.querySelectorAll(GENERATED_GRID_SELECTOR);
 
   for (const gridGroup of Array.from(gridGroups)) {
@@ -136,7 +145,7 @@ export function bringGridTextToFront(svg: SVGSVGElement): void {
   }
 }
 
-export function markEditableTextRuns(svg: SVGSVGElement): void {
+export function markEditableTextRuns(svg: Element): void {
   svg.querySelectorAll('tspan[data-ooxml-run-idx]').forEach((run) => {
     if (!run.closest(GENERATED_GRID_SELECTOR)) {
       run.classList.add('native-powerpoint-editable-text');
@@ -144,7 +153,7 @@ export function markEditableTextRuns(svg: SVGSVGElement): void {
   });
 }
 
-export function normalizePictureStretchImages(svg: SVGSVGElement): void {
+export function normalizePictureStretchImages(svg: Element): void {
   svg.querySelectorAll('g[data-ooxml-shape-type="picture"][data-ooxml-blip-stretch="1"] image')
     .forEach((image) => {
       image.setAttribute('preserveAspectRatio', 'none');
@@ -157,4 +166,16 @@ export function normalizeSvgForDisplay(svg: SVGSVGElement): void {
   normalizePictureStretchImages(svg);
   bringGridTextToFront(svg);
   markEditableTextRuns(svg);
+}
+
+/**
+ * Normalize one freshly rendered shape without walking an unchanged slide.
+ * The shape is already attached to its slide, so flip geometry can read the
+ * root SVG's scale while every other pass remains local to the replacement.
+ */
+export function normalizeShapeForDisplay(shape: SVGGElement): void {
+  applyShapeFlipTransforms(shape);
+  normalizePictureStretchImages(shape);
+  bringGridTextToFront(shape);
+  markEditableTextRuns(shape);
 }

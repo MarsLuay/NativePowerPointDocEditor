@@ -8,9 +8,12 @@
 # npm
 node_modules
 
-# Don't include the compiled main.js file in the repo.
+# Don't include compiled plugin runtime artifacts in the repo.
 # They should be uploaded to GitHub releases instead.
 main.js
+pptx-js-engine.mjs
+pptx-wasm-renderer.mjs
+heic-decode.mjs
 ai/capabilities.json
 
 # Exclude sourcemaps

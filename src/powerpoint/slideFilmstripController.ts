@@ -4,6 +4,7 @@ import type { TranslateFn, TranslateNoticeFn } from '../i18n/translate';
 import { createTranslateNotice } from '../i18n/translate';
 
 import type { PresentationEngine, SlideLayoutKind } from '../PresentationEngine';
+import type { FontSubstitution } from '../FontFidelity';
 import { createSvgElementFromString, type SvgSecurityIssue } from '../SvgSecurity';
 import type { ShapeTransform } from 'pptx-svg';
 import { debugLog, errorLog, warnLog } from '../logger';
@@ -31,6 +32,7 @@ export interface SlideFilmstripHost {
   readonly engine: PresentationEngine | null;
   /** Already-rendered active slide; cloning it avoids re-rendering a large poster thumbnail. */
   readonly svgEl: SVGSVGElement | null;
+  readonly fontSubstitutions: readonly FontSubstitution[];
   readonly thumbnailContainer: HTMLElement | null;
   readonly isLoading: boolean;
   currentSlide: number;
@@ -55,6 +57,12 @@ export interface SlideFilmstripHost {
   createNativeMenu(): Menu;
 }
 
+/** A completed filmstrip preview is also a safe, display-ready slide render. */
+export interface CachedSlideRender {
+  svg: SVGSVGElement;
+  fontSubstitutions: FontSubstitution[];
+}
+
 /**
  * Owns the slide thumbnail filmstrip, slide navigation, multi-slide selection,
  * and slide CRUD/reorder operations. Extracted verbatim from
@@ -73,6 +81,7 @@ export class SlideFilmstripController {
   private thumbnailObserver: IntersectionObserver | null = null;
   private cancelIdleThumbnailFill: (() => void) | null = null;
   private renderedThumbnailIndices = new Set<number>();
+  private readonly thumbnailFontSubstitutions = new Map<number, FontSubstitution[]>();
 
   constructor(private readonly host: SlideFilmstripHost) {
     this.notice = createTranslateNotice(this.host.t);
@@ -87,7 +96,62 @@ export class SlideFilmstripController {
     this.cancelIdleThumbnailFill?.();
     this.cancelIdleThumbnailFill = null;
     this.renderedThumbnailIndices.clear();
+    this.thumbnailFontSubstitutions.clear();
     this.thumbnailRenderGeneration += 1;
+  }
+
+  /**
+   * Reuse a finished filmstrip SVG when navigating to that slide. Both paths
+   * pass through the same sanitizer and display-normalization pipeline, so the
+   * clone is safe to move into the canvas without another synchronous renderer
+   * pass. Invalidation is coupled to thumbnail refreshes below.
+   */
+  getCachedSlideRender(index: number): CachedSlideRender | null {
+    const rendered = this.renderedThumbnailIndices.has(index);
+    debugLog('render', 'PowerPoint slide render cache lookup', { index, rendered });
+    if (!rendered) return null;
+
+    const item = this.host.thumbnailContainer
+      ?.querySelectorAll('.native-powerpoint-thumbnail')
+      .item(index);
+    const thumbnailSvg = item?.querySelector('svg');
+    if (!thumbnailSvg || thumbnailSvg.tagName.toLowerCase() !== 'svg') return null;
+
+    const svg = thumbnailSvg.cloneNode(true) as SVGSVGElement;
+    svg.removeClass('native-powerpoint-thumbnail-svg');
+    svg.removeClass('native-powerpoint-slide-svg');
+    svg.querySelectorAll(
+      '.native-powerpoint-shape-selected, .native-powerpoint-text-editing, .native-powerpoint-find-current',
+    ).forEach((element) => element.classList.remove(
+      'native-powerpoint-shape-selected',
+      'native-powerpoint-text-editing',
+      'native-powerpoint-find-current',
+    ));
+    svg.querySelectorAll('.native-powerpoint-find-highlight').forEach((element) => element.remove());
+
+    return {
+      svg,
+      fontSubstitutions: [...(this.thumbnailFontSubstitutions.get(index) ?? [])],
+    };
+  }
+
+  /**
+   * Prevent an old thumbnail from being reused as the main canvas while the
+   * refreshed thumbnail is still pending. History restore must call this
+   * before its full-slide redraw or Ctrl+Z can paint the pre-restore SVG.
+   */
+  invalidateCachedSlideRenders(indices: number | number[]): void {
+    const requested = Array.isArray(indices) ? indices : [indices];
+    const invalidated: number[] = [];
+    for (const index of requested) {
+      if (!Number.isInteger(index) || index < 0) continue;
+      this.renderedThumbnailIndices.delete(index);
+      this.thumbnailFontSubstitutions.delete(index);
+      invalidated.push(index);
+    }
+    if (invalidated.length > 0) {
+      debugLog('render', 'Invalidated cached PowerPoint slide renders', { indices: invalidated });
+    }
   }
 
   /**
@@ -106,13 +170,17 @@ export class SlideFilmstripController {
     const preview = item.querySelector('.native-powerpoint-thumbnail-preview');
     if (!isHTMLElement(preview)) return;
 
+    this.renderedThumbnailIndices.delete(index);
+    this.thumbnailFontSubstitutions.delete(index);
     preview.empty();
     const activeSlideSvg = index === this.host.currentSlide
       ? this.cloneActiveSlideSvgForThumbnail()
       : null;
     const source = activeSlideSvg ? 'active-slide-dom' : 'engine-render';
+    let fontSubstitutions: FontSubstitution[] = [];
     if (activeSlideSvg) {
       preview.appendChild(activeSlideSvg);
+      fontSubstitutions = [...this.host.fontSubstitutions];
     } else {
       try {
         const safeSvg = this.host.prepareSvgForRender(this.host.engine.renderSlide(index).svg, true);
@@ -135,11 +203,12 @@ export class SlideFilmstripController {
       // display normalization in renderCurrentSlide. Repeating that work here
       // was a multi-second main-thread stall on image-heavy posters.
       if (source === 'engine-render') {
-        this.host.engine.applyFontFidelity(thumbnailSvg);
+        fontSubstitutions = this.host.engine.applyFontFidelity(thumbnailSvg);
         this.host.engine.formatChartAxisLabels(thumbnailSvg, index);
         normalizeSvgForDisplay(thumbnailSvg);
       }
       thumbnailSvg.addClass('native-powerpoint-thumbnail-svg');
+      this.thumbnailFontSubstitutions.set(index, fontSubstitutions);
     }
 
     debugLog('render', 'PowerPoint renderThumbnailAt complete', {
@@ -158,11 +227,15 @@ export class SlideFilmstripController {
     const thumbnailSvg = source.cloneNode(true) as SVGSVGElement;
     thumbnailSvg.removeClass('native-powerpoint-slide-svg');
     thumbnailSvg
-      .querySelectorAll('.native-powerpoint-shape-selected, .native-powerpoint-text-editing')
+      .querySelectorAll(
+        '.native-powerpoint-shape-selected, .native-powerpoint-text-editing, .native-powerpoint-find-current, .native-powerpoint-find-highlight',
+      )
       .forEach((element) => element.classList.remove(
         'native-powerpoint-shape-selected',
         'native-powerpoint-text-editing',
+        'native-powerpoint-find-current',
       ));
+    thumbnailSvg.querySelectorAll('.native-powerpoint-find-highlight').forEach((element) => element.remove());
     return thumbnailSvg;
   }
 
@@ -175,6 +248,8 @@ export class SlideFilmstripController {
     for (const index of list) {
       if (Number.isInteger(index) && index >= 0) {
         this.pendingThumbnailIndices.add(index);
+        this.renderedThumbnailIndices.delete(index);
+        this.thumbnailFontSubstitutions.delete(index);
       }
     }
     if (this.thumbnailRefreshScheduled) return;
@@ -233,6 +308,7 @@ export class SlideFilmstripController {
     this.cancelIdleThumbnailFill?.();
     this.cancelIdleThumbnailFill = null;
     this.renderedThumbnailIndices.clear();
+    this.thumbnailFontSubstitutions.clear();
     thumbnailContainer.empty();
 
     for (let index = 0; index < slideCount; index += 1) {
@@ -457,6 +533,12 @@ export class SlideFilmstripController {
   }
 
   navigateToSlide(index: number, reason: string): void {
+    debugLog('slide', 'PowerPoint slide navigation queued', { index, reason });
+    void this.navigateToSlideAndWait(index, reason);
+  }
+
+  /** Queue navigation for callers, such as Find, that must await the new slide. */
+  navigateToSlideAndWait(index: number, reason: string): Promise<void> {
     const run = () => this.goToSlide(index, reason);
 	this.slideNavigationPromise = this.slideNavigationPromise
 		.then(run, run)
@@ -467,7 +549,7 @@ export class SlideFilmstripController {
 				error: cleanError(error),
 			});
 		});
-	void this.slideNavigationPromise;
+	return this.slideNavigationPromise;
   }
 
   private updateThumbnailActiveState(): void {

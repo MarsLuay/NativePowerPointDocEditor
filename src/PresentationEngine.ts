@@ -34,6 +34,8 @@ import {
 } from './ShapeClipboard';
 import {
   applyParagraphListStyle,
+  applyParagraphRangeListStyle,
+  applyParagraphRangeListStyles,
   insertChartIntoPresentation,
   insertShapeIntoPresentation,
   insertTableIntoPresentation,
@@ -43,7 +45,8 @@ import {
   mergeMissingPackageParts,
   mergeSlideGraphicFramesFromBuffer,
   permuteSlidesInBuffer,
-  type ParagraphListStyle
+  type ParagraphListStyle,
+  type ParagraphListStyleRangeResult,
 } from './SlideInsertions';
 import {
   collectShapeRelationshipIds,
@@ -77,7 +80,9 @@ import {
   applyRunStyleToParagraphRange,
   disableShrinkAutofit,
   deleteDrawingTextRanges,
+  ensureDefaultShrinkAutofit,
   getDrawingParagraphs,
+  getDrawingParagraphFontSummary,
   getDrawingRunText,
   getDrawingRuns,
   hasEmptyDrawingParagraphBefore,
@@ -239,6 +244,7 @@ export interface PrecedingParagraphMergeResult {
 
 /** Result metadata for deleting one inline text selection, including paragraph joins. */
 export type TextRangeDeletionResult = DrawingTextRangeDeletionResult;
+export type ListStyleRangeResult = ParagraphListStyleRangeResult;
 
 /** Top-left insertion point in slide DrawingML EMUs. */
 export interface TextBoxInsertOrigin {
@@ -866,6 +872,7 @@ export class PresentationEngine {
     const textElements = getDescendants(shape, 't')
       .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
     setDrawingText(shape, text);
+    const defaultShrinkAutofitEnabled = ensureDefaultShrinkAutofit(shape, slideDoc);
     const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
     await this.reloadFromBuffer(patchedExport, this.slideCountValue);
     debugLog('text-edit', 'Updated PowerPoint shape text through OOXML', {
@@ -873,6 +880,7 @@ export class PresentationEngine {
       shapeIndex,
       hadTextNode: textElements.length > 0,
       characterCount: text.length,
+      defaultShrinkAutofitEnabled,
     });
   }
 
@@ -886,9 +894,10 @@ export class PresentationEngine {
     paragraphs: readonly DrawingParagraphText[],
   ): Promise<void> {
     let beforeParagraphCount = 0;
-    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       beforeParagraphCount = getDrawingParagraphs(shape).length;
       replaceDrawingParagraphs(shape, paragraphs);
+      ensureDefaultShrinkAutofit(shape, slideDoc);
       return true;
     });
 
@@ -912,11 +921,17 @@ export class PresentationEngine {
     text: string
   ): Promise<void> {
     let hadRuns: boolean | null = null;
+    let fontSummaryBefore = null;
+    let fontSummaryAfter = null;
+    let defaultShrinkAutofitEnabled = false;
     try {
-      await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+      await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
         const paragraph = getDrawingParagraphs(shape)[paragraphIndex];
         hadRuns = paragraph ? getDrawingRuns(paragraph).length > 0 : null;
+        fontSummaryBefore = getDrawingParagraphFontSummary(paragraph);
         setDrawingParagraphText(shape, paragraphIndex, text);
+        fontSummaryAfter = getDrawingParagraphFontSummary(getDrawingParagraphs(shape)[paragraphIndex]);
+        defaultShrinkAutofitEnabled = ensureDefaultShrinkAutofit(shape, slideDoc);
         return true;
       });
       debugLog('text-edit', 'Updated PowerPoint paragraph text through OOXML', {
@@ -925,6 +940,9 @@ export class PresentationEngine {
         paragraphIndex,
         hadRuns,
         characterCount: text.length,
+        fontSummaryBefore,
+        fontSummaryAfter,
+        defaultShrinkAutofitEnabled,
       });
     } catch (error) {
       errorLog('text-edit', 'Failed to update PowerPoint paragraph text through OOXML', {
@@ -933,6 +951,9 @@ export class PresentationEngine {
         paragraphIndex,
         hadRuns,
         characterCount: text.length,
+        fontSummaryBefore,
+        fontSummaryAfter,
+        defaultShrinkAutofitEnabled,
         error,
       });
       throw error;
@@ -962,8 +983,9 @@ export class PresentationEngine {
       listStyle: 'inherited',
       removedSoftBreaks: 0,
     };
+    let defaultShrinkAutofitEnabled = false;
 
-    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       const paragraphs = getDrawingParagraphs(shape);
       const paragraph = paragraphs[paragraphIndex];
       if (!paragraph) {
@@ -980,6 +1002,7 @@ export class PresentationEngine {
       }
 
       const insertedParagraphIndex = splitDrawingParagraphAtOffset(shape, paragraphIndex, splitOffset);
+      defaultShrinkAutofitEnabled = ensureDefaultShrinkAutofit(shape, slideDoc);
       result = {
         paragraphIndex: insertedParagraphIndex,
         beforeParagraphCount,
@@ -1001,6 +1024,7 @@ export class PresentationEngine {
       listStyle: result.listStyle,
       removedSoftBreaks: result.removedSoftBreaks,
       usedPendingEditorText: text !== undefined,
+      defaultShrinkAutofitEnabled,
     });
     return result;
   }
@@ -1024,7 +1048,7 @@ export class PresentationEngine {
       reason: 'no-previous-paragraph',
     };
 
-    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+    await this.editSlideShape(slideIndex, shapeIndex, (shape, _slideDoc) => {
       const paragraphs = getDrawingParagraphs(shape);
       const beforeParagraphCount = paragraphs.length;
       if (!paragraphs[paragraphIndex]) {
@@ -1090,8 +1114,9 @@ export class PresentationEngine {
       afterParagraphCount: 0,
       reason: 'no-previous-paragraph',
     };
+    let defaultShrinkAutofitEnabled = false;
 
-    await this.editSlideShape(slideIndex, shapeIndex, (shape) => {
+    await this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
       const paragraphs = getDrawingParagraphs(shape);
       const beforeParagraphCount = paragraphs.length;
       if (!paragraphs[paragraphIndex]) {
@@ -1110,6 +1135,9 @@ export class PresentationEngine {
         setDrawingParagraphText(shape, paragraphIndex, text);
       }
       const merged = mergeDrawingParagraphWithPrevious(shape, paragraphIndex);
+      if (merged.merged) {
+        defaultShrinkAutofitEnabled = ensureDefaultShrinkAutofit(shape, slideDoc);
+      }
       const afterParagraphCount = getDrawingParagraphs(shape).length;
       result = {
         merged: merged.merged,
@@ -1133,6 +1161,7 @@ export class PresentationEngine {
       usedPendingEditorText: text !== undefined,
       merged: result.merged,
       reason: result.reason,
+      defaultShrinkAutofitEnabled,
     });
     return result;
   }
@@ -1187,6 +1216,7 @@ export class PresentationEngine {
     const slideDoc = parseXml(slideXml, slidePath);
     const shape = getShapeElement(slideDoc, shapeIndex);
     setDrawingTextRun(shape, paragraphIndex, runIndex, text);
+    ensureDefaultShrinkAutofit(shape, slideDoc);
     const patchedExport = await buildZip(rawExport, new Map([[slidePath, serializeXml(slideDoc)]]));
     await this.reloadFromBuffer(patchedExport, this.slideCountValue);
   }
@@ -2186,7 +2216,8 @@ export class PresentationEngine {
     slideIndex: number,
     shapeIndex: number,
     paragraphIndex: number,
-    style: ParagraphListStyle
+    style: ParagraphListStyle,
+    stripLeadingManualBullet = false,
   ): Promise<void> {
     // This funnel reconciles the renderer export against `currentBuffer`, so it
     // must reflect any fast-path commits first or those edits would be lost.
@@ -2198,9 +2229,89 @@ export class PresentationEngine {
       mergedSlide,
       this.prunedPackageParts,
     );
-    const patched = await applyParagraphListStyle(mergedPackage, slideIndex, shapeIndex, paragraphIndex, style);
+    const patched = await applyParagraphListStyle(
+      mergedPackage,
+      slideIndex,
+      shapeIndex,
+      paragraphIndex,
+      style,
+      stripLeadingManualBullet,
+    );
     const preserved = await preserveSlideExtensionLists(this.currentBuffer, patched);
     // Re-graft any highlights the renderer stripped before reloading.
+    const reconciled = await this.reconcileRunPropsIntoBuffer(preserved);
+    await this.reloadFromBuffer(reconciled, this.slideCountValue);
+  }
+
+  /**
+   * Isolate one selected text range as a native DrawingML paragraph and apply
+   * the requested list marker through the same lossless export funnel as the
+   * whole-paragraph operation.
+   */
+  async applyListStyleForRange(
+    slideIndex: number,
+    shapeIndex: number,
+    range: ParagraphTextRange,
+    style: ParagraphListStyle,
+    stripLeadingManualBullet = false,
+  ): Promise<ListStyleRangeResult> {
+    await this.syncCurrentBuffer();
+    const rawExport = await this.renderer.exportPptx();
+    const mergedSlide = await mergeSlideGraphicFramesFromBuffer(this.currentBuffer, rawExport, slideIndex);
+    const mergedPackage = await mergeMissingPackageParts(
+      this.currentBuffer,
+      mergedSlide,
+      this.prunedPackageParts,
+    );
+    const applied = await applyParagraphRangeListStyle(
+      mergedPackage,
+      slideIndex,
+      shapeIndex,
+      range,
+      style,
+      stripLeadingManualBullet,
+    );
+    const preserved = await preserveSlideExtensionLists(this.currentBuffer, applied.buffer);
+    const reconciled = await this.reconcileRunPropsIntoBuffer(preserved);
+    await this.reloadFromBuffer(reconciled, this.slideCountValue);
+    debugLog('text-format', 'Applied PowerPoint list style to selected text range', {
+      slideIndex,
+      shapeIndex,
+      sourceParagraphIndex: applied.result.sourceParagraphIndex,
+      selectedParagraphIndex: applied.result.selectedParagraphIndex,
+      selectedLength: applied.result.selectedRange.end,
+      style,
+      splitPrefix: applied.result.splitPrefix,
+      splitSuffix: applied.result.splitSuffix,
+    });
+    return applied.result;
+  }
+
+  /** Apply one list style across multiple selected paragraphs/ranges atomically. */
+  async applyListStyleForRanges(
+    slideIndex: number,
+    shapeIndex: number,
+    ranges: ParagraphTextRange[],
+    style: ParagraphListStyle,
+    stripLeadingManualBullet = false,
+  ): Promise<void> {
+    await this.syncCurrentBuffer();
+    const rawExport = await this.renderer.exportPptx();
+    const mergedSlide = await mergeSlideGraphicFramesFromBuffer(this.currentBuffer, rawExport, slideIndex);
+    const mergedPackage = await mergeMissingPackageParts(
+      this.currentBuffer,
+      mergedSlide,
+      this.prunedPackageParts,
+    );
+    const patched = await applyParagraphRangeListStyles(
+      mergedPackage,
+      slideIndex,
+      shapeIndex,
+      ranges,
+      style,
+      stripLeadingManualBullet,
+    );
+    const preserved = await preserveSlideExtensionLists(this.currentBuffer, patched);
     const reconciled = await this.reconcileRunPropsIntoBuffer(preserved);
     await this.reloadFromBuffer(reconciled, this.slideCountValue);
   }

@@ -244,7 +244,7 @@ function createNotesMasterXml(): string {
 }
 
 function createNotesSlideDocument(text: string): XMLDocument {
-  const document = parseXml(
+  const notesDocument = parseXml(
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:notes xmlns:a="${DRAWINGML_NAMESPACE}" xmlns:r="${RELATIONSHIP_NAMESPACE}" xmlns:p="${PRESENTATION_NAMESPACE}">
   <p:cSld name=""><p:spTree>${groupShapeTreeXml()}${notesBodyShapeXml(2)}</p:spTree></p:cSld>
@@ -252,10 +252,10 @@ function createNotesSlideDocument(text: string): XMLDocument {
 </p:notes>`,
     '(new notes slide)',
   );
-  const bodyShape = findNotesBodyShape(document);
+  const bodyShape = findNotesBodyShape(notesDocument);
   if (!bodyShape) throw new Error('Could not create a speaker-notes body placeholder.');
   writeBodyPlaceholderText(bodyShape, text);
-  return document;
+  return notesDocument;
 }
 
 function groupShapeTreeXml(): string {
@@ -272,20 +272,20 @@ function notesBodyShapeXml(id: number): string {
 </p:sp>`;
 }
 
-function findNotesBodyShape(document: XMLDocument): Element | null {
-  return getDescendants(document, 'sp').find((shape) =>
+function findNotesBodyShape(notesDocument: XMLDocument): Element | null {
+  return getDescendants(notesDocument, 'sp').find((shape) =>
     getDescendants(shape, 'ph').some((placeholder) =>
       placeholder.namespaceURI === PRESENTATION_NAMESPACE && placeholder.getAttribute('type') === 'body',
     ),
   ) ?? null;
 }
 
-function appendNotesBodyShape(document: XMLDocument): Element {
-  const shapeTree = getDescendants(document, 'spTree')[0];
+function appendNotesBodyShape(notesDocument: XMLDocument): Element {
+  const shapeTree = getDescendants(notesDocument, 'spTree')[0];
   if (!shapeTree) throw new Error('Could not find the notes slide shape tree.');
   const maxId = Math.max(
     1,
-    ...getDescendants(document, 'cNvPr')
+    ...getDescendants(notesDocument, 'cNvPr')
       .map((properties) => Number(properties.getAttribute('id')))
       .filter((id) => Number.isFinite(id)),
   );
@@ -295,7 +295,7 @@ function appendNotesBodyShape(document: XMLDocument): Element {
   );
   const shape = getDescendants(template, 'sp')[0];
   if (!shape) throw new Error('Could not create the notes body placeholder.');
-  const imported = document.importNode(shape, true);
+  const imported = notesDocument.importNode(shape, true);
   shapeTree.appendChild(imported);
   return imported;
 }
@@ -343,8 +343,8 @@ function writeBodyPlaceholderText(shape: Element, text: string): void {
   for (const paragraph of paragraphs) textBody.removeChild(paragraph);
 }
 
-function createEmptyParagraph(document: Document): Element {
-  return document.createElementNS(DRAWINGML_NAMESPACE, 'a:p');
+function createEmptyParagraph(ownerDocument: Document): Element {
+  return ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:p');
 }
 
 function createNotesParagraph(template: Element, text: string): Element {
@@ -388,20 +388,20 @@ function appendRelationship(relationships: XMLDocument, type: string, target: st
   return id;
 }
 
-function ensureContentTypeOverride(document: XMLDocument, partPath: string, contentType: string): void {
+function ensureContentTypeOverride(contentTypesDocument: XMLDocument, partPath: string, contentType: string): void {
   const partName = `/${partPath}`;
-  const exists = getDescendants(document, 'Override')
+  const exists = getDescendants(contentTypesDocument, 'Override')
     .some((override) => override.getAttribute('PartName') === partName);
   if (exists) return;
 
-  const override = document.createElementNS(CONTENT_TYPES_NAMESPACE, 'Override');
+  const override = contentTypesDocument.createElementNS(CONTENT_TYPES_NAMESPACE, 'Override');
   override.setAttribute('PartName', partName);
   override.setAttribute('ContentType', contentType);
-  document.documentElement.appendChild(override);
+  contentTypesDocument.documentElement.appendChild(override);
 }
 
-function getRelationshipsByType(document: XMLDocument, type: string): Element[] {
-  return getDescendants(document, 'Relationship')
+function getRelationshipsByType(relationshipsDocument: XMLDocument, type: string): Element[] {
+  return getDescendants(relationshipsDocument, 'Relationship')
     .filter((relationship) => relationship.getAttribute('Type') === type);
 }
 

@@ -162,6 +162,26 @@ export type PptxCommand =
       readonly shapeIndex: number;
       readonly paragraphIndex: number;
       readonly style: ParagraphListStyle;
+      /** Remove an imported literal bullet when the toolbar converts/toggles it. */
+      readonly stripLeadingManualBullet?: boolean;
+    }
+  | {
+      readonly type: 'apply-list-style-range';
+      readonly slideIndex: number;
+      readonly shapeIndex: number;
+      readonly range: ParagraphTextRange;
+      readonly style: ParagraphListStyle;
+      /** Remove an imported literal bullet when the toolbar converts/toggles it. */
+      readonly stripLeadingManualBullet?: boolean;
+    }
+  | {
+      readonly type: 'apply-list-style-ranges';
+      readonly slideIndex: number;
+      readonly shapeIndex: number;
+      readonly ranges: ParagraphTextRange[];
+      readonly style: ParagraphListStyle;
+      /** Remove imported literal bullets only where a selected range starts at the paragraph head. */
+      readonly stripLeadingManualBullet?: boolean;
     }
   | { readonly type: 'set-slide-background-color'; readonly slideIndex: number; readonly hex: string }
   | {

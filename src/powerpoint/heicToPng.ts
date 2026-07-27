@@ -5,8 +5,6 @@
  * would add — best quality for a format PowerPoint already handles well.
  */
 
-import decodeHeic from 'heic-decode';
-
 const HEIC_MIME_TYPES = new Set([
   'image/heic',
   'image/heif',
@@ -104,6 +102,10 @@ export function fitWithinMaxEdge(
 
 /** Decode HEIC/HEIF bytes to PNG bytes (lossless relative to the decoded raster). */
 export async function convertHeicBytesToPng(bytes: Uint8Array): Promise<Uint8Array> {
+  // HEIC decoding bundles libheif (~1.5 MB). It is needed only for a HEIC/HEIF
+  // insert or paste, so keep it outside main.js. esbuild rewrites this
+  // source-relative import to the emitted plugin-root `heic-decode.mjs`.
+  const { default: decodeHeic } = await import('./heicDecode.mjs');
   const decoded = await decodeHeic({ buffer: toHeicDecodeBuffer(bytes) });
   const { width, height, data } = decoded;
   if (!width || !height || !data) {

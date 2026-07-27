@@ -85,15 +85,14 @@ test("flipTransformForShape builds a center-anchored mirror transform", async ()
   assert.equal(shapeFlipRenderedInGeometry(mockShape({ "data-ooxml-geom": "rect" })), false);
 });
 
-test("live SVG flip wrappers bypass Obsidian's document createSvg helper", async () => {
+test("live SVG flip wrappers are created detached from their owning document", async () => {
   const source = await readFile(
     path.join(projectRoot, "src/powerpoint/shapeFlipTransforms.ts"),
     "utf8",
   );
 
-  assert.match(source, /ownerDocument\.win as unknown as SvgFactoryWindow/);
-  assert.match(source, /svgWindow\.createSvg\('g'\)/);
-  assert.doesNotMatch(source, /ownerDocument\.createSvg/);
+  assert.match(source, /shape\.ownerDocument\.createElementNS\(SVG_NAMESPACE, 'g'\)/);
+  assert.doesNotMatch(source, /createSvg\(/);
 });
 
 test("flipShape works for autoshapes, not only pictures", async () => {

@@ -405,6 +405,14 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
+	docxOp('deleteTable', 'table', 'Delete a table block.', {
+		type: 'object',
+		required: ['tableId'],
+		properties: {
+			tableId: { type: 'string', description: 'e.g. body/tbl[0]' },
+		},
+		additionalProperties: false,
+	}),
 
 	// DOCX — image
 	docxOp('insertImage', 'image', 'Insert an image after a block.', {

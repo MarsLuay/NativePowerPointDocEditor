@@ -29,6 +29,8 @@ export interface HistoryHost {
   clearDragState(): void;
   clearSelection(): void;
   markDirty(): void;
+  /** Prevent stale thumbnail SVG from being reused during a history redraw. */
+  invalidateCachedSlideRenders(indices: number | number[]): void;
   renderCurrentSlide(keepSelection?: boolean): Promise<boolean>;
   renderThumbnails(): Promise<void>;
   scheduleThumbnailRefresh(indices: number | number[]): void;
@@ -230,34 +232,34 @@ export class HistoryController {
     this.updateAvailability();
   }
 
-  async undo(): Promise<void> {
-    await this.restoreHistoryEntry(this.undoStack, this.redoStack, 'undo');
+  async undo(): Promise<boolean> {
+    return this.restoreHistoryEntry(this.undoStack, this.redoStack, 'undo');
   }
 
-  async redo(): Promise<void> {
-    await this.restoreHistoryEntry(this.redoStack, this.undoStack, 'redo');
+  async redo(): Promise<boolean> {
+    return this.restoreHistoryEntry(this.redoStack, this.undoStack, 'redo');
   }
 
   private async restoreHistoryEntry(
     source: HistoryEntry[],
     destination: HistoryEntry[],
     action: 'undo' | 'redo'
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (!this.host.engine) {
       debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'no-engine' });
-      return;
+      return false;
     }
     if (this.isRestoringHistory) {
       debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'restoring' });
-      return;
+      return false;
     }
     if (source.length === 0) {
       debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'empty-stack' });
-      return;
+      return false;
     }
     if (!this.host.ensureEditable(action)) {
       debugLog('history', `PowerPoint ${action} skipped`, { op: action, reason: 'not-editable' });
-      return;
+      return false;
     }
     if (this.host.activeEditor) {
       debugLog('history', `PowerPoint ${action} skipped`, {
@@ -267,11 +269,11 @@ export class HistoryController {
         destinationDepth: destination.length,
       });
       this.host.activeEditor.blur();
-      return;
+      return false;
     }
 
     const entry = source[source.length - 1];
-    if (!entry) return;
+    if (!entry) return false;
 
     this.isRestoringHistory = true;
     this.host.clearAutosave();
@@ -321,6 +323,10 @@ export class HistoryController {
         this.host.currentSlide = Math.max(0, Math.min(entry.currentSlide, this.host.engine.slideCount - 1));
       }
 
+      const restoredSlideIndices = entry.kind === 'snapshot'
+        ? Array.from({ length: this.host.engine.slideCount }, (_, index) => index)
+        : [entry.slideIndex];
+      this.host.invalidateCachedSlideRenders(restoredSlideIndices);
       this.host.clearSelection();
       this.host.markDirty();
       const rendered = await this.host.renderCurrentSlide();
@@ -338,6 +344,7 @@ export class HistoryController {
         sourceDepth: source.length,
         destinationDepth: destination.length
       });
+      return true;
     } catch (error) {
       errorLog('history', `PowerPoint ${action} failed`, {
         op: action,
@@ -345,6 +352,7 @@ export class HistoryController {
         error
       });
       this.notice('powerpoint:notice.couldNotHistoryAction', { action, message: cleanError(error) });
+      return false;
     } finally {
       this.isRestoringHistory = false;
       this.updateAvailability();

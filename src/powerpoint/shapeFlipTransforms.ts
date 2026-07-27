@@ -1,10 +1,7 @@
 import { isSVGGElement } from '../domGuards';
 
 const FLIP_WRAPPER_CLASS = 'native-powerpoint-flip-wrapper';
-
-interface SvgFactoryWindow {
-  createSvg(tagName: 'g'): SVGGElement;
-}
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 function intDataAttr(element: Element, name: string): number {
   const raw = element.getAttribute(name);
@@ -53,11 +50,9 @@ function syncFlipWrapper(shape: SVGGElement, scale: number): void {
 
   let wrapper = existing as SVGGElement | null;
   if (!wrapper) {
-    // Obsidian enhances `Document#createSvg` for HTML helpers. On the live SVG
-    // document that helper can try to append a second root node, so use the
-    // document window's unattached SVG factory instead.
-    const svgWindow = shape.ownerDocument.win as unknown as SvgFactoryWindow;
-    wrapper = svgWindow.createSvg('g');
+    // Obsidian's createSvg helper appends to its receiver. Live shapes belong
+    // to an SVG/XML document, where that can create a second root and throw.
+    wrapper = shape.ownerDocument.createElementNS(SVG_NAMESPACE, 'g');
     wrapper.classList.add(FLIP_WRAPPER_CLASS);
     while (shape.firstChild) {
       wrapper.appendChild(shape.firstChild);
@@ -72,11 +67,16 @@ function syncFlipWrapper(shape: SVGGElement, scale: number): void {
  * presets, or text in the SVG output. Mirror those shapes here so flip edits
  * are visible while OOXML round-trip stays authoritative.
  */
-export function applyShapeFlipTransforms(svg: SVGSVGElement): void {
-  const scale = Number(svg.getAttribute('data-ooxml-scale'));
+export function applyShapeFlipTransforms(root: SVGSVGElement | SVGGElement): void {
+  const svg = root instanceof SVGSVGElement ? root : root.ownerSVGElement;
+  const scale = Number(svg?.getAttribute('data-ooxml-scale'));
   if (!Number.isFinite(scale) || scale <= 0) return;
 
-  svg.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
+  const shapes = [
+    ...(isSVGGElement(root) ? [root] : []),
+    ...Array.from(root.querySelectorAll('g[data-ooxml-shape-idx]')),
+  ];
+  shapes.forEach((shape) => {
     if (isSVGGElement(shape)) {
       syncFlipWrapper(shape, scale);
     }

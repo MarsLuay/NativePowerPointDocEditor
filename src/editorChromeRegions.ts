@@ -111,6 +111,8 @@ export const EDITOR_CHROME_REGIONS: Record<EditorChromeRegionId, EditorChromeReg
 };
 
 export const PPTX_EDITOR_FORMATTING_SURFACE_SELECTOR = [
+	EDITOR_CHROME_REGIONS.menubar.pptx.selector,
+	'.native-powerpoint-menubar-dropdown',
 	EDITOR_CHROME_REGIONS.toolbar.pptx.selector,
 	EDITOR_CHROME_REGIONS.contextToolbar.pptx.selector,
 	`.${PPTX_EDITOR_CHROME_TOOLBAR_POPOVER_CLASS}`,

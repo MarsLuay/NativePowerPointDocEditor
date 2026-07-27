@@ -61,7 +61,7 @@ test("inline text multi-click selects a word, then the whole text box", async ()
   assert.equal(view.applyInlineMultiClickSelection(editor, element, 8, 1), false);
 });
 
-test("inline caret is created by the owning SVG document", async () => {
+test("inline caret is created detached by the owning SVG document", async () => {
   const { NativePowerPointView } = await loadNativePowerPointViewModule();
   const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
     autosaveEnabled: false,
@@ -78,12 +78,13 @@ test("inline caret is created by the owning SVG document", async () => {
   let appended = null;
   view.svgEl = {
     ownerDocument: {
-      win: {
-        createSvg(name) {
-          calls.push({ name });
-          return caret;
-        },
+      createElementNS(namespace, name) {
+        calls.push({ namespace, name });
+        return caret;
       },
+    },
+    querySelectorAll() {
+      return [];
     },
     appendChild(node) {
       appended = node;
@@ -91,9 +92,65 @@ test("inline caret is created by the owning SVG document", async () => {
   };
 
   assert.equal(view.createInlineCaret(), caret);
-  assert.deepEqual(calls, [{ name: 'line' }]);
+  assert.deepEqual(calls, [{ namespace: 'http://www.w3.org/2000/svg', name: 'line' }]);
   assert.equal(appended, caret);
   assert.equal(attributes.get('aria-hidden'), 'true');
+});
+
+test("shape-render fallback invalidates a stale slide thumbnail before full rendering", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  const invalidated = [];
+  const renders = [];
+  view.session = { currentSlide: 4 };
+  view.renderShapeInPlace = () => false;
+  view.slideFilmstripController = {
+    invalidateCachedSlideRenders(index) {
+      invalidated.push(index);
+    },
+  };
+  view.renderCurrentSlide = async (keepSelection) => {
+    renders.push(keepSelection);
+    return true;
+  };
+
+  assert.equal(await view.renderEditedShape(7), true);
+  assert.deepEqual(invalidated, [4]);
+  assert.deepEqual(renders, [true]);
+});
+
+test("inline caret creation removes every stale caret in the live SVG", async () => {
+  const { NativePowerPointView } = await loadNativePowerPointViewModule();
+  const view = new NativePowerPointView({ app: { vault: {} } }, () => ({
+    autosaveEnabled: false,
+    yoloMode: false,
+  }));
+  let removedStaleCarets = 0;
+  const caret = {
+    classList: { add() {} },
+    setAttribute() {},
+  };
+  view.svgEl = {
+    ownerDocument: {
+      createElementNS() {
+        return caret;
+      },
+    },
+    querySelectorAll(selector) {
+      assert.equal(selector, 'line.native-powerpoint-svg-caret');
+      return [
+        { remove() { removedStaleCarets += 1; } },
+        { remove() { removedStaleCarets += 1; } },
+      ];
+    },
+    appendChild() {},
+  };
+
+  assert.equal(view.createInlineCaret(), caret);
+  assert.equal(removedStaleCarets, 2);
 });
 
 test("inline text selection captures and releases its pointer on the SVG canvas", async () => {

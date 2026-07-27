@@ -16,9 +16,15 @@ import {
   serializeXml,
 } from './powerpoint/ooxmlXml';
 import {
+  applyDrawingParagraphListStyleToRange,
+  stripDrawingParagraphLeadingBullet,
+  type DrawingParagraphListStyleRangeResult,
+} from './powerpoint/drawingmlText';
+import {
   applyDrawingParagraphListStyle,
   type ParagraphListStyle,
 } from './powerpoint/paragraphListStyle';
+import { debugLog } from './logger';
 
 const DRAWINGML_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
 const PACKAGE_RELATIONSHIP_NAMESPACE =
@@ -29,6 +35,14 @@ const CHART_RELATIONSHIP_TYPE =
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
 
 export type { ParagraphListStyle } from './powerpoint/paragraphListStyle';
+
+export interface ParagraphListStyleRange {
+  paragraphIndex: number;
+  start: number;
+  end: number;
+}
+
+export type ParagraphListStyleRangeResult = DrawingParagraphListStyleRangeResult;
 
 export interface SlideInsertionResult {
   buffer: ArrayBuffer;
@@ -673,12 +687,46 @@ function getDrawingParagraphs(container: Element): Element[] {
   );
 }
 
+function getParagraphListGeometry(paragraph: Element): {
+  marginLeftEmu: number | null;
+  indentEmu: number | null;
+  markerOffsetEmu: number | null;
+  hasHangingMarkerSpace: boolean;
+} {
+  const properties = getElementChildren(paragraph).find(
+    (element) => element.localName === 'pPr' && element.namespaceURI === DRAWINGML_NAMESPACE,
+  );
+  const parseEmu = (name: 'marL' | 'indent'): number | null => {
+    const value = properties?.getAttribute(name);
+    if (value === undefined || value === null) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const marginLeftEmu = parseEmu('marL');
+  const indentEmu = parseEmu('indent');
+  const markerOffsetEmu = marginLeftEmu === null || indentEmu === null
+    ? null
+    : marginLeftEmu + indentEmu;
+  return {
+    marginLeftEmu,
+    indentEmu,
+    markerOffsetEmu,
+    hasHangingMarkerSpace: marginLeftEmu !== null
+      && indentEmu !== null
+      && marginLeftEmu > 0
+      && indentEmu < 0
+      && markerOffsetEmu !== null
+      && markerOffsetEmu >= 0,
+  };
+}
+
 export async function applyParagraphListStyle(
   buffer: ArrayBuffer,
   slideIndex: number,
   shapeIndex: number,
   paragraphIndex: number,
-  style: ParagraphListStyle
+  style: ParagraphListStyle,
+  stripLeadingManualBullet = false,
 ): Promise<ArrayBuffer> {
   const slidePath = getSlidePath(slideIndex);
   const zip = await extractZip(buffer);
@@ -691,5 +739,130 @@ export async function applyParagraphListStyle(
   }
 
   applyDrawingParagraphListStyle(paragraph, style);
+  const removedLeadingManualBullet = stripLeadingManualBullet
+    ? stripDrawingParagraphLeadingBullet(paragraph)
+    : false;
+  debugLog('text-format', 'Applied PowerPoint native list geometry', {
+    slide: slideIndex,
+    shapeIndex,
+    paragraphIndex,
+    style,
+    removedLeadingManualBullet,
+    ...getParagraphListGeometry(paragraph),
+  });
+  return buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));
+}
+
+/** Apply a native list marker to only the selected text, as its own paragraph. */
+export async function applyParagraphRangeListStyle(
+  buffer: ArrayBuffer,
+  slideIndex: number,
+  shapeIndex: number,
+  range: ParagraphListStyleRange,
+  style: ParagraphListStyle,
+  stripLeadingManualBullet = false,
+): Promise<{ buffer: ArrayBuffer; result: ParagraphListStyleRangeResult }> {
+  const slidePath = getSlidePath(slideIndex);
+  const zip = await extractZip(buffer);
+  const slideDocument = parseXml(getRequiredTextFile(zip, slidePath), slidePath);
+  const shape = getShapeElement(slideDocument, resolveTextShapeIndex(slideDocument, shapeIndex));
+  const result = applyDrawingParagraphListStyleToRange(
+    shape,
+    range.paragraphIndex,
+    range.start,
+    range.end,
+    style,
+  );
+  const selectedParagraph = getDrawingParagraphs(shape)[result.selectedParagraphIndex];
+  const removedLeadingManualBullet = stripLeadingManualBullet && selectedParagraph
+    ? stripDrawingParagraphLeadingBullet(selectedParagraph)
+    : false;
+  debugLog('text-format', 'Applied PowerPoint native list geometry', {
+    slide: slideIndex,
+    shapeIndex,
+    sourceParagraphIndex: result.sourceParagraphIndex,
+    paragraphIndex: result.selectedParagraphIndex,
+    style,
+    removedLeadingManualBullet,
+    ...selectedParagraph
+      ? getParagraphListGeometry(selectedParagraph)
+      : {
+          marginLeftEmu: null,
+          indentEmu: null,
+          markerOffsetEmu: null,
+          hasHangingMarkerSpace: false,
+        },
+  });
+  return {
+    buffer: await buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]])),
+    result,
+  };
+}
+
+/**
+ * Apply a native list style to several selected text ranges in one package
+ * mutation. Descending paragraph order keeps source indices stable when an
+ * earlier range is split into prefix/selected/suffix paragraphs.
+ */
+export async function applyParagraphRangeListStyles(
+  buffer: ArrayBuffer,
+  slideIndex: number,
+  shapeIndex: number,
+  ranges: readonly ParagraphListStyleRange[],
+  style: ParagraphListStyle,
+  stripLeadingManualBullet = false,
+): Promise<ArrayBuffer> {
+  const normalizedRanges = ranges
+    .filter((range) => (
+      Number.isInteger(range.paragraphIndex)
+      && range.paragraphIndex >= 0
+      && Number.isFinite(range.start)
+      && Number.isFinite(range.end)
+      && range.end > range.start
+    ))
+    .sort((left, right) => (
+      right.paragraphIndex - left.paragraphIndex
+      || right.start - left.start
+      || right.end - left.end
+    ));
+  if (normalizedRanges.length === 0) {
+    throw new Error('Select text before applying a list style.');
+  }
+
+  const slidePath = getSlidePath(slideIndex);
+  const zip = await extractZip(buffer);
+  const slideDocument = parseXml(getRequiredTextFile(zip, slidePath), slidePath);
+  const shape = getShapeElement(slideDocument, resolveTextShapeIndex(slideDocument, shapeIndex));
+
+  for (const range of normalizedRanges) {
+    const result = applyDrawingParagraphListStyleToRange(
+      shape,
+      range.paragraphIndex,
+      range.start,
+      range.end,
+      style,
+    );
+    const selectedParagraph = getDrawingParagraphs(shape)[result.selectedParagraphIndex];
+    const removedLeadingManualBullet = stripLeadingManualBullet && range.start === 0 && selectedParagraph
+      ? stripDrawingParagraphLeadingBullet(selectedParagraph)
+      : false;
+    debugLog('text-format', 'Applied PowerPoint native list geometry', {
+      slide: slideIndex,
+      shapeIndex,
+      sourceParagraphIndex: result.sourceParagraphIndex,
+      paragraphIndex: result.selectedParagraphIndex,
+      style,
+      removedLeadingManualBullet,
+      ...selectedParagraph
+        ? getParagraphListGeometry(selectedParagraph)
+        : {
+            marginLeftEmu: null,
+            indentEmu: null,
+            markerOffsetEmu: null,
+            hasHangingMarkerSpace: false,
+          },
+    });
+  }
+
   return buildZip(buffer, new Map([[slidePath, serializeXml(slideDocument)]]));
 }

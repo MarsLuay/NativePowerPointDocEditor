@@ -119,6 +119,8 @@ export class DocxDocumentService {
 				path: lease.file.path,
 				mode: lease.mode,
 				dryRun,
+				opIds: ops.map((op) => String(op.op)),
+				changedIds: [...changed],
 				opCount: ops.length,
 				changedCount: changed.size,
 				ms: Math.round(performance.now() - startedAt),
@@ -154,6 +156,7 @@ export class DocxDocumentService {
 	}
 
 	async save(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
+		const startedAt = performance.now();
 		try {
 			const lease = await this.sessions.acquire(path);
 			const output = await saveDocxToVault(
@@ -168,9 +171,20 @@ export class DocxDocumentService {
 			} else {
 				await lease.view.reloadFromAgentBuffer(output);
 			}
+			debugLog('agent', 'AI DOCX save completed', {
+				path: lease.file.path,
+				mode: lease.mode,
+				bytes: output.byteLength,
+				ms: Math.round(performance.now() - startedAt),
+			});
 
 			return { ok: true, errors: [] };
 		} catch (error) {
+			debugLog('agent', 'AI DOCX save failed', {
+				path,
+				error: isAiErrorDetail(error) ? error.message : String(error),
+				ms: Math.round(performance.now() - startedAt),
+			});
 			if (isAiErrorDetail(error)) {
 				return { ok: false, errors: [error] };
 			}

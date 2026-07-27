@@ -4,6 +4,8 @@
 // installers, many mobile WebViews). Used by esbuild.config.mjs and the test
 // bundler in tests/helpers/load-plugin-modules.mjs.
 
+import { readFile } from 'node:fs/promises';
+
 const DEFAULT_WASM_URL =
 	"const DEFAULT_WASM_URL = new URL('./main.wasm', import.meta.url).href;";
 
@@ -75,4 +77,20 @@ export function patchPptxRendererSource(source) {
 	}
 
 	return contents.replace(LOAD_SLIDE_XML_ANCHOR, LOAD_SLIDE_XML_PATCH);
+}
+
+/**
+ * Shared esbuild loader for pptx-svg's renderer. Keeping this in one place
+ * makes every harness use the same Wasm and JS-backend patch.
+ */
+export function createInlinePptxSvgWasmPlugin() {
+	return {
+		name: 'inline-pptx-svg-wasm',
+		setup(buildContext) {
+			buildContext.onLoad({ filter: /pptx-renderer\.js$/ }, async ({ path: modulePath }) => ({
+				contents: patchPptxRendererSource(await readFile(modulePath, 'utf8')),
+				loader: 'js',
+			}));
+		},
+	};
 }

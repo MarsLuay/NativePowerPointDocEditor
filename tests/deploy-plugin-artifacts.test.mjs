@@ -19,6 +19,9 @@ test('deployPluginArtifacts replaces generated trees and preserves runtime data'
 	const targetDir = path.join(root, 'plugin');
 	await writeTree(sourceDir, {
 		'main.js': 'new-main',
+		'pptx-js-engine.mjs': 'new-pptx-js-engine',
+		'pptx-wasm-renderer.mjs': 'new-pptx-wasm-renderer',
+		'heic-decode.mjs': 'new-heic-decode',
 		'styles.css': 'new-styles',
 		'manifest.json': '{"version":"test"}',
 		'ai/capabilities.json': 'new-capabilities',
@@ -26,6 +29,9 @@ test('deployPluginArtifacts replaces generated trees and preserves runtime data'
 	});
 	await writeTree(targetDir, {
 		'main.js': 'old-main',
+		'pptx-js-engine.mjs': 'old-pptx-js-engine',
+		'pptx-wasm-renderer.mjs': 'old-pptx-wasm-renderer',
+		'heic-decode.mjs': 'old-heic-decode',
 		'styles.css': 'old-styles',
 		'manifest.json': '{"version":"old"}',
 		'ai/stale.json': 'stale',
@@ -36,11 +42,14 @@ test('deployPluginArtifacts replaces generated trees and preserves runtime data'
 	await deployPluginArtifacts({
 		sourceDir,
 		targetDir,
-		files: ['main.js', 'styles.css', 'manifest.json'],
+		files: ['main.js', 'pptx-js-engine.mjs', 'pptx-wasm-renderer.mjs', 'heic-decode.mjs', 'styles.css', 'manifest.json'],
 		directories: ['ai', 'locales'],
 	});
 
 	assert.equal(await readFile(path.join(targetDir, 'main.js'), 'utf8'), 'new-main');
+	assert.equal(await readFile(path.join(targetDir, 'pptx-js-engine.mjs'), 'utf8'), 'new-pptx-js-engine');
+	assert.equal(await readFile(path.join(targetDir, 'pptx-wasm-renderer.mjs'), 'utf8'), 'new-pptx-wasm-renderer');
+	assert.equal(await readFile(path.join(targetDir, 'heic-decode.mjs'), 'utf8'), 'new-heic-decode');
 	assert.equal(await readFile(path.join(targetDir, 'ai/capabilities.json'), 'utf8'), 'new-capabilities');
 	await assert.rejects(readFile(path.join(targetDir, 'ai/stale.json')));
 	assert.equal(await readFile(path.join(targetDir, 'data.json'), 'utf8'), '{"userSetting":true}');

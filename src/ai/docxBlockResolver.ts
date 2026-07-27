@@ -337,6 +337,31 @@ export function replaceTableCellXmlInPart(
 	);
 }
 
+export function deleteTableInPart(partXml: string, location: DocxStableLocation): string {
+	if (location.tableIndex === null) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'Table location is missing a table index.', { field: 'tableId' });
+	}
+
+	const inner = getEditableInner(partXml, location);
+	const idPrefix = idPrefixForLocation(location);
+	let currentTableIndex = 0;
+	for (const block of enumerateTopLevelBlockPositions(inner, idPrefix)) {
+		if (block.kind !== 'table') continue;
+		if (currentTableIndex !== location.tableIndex) {
+			currentTableIndex++;
+			continue;
+		}
+		const nextInner = `${inner.slice(0, block.startInBody)}${inner.slice(block.endInBody)}`;
+		return setEditableInner(partXml, location, nextInner);
+	}
+
+	throw createAiError(
+		AI_ERROR_CODES.BLOCK_NOT_FOUND,
+		`Table ${docxIdPrefix(location.part, location.partNumber)}/tbl[${location.tableIndex}] was not found.`,
+		{ field: 'tableId' },
+	);
+}
+
 export function insertBlockAfterInPart(partXml: string, afterBlockId: string, blockXml: string): string {
 	const location = parseStableLocation(afterBlockId);
 	if (!location) {

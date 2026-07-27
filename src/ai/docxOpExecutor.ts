@@ -1,6 +1,7 @@
 import type { Vault } from 'obsidian';
 import { getImageMimeType } from '../PowerPointInsertModals';
 import {
+	deleteTableInPart,
 	getParagraphXml,
 	getTableCellXmlFromPart,
 	insertBlockAfterInPart,
@@ -387,6 +388,23 @@ export async function executeDocxOp(
 			}
 			changedIds.push(cellId);
 			preview.push({ id: cellId, field: 'style', before: null, after: style });
+			break;
+		}
+		case 'docx.deleteTable': {
+			const tableId = requireString(record.tableId, 'tableId');
+			rejectWriteOnlyExcludedId(tableId, 'tableId');
+			const parsed = parseStableLocation(tableId);
+			if (!parsed || parsed.kind !== 'table') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid tableId: ${tableId}.`, { field: 'tableId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			partXml = deleteTableInPart(partXml, parsed);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				documentXml = partXml;
+			}
+			changedIds.push(tableId);
+			preview.push({ id: tableId, field: 'deleteTable', before: 'table', after: null });
 			break;
 		}
 		case 'docx.insertImage': {

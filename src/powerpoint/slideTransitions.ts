@@ -68,8 +68,8 @@ interface TransitionLocation {
 
 /** Read the transition that is applied when this slide becomes visible. */
 export function readSlideTransition(slideXml: string, partPath = '(slide)'): SlideTransition {
-  const document = parseSlideXml(slideXml, partPath);
-  const location = findTransition(document.documentElement);
+  const slideDocument = parseSlideXml(slideXml, partPath);
+  const location = findTransition(slideDocument.documentElement);
   if (!location) return { kind: 'none' };
 
   const transition = location.transition;
@@ -108,17 +108,17 @@ export function writeSlideTransition(
   update: SlideTransitionUpdate,
   partPath = '(slide)'
 ): string {
-  const document = parseSlideXml(slideXml, partPath);
-  const slide = document.documentElement;
+  const slideDocument = parseSlideXml(slideXml, partPath);
+  const slide = slideDocument.documentElement;
   const existing = findTransition(slide);
 
   if (update.kind === 'none') {
     if (existing) slide.removeChild(existing.container);
-    return serializeXml(document);
+    return serializeXml(slideDocument);
   }
 
   validateTransitionSettings(update);
-  const transition = createTransition(document, slide, update, existing?.transition);
+  const transition = createTransition(slideDocument, slide, update, existing?.transition);
   if (existing) {
     if (existing.container === existing.transition) {
       slide.replaceChild(transition, existing.transition);
@@ -131,15 +131,15 @@ export function writeSlideTransition(
     slide.insertBefore(transition, findTransitionInsertionPoint(slide));
   }
 
-  return serializeXml(document);
+  return serializeXml(slideDocument);
 }
 
 function parseSlideXml(slideXml: string, partPath: string): XMLDocument {
-  const document = parseXml(slideXml, partPath);
-  if (document.documentElement.localName !== 'sld') {
+  const slideDocument = parseXml(slideXml, partPath);
+  if (slideDocument.documentElement.localName !== 'sld') {
     throw new Error(`Expected a PresentationML slide part: ${partPath}`);
   }
-  return document;
+  return slideDocument;
 }
 
 function findTransition(slide: Element): TransitionLocation | null {
@@ -251,12 +251,12 @@ function validateTime(name: string, value: number | null | undefined): void {
 }
 
 function createTransition(
-  document: XMLDocument,
+  ownerDocument: XMLDocument,
   slide: Element,
   update: SlideTransitionSettings,
   existing?: Element
 ): Element {
-  const transition = createPresentationElement(document, slide, 'transition');
+  const transition = createPresentationElement(ownerDocument, slide, 'transition');
   const speed = update.speed ?? speedForDuration(update.durationMs);
   transition.setAttribute('spd', speed === 'medium' ? 'med' : speed);
   transition.setAttribute('advClick', update.advanceOnClick === false ? '0' : '1');
@@ -271,7 +271,7 @@ function createTransition(
     transition.setAttributeNS(POWERPOINT_2010_NAMESPACE, `${durationPrefix}:dur`, String(update.durationMs));
   }
 
-  const effect = createPresentationElement(document, slide, update.kind);
+  const effect = createPresentationElement(ownerDocument, slide, update.kind);
   if (update.kind === 'push' || update.kind === 'wipe') {
     effect.setAttribute('dir', sideDirectionToOoxml(update.direction!));
   } else if (update.kind === 'split') {
@@ -286,7 +286,7 @@ function createTransition(
   // changes, so preserve them verbatim and in their schema-defined position.
   for (const child of getElementChildren(existing)) {
     if (child.localName !== 'sndAc' && child.localName !== 'extLst') continue;
-    transition.appendChild(document.importNode(child, true));
+    transition.appendChild(ownerDocument.importNode(child, true));
   }
   return transition;
 }
@@ -306,10 +306,10 @@ function sideDirectionToOoxml(direction: SlideTransitionDirection): 'l' | 'r' | 
   }
 }
 
-function createPresentationElement(document: XMLDocument, slide: Element, localName: string): Element {
+function createPresentationElement(ownerDocument: XMLDocument, slide: Element, localName: string): Element {
   const namespace = slide.namespaceURI || PRESENTATIONML_NAMESPACE;
   const prefix = slide.prefix || '';
-  return document.createElementNS(namespace, prefix ? `${prefix}:${localName}` : localName);
+  return ownerDocument.createElementNS(namespace, prefix ? `${prefix}:${localName}` : localName);
 }
 
 function findTransitionInsertionPoint(slide: Element): Element | null {

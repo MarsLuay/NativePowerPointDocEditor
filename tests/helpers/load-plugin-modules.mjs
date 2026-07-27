@@ -1,10 +1,10 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import Module, { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
-import { patchPptxRendererSource } from "../../scripts/lib/patch-pptx-renderer.mjs";
+import { createInlinePptxSvgWasmPlugin } from "../../scripts/lib/patch-pptx-renderer.mjs";
 import {
   createDocxEditorAliases,
   resolveDocxEditorPackagesRoot,
@@ -39,21 +39,14 @@ let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
 let parseRenderedSlideSvgModulePromise;
 let textToolbarControllerModulePromise;
+let insertControllerModulePromise;
 let arrangeControllerModulePromise;
 let slideExtensionPreserveModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
 
-const inlinePptxSvgWasmPlugin = {
-  name: "inline-pptx-svg-wasm",
-  setup(buildContext) {
-    buildContext.onLoad({ filter: /pptx-renderer\.js$/ }, async ({ path: modulePath }) => {
-      const contents = patchPptxRendererSource(await readFile(modulePath, "utf8"));
-      return { contents, loader: "js" };
-    });
-  },
-};
+const inlinePptxSvgWasmPlugin = createInlinePptxSvgWasmPlugin();
 
 function getTempDirectory() {
   tempDirectoryPromise ??= mkdtemp(path.join(tmpdir(), "native-powerpoint-tests-"));
@@ -87,9 +80,11 @@ const stubObsidianPlugin = {
     buildContext.onLoad({ filter: /.*/, namespace: "stub-obsidian" }, () => ({
       contents: `
         export const Platform = { isDesktop: true, isMacOS: false, isMobile: false, isMobileApp: false };
+        export const getLanguage = () => "en";
         export const normalizePath = (value) => value.replace(/\\\\/g, "/").replace(/\\/{2,}/g, "/");
         export const setIcon = () => {};
         export class Notice { constructor() {} }
+        export class Modal { constructor() {} open() {} close() {} }
         export class Component {
           constructor() { this.cleanups = []; }
           register(cleanup) { this.cleanups.push(cleanup); }
@@ -153,6 +148,16 @@ export function loadTextToolbarControllerModule() {
     [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
   return textToolbarControllerModulePromise;
+}
+
+export function loadInsertControllerModule() {
+  insertControllerModulePromise ??= bundleSource(
+    "src/powerpoint/insertController.ts",
+    "insert-controller.cjs",
+    [],
+    [stubObsidianPlugin],
+  ).then((outfile) => require(outfile));
+  return insertControllerModulePromise;
 }
 
 export function loadArrangeControllerModule() {

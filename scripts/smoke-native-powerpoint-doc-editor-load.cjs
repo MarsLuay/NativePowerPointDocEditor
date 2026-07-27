@@ -155,7 +155,7 @@ function resolvePluginDir() {
 	// package.json. Smoke a disposable CommonJS-scoped copy of the source bundle
 	// so the test can never silently exercise an older installed artifact.
 	temporaryPluginDir = fs.mkdtempSync(path.join(os.tmpdir(), 'native-powerpoint-doc-editor-smoke-'));
-	for (const fileName of ['main.js', 'manifest.json']) {
+	for (const fileName of ['main.js', 'pptx-js-engine.mjs', 'pptx-wasm-renderer.mjs', 'heic-decode.mjs', 'manifest.json']) {
 		fs.copyFileSync(path.join(projectRoot, fileName), path.join(temporaryPluginDir, fileName));
 	}
 	return temporaryPluginDir;
@@ -399,7 +399,7 @@ function restoreEnvironment() {
 }
 
 function assertPluginFiles() {
-	for (const fileName of ['main.js', 'manifest.json']) {
+	for (const fileName of ['main.js', 'pptx-js-engine.mjs', 'pptx-wasm-renderer.mjs', 'heic-decode.mjs', 'manifest.json']) {
 		const filePath = path.join(pluginDir, fileName);
 		assert.ok(fs.existsSync(filePath), `Missing installed plugin file: ${filePath}`);
 	}
@@ -448,7 +448,7 @@ function createDocxEditorAliases() {
 	};
 
 	for (const [packageName, dirName] of Object.entries(packages)) {
-		const packageDir = path.join(projectRoot, 'docx-editor', 'packages', dirName);
+		const packageDir = path.join(projectRoot, 'vendor', 'docx-editor-runtime', dirName);
 		const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'));
 		for (const [exportPath, target] of Object.entries(packageJson.exports ?? {})) {
 			const importTarget = typeof target === 'string'
@@ -471,6 +471,14 @@ function createDocxEditorAliases() {
 			}
 		}
 	}
+
+	const reactRoot = path.join(projectRoot, 'node_modules', 'react');
+	const reactDomRoot = path.join(projectRoot, 'node_modules', 'react-dom');
+	aliases.react = reactRoot;
+	aliases['react/jsx-runtime'] = path.join(reactRoot, 'jsx-runtime.js');
+	aliases['react/jsx-dev-runtime'] = path.join(reactRoot, 'jsx-dev-runtime.js');
+	aliases['react-dom'] = reactDomRoot;
+	aliases['react-dom/client'] = path.join(reactDomRoot, 'client.js');
 
 	return aliases;
 }

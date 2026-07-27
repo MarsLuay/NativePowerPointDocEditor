@@ -45,11 +45,29 @@ function insertParagraphPropertyChild(properties: Element, child: Element): void
   properties.insertBefore(child, tail ?? null);
 }
 
+function getEmuAttribute(properties: Element, name: 'marL' | 'indent'): number | null {
+  const value = properties.getAttribute(name);
+  if (value === null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function ensureDefaultListIndent(properties: Element): void {
-  if (!properties.hasAttribute('marL')) {
+  const marginLeft = getEmuAttribute(properties, 'marL');
+  const indent = getEmuAttribute(properties, 'indent');
+
+  // A plain paragraph can explicitly carry zero (or conflicting) indentation.
+  // Keeping it when adding a marker places the bullet at the run's x-position,
+  // or beyond the text box, instead of creating a hanging list item. Preserve
+  // valid custom list geometry, but repair an absent, inline, or clipped pair.
+  if (
+    marginLeft === null
+    || indent === null
+    || marginLeft <= 0
+    || indent >= 0
+    || marginLeft + indent < 0
+  ) {
     properties.setAttribute('marL', String(DEFAULT_LIST_MARGIN_LEFT_EMU));
-  }
-  if (!properties.hasAttribute('indent')) {
     properties.setAttribute('indent', String(DEFAULT_LIST_HANGING_INDENT_EMU));
   }
 }

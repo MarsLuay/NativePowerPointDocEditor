@@ -283,8 +283,19 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
       runs = getDrawingRuns(paragraph);
     }
 
+    // The inline SVG preview keeps text distributed over its existing runs so
+    // each segment retains its own font and direct formatting. Commit must use
+    // that same ownership model: writing the complete paragraph into run zero
+    // made every edited multi-font paragraph adopt the first run's font.
+    const nextRunTexts = redistributeDrawingRunText(
+      runs.map((run) => getDrawingRunText(run)),
+      text,
+    );
     runs.forEach((run, runIndex) => {
-      setDrawingRunText(run, runIndex === 0 ? toStoredParagraphRunText(text) : '');
+      const nextText = nextRunTexts[runIndex] ?? '';
+      setDrawingRunText(run, text.length === 0 && runIndex === 0
+        ? toStoredParagraphRunText('')
+        : nextText);
     });
     return;
   }
@@ -298,6 +309,104 @@ export function setDrawingParagraphText(container: Element, paragraphIndex: numb
     }
     appendDrawingParagraphRun(paragraph, templateRun, toStoredParagraphRunText(line));
   });
+}
+
+/**
+ * Redistribute edited paragraph text over its original OOXML runs without
+ * changing run order or style ownership. Insertions at a boundary belong to
+ * the following run (except at the end, where they belong to the final run),
+ * matching the live SVG preview and PowerPoint's expected typing behavior.
+ */
+function redistributeDrawingRunText(previousRunTexts: readonly string[], nextText: string): string[] {
+  if (previousRunTexts.length === 0) return [];
+
+  const previousText = previousRunTexts.join('');
+  if (previousText === nextText) return [...previousRunTexts];
+
+  let commonPrefixLength = 0;
+  const sharedLength = Math.min(previousText.length, nextText.length);
+  while (
+    commonPrefixLength < sharedLength
+    && previousText.charAt(commonPrefixLength) === nextText.charAt(commonPrefixLength)
+  ) {
+    commonPrefixLength++;
+  }
+
+  let commonSuffixLength = 0;
+  while (
+    commonSuffixLength < sharedLength - commonPrefixLength
+    && previousText.charAt(previousText.length - 1 - commonSuffixLength)
+      === nextText.charAt(nextText.length - 1 - commonSuffixLength)
+  ) {
+    commonSuffixLength++;
+  }
+
+  const previousChangeStart = commonPrefixLength;
+  const previousChangeEnd = previousText.length - commonSuffixLength;
+  const nextChangeEnd = nextText.length - commonSuffixLength;
+  const delta = nextText.length - previousText.length;
+  const boundaries = [0];
+  for (const runText of previousRunTexts) {
+    boundaries.push((boundaries[boundaries.length - 1] ?? 0) + runText.length);
+  }
+
+  const ownerIndex = previousRunTexts.findIndex(
+    (_, index) => (boundaries[index + 1] ?? 0) > previousChangeStart,
+  );
+  const replacementOwnerIndex = ownerIndex === -1 ? previousRunTexts.length - 1 : ownerIndex;
+  const isInsertion = previousChangeStart === previousChangeEnd;
+  const mapBoundary = (boundary: number, boundaryIndex: number): number => {
+    if (isInsertion) {
+      if (boundary < previousChangeStart) return boundary;
+      if (boundary > previousChangeStart) return boundary + delta;
+      return boundaryIndex > replacementOwnerIndex ? nextChangeEnd : boundary;
+    }
+    if (boundary <= previousChangeStart) return boundary;
+    if (boundary >= previousChangeEnd) return boundary + delta;
+    return boundaryIndex <= replacementOwnerIndex ? previousChangeStart : nextChangeEnd;
+  };
+
+  const nextBoundaries = boundaries.map(mapBoundary);
+  return previousRunTexts.map((_, index) =>
+    nextText.slice(nextBoundaries[index] ?? 0, nextBoundaries[index + 1] ?? nextText.length),
+  );
+}
+
+export interface DrawingParagraphFontSummary {
+  runCount: number;
+  nonEmptyRunCount: number;
+  fontFamilies: string[];
+  fontSizesPt: number[];
+}
+
+/** Compact, content-free font diagnostics for an edited DrawingML paragraph. */
+export function getDrawingParagraphFontSummary(paragraph: Element | null | undefined): DrawingParagraphFontSummary | null {
+  if (!paragraph) return null;
+
+  const runs = getDrawingRuns(paragraph);
+  const fontFamilies = new Set<string>();
+  const fontSizesPt = new Set<number>();
+  for (const run of runs) {
+    const rPr = getElementChildren(run).find((child) => (
+      child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'rPr'
+    ));
+    const latin = rPr
+      ? getElementChildren(rPr).find((child) => (
+        child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'latin'
+      ))
+      : null;
+    const typeface = latin?.getAttribute('typeface');
+    if (typeface) fontFamilies.add(typeface);
+    const size = Number(rPr?.getAttribute('sz'));
+    if (Number.isFinite(size) && size > 0) fontSizesPt.add(size / 100);
+  }
+
+  return {
+    runCount: runs.length,
+    nonEmptyRunCount: runs.filter((run) => !isEmptyParagraphRenderAnchorText(getDrawingRunText(run))).length,
+    fontFamilies: [...fontFamilies].slice(0, 6),
+    fontSizesPt: [...fontSizesPt].sort((left, right) => left - right).slice(0, 6),
+  };
 }
 
 function findEndParagraphProperties(paragraph: Element): Element | null {
@@ -402,6 +511,91 @@ export function splitDrawingParagraphAtOffset(
   ensureDrawingParagraphRun(suffixParagraph, templateRun);
   parent.insertBefore(suffixParagraph, paragraph.nextSibling);
   return paragraphIndex + 1;
+}
+
+/** Outcome of isolating selected text as a native PowerPoint list paragraph. */
+export interface DrawingParagraphListStyleRangeResult {
+  changed: boolean;
+  sourceParagraphIndex: number;
+  selectedParagraphIndex: number;
+  selectedRange: DrawingTextRange;
+  beforeParagraphCount: number;
+  afterParagraphCount: number;
+  splitPrefix: boolean;
+  splitSuffix: boolean;
+}
+
+/**
+ * Make one non-empty run-text range into its own DrawingML paragraph, then
+ * apply the requested native list marker to that paragraph only. Splitting the
+ * suffix before the prefix keeps the source paragraph index stable and retains
+ * each cloned run's direct formatting on all three resulting paragraphs.
+ */
+export function applyDrawingParagraphListStyleToRange(
+  container: Element,
+  paragraphIndex: number,
+  startOffset: number,
+  endOffset: number,
+  style: ParagraphListStyle,
+): DrawingParagraphListStyleRangeResult {
+  const paragraphs = getDrawingParagraphs(container);
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) {
+    throw new Error('Could not find the selected text paragraph.');
+  }
+
+  const total = paragraphTextLength(paragraph);
+  const start = Math.max(0, Math.min(total, Math.floor(startOffset)));
+  const end = Math.max(start, Math.min(total, Math.floor(endOffset)));
+  if (end <= start) {
+    throw new Error('Select text before applying a list style.');
+  }
+
+  // `splitDrawingParagraphAtOffset` preserves run formatting, but a soft break
+  // or field cannot yet be partitioned at a run-only character offset. Reject
+  // that ambiguous structural edit rather than moving it to the wrong list
+  // paragraph or silently deleting it.
+  const needsInteriorSplit = start > 0 || end < total;
+  const hasNonRunContent = getElementChildren(paragraph).some((child) => (
+    child.namespaceURI === DRAWINGML_NAMESPACE
+      && child.localName !== 'pPr'
+      && child.localName !== 'endParaRPr'
+      && child.localName !== 'r'
+  ));
+  if (needsInteriorSplit && hasNonRunContent) {
+    throw new Error('Cannot apply a list style to part of a paragraph containing a soft break or field.');
+  }
+
+  const beforeParagraphCount = paragraphs.length;
+  const splitSuffix = end < total;
+  if (splitSuffix) {
+    splitDrawingParagraphAtOffset(container, paragraphIndex, end);
+  }
+
+  const splitPrefix = start > 0;
+  const selectedParagraphIndex = splitPrefix
+    ? splitDrawingParagraphAtOffset(container, paragraphIndex, start)
+    : paragraphIndex;
+  const selectedParagraph = getDrawingParagraphs(container)[selectedParagraphIndex];
+  if (!selectedParagraph) {
+    throw new Error('Could not isolate the selected text paragraph.');
+  }
+
+  applyDrawingParagraphListStyle(selectedParagraph, style);
+  return {
+    changed: true,
+    sourceParagraphIndex: paragraphIndex,
+    selectedParagraphIndex,
+    selectedRange: {
+      paragraphIndex: selectedParagraphIndex,
+      start: 0,
+      end: end - start,
+    },
+    beforeParagraphCount,
+    afterParagraphCount: getDrawingParagraphs(container).length,
+    splitPrefix,
+    splitSuffix,
+  };
 }
 
 export function setDrawingTextRun(container: Element, paragraphIndex: number, runIndex: number, text: string): void {
@@ -515,6 +709,19 @@ function deleteDrawingParagraphTextRange(paragraph: Element, start: number, end:
     changed = true;
   }
   return changed;
+}
+
+/**
+ * Convert an imported literal bullet prefix into native list formatting without
+ * leaving a second visible marker in the first run. Leading indentation stays
+ * intact and direct run formatting is preserved.
+ */
+export function stripDrawingParagraphLeadingBullet(paragraph: Element): boolean {
+  const text = getDrawingRuns(paragraph).map((run) => getDrawingRunText(run)).join('');
+  const match = text.match(/^([\t \u00A0]*)[•◦▪‣⁃][\t \u00A0]+/);
+  if (!match) return false;
+  const leadingIndentLength = match[1]?.length ?? 0;
+  return deleteDrawingParagraphTextRange(paragraph, leadingIndentLength, match[0].length);
 }
 
 function retainDrawingParagraphPrefix(paragraph: Element, offset: number): void {
@@ -958,6 +1165,39 @@ export function getShapeRunPositions(shape: Element): DrawingRunPosition[] {
     });
   });
   return positions;
+}
+
+/**
+ * Text bodies without an explicit AutoFit child are rendered as no-auto-fit by
+ * pptx-svg, unlike PowerPoint's shrink-on-overflow editing behavior. Preserve
+ * explicit `noAutofit`, `normAutofit`, and `spAutoFit` choices; otherwise make
+ * the safe default explicit before text mutations can overflow the frame.
+ */
+export function ensureDefaultShrinkAutofit(shape: Element, doc: XMLDocument): boolean {
+  const bodyProps = getDescendants(shape, 'bodyPr')
+    .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+
+  let changed = false;
+  for (const bodyPr of bodyProps) {
+    const hasExplicitAutofit = getElementChildren(bodyPr).some((element) => (
+      element.namespaceURI === DRAWINGML_NAMESPACE
+        && (element.localName === 'noAutofit'
+          || element.localName === 'normAutofit'
+          || element.localName === 'spAutoFit')
+    ));
+    if (hasExplicitAutofit) continue;
+
+    const normAutofit = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:normAutofit');
+    const insertionPoint = getElementChildren(bodyPr).find((element) => (
+      element.namespaceURI === DRAWINGML_NAMESPACE
+        && (element.localName === 'scene3d'
+          || element.localName === 'flatTx'
+          || element.localName === 'extLst')
+    ));
+    bodyPr.insertBefore(normAutofit, insertionPoint ?? null);
+    changed = true;
+  }
+  return changed;
 }
 
 /**

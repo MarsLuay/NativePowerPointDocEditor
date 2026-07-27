@@ -216,6 +216,124 @@ test('DocxDocumentService inserts table after anchor block', async () => {
 	assert.equal(snapshot.blocks[2]?.text, 'After');
 });
 
+test('DocxDocumentService replaces all table cell content while preserving cell properties', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const docPath = 'notes/multi-paragraph-cell.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>Before</w:t></w:r></w:p>',
+			'<w:tbl><w:tr><w:tc><w:tcPr><w:tcW w:w="2400" w:type="dxa"/></w:tcPr><w:p><w:r><w:t>Template title</w:t></w:r></w:p><w:p><w:r><w:t>Template instructions</w:t></w:r></w:p><w:p><w:r><w:drawing/></w:r></w:p></w:tc></w:tr></w:tbl>',
+			'<w:p><w:r><w:t>After</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{ op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Updated & verified' },
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedBytes = vault.store.get(docPath);
+	const snapshot = await describeDocxFromBuffer(
+		savedBytes.buffer.slice(savedBytes.byteOffset, savedBytes.byteOffset + savedBytes.byteLength),
+		docPath,
+	);
+	assert.equal(snapshot.blocks[1]?.kind, 'table');
+	assert.equal(snapshot.blocks[1]?.cells?.[0]?.text, 'Updated & verified');
+
+	const output = await JSZip.loadAsync(savedBytes.buffer);
+	const documentXml = await output.file('word/document.xml')?.async('string');
+	assert.match(documentXml ?? '', /<w:tcPr><w:tcW w:w="2400" w:type="dxa"\/><\/w:tcPr>/);
+	assert.match(documentXml ?? '', /<w:t>Updated &amp; verified<\/w:t>/);
+	assert.doesNotMatch(documentXml ?? '', /Template title|Template instructions|<w:drawing\b/);
+	assert.equal((documentXml?.match(/<w:p\b/g) ?? []).length, 3);
+});
+
+test('DocxDocumentService deletes only the requested table', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const docPath = 'notes/delete-table.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>Before</w:t></w:r></w:p>',
+			'<w:tbl><w:tr><w:tc><w:p><w:r><w:t>Remove me</w:t></w:r></w:p></w:tc></w:tr></w:tbl>',
+			'<w:p><w:pPr><w:keepNext/></w:pPr><w:r><w:rPr><w:b/></w:rPr><w:t>References</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [{ op: 'docx.deleteTable', tableId: 'body/tbl[0]' }]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedBytes = vault.store.get(docPath);
+	const snapshot = await describeDocxFromBuffer(
+		savedBytes.buffer.slice(savedBytes.byteOffset, savedBytes.byteOffset + savedBytes.byteLength),
+		docPath,
+	);
+	assert.equal(snapshot.blockCount, 2);
+	assert.equal(snapshot.blocks[0]?.text, 'Before');
+	assert.equal(snapshot.blocks[1]?.text, 'References');
+
+	const output = await JSZip.loadAsync(savedBytes.buffer);
+	const documentXml = await output.file('word/document.xml')?.async('string');
+	assert.doesNotMatch(documentXml ?? '', /Remove me|<w:tbl\b/);
+	assert.match(documentXml ?? '', /<w:pPr><w:keepNext\/><\/w:pPr><w:r><w:rPr><w:b\/><\/w:rPr><w:t>References<\/w:t>/);
+});
+
+test('DocxDocumentService applies every setRunText operation in a single batch', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const docPath = 'notes/multi-run-batch.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>First</w:t></w:r><w:r><w:t> middle</w:t></w:r><w:r><w:t> last</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Updated' },
+		{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[1]', text: '' },
+		{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[2]', text: '' },
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedBytes = vault.store.get(docPath);
+	const snapshot = await describeDocxFromBuffer(
+		savedBytes.buffer.slice(savedBytes.byteOffset, savedBytes.byteOffset + savedBytes.byteLength),
+		docPath,
+	);
+	assert.equal(snapshot.blocks[0]?.text, 'Updated');
+
+	const output = await JSZip.loadAsync(savedBytes.buffer);
+	const documentXml = await output.file('word/document.xml')?.async('string');
+	assert.match(documentXml ?? '', /<w:t>Updated<\/w:t>/);
+	assert.doesNotMatch(documentXml ?? '', /middle|last/);
+	assert.equal((documentXml?.match(/<w:r\b/g) ?? []).length, 3);
+});
+
 test('DocxDocumentService syncs open DOCX view after agent apply and save', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const docPath = 'notes/open-view.docx';

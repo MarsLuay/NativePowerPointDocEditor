@@ -26,8 +26,8 @@ export type PresentationSessionListener = (event: PresentationSessionEvent) => v
 
 /** History boundary so the session can own its public undo/redo API. */
 export interface HistoryPort {
-  undo(): boolean | void;
-  redo(): boolean | void;
+  undo(): boolean | Promise<boolean>;
+  redo(): boolean | Promise<boolean>;
 }
 
 /** Phase-2 mutation boundary for applying non-noop presentation commands. */
@@ -132,15 +132,15 @@ export class PresentationSession implements SaveStateStore {
     this.saveController.markDirty();
   }
 
-  undo(): boolean {
-    const applied = this.history.undo() !== false;
-    this.emitHistory('undo');
+  async undo(): Promise<boolean> {
+    const applied = await this.history.undo();
+    if (applied) this.emitHistory('undo');
     return applied;
   }
 
-  redo(): boolean {
-    const applied = this.history.redo() !== false;
-    this.emitHistory('redo');
+  async redo(): Promise<boolean> {
+    const applied = await this.history.redo();
+    if (applied) this.emitHistory('redo');
     return applied;
   }
 

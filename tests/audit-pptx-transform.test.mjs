@@ -124,6 +124,12 @@ test("parseSvgLength does NOT parse pt (documented audit limitation)", () => {
   assert.equal(svgUtils.parseSvgLength("2em"), null);
 });
 
+test("shape fragments with definitions require a complete SVG replacement", () => {
+  assert.equal(svgUtils.svgFragmentHasDefinitions('<g data-ooxml-shape-idx="3"/>'), false);
+  assert.equal(svgUtils.svgFragmentHasDefinitions('<DEFS id="fonts"><path id="glyph"/></DEFS><g/>'), true);
+  assert.equal(svgUtils.svgFragmentHasDefinitions('<svg><defs><clipPath id="clip"/></defs><g/></svg>'), true);
+});
+
 test("transformsMatch is true only when every field is equal", () => {
   const base = { x: 10, y: 20, cx: 100, cy: 50, rot: 0 };
   assert.equal(svgUtils.transformsMatch(base, { ...base }), true);

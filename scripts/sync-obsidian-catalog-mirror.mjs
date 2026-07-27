@@ -72,7 +72,7 @@ if (rsync) {
 		[
 			'-a',
 			'--delete',
-			'--exclude=.git/',
+			'--exclude=.git',
 			'--exclude=.code-analysis/',
 			'--exclude=.serena/',
 			'--exclude=node_modules/',

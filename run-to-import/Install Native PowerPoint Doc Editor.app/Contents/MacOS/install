@@ -378,7 +378,7 @@ verify_release_files() {
   local missing=()
   local file
 
-  for file in manifest.json main.js styles.css; do
+  for file in manifest.json main.js pptx-js-engine.mjs pptx-wasm-renderer.mjs heic-decode.mjs styles.css; do
     if [[ ! -f "${PLUGIN_ROOT}/${file}" ]]; then
       missing+=("$file")
     fi
@@ -495,16 +495,18 @@ install_plugin() {
     fi
   done
 
-  for file in "${PLUGIN_ROOT}/manifest.json" "${PLUGIN_ROOT}"/*.js "${PLUGIN_ROOT}"/*.css; do
-    [[ -f "$file" ]] || continue
+  for file in manifest.json main.js pptx-js-engine.mjs pptx-wasm-renderer.mjs heic-decode.mjs styles.css; do
+    file="${PLUGIN_ROOT}/${file}"
+    [[ -f "$file" ]] || fail "Required plugin artifact is missing: ${file}"
     cp -f "$file" "$target_dir/"
     chmod 644 "${target_dir}/${file:t}" 2>/dev/null || true
     copied=$((copied + 1))
   done
 
-  if [[ ! -f "${target_dir}/manifest.json" || ! -f "${target_dir}/main.js" ]]; then
-    fail "Installed plugin is missing manifest.json or main.js: ${target_dir}"
-  fi
+  verify_release_files || fail "Installed plugin is missing required files: ${target_dir}"
+  for file in manifest.json main.js pptx-js-engine.mjs pptx-wasm-renderer.mjs heic-decode.mjs styles.css; do
+    [[ -f "${target_dir}/${file}" ]] || fail "Installed plugin is missing required artifact: ${target_dir}/${file}"
+  done
 
   update_enabled_plugins "$community_file" "$PLUGIN_ID"
   log "Installed ${PLUGIN_ID} to ${target_dir} (${copied} file(s); existing data.json preserved)."

@@ -426,7 +426,14 @@ function Install-NodeDependencies {
 }
 
 function Assert-ReleaseFilesPresent {
-    $requiredFiles = @("manifest.json", "main.js", "styles.css")
+    $requiredFiles = @(
+        "manifest.json",
+        "main.js",
+        "pptx-js-engine.mjs",
+        "pptx-wasm-renderer.mjs",
+        "heic-decode.mjs",
+        "styles.css"
+    )
     $missing = @()
 
     foreach ($fileName in $requiredFiles) {
@@ -526,16 +533,23 @@ function Install-Plugin {
         }
     }
 
-    $files = @()
-    $files += Get-Item (Join-Path $PluginRoot "manifest.json")
-    $files += Get-ChildItem -Path $PluginRoot -File | Where-Object { $_.Extension -in @(".js", ".css") }
+    $requiredFiles = @(
+        "manifest.json",
+        "main.js",
+        "pptx-js-engine.mjs",
+        "pptx-wasm-renderer.mjs",
+        "heic-decode.mjs",
+        "styles.css"
+    )
+    $files = $requiredFiles | ForEach-Object { Get-Item (Join-Path $PluginRoot $_) }
 
     foreach ($file in $files) {
         Copy-Item -Force -Path $file.FullName -Destination (Join-Path $targetDir $file.Name)
     }
 
-    if ((-not (Test-Path (Join-Path $targetDir "manifest.json"))) -or (-not (Test-Path (Join-Path $targetDir "main.js")))) {
-        throw "Installed plugin is missing manifest.json or main.js: $targetDir"
+    $missingInstalledFiles = $requiredFiles | Where-Object { -not (Test-Path (Join-Path $targetDir $_)) }
+    if ($missingInstalledFiles.Count -gt 0) {
+        throw "Installed plugin is missing required file(s): $($missingInstalledFiles -join ', '): $targetDir"
     }
 
     $enabled = Get-EnabledPluginIds $communityPluginsFile |

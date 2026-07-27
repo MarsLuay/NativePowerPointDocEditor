@@ -197,10 +197,18 @@ export function patchParagraphBottomBorder(
 export function patchCellText(cellXml: string, text: string): string {
 	const encoded = encodeXmlText(text);
 	const paragraphXml = `<w:p><w:r><w:t>${encoded}</w:t></w:r></w:p>`;
-	if (/<w:p\b/.test(cellXml)) {
-		return cellXml.replace(/<w:p\b[\s\S]*?<\/w:p>/, paragraphXml);
+	const openTag = /^<w:tc\b[^>]*>/.exec(cellXml)?.[0];
+	const closeIndex = cellXml.lastIndexOf('</w:tc>');
+	if (!openTag || closeIndex === -1) {
+		throw createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Failed to parse table cell XML.');
 	}
-	return cellXml.replace(/<\/w:tc>$/, `${paragraphXml}</w:tc>`);
+
+	// A cell can contain many paragraphs, drawings, and nested tables. Replacing
+	// only its first paragraph leaves stale template content behind. Preserve the
+	// cell properties while replacing the complete cell body with one paragraph.
+	const inner = cellXml.slice(openTag.length, closeIndex);
+	const properties = /^\s*(<w:tcPr\b[^>]*(?:\/>|>[\s\S]*?<\/w:tcPr>))/.exec(inner)?.[1] ?? '';
+	return `${openTag}${properties}${paragraphXml}</w:tc>`;
 }
 
 export function patchCellStyle(cellXml: string, style: Record<string, unknown>): string {

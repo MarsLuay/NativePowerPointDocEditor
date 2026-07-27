@@ -8,6 +8,7 @@ import {
 	DOCX_RENDERED_PARAGRAPH_SELECTOR,
 	DOCX_RENDERED_RUN_TAB_ATTRIBUTE,
 } from './docxEditorChromeMarkers';
+import { createDetachedMeasureCanvas } from './powerpoint/measureCanvas';
 
 const RENDERED_PDF_EXPORT_SCALE = 2;
 const RENDERED_PDF_PAGE_READY_TIMEOUT_MS = 4000;
@@ -136,7 +137,10 @@ function formatPdfNumber(value: number) {
 let renderedPdfMeasureCanvas: HTMLCanvasElement | null = null;
 
 function measureRenderedPdfTextCssWidth(text: string, fontSizePx: number, fontFamily: string, fontWeight: string, fontStyle: string) {
-	renderedPdfMeasureCanvas ??= activeDocument.createEl('canvas');
+	renderedPdfMeasureCanvas ??= createDetachedMeasureCanvas(activeDocument);
+	if (!renderedPdfMeasureCanvas) {
+		return 0;
+	}
 	const context = renderedPdfMeasureCanvas.getContext('2d');
 	if (!context) {
 		return 0;
@@ -639,7 +643,10 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 	const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
 	try {
 		const image = await loadImageFromUrl(svgUrl);
-		const canvas = activeDocument.createEl('canvas');
+		const canvas = createDetachedMeasureCanvas(page.ownerDocument);
+		if (!canvas) {
+			throw new Error('Could not create a detached PDF export canvas.');
+		}
 		canvas.width = Math.max(1, Math.round(pageWidth * RENDERED_PDF_EXPORT_SCALE));
 		canvas.height = Math.max(1, Math.round(pageHeight * RENDERED_PDF_EXPORT_SCALE));
 		const context = canvas.getContext('2d');
@@ -658,21 +665,30 @@ async function renderPageElementToSvgJpeg(page: HTMLElement, editorRoot: HTMLEle
 
 async function renderPageElementToJpeg(page: HTMLElement, editorRoot: HTMLElement, cssText: string) {
 	try {
-		const canvasPage = await renderPageElementToCanvasJpeg(page);
-		if (canvasPage) {
-			debugLog('export', 'Rendered PDF page with html2canvas', {
-				imageWidth: canvasPage.imageWidth,
-				imageHeight: canvasPage.imageHeight,
-				pdfWidth: canvasPage.pdfWidth,
-				pdfHeight: canvasPage.pdfHeight,
+		const svgPage = await renderPageElementToSvgJpeg(page, editorRoot, cssText);
+		if (svgPage) {
+			debugLog('export', 'Rendered PDF page with SVG renderer', {
+				imageWidth: svgPage.imageWidth,
+				imageHeight: svgPage.imageHeight,
+				pdfWidth: svgPage.pdfWidth,
+				pdfHeight: svgPage.pdfHeight,
 			});
-			return canvasPage;
+			return svgPage;
 		}
-	} catch (canvasError) {
-		warnLog('export', 'html2canvas PDF page render failed; retrying with SVG renderer', canvasError);
+	} catch (svgError) {
+		warnLog('export', 'SVG PDF page render failed; retrying with html2canvas', svgError);
 	}
 
-	return renderPageElementToSvgJpeg(page, editorRoot, cssText);
+	const canvasPage = await renderPageElementToCanvasJpeg(page);
+	if (canvasPage) {
+		debugLog('export', 'Rendered PDF page with html2canvas', {
+			imageWidth: canvasPage.imageWidth,
+			imageHeight: canvasPage.imageHeight,
+			pdfWidth: canvasPage.pdfWidth,
+			pdfHeight: canvasPage.pdfHeight,
+		});
+	}
+	return canvasPage;
 }
 
 function createRenderedPdfContentStream(page: RenderedPdfImagePage, imageName: string) {

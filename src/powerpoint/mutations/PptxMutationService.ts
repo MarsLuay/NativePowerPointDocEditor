@@ -287,6 +287,23 @@ export class PptxMutationService implements MutationExecutor {
           command.shapeIndex,
           command.paragraphIndex,
           command.style,
+          command.stripLeadingManualBullet,
+        );
+      case 'apply-list-style-range':
+        return engine.applyListStyleForRange(
+          command.slideIndex,
+          command.shapeIndex,
+          command.range,
+          command.style,
+          command.stripLeadingManualBullet,
+        );
+      case 'apply-list-style-ranges':
+        return engine.applyListStyleForRanges(
+          command.slideIndex,
+          command.shapeIndex,
+          command.ranges,
+          command.style,
+          command.stripLeadingManualBullet,
         );
       case 'set-slide-background-color':
         return engine.setSlideBackgroundColor(command.slideIndex, command.hex);

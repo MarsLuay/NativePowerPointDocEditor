@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { loadTextUtilsModule } from "./helpers/load-plugin-modules.mjs";
+
+const projectRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 test("inline paragraph preview preserves its wrapped SVG line containers after a backspace", async () => {
   const { redistributeTextAcrossVisualRuns } = await loadTextUtilsModule();
@@ -114,4 +119,37 @@ test("preview frame picker skips unusable frames then accepts the next candidate
 
   assert.equal(picked?.source, "direct-rect");
   assert.equal(picked?.box.width, 180);
+});
+
+test("live inline reflow moves following paragraphs by its wrapped-line delta", () => {
+  const view = readFileSync(
+    join(projectRoot, "src/powerpoint/ui/NativePowerPointView.ts"),
+    "utf8",
+  );
+  const reflow = view.slice(
+    view.indexOf("private reflowShapeParagraphPreview"),
+    view.indexOf("private createInlinePreviewTextMeasurer"),
+  );
+
+  assert.match(reflow, /const lineDelta = nextLines\.length - lineContainers\.length;/);
+  assert.match(
+    reflow,
+    /this\.shiftLocalPreviewParagraphs\(\s*textElement,\s*target\.paragraphIndex \+ 1,\s*0,\s*lineStep \* lineDelta,\s*\);/,
+  );
+});
+
+test("paragraph split preview rejects wrapped or downstream text before mutating live SVG", () => {
+  const view = readFileSync(
+    join(projectRoot, "src/powerpoint/ui/NativePowerPointView.ts"),
+    "utf8",
+  );
+  const splitPreview = view.slice(
+    view.indexOf("private previewInlineParagraphSplit"),
+    view.indexOf("/** Durable geometry breadcrumb for paragraph-split regressions."),
+  );
+
+  assert.match(splitPreview, /sourceLinesBeforePreview\.length !== 1/);
+  assert.match(splitPreview, /hasDownstreamParagraph/);
+  assert.match(splitPreview, /trailingLineCount !== 1/);
+  assert.match(splitPreview, /Skipped live PowerPoint paragraph split preview/);
 });
