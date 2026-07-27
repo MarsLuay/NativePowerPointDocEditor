@@ -162,6 +162,9 @@ async function main() {
 <script src="${pathToFileURL(engineBundle).href}"></script>
 <script src="${pathToFileURL(exportBundle).href}"></script>
 <script>
+if (!document.createEl) {
+  document.createEl = (tagName) => document.createElement(tagName);
+}
 window.__npdeExportPdf = async function(inputBase64) {
   try {
     const binary = Uint8Array.from(atob(inputBase64), (c) => c.charCodeAt(0));

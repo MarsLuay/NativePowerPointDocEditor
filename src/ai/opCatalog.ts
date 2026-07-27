@@ -304,6 +304,10 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	pptxOp('replaceImage', 'image', 'Replace picture media, or convert a non-picture shape/placeholder into a picture that fills the same transform box.', slideShapeParams({
 		vaultImagePath: { type: 'string' },
 	})),
+	pptxOp('replaceImageFromShape', 'image', 'Replace picture media from another embedded picture shape in the presentation.', slideShapeParams({
+		sourceSlideIndex: { ...SLIDE_INDEX, description: '0-based slide index containing the source picture.' },
+		sourceShapeIndex: { ...SHAPE_INDEX, description: 'Renderer shape index of the source picture from describe().' },
+	})),
 
 	// PPTX — charts
 	pptxOp('updateChartData', 'charts', 'Update chart series data.', slideShapeParams({

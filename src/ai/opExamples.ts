@@ -41,6 +41,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'pptx.setImageCrop': { op: 'pptx.setImageCrop', slideIndex: 0, shapeIndex: 0, crop: { left: 10, top: 10, right: 10, bottom: 10 } },
 	'pptx.resetImage': { op: 'pptx.resetImage', slideIndex: 0, shapeIndex: 0 },
 	'pptx.replaceImage': { op: 'pptx.replaceImage', slideIndex: 0, shapeIndex: 0, vaultImagePath: 'assets/example.png' },
+	'pptx.replaceImageFromShape': { op: 'pptx.replaceImageFromShape', slideIndex: 0, shapeIndex: 0, sourceSlideIndex: 0, sourceShapeIndex: 1 },
 	'pptx.updateChartData': {
 		op: 'pptx.updateChartData',
 		slideIndex: 0,

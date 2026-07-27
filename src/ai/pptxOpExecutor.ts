@@ -791,6 +791,59 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		case 'pptx.replaceImageFromShape': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			const sourceSlideIndex = requireNumber(payload.sourceSlideIndex, 'sourceSlideIndex');
+			const sourceShapeIndex = requireNumber(payload.sourceShapeIndex, 'sourceShapeIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			assertSlideInRange(context.engine, sourceSlideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+			const wasImage = context.engine.isImageShape(slideIndex, shapeIndex);
+			const sourceImage = await context.engine.getShapeImageData(sourceSlideIndex, sourceShapeIndex);
+			if (!sourceImage) {
+				throw createAiError(
+					AI_ERROR_CODES.VALIDATION_FAILED,
+					`Source shape ${pptxShapeId(sourceSlideIndex, sourceShapeIndex)} is not an embedded picture.`,
+				);
+			}
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			result.preview.push({
+				id: changedId,
+				field: wasImage ? 'image' : 'convertToImage',
+				before: wasImage ? null : before,
+				after: { sourceShapeId: pptxShapeId(sourceSlideIndex, sourceShapeIndex) },
+			});
+			if (!wasImage) {
+				result.warnings.push(
+					`Shape ${changedId} was not a picture; converted it into a picture filling the same transform box.`,
+				);
+			}
+			if (!context.dryRun) {
+				const resultIndex = await context.engine.replaceImage(
+					slideIndex,
+					shapeIndex,
+					sourceImage.bytes,
+					sourceImage.mimeType,
+				);
+				if (!wasImage && before.transform?.cx && before.transform?.cy) {
+					const cover = computeCoverCrop(
+						sourceImage.bytes,
+						before.transform.cx,
+						before.transform.cy,
+					);
+					if (cover) {
+						await context.engine.setImageCrop(slideIndex, resultIndex, cover);
+					}
+				}
+				result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
+			} else {
+				result.changedIds.push(changedId);
+			}
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
 		case 'pptx.updateChartData': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');

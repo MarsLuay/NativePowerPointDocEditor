@@ -10,6 +10,7 @@ const packages = [
 	['docx-editor-i18n', 'i18n'],
 	['docx-editor-react', 'react'],
 ];
+const linkType = process.platform === 'win32' ? 'junction' : 'dir';
 
 await mkdir(scopedPackagesRoot, { recursive: true });
 
@@ -22,5 +23,5 @@ for (const [packageName, directory] of packages) {
 	} catch (error) {
 		if (error && typeof error === 'object' && error.code !== 'ENOENT') throw error;
 	}
-	await symlink(target, link, 'dir');
+	await symlink(target, link, linkType);
 }

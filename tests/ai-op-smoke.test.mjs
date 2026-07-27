@@ -518,6 +518,7 @@ test('PPTX agent ops smoke dispatches every operation', async (t) => {
 			return { op: 'pptx.resetImage', slideIndex: 0, shapeIndex: targets.imageShape };
 		},
 		'pptx.replaceImage': () => ({ op: 'pptx.replaceImage', slideIndex: 0, shapeIndex: targets.imageShape, vaultImagePath: 'assets/smoke.png' }),
+		'pptx.replaceImageFromShape': () => ({ op: 'pptx.replaceImageFromShape', slideIndex: 0, shapeIndex: targets.imageShape, sourceSlideIndex: 0, sourceShapeIndex: targets.imageShape }),
 		'pptx.updateChartData': () => ({
 			op: 'pptx.updateChartData',
 			slideIndex: 0,
