@@ -47,7 +47,22 @@ test('createDetachedMeasureCanvas falls back to doc.win.createEl when Window.cre
   };
 
   const canvas = createDetachedMeasureCanvas(fakeDocument);
-  assert.equal(canvas, created);
+	assert.equal(canvas, created);
+});
+
+test('createDetachedMeasureCanvas uses a standard browser document when Obsidian helpers are unavailable', () => {
+	const created = { tagName: 'CANVAS' };
+	let documentCreateElementCalls = 0;
+	const browserDocument = {
+		createElement(tag) {
+			documentCreateElementCalls += 1;
+			assert.equal(tag, 'canvas');
+			return created;
+		},
+	};
+	const canvas = createDetachedMeasureCanvas({ defaultView: { document: browserDocument } });
+	assert.equal(canvas, created);
+	assert.equal(documentCreateElementCalls, 1);
 });
 
 test('createDetachedMeasureCanvas returns null when win.createEl throws HierarchyRequestError', () => {

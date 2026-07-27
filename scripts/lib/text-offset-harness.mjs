@@ -28,6 +28,16 @@ export function resolveElectronBinary() {
   return null;
 }
 
+/**
+ * Electron's CLI respects ELECTRON_RUN_AS_NODE, which makes main-process
+ * harnesses lose the Electron app API. Strip only that child-incompatible
+ * variable while preserving all other caller configuration and overrides.
+ */
+export function electronMainEnv(overrides = {}, parentEnv = process.env) {
+  const { ELECTRON_RUN_AS_NODE: _runAsNode, ...environment } = parentEnv;
+  return { ...environment, ...overrides };
+}
+
 export async function canUseElectronMainHarness(electronBinary, timeoutMs = 5000) {
   if (!electronBinary) return false;
   if (electronApiProbeCache.has(electronBinary)) {
@@ -36,11 +46,10 @@ export async function canUseElectronMainHarness(electronBinary, timeoutMs = 5000
   const probe = await new Promise((resolve) => {
     const child = spawn(electronBinary, [electronMainPath], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: {
-        ...process.env,
+      env: electronMainEnv({
         ELECTRON_API_PROBE: "1",
         ELECTRON_DISABLE_SECURITY_WARNINGS: "true",
-      },
+      }),
     });
     let stdout = "";
     const timer = setTimeout(() => {
@@ -80,7 +89,7 @@ export function runElectron(electronBinary, htmlFile, timeoutMs = 45000) {
   return new Promise((resolve, reject) => {
     const child = spawn(electronBinary, [electronMainPath], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, HARNESS_HTML: htmlFile, ELECTRON_DISABLE_SECURITY_WARNINGS: "true" },
+      env: electronMainEnv({ HARNESS_HTML: htmlFile, ELECTRON_DISABLE_SECURITY_WARNINGS: "true" }),
     });
     let stdout = "";
     let stderr = "";

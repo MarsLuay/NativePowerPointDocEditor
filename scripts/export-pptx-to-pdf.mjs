@@ -15,6 +15,7 @@ import { createRequire } from 'node:module';
 import { createInlinePptxSvgWasmPlugin } from './lib/patch-pptx-renderer.mjs';
 import {
 	canUseElectronMainHarness,
+	electronMainEnv,
 	projectRoot,
 	resolveElectronBinary,
 } from './lib/text-offset-harness.mjs';
@@ -23,6 +24,15 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const electronMainPath = path.join(__dirname, 'lib/electron-export-pdf-main.cjs');
 const cacheDir = path.join(projectRoot, 'scripts/.cache');
+const runtimeArtifacts = Object.fromEntries(
+	['pptx-js-engine.mjs', 'pptx-wasm-renderer.mjs', 'heic-decode.mjs'].map((artifact) => {
+		const artifactPath = path.join(projectRoot, artifact);
+		return [artifact, {
+			path: artifactPath,
+			resourceUrl: pathToFileURL(artifactPath).href,
+		}];
+	}),
+);
 
 const inlinePptxSvgWasmPlugin = createInlinePptxSvgWasmPlugin();
 
@@ -81,13 +91,12 @@ function runExportElectron(electronBinary, htmlFile, inputPath, outputPath, time
 	return new Promise((resolve, reject) => {
 		const child = spawn(electronBinary, [electronMainPath], {
 			stdio: ['ignore', 'pipe', 'pipe'],
-			env: {
-				...process.env,
+			env: electronMainEnv({
 				HARNESS_HTML: htmlFile,
 				EXPORT_INPUT_PATH: inputPath,
 				EXPORT_OUTPUT_PATH: outputPath,
 				ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
-			},
+			}),
 		});
 		let stdout = '';
 		let stderr = '';
@@ -137,6 +146,11 @@ async function main() {
 		console.error('Output path must end with .pdf');
 		process.exit(1);
 	}
+	for (const [artifact, resource] of Object.entries(runtimeArtifacts)) {
+		if (!existsSync(resource.path)) {
+			throw new Error(`Missing PowerPoint runtime artifact ${artifact}; run npm run build first.`);
+		}
+	}
 
 	const electronBinary = resolveElectronBinary();
 	if (!electronBinary || !existsSync(electronBinary)) {
@@ -165,11 +179,20 @@ async function main() {
 if (!document.createEl) {
   document.createEl = (tagName) => document.createElement(tagName);
 }
+const runtimeArtifacts = ${JSON.stringify(runtimeArtifacts)};
 window.__npdeExportPdf = async function(inputBase64) {
   try {
     const binary = Uint8Array.from(atob(inputBase64), (c) => c.charCodeAt(0));
     const buffer = binary.buffer.slice(binary.byteOffset, binary.byteOffset + binary.byteLength);
     const Engine = PresentationEngineNS.PresentationEngine || PresentationEngineNS.default || PresentationEngineNS;
+    if (typeof PresentationEngineNS.configurePptxRuntimeArtifactLoader !== 'function') {
+      throw new Error('Presentation engine runtime artifact loader is unavailable.');
+    }
+    PresentationEngineNS.configurePptxRuntimeArtifactLoader((artifact) => {
+      const resource = runtimeArtifacts[artifact];
+      if (!resource) throw new Error('Missing PowerPoint runtime artifact ' + artifact + '.');
+      return resource;
+    });
     const engine = await Engine.load(buffer);
     const { bytes, slideCount } = await NpdeExportPdf.exportPresentationToPdfBytes(engine, {}, document);
     const u8 = new Uint8Array(bytes);

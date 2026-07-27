@@ -13,6 +13,7 @@ import type { ParagraphListStyle } from '../SlideInsertions';
 import type { DrawingParagraphText } from '../powerpoint/drawingmlText';
 import { isEditableShapeIndex } from '../powerpoint/svgUtils';
 import { readRasterImageDimensions } from '../powerpoint/imageDimensions';
+import { fitImageWithinBounds } from '../powerpoint/imageFit';
 import { AI_ERROR_CODES, createAiError } from './errors';
 import { describePptxFromEngine } from './pptxDescribe';
 import { pptxShapeId } from './pptxIds';
@@ -175,32 +176,37 @@ async function applyTransformToInsertedShape(
 	await engine.applyInsertedShapeTransform(slideIndex, shapeIndex, transform);
 }
 
-/**
- * Cover-fit crop fractions so the source fills the target box (may trim edges).
- * Returns null when no crop is needed or dimensions are unknown.
- */
-function computeCoverCrop(
-	bytes: Uint8Array,
-	frameCx: number,
-	frameCy: number,
-): ImageCrop | null {
-	if (frameCx <= 0 || frameCy <= 0) return null;
-	const size = readRasterImageDimensions(bytes);
-	if (!size) return null;
-	const imageAspect = size.width / size.height;
-	const frameAspect = frameCx / frameCy;
-	const epsilon = 0.01;
-	if (Math.abs(imageAspect - frameAspect) < epsilon) return null;
-	if (imageAspect > frameAspect) {
-		// Source is wider — trim left/right.
-		const visible = frameAspect / imageAspect;
-		const side = ((1 - visible) / 2) * 100;
-		return { left: side, top: 0, right: side, bottom: 0 };
-	}
-	// Source is taller — trim top/bottom.
-	const visible = imageAspect / frameAspect;
-	const side = ((1 - visible) / 2) * 100;
-	return { left: 0, top: side, right: 0, bottom: side };
+function parseImageFit<TFit extends string>(
+	payload: Record<string, unknown>,
+	defaultFit: TFit,
+	allowedFits: readonly TFit[],
+): TFit {
+	const fit = payload.fit;
+	if (fit === undefined) return defaultFit;
+	if (typeof fit === 'string' && allowedFits.includes(fit as TFit)) return fit as TFit;
+	throw createAiError(
+		AI_ERROR_CODES.SCHEMA_INVALID,
+		`fit must be ${allowedFits.map((value) => `"${value}"`).join(' or ')}.`,
+		{ field: 'fit' },
+	);
+}
+
+function fitInsertedImageTransform(
+	transform: ShapeTransform,
+	imageBytes: Uint8Array,
+): ShapeTransform {
+	const fittedSize = fitImageWithinBounds(
+		readRasterImageDimensions(imageBytes),
+		transform.cx,
+		transform.cy,
+	);
+	return {
+		...transform,
+		x: transform.x + (transform.cx - fittedSize.width) / 2,
+		y: transform.y + (transform.cy - fittedSize.height) / 2,
+		cx: fittedSize.width,
+		cy: fittedSize.height,
+	};
 }
 
 export async function executePptxOp(
@@ -551,6 +557,7 @@ export async function executePptxOp(
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const vaultImagePath = requireString(payload.vaultImagePath, 'vaultImagePath');
 			const transform = requireTransform(payload.transform);
+			const fit = parseImageFit(payload, 'contain', ['contain', 'stretch'] as const);
 			assertSlideInRange(context.engine, slideIndex);
 			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
 			let shapeIndex = 0;
@@ -559,7 +566,11 @@ export async function executePptxOp(
 				// Renderer-side insert returns a composite shape index that can diverge
 				// from the serialized spTree (group children / graphicFrame merge). Use
 				// the renderer transform path — not applyInsertedShapeTransform (OOXML).
-				await context.engine.updateShapeTransform(slideIndex, shapeIndex, transform);
+				await context.engine.updateShapeTransform(
+					slideIndex,
+					shapeIndex,
+					fit === 'contain' ? fitInsertedImageTransform(transform, image.bytes) : transform,
+				);
 			}
 			result.changedIds.push(pptxShapeId(slideIndex, shapeIndex));
 			result.affectedSlideIndices.add(slideIndex);
@@ -727,6 +738,28 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		case 'pptx.fitImageToFrame': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			if (!context.engine.isImageShape(slideIndex, shapeIndex)) {
+				throw createAiError(
+					AI_ERROR_CODES.OBJECT_NOT_EDITABLE,
+					`Shape ${pptxShapeId(slideIndex, shapeIndex)} is not an image.`,
+				);
+			}
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			const before = context.engine.getImageCrop(slideIndex, shapeIndex);
+			const after = await context.engine.getImageFitCrop(slideIndex, shapeIndex);
+			result.preview.push({ id: changedId, field: 'crop', before, after });
+			if (!context.dryRun) {
+				await context.engine.fitImageToFrame(slideIndex, shapeIndex);
+			}
+			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
 		case 'pptx.resetImage': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
@@ -748,6 +781,7 @@ export async function executePptxOp(
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const vaultImagePath = requireString(payload.vaultImagePath, 'vaultImagePath');
+			const fit = parseImageFit(payload, 'cover', ['cover', 'stretch'] as const);
 			assertSlideInRange(context.engine, slideIndex);
 			assertEditableShape(slideIndex, shapeIndex);
 			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
@@ -771,19 +805,8 @@ export async function executePptxOp(
 					shapeIndex,
 					image.bytes,
 					getImageMimeType(image.extension),
+					fit,
 				);
-				// Cover-fit portrait/landscape sources into the target box when we
-				// converted a placeholder, so the frame stays filled without letterboxing.
-				if (!wasImage && before.transform?.cx && before.transform?.cy) {
-					const cover = computeCoverCrop(
-						image.bytes,
-						before.transform.cx,
-						before.transform.cy,
-					);
-					if (cover) {
-						await context.engine.setImageCrop(slideIndex, resultIndex, cover);
-					}
-				}
 				result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
 			} else {
 				result.changedIds.push(changedId);

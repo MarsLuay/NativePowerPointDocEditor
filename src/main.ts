@@ -26,6 +26,7 @@ import { getObsidianLocale } from './i18n/obsidianLocale';
 import type { PluginI18nService } from './i18n/I18nService';
 import { showI18nNotice } from './i18n/notify';
 import { configureForceJsBackendOverrideReader } from './powerpoint/forceJsBackend';
+import { configurePptxRuntimeArtifactLoader } from './powerpoint/runtimeArtifactLoader';
 import { formatDocumentWordCount, type DocumentWordCount } from './documentWordCount';
 import {
 	AiCore,
@@ -203,6 +204,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			}
 		});
 		configureForceJsBackendOverrideReader(() => this.forceJsBackendDevOverride);
+		this.configurePowerPointRuntimeArtifactLoader();
 
 		if (!this.pluginSettings.disableDocxFiles) {
 			await this.loadDocxSupport();
@@ -249,6 +251,21 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			this.refreshDocumentWordCountStatus();
 		}));
 		void this.setupDevHotReload();
+	}
+
+	private configurePowerPointRuntimeArtifactLoader(): void {
+		const pluginDir = this.manifest.dir;
+		if (!pluginDir) {
+			throw new Error('Could not resolve the Native PowerPoint Doc Editor plugin directory.');
+		}
+
+		configurePptxRuntimeArtifactLoader((artifact) => {
+			const path = normalizePath(`${pluginDir}/${artifact}`);
+			return {
+				path,
+				resourceUrl: this.app.vault.adapter.getResourcePath(path),
+			};
+		});
 	}
 
 	onunload(): void {

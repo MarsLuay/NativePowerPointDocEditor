@@ -157,6 +157,13 @@ export async function exportPresentationToPdfBytes(
 	} catch {
 		pageSizePoints = undefined;
 	}
+	debugLog('export', 'AI PPTX PDF export prepared slides', {
+		slideCount: elements.length,
+		slideIndices: indices,
+		scale,
+		dpi,
+		pageSizePoints,
+	});
 	const bytes = await exportSlidesToPdf(elements, ownerDocument, {
 		scale,
 		dpi,

@@ -5,6 +5,8 @@ import {
   dataUrlToBytes,
   type RenderedPdfImagePage
 } from './renderedPdfExport';
+import { debugLog } from './logger';
+import { createDetachedMeasureCanvas } from './powerpoint/measureCanvas';
 
 export const SLIDE_PNG_EXPORT_SCALE = 2;
 export const SLIDE_PDF_EXPORT_SCALE = 2;
@@ -134,7 +136,12 @@ async function rasterizeSlideToCanvas(
 
   try {
     const image = await loadImageFromUrl(url);
-    const canvas = ownerDocument.createEl('canvas');
+    // The SVG import can be owned by an XML document, whose createEl helper
+    // attempts to append another document root and throws HierarchyRequestError.
+    const canvas = createDetachedMeasureCanvas(ownerDocument);
+    if (!canvas) {
+      throw new Error('Could not create a detached slide export canvas.');
+    }
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
     const context = canvas.getContext('2d');
@@ -142,9 +149,22 @@ async function rasterizeSlideToCanvas(
       throw new Error('Could not create a slide export canvas.');
     }
 
+    debugLog('export', 'PPTX PDF slide rasterization started', {
+      svgWidth: size.width,
+      svgHeight: size.height,
+      pixelWidth,
+      pixelHeight,
+      pdfWidth,
+      pdfHeight,
+    });
+
     context.fillStyle = '#ffffff';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    debugLog('export', 'PPTX PDF slide rasterization completed', {
+      pixelWidth: canvas.width,
+      pixelHeight: canvas.height,
+    });
     return { canvas, pdfWidth, pdfHeight };
   } finally {
     URL.revokeObjectURL(url);

@@ -77,6 +77,30 @@ test('OP_EXAMPLES payloads pass schema validation', async () => {
 	}
 });
 
+test('PPTX image replacement defaults to aspect-ratio-preserving cover', async () => {
+	const { validateDocumentOps } = await loadAiSchemaModules();
+	const errors = validateDocumentOps([{
+		op: 'pptx.replaceImage',
+		slideIndex: 0,
+		shapeIndex: 0,
+		vaultImagePath: 'assets/example.png',
+	}]);
+	assert.deepEqual(errors, []);
+});
+
+test('PPTX fitImageToFrame requires only an existing image shape', async () => {
+	const { validateDocumentOps, listOpDefinitions } = await loadAiSchemaModules();
+	const errors = validateDocumentOps([{
+		op: 'pptx.fitImageToFrame',
+		slideIndex: 0,
+		shapeIndex: 0,
+	}]);
+	assert.deepEqual(errors, []);
+	const operation = listOpDefinitions().find((candidate) => candidate.id === 'pptx.fitImageToFrame');
+	assert.ok(operation, 'pptx.fitImageToFrame must be available to agents');
+	assert.deepEqual(operation.parameters.required, ['slideIndex', 'shapeIndex']);
+});
+
 test('OP_EXAMPLES reject missing required fields', async () => {
 	const { validateDocumentOps, OP_EXAMPLES, AI_ERROR_CODES } = await loadAiSchemaModules();
 
@@ -109,4 +133,7 @@ test('generated capabilities.json includes per-op schemas and examples', async (
 		assert.ok(operation.example, `${operation.id} missing example in capabilities.json`);
 		assert.equal(operation.example.op, operation.id);
 	}
+	const replaceImage = capabilities.operations.find((operation) => operation.id === 'pptx.replaceImage');
+	assert.ok(replaceImage, 'pptx.replaceImage must be in capabilities.json');
+	assert.deepEqual(replaceImage.parameters.required, ['slideIndex', 'shapeIndex', 'vaultImagePath']);
 });

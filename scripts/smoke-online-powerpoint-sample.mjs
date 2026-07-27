@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
+import { createPptxRuntimeArtifactResolver } from './lib/pptx-runtime-artifact-test-loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require('@xmldom/xmldom');
@@ -168,7 +169,11 @@ try {
     })
   ]);
 
-  const { PresentationEngine } = require(engineBundlePath);
+  const presentationModule = require(engineBundlePath);
+  presentationModule.configurePptxRuntimeArtifactLoader(
+    await createPptxRuntimeArtifactResolver({ projectRoot: path.resolve(), outputDirectory: tempDir }),
+  );
+  const { PresentationEngine } = presentationModule;
   const packageApi = require(packageBundlePath);
   const {
     inspectPowerPointPackage,

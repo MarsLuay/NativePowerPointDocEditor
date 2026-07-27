@@ -304,6 +304,9 @@ function createAppStub() {
 		vault: {
 			adapter: {
 				basePath: vaultRoot,
+				getResourcePath(normalizedPath) {
+					return `app://local/${normalizedPath}`;
+				},
 				exists() {
 					return Promise.resolve(false);
 				},
@@ -566,6 +569,7 @@ async function runSmoke() {
 	assert.ok(plugin.commands.some((command) => command.id === 'save-current-powerpoint-file'), 'Plugin should register the PowerPoint save command.');
 	assert.ok(capturedLogs.some((entry) => entry.args.join(' ').includes('[Native PowerPoint Doc Editor] plugin: Plugin loaded')), 'Debug logging should emit a plugin loaded entry.');
 	assert.ok(capturedLogs.some((entry) => entry.args.join(' ').includes('[Native PowerPoint Doc Editor] chunk: DOCX editor is bundled into main.js')), 'Debug logging should emit bundled DOCX editor mode.');
+	assert.ok(capturedLogs.some((entry) => entry.args.join(' ').includes('[Native PowerPoint Doc Editor] render: Configured optional PowerPoint runtime artifact loader')), 'Plugin startup should configure Obsidian resource URLs for optional PowerPoint runtimes.');
 
 	const docxViewFactory = plugin.registeredViews.find((view) => view.viewType === 'native-powerpoint-doc-editor-docx-view')?.factory;
 	assert.equal(typeof docxViewFactory, 'function', 'Plugin should expose a DOCX view factory.');

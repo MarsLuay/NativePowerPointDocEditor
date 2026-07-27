@@ -45,6 +45,29 @@ test("inline paragraph preview creates new word-wrapped lines without losing tex
   assert.equal(lines.join(""), "alpha beta gamma");
 });
 
+test("inline paragraph preview passes the source offset to mixed-run measurement", async () => {
+  const { wrapTextForPreview } = await loadTextUtilsModule();
+  const calls = [];
+  const lines = wrapTextForPreview("aa bb", 3, (value, startOffset = 0) => {
+    calls.push({ value, startOffset });
+    return value.length;
+  });
+
+  assert.deepEqual(lines, ["aa ", "bb"]);
+  assert.ok(calls.some((call) => call.value === "b" && call.startOffset === 3));
+});
+
+test("mixed-run preview measurement uses the matching font segment", async () => {
+  const { measureSegmentedPreviewText } = await loadTextUtilsModule();
+  const segments = [
+    { start: 0, end: 2, measure: (value) => value.length },
+    { start: 2, end: 5, measure: (value) => value.length * 10 },
+  ];
+
+  assert.equal(measureSegmentedPreviewText("abcde", 0, segments), 32);
+  assert.equal(measureSegmentedPreviewText("cde", 2, segments), 30);
+});
+
 test("inline paragraph preview breaks an overlong unspaced word", async () => {
   const { wrapTextForPreview } = await loadTextUtilsModule();
   const lines = wrapTextForPreview("abcdefgh", 3, (value) => value.length);

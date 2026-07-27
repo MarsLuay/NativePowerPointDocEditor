@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { prepareNativePowerPointSmokeFixtures } from './fixtures/native-powerpoint-smoke-fixtures.mjs';
+import { createPptxRuntimeArtifactResolver } from './lib/pptx-runtime-artifact-test-loader.mjs';
 
 const require = createRequire(import.meta.url);
 const JSZip = require('jszip');
@@ -109,7 +110,11 @@ try {
     })
   ]);
 
-  const { PresentationEngine } = require(bundlePath);
+  const presentationModule = require(bundlePath);
+  presentationModule.configurePptxRuntimeArtifactLoader(
+    await createPptxRuntimeArtifactResolver({ projectRoot: path.resolve(), outputDirectory: tempDir }),
+  );
+  const { PresentationEngine } = presentationModule;
   const {
     inspectPowerPointPackage,
     validatePowerPointExport,

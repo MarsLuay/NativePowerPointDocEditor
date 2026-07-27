@@ -153,7 +153,7 @@ export function pickInlinePreviewFrameBox(
 export function wrapTextForPreview(
   text: string,
   maxWidth: number,
-  measure: (value: string) => number
+  measure: (value: string, startOffset?: number) => number
 ): string[] {
   if (!text || !Number.isFinite(maxWidth) || maxWidth <= 0) return [text];
 
@@ -167,7 +167,7 @@ export function wrapTextForPreview(
     if (character === '\n') return [text];
 
     const candidate = text.slice(lineStart, index + 1);
-    if (measure(candidate) <= maxWidth || index === lineStart) {
+    if (measure(candidate, lineStart) <= maxWidth || index === lineStart) {
       if (/\s/.test(character)) lastBreak = index + 1;
       index += 1;
       continue;
@@ -202,6 +202,34 @@ export function wrapTextForPreview(
 
   lines.push(text.slice(lineStart));
   return lines;
+}
+
+export interface PreviewTextMeasurementSegment {
+  start: number;
+  end: number;
+  measure: (value: string) => number;
+}
+
+/**
+ * Measure a preview substring with the font metrics of each run it crosses.
+ * `value` begins at `startOffset` in the full paragraph, so automatic wraps
+ * retain the font size at the caret instead of borrowing the first run's size.
+ */
+export function measureSegmentedPreviewText(
+  value: string,
+  startOffset: number,
+  segments: readonly PreviewTextMeasurementSegment[],
+): number {
+  const valueStart = Math.max(0, startOffset);
+  const valueEnd = valueStart + value.length;
+  let width = 0;
+  for (const segment of segments) {
+    const start = Math.max(valueStart, segment.start);
+    const end = Math.min(valueEnd, segment.end);
+    if (end <= start) continue;
+    width += segment.measure(value.slice(start - valueStart, end - valueStart));
+  }
+  return width;
 }
 
 /**

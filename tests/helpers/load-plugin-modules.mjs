@@ -5,6 +5,7 @@ import Module, { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { createInlinePptxSvgWasmPlugin } from "../../scripts/lib/patch-pptx-renderer.mjs";
+import { createPptxRuntimeArtifactResolver } from "../../scripts/lib/pptx-runtime-artifact-test-loader.mjs";
 import {
   createDocxEditorAliases,
   resolveDocxEditorPackagesRoot,
@@ -47,6 +48,8 @@ globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
 
 const inlinePptxSvgWasmPlugin = createInlinePptxSvgWasmPlugin();
+
+export { createPptxRuntimeArtifactResolver };
 
 function getTempDirectory() {
   tempDirectoryPromise ??= mkdtemp(path.join(tmpdir(), "native-powerpoint-tests-"));
@@ -206,6 +209,10 @@ export function loadSlideExtensionPreserveModule() {
 export function loadPresentationEngineModule() {
   presentationEngineModulePromise ??= (async () => {
     const outputDirectory = await getTempDirectory();
+    const resolveRuntimeArtifact = await createPptxRuntimeArtifactResolver({
+      projectRoot,
+      outputDirectory,
+    });
     const outfile = path.join(outputDirectory, "presentation-engine.cjs");
     await build({
       entryPoints: [path.join(projectRoot, "src/PresentationEngine.ts")],
@@ -218,7 +225,9 @@ export function loadPresentationEngineModule() {
       plugins: [inlinePptxSvgWasmPlugin],
       target: "node22",
     });
-    return require(outfile);
+    const module = require(outfile);
+    module.configurePptxRuntimeArtifactLoader(resolveRuntimeArtifact);
+    return module;
   })();
   return presentationEngineModulePromise;
 }

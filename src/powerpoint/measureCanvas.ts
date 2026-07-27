@@ -17,6 +17,17 @@ export function createDetachedMeasureCanvas(ownerDocument?: Document | null): HT
     return scopedWindow.createEl('canvas');
   }
 
+  // Plain Chromium documents (including the headless PDF export harness) do
+  // not expose Obsidian's createEl helper. Use the window's HTML document so
+  // SVG/XML owner documents never receive a second document root.
+  if (scopedWindow?.document && typeof scopedWindow.document.createElement === 'function') {
+    try {
+      return scopedWindow.document.createElement('canvas');
+    } catch {
+      // Keep the Obsidian doc.win fallback below for unusual host documents.
+    }
+  }
+
   const doc = ownerDocument ?? (typeof activeDocument !== 'undefined' ? activeDocument : null);
   if (!doc) return null;
 
@@ -26,6 +37,11 @@ export function createDetachedMeasureCanvas(ownerDocument?: Document | null): HT
   try {
     return win.createEl('canvas');
   } catch {
-    return null;
+    if (typeof doc.createElement !== 'function') return null;
+    try {
+      return doc.createElement('canvas');
+    } catch {
+      return null;
+    }
   }
 }

@@ -125,12 +125,14 @@ import {
   mapEditorRangeToOoxml,
   mapFlatOffsetToRunLine,
   mapFlatRangeToRunLineSegments,
+  measureSegmentedPreviewText,
   parsePrimaryFontFamily,
   previousTextForInlineApply,
   pickInlinePreviewFrameBox,
   previewWrapMaxWidth,
   redistributeTextAcrossVisualRuns,
   wrapTextForPreview,
+  type PreviewTextMeasurementSegment,
   type RunTspanOffset
 } from '../textUtils';
 import {
@@ -199,6 +201,17 @@ interface InlineEditSnapshot {
   selectionEnd: number;
 }
 
+/** Editor state to restore after document history temporarily closes the textarea. */
+interface InlineEditorHistoryResumeState {
+  slideIndex: number;
+  shapeIndex: number;
+  paragraphIndex: number;
+  selectionStart: number;
+  selectionEnd: number;
+  rangeSelection: InlineRangeSelection | null;
+  wholeShapeSelected: boolean;
+}
+
 interface InlineWholeShapeReplacement {
   shapeIndex: number;
   /** SVG before the temporary all-text preview was cleared; Escape restores it. */
@@ -213,6 +226,7 @@ interface InlineWholeShapeReplacement {
 const INLINE_EDIT_HISTORY_LIMIT = 200;
 const ROTATION_SNAP_THRESHOLD_DEGREES = 3;
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+const EMU_PER_POINT = 12700;
 
 export class NativePowerPointView extends FileView {
   private readonly t: TranslateFn = (key, values) => pptT(key, values);
@@ -5541,7 +5555,7 @@ export class NativePowerPointView extends FileView {
     const textElement = target.element.closest('text');
     const removedLines = this.getParagraphLineContainers(target.shapeIndex, removedParagraphIndex);
     const firstRun = this.collectParagraphRuns(removedLines[0] ?? target.element)[0];
-    const lineStep = firstRun ? this.getLivePreviewLineStep(removedLines, firstRun) : null;
+    const lineStep = firstRun ? this.getLivePreviewLineStep(removedLines, [firstRun]) : null;
     if (!isSVGGElement(shape) || !isSVGTextElement(textElement) || removedLines.length === 0 || lineStep === null) {
       return false;
     }
@@ -5588,7 +5602,7 @@ export class NativePowerPointView extends FileView {
     ).length;
     const sourceLines = this.getParagraphLineContainers(target.shapeIndex, sourceParagraphIndex);
     const firstRun = this.collectParagraphRuns(sourceLines[0] ?? target.element)[0];
-    const lineStep = firstRun ? this.getLivePreviewLineStep(sourceLines, firstRun) : null;
+    const lineStep = firstRun ? this.getLivePreviewLineStep(sourceLines, [firstRun]) : null;
     if (sourceLines.length === 0 || lineStep === null) return false;
 
     this.syncShapeParagraphPreview(mergedTarget, mergedText, { replaceTextFrame: true });
@@ -5850,7 +5864,7 @@ export class NativePowerPointView extends FileView {
     const firstRun = sourceLines[0] ? this.collectParagraphRuns(sourceLines[0])[0] : null;
     if (!templateLine || !firstRun) return false;
 
-    const lineStep = this.getLivePreviewLineStep(sourceLines, firstRun);
+    const lineStep = this.getLivePreviewLineStep(sourceLines, [firstRun]);
     const templateY = Number(templateLine.getAttribute('y'));
     if (lineStep === null || !Number.isFinite(templateY)) return false;
 
@@ -7930,7 +7944,6 @@ export class NativePowerPointView extends FileView {
     const runs = this.getRelevantTextRuns(context);
     if (runs.length === 0) return null;
 
-    const EMU_PER_POINT = 12700;
     let detected: number | null = null;
     for (const run of runs) {
       if ((run.textContent || '').length === 0) continue;
@@ -8235,6 +8248,16 @@ export class NativePowerPointView extends FileView {
     run: RunTarget | null,
     selectionRanges: readonly ParagraphTextRange[] | null,
   ): boolean {
+    if (!this.canPreviewFontSizeChange(selectionRanges)) {
+      debugLog('render', 'Skipped immediate font-size SVG preview for multi-paragraph selection', {
+        slide: this.currentSlide,
+        shapeIndex,
+        fontSizePt,
+        paragraphIndexes: Array.from(new Set(selectionRanges?.map((range) => range.paragraphIndex))),
+      });
+      return false;
+    }
+
     const svg = this.svgEl;
     const shape = svg?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
     if (!svg || !isSVGGElement(shape) || !Number.isFinite(fontSizePt) || fontSizePt <= 0) {
@@ -8252,7 +8275,8 @@ export class NativePowerPointView extends FileView {
     }
 
     const cursorByParagraph = new Map<number, number>();
-    const renderedFontSize = this.formatSvgNumber(fontSizePt / renderScale);
+    const renderedFontSize = this.getPreviewFontSizeSvgUnits(fontSizePt, renderScale);
+    if (renderedFontSize === null) return false;
     const ooxmlFontSize = String(Math.round(fontSizePt * 100));
     let updatedRuns = 0;
 
@@ -8289,14 +8313,40 @@ export class NativePowerPointView extends FileView {
     // slide actually has them; ordinary font-size actions stay DOM-only.
     if (this.runHighlightRects.length > 0) this.applyRunHighlights();
 
+    let activeEditorFontSize: string | null = null;
+    let activeStyleRunIndex: number | null = null;
+    if (this.activeEditor && this.activeShapeTextTarget?.shapeIndex === shapeIndex) {
+      this.activeTextStyleTarget = this.getPrimaryStyleRunTarget(this.activeShapeTextTarget);
+      activeStyleRunIndex = this.activeTextStyleTarget.runIndex;
+      activeEditorFontSize = this.syncInlineEditorTextMetrics()?.fontSizeCss ?? null;
+    }
+
     debugLog('render', 'Applied immediate font-size SVG preview', {
       slide: this.currentSlide,
       shapeIndex,
       fontSizePt,
       updatedRuns,
       scope: selectionRanges?.length ? 'selection' : run ? 'run' : 'shape',
+      renderScale,
+      renderedFontSize,
+      ooxmlFontSize,
+      activeStyleRunIndex,
+      activeEditorFontSize,
     });
     return true;
+  }
+
+  /** SVG-only font edits cannot recompute wrapping across real paragraphs. */
+  private canPreviewFontSizeChange(selectionRanges: readonly ParagraphTextRange[] | null): boolean {
+    return !selectionRanges
+      || new Set(selectionRanges.map((range) => range.paragraphIndex)).size <= 1;
+  }
+
+  /** Convert points into the SVG user units used by pptx-svg. */
+  private getPreviewFontSizeSvgUnits(fontSizePt: number, emuPerSvgUnit: number): string | null {
+    if (!Number.isFinite(fontSizePt) || fontSizePt <= 0) return null;
+    if (!Number.isFinite(emuPerSvgUnit) || emuPerSvgUnit <= 0) return null;
+    return this.formatSvgNumber((fontSizePt * EMU_PER_POINT) / emuPerSvgUnit);
   }
 
   private applyAlignment(align: ParagraphAlignment): void {
@@ -8574,6 +8624,8 @@ export class NativePowerPointView extends FileView {
     const target = this.activeShapeTextTarget;
     if (!editor || !target) return;
 
+    this.activeTextStyleTarget = this.getPrimaryStyleRunTarget(target);
+    this.syncInlineEditorTextMetrics();
     const box = this.getElementBox(target.element);
     if (box) {
       this.positionTextRunEditor(editor, box);
@@ -9533,6 +9585,82 @@ export class NativePowerPointView extends FileView {
     return this.restoreInlineHistorySnapshot('redo', this.inlineRedoStack, this.inlineUndoStack, editor);
   }
 
+  /** Keep Ctrl/Cmd+Z from needlessly abandoning a clean inline edit session. */
+  private captureInlineEditorHistoryResumeState(editor: HTMLTextAreaElement): InlineEditorHistoryResumeState | null {
+    const target = this.activeShapeTextTarget;
+    if (!target) return null;
+
+    const rangeSelection = this.inlineRangeSelection?.shapeIndex === target.shapeIndex
+      ? {
+        shapeIndex: this.inlineRangeSelection.shapeIndex,
+        ranges: this.inlineRangeSelection.ranges.map((range) => ({ ...range })),
+      }
+      : null;
+    return {
+      slideIndex: this.currentSlide,
+      shapeIndex: target.shapeIndex,
+      paragraphIndex: target.paragraphIndex,
+      selectionStart: editor.selectionStart ?? 0,
+      selectionEnd: editor.selectionEnd ?? 0,
+      rangeSelection,
+      wholeShapeSelected: this.inlineWholeShapeSelected,
+    };
+  }
+
+  /** Reopen the current paragraph after history has rebuilt the slide SVG. */
+  private resumeInlineEditorAfterHistory(
+    state: InlineEditorHistoryResumeState,
+    action: 'undo' | 'redo',
+    applied: boolean,
+  ): void {
+    if (this.activeEditor || this.currentSlide !== state.slideIndex) return;
+
+    this.selectShapeForTextEditing(state.shapeIndex);
+    const target = this.buildParagraphEditTarget(state.shapeIndex, state.paragraphIndex);
+    if (!target) {
+      debugLog('history', 'Skipped inline editor restore after document history', {
+        action,
+        applied,
+        slide: state.slideIndex,
+        shapeIndex: state.shapeIndex,
+        paragraphIndex: state.paragraphIndex,
+        reason: 'paragraph no longer exists',
+      });
+      return;
+    }
+
+    this.startTextEditor(target);
+    // TypeScript retains the earlier `this.activeEditor === null` narrowing
+    // across a method call, although startTextEditor may create one.
+    const editor = this.activeEditor as HTMLTextAreaElement | null;
+    if (!editor) return;
+
+    if (state.wholeShapeSelected) {
+      this.selectAllInlineText(editor, target.element);
+    } else {
+      const length = editor.value.length;
+      const start = Math.max(0, Math.min(state.selectionStart, length));
+      const end = Math.max(start, Math.min(state.selectionEnd, length));
+      editor.setSelectionRange(start, end);
+      this.inlineRangeSelection = state.rangeSelection;
+      if (state.rangeSelection) this.renderInlineRangeSelection(state.rangeSelection);
+      this.rememberInlineCaretPlacement(editor, target.element, end);
+      this.updateInlineCaret(editor, target.element);
+    }
+    this.focusEditorWithoutCanvasScroll(editor);
+    debugLog('history', 'Restored inline editor after document history', {
+      action,
+      applied,
+      slide: state.slideIndex,
+      shapeIndex: state.shapeIndex,
+      paragraphIndex: state.paragraphIndex,
+      selectionStart: editor.selectionStart ?? null,
+      selectionEnd: editor.selectionEnd ?? null,
+      wholeShapeSelected: state.wholeShapeSelected,
+      rangeCount: this.inlineRangeSelection?.ranges.length ?? 0,
+    });
+  }
+
   /**
    * Apply an inline history snapshot before moving it between stacks. A failed
    * SVG preview restore must leave the snapshot retryable instead of silently
@@ -9606,6 +9734,7 @@ export class NativePowerPointView extends FileView {
       documentAvailable,
     });
 
+    const resumeState = editor ? this.captureInlineEditorHistoryResumeState(editor) : null;
     if (editor) {
       const appliedInline = action === 'undo'
         ? this.undoInlineEdit(editor)
@@ -9623,6 +9752,7 @@ export class NativePowerPointView extends FileView {
       canUndo: this.historyController.canUndo,
       canRedo: this.historyController.canRedo,
     });
+    if (resumeState) this.resumeInlineEditorAfterHistory(resumeState, action, applied);
   }
 
   /** Ctrl+Z while editing text first unwinds the in-place editor history. */
@@ -9752,6 +9882,47 @@ export class NativePowerPointView extends FileView {
       }
     }
     return result;
+  }
+
+  /**
+   * Copy shape text by OOXML paragraph, not rendered SVG line. Native list
+   * markers are separate run-less containers, while wrapped run containers are
+   * one logical paragraph; joining raw containers turned `• Item` into
+   * `•\nItem` and inserted line breaks at visual wraps.
+   */
+  private getShapeTextSelectionText(shape: Element): string {
+    const entries: { marker: string; text: string }[] = [];
+    const byTextAndParagraph = new Map<Element | null, Map<number, { marker: string; text: string }>>();
+
+    for (const paragraph of this.getShapeTextParagraphs(shape)) {
+      const textElement = paragraph.closest('text');
+      const paragraphIndex = this.getParagraphIndexFromInlineElement(paragraph);
+      if (paragraphIndex === null) continue;
+
+      let byParagraph = byTextAndParagraph.get(textElement);
+      if (!byParagraph) {
+        byParagraph = new Map();
+        byTextAndParagraph.set(textElement, byParagraph);
+      }
+      let entry = byParagraph.get(paragraphIndex);
+      if (!entry) {
+        entry = { marker: '', text: '' };
+        byParagraph.set(paragraphIndex, entry);
+        entries.push(entry);
+      }
+
+      const runs = this.collectParagraphRuns(paragraph);
+      if (runs.length === 0) {
+        entry.marker += paragraph.textContent ?? '';
+      } else {
+        entry.text += runs.map((run) => run.textContent ?? '').join('');
+      }
+    }
+
+    return entries.map(({ marker, text }) => {
+      if (!marker || !text) return `${marker}${text}`;
+      return /\s$/.test(marker) || /^\s/.test(text) ? `${marker}${text}` : `${marker} ${text}`;
+    }).join('\n');
   }
 
   private getShapeTextRanges(shapeIndex: number): ParagraphTextRange[] {
@@ -10116,7 +10287,7 @@ export class NativePowerPointView extends FileView {
     if (!shape) return;
 
     const paragraphs = this.getShapeTextParagraphs(shape);
-    const combined = paragraphs.map((paragraph) => paragraph.textContent ?? '').join('\n');
+    const combined = this.getShapeTextSelectionText(shape);
     this.inlineWholeShapeSelection = combined;
     this.inlineWholeShapeSelected = true;
     const shapeIndex = this.activeShapeTextTarget?.shapeIndex ?? this.selectedShapeIndex;
@@ -10126,6 +10297,14 @@ export class NativePowerPointView extends FileView {
     this.lastInlineCaretPlacement = null;
     editor.setSelectionRange(0, editor.value.length);
     this.updateInlineCaret(editor, element);
+    debugLog('text-select', 'Selected all PowerPoint text', {
+      slide: this.currentSlide,
+      shapeIndex,
+      renderedContainerCount: paragraphs.length,
+      selectedRangeCount: this.inlineRangeSelection?.ranges.length ?? 0,
+      copyLength: combined.length,
+      hasListMarker: paragraphs.some((paragraph) => this.collectParagraphRuns(paragraph).length === 0),
+    });
   }
 
   private clearWholeShapeInlineSelection(): void {
@@ -10887,9 +11066,50 @@ export class NativePowerPointView extends FileView {
   }
 
   private getPrimaryStyleRunTarget(target: ShapeTextEditTarget): ShapeTextEditTarget {
-    const run = target.runElements[0];
+    const editor = this.activeEditor;
+    const caretOffset = editor && this.activeShapeTextTarget === target
+      ? Math.min(editor.selectionStart ?? 0, editor.selectionEnd ?? 0)
+      : null;
+    let run = target.runElements[0];
+    if (caretOffset !== null) {
+      let offset = 0;
+      for (let index = 0; index < target.runElements.length; index++) {
+        const candidate = target.runElements[index];
+        if (!candidate) continue;
+        const end = offset + (candidate.textContent?.length ?? 0);
+        if (caretOffset < end || index === target.runElements.length - 1) {
+          run = candidate;
+          break;
+        }
+        offset = end;
+      }
+    }
     if (!run) return target;
-    return { ...target, element: run };
+    const runIndex = typeof run.getAttribute === 'function'
+      ? Number(run.getAttribute('data-ooxml-run-idx'))
+      : target.runIndex;
+    return {
+      ...target,
+      element: run,
+      runIndex: Number.isFinite(runIndex) ? runIndex : target.runIndex,
+    };
+  }
+
+  private syncInlineEditorTextMetrics(): { fontSizeCss: string; runIndex: number } | null {
+    const editor = this.activeEditor;
+    const target = this.activeTextStyleTarget;
+    if (!editor || !target || !isSVGTSpanElement(target.element)) return null;
+
+    const style = window.getComputedStyle(target.element);
+    const fontSizeCss = `${this.getScreenFontSize(target.element)}px`;
+    editor.setCssProps({
+      fontFamily: style.fontFamily,
+      fontSize: fontSizeCss,
+      fontStyle: style.fontStyle,
+      fontWeight: style.fontWeight,
+      lineHeight: '1.1',
+    });
+    return { fontSizeCss, runIndex: target.runIndex };
   }
 
   /**
@@ -11138,13 +11358,20 @@ export class NativePowerPointView extends FileView {
     const frame = this.resolveInlinePreviewFrameBox(shape);
     const firstLineBox = this.getElementBox(firstLine);
     const baseY = Number(firstLine.getAttribute('y'));
-    const lineStep = this.getLivePreviewLineStep(lineContainers, firstRun);
+    const previousRunTexts = target.runElements.map((run) => run.textContent || '');
+    const nextRunTexts = redistributeTextAcrossVisualRuns(previousRunTexts, text);
+    const boundaries = [0];
+    for (const runText of nextRunTexts) {
+      boundaries.push((boundaries[boundaries.length - 1] ?? 0) + runText.length);
+    }
+
+    const lineStep = this.getLivePreviewLineStep(lineContainers, target.runElements);
     if (!frame || !firstLineBox || !Number.isFinite(baseY) || lineStep === null) return false;
 
     const maxWidth = previewWrapMaxWidth(frame.box, firstLineBox.left, firstLineBox.width);
     if (maxWidth === null) return false;
 
-    const measure = this.createInlinePreviewTextMeasurer(firstRun);
+    const measure = this.createInlinePreviewRunTextMeasurer(target.runElements, nextRunTexts);
     if (!measure) return false;
     const lines = wrapTextForPreview(text, maxWidth, measure);
     if (lines.join('') !== text) return false;
@@ -11156,13 +11383,6 @@ export class NativePowerPointView extends FileView {
 
     const parent = firstLine.parentNode;
     if (!parent) return false;
-
-    const previousRunTexts = target.runElements.map((run) => run.textContent || '');
-    const nextRunTexts = redistributeTextAcrossVisualRuns(previousRunTexts, text);
-    const boundaries = [0];
-    for (const runText of nextRunTexts) {
-      boundaries.push((boundaries[boundaries.length - 1] ?? 0) + runText.length);
-    }
 
     let offset = 0;
     const nextLines = lines.map((lineText, lineIndex) => {
@@ -11247,35 +11467,74 @@ export class NativePowerPointView extends FileView {
         firstLineWidth: Math.round(firstLineBox.width),
         inset: Math.round(Math.max(0, firstLineBox.left - frame.box.left)),
         usedFrameFallback: maxWidth >= frame.box.width - 0.5,
+        maxRunFontSize: Math.max(
+          ...target.runElements
+            .map((run) => Number(run.getAttribute('font-size')))
+            .filter((fontSize) => Number.isFinite(fontSize) && fontSize > 0),
+        ),
       });
     }
     return true;
   }
 
-  /** Use the first run's effective on-screen font to decide where a word wraps. */
-  private createInlinePreviewTextMeasurer(run: SVGTSpanElement): ((value: string) => number) | null {
-    const canvas = createDetachedMeasureCanvas(run.ownerDocument);
-    const context = canvas?.getContext('2d');
-    if (!canvas || !context) return null;
-    const scopedWindow = run.ownerDocument?.defaultView ?? window;
-    const style = scopedWindow.getComputedStyle(run);
-    context.font = `${style.fontStyle} ${style.fontWeight} ${this.getScreenFontSize(run)}px ${style.fontFamily}`;
-    return (value: string) => context.measureText(value).width;
+  private createInlinePreviewTextMeasurer(
+    run: SVGTSpanElement,
+  ): ((value: string, startOffset?: number) => number) | null {
+    return this.createInlinePreviewRunTextMeasurer([run], [run.textContent || '']);
   }
 
-  /** SVG line coordinates are unscaled, so derive their step in SVG units. */
+  /** Measure each preview fragment with the corresponding rendered run style. */
+  private createInlinePreviewRunTextMeasurer(
+    runs: readonly SVGTSpanElement[],
+    runTexts: readonly string[],
+  ): ((value: string, startOffset?: number) => number) | null {
+    const firstRun = runs[0];
+    if (!firstRun) return null;
+    const canvas = createDetachedMeasureCanvas(firstRun.ownerDocument);
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return null;
+    const segments: PreviewTextMeasurementSegment[] = [];
+    let offset = 0;
+    for (let index = 0; index < runs.length; index++) {
+      const run = runs[index];
+      if (!run) continue;
+      const text = runTexts[index] ?? '';
+      const end = offset + text.length;
+      const scopedWindow = run.ownerDocument?.defaultView ?? window;
+      const style = scopedWindow.getComputedStyle(run);
+      const font = `${style.fontStyle} ${style.fontWeight} ${this.getScreenFontSize(run)}px ${style.fontFamily}`;
+      segments.push({
+        start: offset,
+        end,
+        measure: (value: string) => {
+          context.font = font;
+          return context.measureText(value).width;
+        },
+      });
+      offset = end;
+    }
+    return (value: string, startOffset = 0) =>
+      measureSegmentedPreviewText(value, startOffset, segments);
+  }
+
+  /** SVG line coordinates are unscaled, so derive their step from the largest run. */
   private getLivePreviewLineStep(
     lineContainers: readonly SVGTSpanElement[],
-    firstRun: SVGTSpanElement
+    runs: readonly SVGTSpanElement[],
   ): number | null {
+    const fontSize = Math.max(
+      ...runs
+        .map((run) => Number(run.getAttribute('font-size')))
+        .filter((value) => Number.isFinite(value) && value > 0),
+    );
+    const fontLineStep = Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : null;
     const firstY = Number(lineContainers[0]?.getAttribute('y'));
     const secondY = Number(lineContainers[1]?.getAttribute('y'));
     if (Number.isFinite(firstY) && Number.isFinite(secondY) && secondY > firstY) {
-      return secondY - firstY;
+      return Math.max(secondY - firstY, fontLineStep ?? 0);
     }
 
-    const fontSize = Number(firstRun.getAttribute('font-size'));
-    return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : null;
+    return fontLineStep;
   }
 
   private collectParagraphRuns(paraContainer: Element): SVGTSpanElement[] {
@@ -12773,7 +13032,7 @@ export class NativePowerPointView extends FileView {
 
       const firstLineBox = this.getElementBox(firstLine);
       const baseY = Number(firstLine.getAttribute('y'));
-      const lineStep = this.getLivePreviewLineStep(lineContainers, firstRun);
+      const lineStep = this.getLivePreviewLineStep(lineContainers, [firstRun]);
       if (!firstLineBox || !Number.isFinite(baseY) || lineStep === null) continue;
 
       const maxWidth = previewWrapMaxWidth(frame.box, firstLineBox.left, firstLineBox.width);

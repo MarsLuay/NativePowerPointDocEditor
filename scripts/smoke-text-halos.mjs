@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { prepareNativePowerPointSmokeFixtures } from './fixtures/native-powerpoint-smoke-fixtures.mjs';
+import { createPptxRuntimeArtifactResolver } from './lib/pptx-runtime-artifact-test-loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require('@xmldom/xmldom');
@@ -82,7 +83,11 @@ try {
     })
   ]);
 
-  const { PresentationEngine } = require(engineBundlePath);
+  const presentationModule = require(engineBundlePath);
+  presentationModule.configurePptxRuntimeArtifactLoader(
+    await createPptxRuntimeArtifactResolver({ projectRoot: path.resolve(), outputDirectory: tempDir }),
+  );
+  const { PresentationEngine } = presentationModule;
   const { applyBackgroundAwareTextHalos, DEFAULT_TEXT_HALO_COLOR } = require(haloBundlePath);
 
   const tableEngine = await PresentationEngine.load(toArrayBuffer(await readFile(tableSample)));

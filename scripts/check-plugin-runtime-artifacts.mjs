@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -30,6 +30,16 @@ const [jsFallback, wasmRenderer, heicDecoder] = await Promise.all([
   import(pathToFileURL(path.join(projectRoot, 'pptx-wasm-renderer.mjs')).href),
   import(pathToFileURL(path.join(projectRoot, 'heic-decode.mjs')).href),
 ]);
+
+const mainBundle = await readFile(path.join(projectRoot, 'main.js'), 'utf8');
+for (const artifact of runtimeArtifacts.slice(1)) {
+  const escapedArtifact = artifact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  assert.doesNotMatch(
+    mainBundle,
+    new RegExp(`import\\(["']\\./${escapedArtifact}["']\\)`),
+    `main.js must load ${artifact} through Obsidian's plugin resource URL, not a relative dynamic import.`,
+  );
+}
 
 assert.equal(typeof jsFallback.createPptxJsEngine, 'function', 'JS fallback artifact must export createPptxJsEngine().');
 assert.equal(typeof wasmRenderer.PptxRenderer, 'function', 'WASM renderer artifact must export PptxRenderer.');

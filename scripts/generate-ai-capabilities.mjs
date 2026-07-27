@@ -11,7 +11,13 @@ const stripVolatile = (manifest) => ({
 });
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const jiti = createJiti(import.meta.url, { interopDefault: true });
+// Prefer TypeScript source for extensionless imports. `tsc` artifacts under
+// src/ are intentionally gitignored, but Jiti otherwise resolves their `.js`
+// siblings first and can generate a manifest from stale runtime code.
+const jiti = createJiti(import.meta.url, {
+	interopDefault: true,
+	extensions: ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '.jsx', '.json'],
+});
 const { buildCapabilityManifest } = jiti('../src/ai/capabilities.ts');
 const { OP_IDS } = jiti('../src/ai/opCatalog.ts');
 const { OP_EXAMPLES } = jiti('../src/ai/opExamples.ts');

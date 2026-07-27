@@ -1,6 +1,7 @@
 import type { PptxRenderer } from 'pptx-svg';
 import { FontFidelity } from '../../FontFidelity';
 import { shouldForceJsBackend } from '../forceJsBackend';
+import { loadPptxRuntimeArtifact } from '../runtimeArtifactLoader';
 
 /** Renderer augmented with the build-time `initJsBackend` patch (see esbuild.config.mjs). */
 interface JsBackendCapableRenderer {
@@ -27,18 +28,20 @@ function isWasmGcUnsupportedError(error: unknown): boolean {
 }
 
 async function initJsBackend(renderer: PptxRenderer): Promise<void> {
-  const { createPptxJsEngine } = await import('./pptxJsEngine.mjs');
-  (renderer as unknown as JsBackendCapableRenderer).initJsBackend(createPptxJsEngine());
+  const runtime = await loadPptxRuntimeArtifact<{
+    createPptxJsEngine(): unknown;
+  }>('pptx-js-engine.mjs');
+  (renderer as unknown as JsBackendCapableRenderer).initJsBackend(runtime.createPptxJsEngine());
 }
 
 /**
  * Keep the WebAssembly-GC renderer out of main.js. Obsidian Sync Standard has
  * a 5 MB per-file limit, and this renderer is only needed after a PowerPoint
- * file is opened. esbuild rewrites this source-relative import to the emitted
- * plugin-root artifact `pptx-wasm-renderer.mjs`.
+ * file is opened. Its plugin-root resource URL is resolved by Obsidian before
+ * this loader imports it.
  */
 async function loadWasmRenderer(): Promise<PptxWasmRendererModule> {
-  return await import('./pptxWasmRenderer.mjs');
+  return await loadPptxRuntimeArtifact<PptxWasmRendererModule>('pptx-wasm-renderer.mjs');
 }
 
 async function initRendererBackend(renderer: PptxRenderer): Promise<PptxRendererBackend> {

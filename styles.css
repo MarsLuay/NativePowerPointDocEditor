@@ -1234,10 +1234,6 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	pointer-events: none;
 }
 
-.workspace-leaf-content[data-type='native-powerpoint-doc-editor-docx-view'] .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-menubar] [style*='position: fixed'] > div:first-child {
-	display: none;
-}
-
 .native-powerpoint-doc-editor-embed {
 	background: transparent;
 	display: block;
