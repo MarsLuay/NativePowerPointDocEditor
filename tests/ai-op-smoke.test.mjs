@@ -267,6 +267,36 @@ test('DOCX agent ops smoke all implemented operations', async () => {
 	assert.match(coreProperties ?? '', /<cp:revision>7<\/cp:revision>/);
 });
 
+test('DOCX run-style edits survive runs with existing self-closing properties', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/run-style.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:rPr><w:rFonts w:ascii="Aptos"/><w:b/></w:rPr><w:t>Style me</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applied = await service.apply(docPath, [
+		{ op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: false, fontFamily: 'Times New Roman' } },
+	]);
+	assert.equal(applied.ok, true, JSON.stringify(applied.errors));
+	const saved = await service.save(docPath);
+	assert.equal(saved.ok, true, JSON.stringify(saved.errors));
+
+	const output = await JSZip.loadAsync(vault.store.get(docPath));
+	const documentXml = await output.file('word/document.xml')?.async('string');
+	assert.match(documentXml ?? '', /<w:b w:val="false"\/>/);
+	assert.doesNotMatch(documentXml ?? '', /<w:b\/>/);
+	assert.match(documentXml ?? '', /<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"\/>/);
+});
+
 test('DOCX replaceBodyParagraphs rewrites body while preserving sectPr', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const docPath = 'thank-you-body.docx';

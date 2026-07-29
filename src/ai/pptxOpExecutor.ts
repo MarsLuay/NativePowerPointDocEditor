@@ -13,7 +13,7 @@ import type { ParagraphListStyle } from '../SlideInsertions';
 import type { DrawingParagraphText } from '../powerpoint/drawingmlText';
 import { isEditableShapeIndex } from '../powerpoint/svgUtils';
 import { readRasterImageDimensions } from '../powerpoint/imageDimensions';
-import { fitImageWithinBounds } from '../powerpoint/imageFit';
+import { computeCenteredCoverCrop, fitImageWithinBounds } from '../powerpoint/imageFit';
 import { AI_ERROR_CODES, createAiError } from './errors';
 import { describePptxFromEngine } from './pptxDescribe';
 import { pptxShapeId } from './pptxIds';
@@ -851,8 +851,8 @@ export async function executePptxOp(
 					sourceImage.mimeType,
 				);
 				if (!wasImage && before.transform?.cx && before.transform?.cy) {
-					const cover = computeCoverCrop(
-						sourceImage.bytes,
+					const cover = computeCenteredCoverCrop(
+						readRasterImageDimensions(sourceImage.bytes),
 						before.transform.cx,
 						before.transform.cy,
 					);

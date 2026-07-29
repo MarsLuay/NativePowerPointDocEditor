@@ -73,7 +73,8 @@ function buildRunPropertiesPatch(style: DocxRunStylePatch): string {
 	if (style.underline === true) parts.push('<w:u w:val="single"/>');
 	if (style.underline === false) parts.push('<w:u w:val="none"/>');
 	if (typeof style.fontFamily === 'string' && style.fontFamily.length > 0) {
-		parts.push(`<w:rFonts w:ascii="${encodeXmlText(style.fontFamily)}" w:hAnsi="${encodeXmlText(style.fontFamily)}"/>`);
+		const fontFamily = encodeXmlText(style.fontFamily);
+		parts.push(`<w:rFonts w:ascii="${fontFamily}" w:hAnsi="${fontFamily}" w:cs="${fontFamily}"/>`);
 	}
 	if (typeof style.fontSizePt === 'number' && Number.isFinite(style.fontSizePt)) {
 		const halfPoints = Math.round(style.fontSizePt * 2);
@@ -126,10 +127,11 @@ export function patchRunStyle(paragraphXml: string, runIndex: number, style: Doc
 	const run = runs[runIndex]!;
 	const patchXml = buildRunPropertiesPatch(style);
 	const nextInner = upsertRunProperties(run.inner, patchXml);
-	const nextRunXml = run.full.includes('/>')
+	const isSelfClosingRun = /^<w:r\b[^>]*\/>$/.test(run.full.trim());
+	const nextRunXml = isSelfClosingRun
 		? run.full
 		: run.full.replace(run.inner, nextInner);
-	const patched = run.full.includes('/>')
+	const patched = isSelfClosingRun
 		? run.full.replace(/\/>$/, `>${nextInner}</w:r>`)
 		: nextRunXml;
 	return replaceRunAtIndex(paragraphXml, runIndex, patched);
