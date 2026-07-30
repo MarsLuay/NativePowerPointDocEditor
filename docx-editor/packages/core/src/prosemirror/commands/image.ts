@@ -5,7 +5,7 @@
  * structural and live in a follow-up; this surface only covers anchor↔anchor.
  */
 
-import type { Command, EditorState, Transaction } from 'prosemirror-state';
+import { TextSelection, type Command, type EditorState, type Transaction } from 'prosemirror-state';
 import type { Node as PMNode } from 'prosemirror-model';
 import type { EditorView } from 'prosemirror-view';
 import { singletonManager } from '../schema';
@@ -23,6 +23,9 @@ const cmds = singletonManager.getCommands();
  * so React `useFileIO`, Vue `useImageActions`, and clipboard-paste
  * paths all share one source of truth — adding a fresh image in
  * suggesting mode always round-trips as `<w:ins>{run with drawing}</w:ins>`.
+ *
+ * Places the caret after the image so the text caret is not stuck on the
+ * atom (which would paint a tall caret over the image box).
  *
  * Caller responsibility: produce the `image` node via `schema.nodes.image.create`.
  * This helper handles the dispatch + optional mark application.
@@ -50,6 +53,8 @@ export function insertImageNode(
       })
     );
   }
+  const after = pos + imageNode.nodeSize;
+  tr.setSelection(TextSelection.create(tr.doc, after));
   dispatch(tr.scrollIntoView());
   return true;
 }
@@ -65,14 +70,17 @@ export const INSERT_IMAGE_MAX_WIDTH_PX = 612;
 
 /**
  * Read an image `File` (from a file picker or drop), fit it to the page width,
- * and insert it inline at the current selection. This is the single source of
- * truth for "insert an image from a file" — the React and Vue adapters both
- * call it, so insertion behaves identically: no intermediate dialog, the image
- * is sized to fit the column, and it round-trips as an inline drawing (with the
- * `insertion` mark applied in suggesting mode, via {@link insertImageNode}).
+ * and insert it inline at `opts.pos` or the current selection. This is the
+ * single source of truth for "insert an image from a file" — the React and Vue
+ * adapters both call it, so insertion behaves identically: no intermediate
+ * dialog, the image is sized to fit the column, and it round-trips as an
+ * inline drawing (with the `insertion` mark applied in suggesting mode, via
+ * {@link insertImageNode}).
  *
- * The decode is async (FileReader → Image); `onError` reports a failed read or
- * decode, and `onInserted` runs after the node lands (e.g. to refocus).
+ * The decode is async (FileReader → Image); capture the insert position before
+ * the read so a drop under the pointer (or a selection move during decode)
+ * cannot land the image elsewhere. `onError` reports a failed read or decode,
+ * and `onInserted` runs after the node lands (e.g. to refocus).
  *
  * @public
  */
@@ -80,12 +88,15 @@ export function insertImageFromFile(
   view: EditorView,
   file: File,
   opts?: {
+    /** Document position to insert at; defaults to the selection at call time. */
+    pos?: number;
     maxWidth?: number;
     onError?: (error: unknown) => void;
     onInserted?: (dimensions: { width: number; height: number }) => void;
   }
 ): void {
   const maxWidth = opts?.maxWidth ?? INSERT_IMAGE_MAX_WIDTH_PX;
+  const insertPos = opts?.pos ?? view.state.selection.from;
   const reader = new FileReader();
   reader.onload = () => {
     const dataUrl = reader.result as string;
@@ -108,7 +119,7 @@ export function insertImageFromFile(
         wrapType: 'inline',
         displayMode: 'inline',
       });
-      insertImageNode(view.state, view.dispatch, imageNode, view.state.selection.from);
+      insertImageNode(view.state, view.dispatch, imageNode, insertPos);
       view.focus();
       opts?.onInserted?.({ width, height });
     };

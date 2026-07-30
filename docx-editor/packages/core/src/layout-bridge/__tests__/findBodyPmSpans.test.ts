@@ -44,6 +44,24 @@ describe('findBodyPmSpans', () => {
     expect(spans.map((s) => s.id)).toEqual(['body-span-1', 'body-span-2']);
   });
 
+  test('includes inline layout-run-image imgs with pm markers', () => {
+    document.body.innerHTML = `
+      <div class="paged-editor__pages">
+        <div class="layout-page">
+          <div class="layout-page-content">
+            <span data-pm-start="1" data-pm-end="2" id="body-text">x</span>
+            <img class="layout-run-image" data-pm-start="2" data-pm-end="3" id="body-img" />
+          </div>
+          <div class="layout-page-header">
+            <img class="layout-run-image" data-pm-start="2" data-pm-end="3" id="hf-img" />
+          </div>
+        </div>
+      </div>
+    `;
+    const pages = document.body.querySelector<HTMLElement>('.paged-editor__pages')!;
+    expect(findBodyPmSpans(pages).map((s) => s.id)).toEqual(['body-text', 'body-img']);
+  });
+
   test('returns empty array when only HF content is present', () => {
     document.body.innerHTML = `
       <div class="paged-editor__pages">

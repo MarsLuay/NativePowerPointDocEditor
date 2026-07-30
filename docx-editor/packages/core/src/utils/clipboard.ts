@@ -84,6 +84,40 @@ export const CLIPBOARD_TYPES = {
   PLAIN: 'text/plain',
 } as const;
 
+const IMAGE_FILE_EXTENSION = /\.(png|jpe?g|gif|webp|bmp|svg|tiff?|heic|heif|heics|heifs)$/i;
+
+/** True when a File is an image by MIME type or common extension (macOS may omit type). */
+export function isRasterImageFile(file: File): boolean {
+  if (file.type.startsWith('image/')) return true;
+  return IMAGE_FILE_EXTENSION.test(file.name ?? '');
+}
+
+/**
+ * Whether a drag/drop DataTransfer looks like an external image file drop.
+ * During `dragover`, `files` is often empty; accept `Files` / image item types
+ * so the browser allows the drop, then filter on `drop`.
+ */
+export function dataTransferLooksLikeExternalImageDrop(
+  dataTransfer: DataTransfer | null | undefined
+): boolean {
+  if (!dataTransfer) return false;
+  if (getClipboardImageFiles(dataTransfer).length > 0) return true;
+
+  const items = dataTransfer.items;
+  if (items && items.length > 0) {
+    for (const item of Array.from(items)) {
+      if (item.kind !== 'file') continue;
+      if (item.type.startsWith('image/')) return true;
+      // During dragover getAsFile() is often null; extension check needs the File.
+      const file = item.getAsFile();
+      if (file && isRasterImageFile(file)) return true;
+    }
+  }
+
+  const types = Array.from(dataTransfer.types ?? []);
+  return types.includes('Files') || types.includes('application/x-moz-file');
+}
+
 /**
  * Extract image files from clipboard data (if present).
  */
@@ -95,16 +129,18 @@ export function getClipboardImageFiles(clipboardData: DataTransfer | null): File
     const files: File[] = [];
     for (const item of Array.from(clipboardData.items)) {
       if (item.kind !== 'file') continue;
-      if (!item.type.startsWith('image/')) continue;
       const file = item.getAsFile();
-      if (file) files.push(file);
+      if (!file) continue;
+      if (item.type.startsWith('image/') || isRasterImageFile(file)) {
+        files.push(file);
+      }
     }
     return files;
   };
 
   const collectFromFiles = (): File[] => {
     if (!clipboardData.files || clipboardData.files.length === 0) return [];
-    return Array.from(clipboardData.files).filter((file) => file.type.startsWith('image/'));
+    return Array.from(clipboardData.files).filter((file) => isRasterImageFile(file));
   };
 
   // Prefer items when available to avoid duplicate representations between items and files.

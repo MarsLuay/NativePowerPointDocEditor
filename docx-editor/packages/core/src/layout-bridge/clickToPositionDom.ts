@@ -559,10 +559,38 @@ function isClippedOutOfTableFragment(el: HTMLElement, rect: DOMRect): boolean {
 
 /** Cap caret height so a mis-resolved paragraph box never paints a page-tall bar. */
 const MAX_CARET_HEIGHT_PX = 72;
+/** Text-sized caret when the resolved run is an inline image. */
+const DEFAULT_IMAGE_EDGE_CARET_PX = 16;
 
 function clampCaretHeight(height: number): number {
   if (!Number.isFinite(height) || height <= 0) return 16;
   return Math.min(height, MAX_CARET_HEIGHT_PX);
+}
+
+function isImageRunElement(el: HTMLElement): boolean {
+  if (el.tagName === 'IMG' && el.classList.contains('layout-run-image')) return true;
+  if (el.classList.contains('layout-run-image')) return true;
+  if (el.classList.contains('layout-block-image')) return true;
+  return !!el.querySelector(':scope > img.layout-run-image, :scope > .layout-run-image');
+}
+
+/**
+ * Prefer a sibling text run's painted height on the same line; fall back to a
+ * modest default so image-inflated line boxes don't paint a tall caret.
+ */
+function textCaretHeightNearImage(spanEl: HTMLElement, zoom: number): number {
+  const lineEl = spanEl.closest('.layout-line') as HTMLElement | null;
+  if (!lineEl) return DEFAULT_IMAGE_EDGE_CARET_PX;
+
+  let best = 0;
+  for (const node of Array.from(lineEl.querySelectorAll('span[data-pm-start][data-pm-end]'))) {
+    const sib = node as HTMLElement;
+    if (sib === spanEl || isImageRunElement(sib)) continue;
+    if (sib.classList.contains('layout-run-tab')) continue;
+    const h = sib.getBoundingClientRect().height / zoom;
+    if (h > best && h <= MAX_CARET_HEIGHT_PX) best = h;
+  }
+  return best > 0 ? best : DEFAULT_IMAGE_EDGE_CARET_PX;
 }
 
 /** Build the caret position from a matched span (tab / text / empty run). */
@@ -577,6 +605,20 @@ function caretFromSpan(
   const pageIndex = pageEl ? Number(pageEl.dataset.pageNumber || 1) - 1 : 0;
   const lineEl = spanEl.closest('.layout-line');
   const lineHeight = clampCaretHeight(lineEl ? (lineEl as HTMLElement).offsetHeight : 16);
+
+  if (isImageRunElement(spanEl)) {
+    const spanRect = spanEl.getBoundingClientRect();
+    const height = clampCaretHeight(textCaretHeightNearImage(spanEl, zoom));
+    const atEnd = pmPos > pmStart;
+    return {
+      x: (atEnd ? spanRect.right : spanRect.left) - overlayRect.left,
+      // Seat on the image baseline (bottom), not the tall line top.
+      // height is layout px (#928); rect deltas are screen px — scale by zoom.
+      y: spanRect.bottom - overlayRect.top - height * zoom,
+      height,
+      pageIndex,
+    };
+  }
 
   const textNode = spanEl.firstChild;
   const isTab = spanEl.classList.contains('layout-run-tab');

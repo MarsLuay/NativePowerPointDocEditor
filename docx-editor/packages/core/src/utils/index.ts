@@ -55,6 +55,8 @@ export type { ThemeMatrixCell } from './colorResolver';
 export {
   INTERNAL_CLIPBOARD_TYPE,
   CLIPBOARD_TYPES,
+  isRasterImageFile,
+  dataTransferLooksLikeExternalImageDrop,
   getClipboardImageFiles,
   copyRuns,
   copyParagraphs,

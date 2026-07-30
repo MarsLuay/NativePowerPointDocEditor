@@ -25,10 +25,51 @@ import type {
 } from '../layout-engine/types';
 import { getHeaderRowsHeight } from '../layout-engine/index';
 
-import { measureRun, type FontStyle } from './measuring/measureContainer';
+import { getFontMetrics, measureRun, type FontStyle } from './measuring/measureContainer';
 import { layoutCellContent } from './cellBlockLayout';
 
 import { getPageTop } from './hitTest';
+
+/** Fallback caret size when a line is image-only (no text run metrics). */
+const DEFAULT_IMAGE_EDGE_CARET_PX = 16;
+
+/**
+ * Text-sized caret box for a line. Inline images inflate `line.lineHeight` /
+ * `line.ascent` to the picture height; painting the caret at that size looks
+ * broken. Match Word: caret tracks text metrics (or a modest default on
+ * image-only lines), seated on the line baseline.
+ */
+function textCaretBoxOnLine(
+  block: ParagraphBlock,
+  line: MeasuredLine
+): { height: number; ascent: number } {
+  let bestHeight = 0;
+  let bestAscent = 0;
+
+  for (
+    let runIndex = line.fromRun;
+    runIndex <= line.toRun && runIndex < block.runs.length;
+    runIndex++
+  ) {
+    const run = block.runs[runIndex];
+    if (!run || (run.kind !== 'text' && run.kind !== 'tab')) continue;
+    const metrics = getFontMetrics(runToFontStyle(run));
+    const height = metrics.ascent + metrics.descent;
+    if (height > bestHeight) {
+      bestHeight = height;
+      bestAscent = metrics.ascent;
+    }
+  }
+
+  if (bestHeight > 0) {
+    return { height: bestHeight, ascent: bestAscent };
+  }
+
+  return {
+    height: DEFAULT_IMAGE_EDGE_CARET_PX,
+    ascent: DEFAULT_IMAGE_EDGE_CARET_PX * 0.8,
+  };
+}
 
 // =============================================================================
 // TYPES
@@ -618,10 +659,14 @@ export function getCaretPosition(
               lineHeightBefore(paragraphMeasure, lineIndex) -
               lineHeightBefore(paragraphMeasure, paragraphFragment.fromLine);
 
+            // Prefer text metrics over image-inflated line box (#748 layout path).
+            const caretBox = textCaretBoxOnLine(paragraphBlock, line);
+            const yOffset = Math.max(0, line.ascent - caretBox.ascent);
+
             return {
               x: fragment.x + indentLeft + alignmentOffset + x,
-              y: fragment.y + lineOffset + pageTopY,
-              height: line.lineHeight,
+              y: fragment.y + lineOffset + pageTopY + yOffset,
+              height: caretBox.height,
               pageIndex,
             };
           }
@@ -635,10 +680,13 @@ export function getCaretPosition(
 
         if (pmPosition >= fragPmStart && pmPosition <= fragPmEnd) {
           const xOffset = pmPosition === fragPmStart ? 0 : fragment.width;
+          const caretH = DEFAULT_IMAGE_EDGE_CARET_PX;
+          // Seat a text-sized caret on the image baseline (bottom of fragment).
+          const yOffset = Math.max(0, fragment.height - caretH);
           return {
             x: fragment.x + xOffset,
-            y: fragment.y + pageTopY,
-            height: fragment.height,
+            y: fragment.y + pageTopY + yOffset,
+            height: caretH,
             pageIndex,
           };
         }

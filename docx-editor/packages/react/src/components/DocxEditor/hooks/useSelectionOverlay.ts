@@ -48,14 +48,6 @@ export interface UseSelectionOverlayOptions {
   onSelectionChangeRef: React.MutableRefObject<((from: number, to: number) => void) | undefined>;
 }
 
-export interface UpdateSelectionOverlayOptions {
-  /**
-   * After doc changes (Enter/split) the painted DOM is stale — prefer layout
-   * math so the caret jumps with the new selection immediately.
-   */
-  preferLayout?: boolean;
-}
-
 export interface UseSelectionOverlayReturn {
   selectionRects: SelectionRect[];
   caretPosition: CaretPosition | null;
@@ -64,7 +56,8 @@ export interface UseSelectionOverlayReturn {
   setCaretPosition: React.Dispatch<React.SetStateAction<CaretPosition | null>>;
   setSelectedImageInfo: React.Dispatch<React.SetStateAction<ImageSelectionInfo | null>>;
   buildImageSelectionInfo: (el: HTMLElement, pmPos: number) => ImageSelectionInfo;
-  updateSelectionOverlay: (state: EditorState, options?: UpdateSelectionOverlayOptions) => void;
+  clearSelectionOverlay: () => void;
+  updateSelectionOverlay: (state: EditorState) => void;
   handleSelectionChange: (state: EditorState) => void;
 }
 
@@ -85,6 +78,11 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
   const [selectionRects, setSelectionRects] = useState<SelectionRect[]>([]);
   const [caretPosition, setCaretPosition] = useState<CaretPosition | null>(null);
   const [selectedImageInfo, setSelectedImageInfo] = useState<ImageSelectionInfo | null>(null);
+
+  const clearSelectionOverlay = useCallback(() => {
+    setSelectionRects([]);
+    setCaretPosition(null);
+  }, []);
 
   // Last PM state we invoked onSelectionChange for. updateSelectionOverlay
   // runs from ResizeObserver / layout / font-load paths too, not only on real
@@ -107,9 +105,8 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
   );
 
   const updateSelectionOverlay = useCallback(
-    (state: EditorState, options?: UpdateSelectionOverlayOptions) => {
+    (state: EditorState) => {
       const { from, to } = state.selection;
-      const preferLayout = options?.preferLayout === true;
 
       // Notify consumers only on real PM state changes (see regression #268).
       if (lastNotifiedStateRef.current !== state) {
@@ -147,10 +144,8 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
           };
         })();
 
-        const domCaret = !preferLayout && pagesEl ? getCaretFromDom(pagesEl, from, zoom) : null;
-        const nextCaret = preferLayout
-          ? (layoutCaret ?? (pagesEl ? getCaretFromDom(pagesEl, from, zoom) : null))
-          : (domCaret ?? layoutCaret);
+        const domCaret = pagesEl ? getCaretFromDom(pagesEl, from, zoom) : null;
+        const nextCaret = domCaret ?? layoutCaret;
 
         setCaretPosition(
           nextCaret
@@ -298,6 +293,7 @@ export function useSelectionOverlay(opts: UseSelectionOverlayOptions): UseSelect
     setCaretPosition,
     setSelectedImageInfo,
     buildImageSelectionInfo,
+    clearSelectionOverlay,
     updateSelectionOverlay,
     handleSelectionChange,
   };

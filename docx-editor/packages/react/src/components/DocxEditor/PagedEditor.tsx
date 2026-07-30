@@ -37,6 +37,7 @@ import { DEFAULT_PAGE_HEIGHT_PX } from '@npde/docx-editor-core/layout-bridge';
 
 // Selection sync
 import { LayoutSelectionGate } from './internals/LayoutSelectionGate';
+import { synchronizeSelectionOverlayAfterTransaction } from './internals/selectionOverlayRenderGate';
 
 // Visual line navigation hook
 import { useVisualLineNavigation } from '../../hooks/useVisualLineNavigation';
@@ -69,6 +70,7 @@ import { viewportMinHeightPx } from './internals/scrollUtils';
 import { useLayoutPipeline } from './hooks/useLayoutPipeline';
 import { useSelectionOverlay } from './hooks/useSelectionOverlay';
 import { useImageInteractions } from './hooks/useImageInteractions';
+import { useExternalImageDrop } from './hooks/useExternalImageDrop';
 import { usePagedScrollApi } from './hooks/usePagedScrollApi';
 import { usePagesPointer } from './hooks/usePagesPointer';
 import { usePagedEditorRefApi } from './hooks/usePagedEditorRefApi';
@@ -507,6 +509,7 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
       setCaretPosition,
       setSelectedImageInfo,
       buildImageSelectionInfo,
+      clearSelectionOverlay,
       updateSelectionOverlay,
       handleSelectionChange,
     } = useSelectionOverlay({
@@ -550,15 +553,19 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
           }
         }
 
-        // Request selection update (will only execute when layout is current)
-        syncCoordinator.requestRender();
-
-        // Always refresh caret immediately. After Enter/split, DOM paint is
-        // stale — prefer layout-math so the caret moves with the new selection
-        // instead of leaving a stuck tall bar until layout settles.
-        updateSelectionOverlay(newState, { preferLayout: transaction.docChanged });
+        synchronizeSelectionOverlayAfterTransaction(transaction.docChanged, newState, {
+          requestRender: () => syncCoordinator.requestRender(),
+          clearSelectionOverlay,
+          updateSelectionOverlay,
+        });
       },
-      [scheduleLayout, updateSelectionOverlay, syncCoordinator, notifyDecorationLayer]
+      [
+        scheduleLayout,
+        clearSelectionOverlay,
+        updateSelectionOverlay,
+        syncCoordinator,
+        notifyDecorationLayer,
+      ]
       // NOTE: onDocumentChange removed from dependencies - accessed via ref to prevent infinite loops
     );
 
@@ -676,7 +683,7 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
       // Drop caret geometry on real blur so a stale pre-Enter position cannot
       // remount a ghost bar if focus returns before the next overlay refresh.
       setCaretPosition(null);
-    }, []);
+    }, [setCaretPosition]);
 
     // Image overlay interactions — resize + drag-to-move. Owns the writes
     // to `isImageInteractingRef` that gate the selection hook's deferred
@@ -695,6 +702,16 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
       isImageInteractingRef,
       getPositionFromMouse,
     });
+
+    // External Finder/OS image drops must land on the painted pages surface —
+    // ProseMirror is off-screen, so ImagePasteExtension drag handlers never see
+    // the pointer. Map coords through getPositionFromMouse, same as clicks.
+    const { handleDragOver: handleExternalImageDragOver, handleDrop: handleExternalImageDrop } =
+      useExternalImageDrop({
+        hiddenPMRef,
+        getPositionFromMouse,
+        readOnly: readOnly || !!hfEditMode,
+      });
 
     /**
      * Handle keyboard events on container.
@@ -918,6 +935,8 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
         onBlur={handleContainerBlur}
         onKeyDown={handleKeyDown}
         onMouseDown={handleContainerMouseDown}
+        onDragOver={handleExternalImageDragOver}
+        onDrop={handleExternalImageDrop}
       >
         {/* Hidden ProseMirror for keyboard input */}
         <HiddenProseMirror

@@ -117,6 +117,17 @@ describe('getClipboardImageFiles', () => {
   test('returns empty array when clipboardData is null', () => {
     expect(getClipboardImageFiles(null)).toEqual([]);
   });
+
+  test('accepts files with empty MIME when the name has an image extension', () => {
+    const imageFile = new File([new Uint8Array([1, 2, 3])], 'photo.PNG', {
+      type: '',
+    });
+    const clipboardData = {
+      files: [imageFile],
+    } as unknown as DataTransfer;
+
+    expect(getClipboardImageFiles(clipboardData)).toEqual([imageFile]);
+  });
 });
 
 describe('runsToClipboardContent — themed color resolution in HTML', () => {
