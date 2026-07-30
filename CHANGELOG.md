@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.13] - 2026-07-30
+
+### Fixed
+
+- Embedded optional PowerPoint and HEIC runtimes in `main.js` and stopped attaching unsupported `.mjs` sidecars to GitHub releases so Obsidian community installs receive working engines.
+
 ## [1.1.12] - 2026-07-30
 
 ### Added

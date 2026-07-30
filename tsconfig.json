@@ -29,6 +29,7 @@
 		"strictBindCallApply": true,
 		"allowSyntheticDefaultImports": true,
 		"esModuleInterop": true,
+		"resolveJsonModule": true,
 		"skipLibCheck": true,
 		"useUnknownInCatchVariables": true,
 		"lib": [
@@ -41,7 +42,8 @@
 	},
 	"include": [
 		"src/**/*.ts",
-		"src/**/*.tsx"
+		"src/**/*.tsx",
+		"src/**/*.json"
 	],
 	"exclude": [
 		"src/docx-font-roundtrip-entry.tsx",

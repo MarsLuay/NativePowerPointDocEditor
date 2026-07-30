@@ -9,7 +9,7 @@
 
 - Target: Obsidian Community Plugin (TypeScript → bundled JavaScript).
 - Entry point: `main.ts` compiles to `main.js`, Obsidian loads.
-- Release artifacts required: `main.js`, `manifest.json`, optional `styles.css`.
+- Release artifacts required: `main.js`, `manifest.json`, optional `styles.css`. Optional PPTX/HEIC engines are gzip-embedded in `main.js` and materialized as sibling `.mjs` files on load — do not attach those `.mjs` files to GitHub releases (Obsidian will not download them).
 
 ## Native PowerPoint Doc Editor architecture
 
@@ -307,6 +307,7 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 
 ## Code analysis — wont-fix
 
+- `main.js` (`perf/bundle-size`): Soft 90% warning under the Sync Standard 5 MB budget. Gzip-embedded PPTX/HEIC runtimes keep community releases to Obsidian-supported assets while staying under the hard Sync limit; further shrinking would drop engines or reintroduce unsupported release sidecars.
 - `src/powerpoint/backend/pptxJsEngine.mjs` (`repo/large-file`): generated pure-JS fallback of `pptx-svg` MoonBit JS backend (`npm run regen:pptx-js`). Must stay Git-tracked for offline Obsidian installs without WASM GC; size is inherent to the engine, not compressible without losing the fallback. External source of truth is the pptx-svg package + regen script.
 - `docx-editor/packages/core/src/layout-bridge/footnoteLayout.ts` (`completeness-audit.todo-marker`): upstream deferred footnote layout marker in the vendored DOCX monorepo; do not “finish” it in the plugin layer.
 - `docx-editor/**/editor.css` (`mobile-web.no-media-queries` / `mobile-web.small-input-font`): DOCX editor CSS targets Obsidian desktop chrome; mobile media-query / 16px input rules are not product requirements for this plugin surface.

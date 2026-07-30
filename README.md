@@ -37,7 +37,7 @@ To start editing, open a supported Office file from the Obsidian file explorer. 
 
 ### Manual Setup
 
-1. Download `main.js`, `pptx-js-engine.mjs`, `pptx-wasm-renderer.mjs`, `heic-decode.mjs`, `manifest.json`, and `styles.css` from the latest release.
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest release.
 2. Create `.obsidian/plugins/native-powerpoint-doc-editor` inside your vault.
 3. Copy all six release files into that folder.
 4. Reload Obsidian.

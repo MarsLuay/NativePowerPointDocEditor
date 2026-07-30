@@ -10,6 +10,8 @@ import {
 	createDocxEditorAliases,
 	resolveDocxEditorPackagesRoot,
 } from "./scripts/lib/docx-editor-aliases.mjs";
+import { emitPptxRuntimeArtifacts } from "./scripts/lib/emit-pptx-runtime-artifacts.mjs";
+import { PPTX_RUNTIME_ARTIFACT_SPECS } from "./scripts/lib/pptx-runtime-artifact-spec.mjs";
 
 const banner =
 `/*
@@ -28,26 +30,9 @@ const prod = (process.argv[2] === "production");
 const vaultPluginDir =
 	process.env.OBSIDIAN_PLUGIN_DIR
 	|| path.resolve("../../.obsidian/plugins/native-powerpoint-doc-editor");
-const optionalRuntimeArtifacts = [
-	{
-		source: "src/powerpoint/backend/pptxJsEngine.mjs",
-		artifact: "pptx-js-engine.mjs",
-		bundle: false,
-	},
-	{
-		source: "src/powerpoint/backend/pptxWasmRenderer.mjs",
-		artifact: "pptx-wasm-renderer.mjs",
-		bundle: true,
-	},
-	{
-		source: "src/powerpoint/heicDecode.mjs",
-		artifact: "heic-decode.mjs",
-		bundle: true,
-	},
-];
 const filesToDeploy = [
 	"main.js",
-	...optionalRuntimeArtifacts.map(({ artifact }) => artifact),
+	...PPTX_RUNTIME_ARTIFACT_SPECS.map(({ artifact }) => artifact),
 	"styles.css",
 	"manifest.json",
 ];
@@ -93,27 +78,6 @@ const deployToVaultPlugin = {
 	}
 };
 
-const emitOptionalRuntimeArtifactsPlugin = {
-	name: "emit-optional-runtime-artifacts",
-	setup(build) {
-		build.onEnd(async (result) => {
-			if (result.errors.length > 0) return;
-			await Promise.all(optionalRuntimeArtifacts.map(async ({ source, artifact, bundle }) => {
-				await esbuild.build({
-					entryPoints: [source],
-					outfile: artifact,
-					bundle,
-					format: "esm",
-					target: "es2020",
-					loader: { ".wasm": "binary" },
-					minify: prod,
-					logLevel: "info",
-					plugins: bundle ? [inlinePptxSvgWasmPlugin] : [],
-				});
-			}));
-		});
-	}
-};
 
 const inlinePptxSvgWasmPlugin = {
 	name: "inline-pptx-svg-wasm",
@@ -164,6 +128,12 @@ const stripDocxEditorCssSideEffectImports = {
 	}
 };
 
+await emitPptxRuntimeArtifacts({
+	projectRoot,
+	minify: prod,
+	logLevel: prod ? "warning" : "info",
+});
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -213,7 +183,6 @@ const context = await esbuild.context({
 		stripReactDomScriptPlugin,
 		stripDocxEditorCssSideEffectImports,
 		inlinePptxSvgWasmPlugin,
-		emitOptionalRuntimeArtifactsPlugin,
 		deployToVaultPlugin,
 	],
 	outdir: ".",

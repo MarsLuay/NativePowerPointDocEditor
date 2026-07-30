@@ -39,21 +39,6 @@ jobs:
         with:
           subject-path: 'main.js'
 
-      - name: Generate artifact attestation for PPTX JS fallback
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: 'pptx-js-engine.mjs'
-
-      - name: Generate artifact attestation for PPTX WASM renderer
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: 'pptx-wasm-renderer.mjs'
-
-      - name: Generate artifact attestation for HEIC decoder
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: 'heic-decode.mjs'
-
       - name: Generate artifact attestation for styles.css
         uses: actions/attest-build-provenance@v4
         with:
@@ -70,8 +55,5 @@ jobs:
           generate_release_notes: true
           files: |
             main.js
-            pptx-js-engine.mjs
-            pptx-wasm-renderer.mjs
-            heic-decode.mjs
             styles.css
             manifest.json

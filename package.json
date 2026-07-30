@@ -1,6 +1,6 @@
 {
 	"name": "native-powerpoint-doc-editor",
-	"version": "1.1.12",
+	"version": "1.1.13",
 	"description": "Open, search, and edit DOCX and PPTX files directly in your vault.",
 	"main": "main.js",
 	"type": "module",
@@ -9,8 +9,9 @@
 		"url": "https://github.com/MarsLuay/NativePowerPointDocEditor.git"
 	},
 	"scripts": {
-		"dev": "node esbuild.config.mjs",
+		"dev": "node scripts/emit-pptx-runtime-artifacts.mjs && node esbuild.config.mjs",
 		"build": "npm run i18n:generate && npm run ai:generate && npm run check:ai-capabilities && npm run i18n:validate && npm run check:docx-runtime && npm run check:review-surface && npm run typecheck && node esbuild.config.mjs production && node scripts/check-no-dynamic-script.mjs && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs && node scripts/check-pptx-js-engine-artifact.mjs && node scripts/check-plugin-runtime-artifacts.mjs && node scripts/check-pptx-action-coverage.mjs && node scripts/check-pptx-action-logs.mjs && node scripts/check-theme-architecture.mjs && node scripts/check-theme-css.mjs && node scripts/check-shared-ui-patterns.mjs",
+		"emit:pptx-runtime-artifacts": "node scripts/emit-pptx-runtime-artifacts.mjs --minify",
 		"i18n:generate": "node scripts/generate-i18n-types.mjs && node scripts/generate-pseudo-locales.mjs",
 		"ai:generate": "node scripts/generate-ai-capabilities.mjs",
 		"check:ai-capabilities": "node scripts/generate-ai-capabilities.mjs --check",
@@ -57,7 +58,7 @@
 		"vendor:docx": "node scripts/vendor-docx-editor-runtime.mjs",
 		"check:docx-runtime": "node scripts/check-docx-runtime.mjs",
 		"check:review-surface": "node scripts/check-review-surface.mjs",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "npm run emit:pptx-runtime-artifacts && tsc --noEmit",
 		"lint:repository": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
 		"verify:review": "npm run check:docx-runtime && npm run check:review-surface && npm run typecheck && npm run lint:repository && npm run build && npm run test"
 	},
@@ -65,7 +66,7 @@
 	"license": "0-BSD",
 	"codeAnalysis": {
 		"pluginBundleBudgetBytes": 5000000,
-		"pluginBundleBudgetReason": "Obsidian Sync Standard cannot sync files over 5 MB. The optional pure-JS PPTX fallback is emitted as a separate deployable module so every plugin runtime file remains syncable."
+		"pluginBundleBudgetReason": "Obsidian Sync Standard cannot sync files over 5 MB. Optional PPTX/HEIC engines are gzip-embedded in main.js and materialized as sibling .mjs files on load so community releases only ship main.js / manifest.json / styles.css while every on-disk runtime file stays under 5 MB."
 	},
 	"devDependencies": {
 		"@eslint/js": "9.39.5",

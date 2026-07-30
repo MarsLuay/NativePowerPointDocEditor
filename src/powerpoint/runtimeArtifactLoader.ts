@@ -21,10 +21,12 @@ let artifactResources = new Map<PptxRuntimeArtifact, PptxRuntimeArtifactResource
 const artifactModules = new Map<PptxRuntimeArtifact, Promise<unknown>>();
 
 /**
- * Optional PPTX runtimes live beside main.js so every deployed file remains
- * below Obsidian Sync Standard's 5 MB limit. Their URLs must be resolved by
- * Obsidian: a relative dynamic import from CommonJS would resolve at
- * app://obsidian.md/, not this plugin directory.
+ * Optional PPTX runtimes are gzip-embedded in main.js and materialized beside
+ * it on load so community releases stay to Obsidian's supported assets
+ * (main.js / manifest.json / styles.css) while each on-disk file stays under
+ * Sync Standard's 5 MB limit. Their URLs must be resolved by Obsidian: a
+ * relative dynamic import from CommonJS would resolve at app://obsidian.md/,
+ * not this plugin directory.
  */
 export function configurePptxRuntimeArtifactLoader(
   resolveArtifact: PptxRuntimeArtifactResolver,

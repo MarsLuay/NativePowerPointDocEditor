@@ -9,11 +9,13 @@
 node_modules
 
 # Don't include compiled plugin runtime artifacts in the repo.
-# They should be uploaded to GitHub releases instead.
+# They should be built locally / on CI (main.js embeds the optional PPTX/HEIC
+# engines; sibling .mjs files are materialized on plugin load).
 main.js
 pptx-js-engine.mjs
 pptx-wasm-renderer.mjs
 heic-decode.mjs
+src/powerpoint/generated/runtimeArtifactPayloads.json
 ai/capabilities.json
 
 # Exclude sourcemaps
