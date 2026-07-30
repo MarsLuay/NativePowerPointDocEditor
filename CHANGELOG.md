@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.12] - 2026-07-30
+
+### Added
+
+- Dropped external OS/Finder image files onto painted DOCX pages at the pointer position.
+
+### Fixed
+
+- Kept the caret text-sized after image insert and when the insertion point sits on an image line, instead of painting a tall caret over the image box.
+
 ## [1.1.11] - 2026-07-27
 
 ### Fixed
