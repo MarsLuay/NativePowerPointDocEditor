@@ -88,7 +88,28 @@
     "alignRight": "‫thgir ngilA",
     "justify": "‫yfitsuJ",
     "tableSize": "‫{columns} × {rows}",
-    "tableSizePicker": "‫elbat tresnI"
+    "tableSizePicker": "‫elbat tresnI",
+    "chartTypeRecent": "‫tneceR",
+    "chartTypeTemplates": "‫setalpmeT",
+    "chartTypeAll": "‫strahC",
+    "chartType.column": "‫nmuloC",
+    "chartType.line": "‫eniL",
+    "chartType.pie": "‫eiP",
+    "chartType.bar": "‫raB",
+    "chartType.area": "‫aerA",
+    "chartType.scatter": "‫)rettacS( Y X",
+    "chartType.stock": "‫kcotS",
+    "chartType.surface": "‫ecafruS",
+    "chartType.radar": "‫radaR",
+    "chartType.treemap": "‫pameerT",
+    "chartType.sunburst": "‫tsrubnuS",
+    "chartType.histogram": "‫margotsiH",
+    "chartType.boxWhisker": "‫reksihW & xoB",
+    "chartType.waterfall": "‫llafretaW",
+    "chartType.combo": "‫obmoC",
+    "chartType.templateColumn": "‫elpmas nmuloC",
+    "chartType.templateLine": "‫elpmas eniL",
+    "chartType.templatePie": "‫elpmas eiP"
   },
   "notice": {
     "createFailed": "‫ :XTPP etaerc ton dluoC{message}",
@@ -185,7 +206,8 @@
     "couldNotMoveSlide": "‫ :edils evom ton dluoC{message}",
     "couldNotDuplicateSlide": "‫ :edils etacilpud ton dluoC{message}",
     "couldNotReorderSlides": "‫ :sedils redroer ton dluoC{message}",
-    "couldNotHistoryAction": "‫ ton dluoC{action} :{message}"
+    "couldNotHistoryAction": "‫ ton dluoC{action} :{message}",
+    "chartDataUnavailable": "‫.tcejbo siht rof elbaliava ton si atad trahC"
   },
   "save": {
     "ready": "‫ydaeR",
@@ -294,7 +316,8 @@
     "duplicateSlide": "‫edils etacilpuD",
     "moveUp": "‫pu evoM",
     "moveDown": "‫nwod evoM",
-    "deleteSlide": "‫edils eteleD"
+    "deleteSlide": "‫edils eteleD",
+    "editChart": "‫trahc tidE"
   },
   "export": {
     "currentSlidePng": "‫GNP sa edils tnerruC",
@@ -345,7 +368,16 @@
     "percentSuffix": "‫)%( ",
     "insertTable": "‫elbat tresnI",
     "rows": "‫swoR",
-    "columns": "‫snmuloC"
+    "columns": "‫snmuloC",
+    "editChartData": "‫atad trahc tidE",
+    "editChartDataHint": "‫.koobkrow deddebme sti dna trahc eht etadpu ot ylppa neht ,seulav seires dna seirogetac tidE",
+    "importExcel": "‫lecxE tropmI",
+    "importExcelSuccess": "‫ detropmI{fileName}.",
+    "importSeriesCountMismatch": "‫ sah atad detropmI{actual} stcepxe trahc siht tub ,seires {expected}.",
+    "excelDataLayout": "‫tuoyal atad lecxE",
+    "excelDataLayoutHint": "‫.tfel eht nwod seirogetac ,pot eht ssorca seman seires ,renroc knalb :tuoyal lecxE",
+    "chartDataLayoutHint": "‫.snmuloc seires htiw redaeh yrogetac :tuoyal trahC",
+    "seriesName": "‫ seireS{index}eman "
   },
   "color": {
     "noColor": "‫roloc oN",

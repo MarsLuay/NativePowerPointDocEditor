@@ -4,6 +4,9 @@
 
 import { Platform } from 'obsidian';
 
+/** Keep in sync with `EMPTY_PARAGRAPH_RENDER_ANCHOR` in drawingmlText.ts. */
+const EMPTY_PARAGRAPH_RENDER_ANCHOR = '\u200B';
+
 export function isPrimaryFindShortcut(evt: KeyboardEvent): boolean {
   const key = evt.key.toLowerCase();
   const isMacFind = evt.metaKey && !evt.ctrlKey;
@@ -449,13 +452,13 @@ export function mapEditorOffsetToOoxmlOffset(
   }
 
   if (consumeTrailingGap) {
-    // Only whitespace is ever swallowed at a soft-wrap boundary, so a range END
-    // may absorb trailing OOXML whitespace that the editor dropped -- but it must
-    // never run past a real (non-whitespace) character, which would over-clear
-    // onto text outside the selection if the two strings ever diverge.
+    // Only whitespace (and empty-paragraph ZWSP anchors) is swallowed at a
+    // soft-wrap / empty-render boundary, so a range END may absorb trailing
+    // OOXML gap chars the editor dropped -- but it must never run past a real
+    // character, which would over-clear onto text outside the selection.
     while (
       o < ooxmlText.length
-      && /\s/.test(ooxmlText.charAt(o))
+      && (/\s/.test(ooxmlText.charAt(o)) || ooxmlText.charAt(o) === EMPTY_PARAGRAPH_RENDER_ANCHOR)
       && (e >= editorText.length || editorText[e] !== ooxmlText[o])
     ) {
       o++;

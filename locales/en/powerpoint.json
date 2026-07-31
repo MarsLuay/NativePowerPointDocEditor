@@ -88,7 +88,28 @@
 		"alignRight": "Align right",
 		"justify": "Justify",
 		"tableSize": "{columns} × {rows}",
-		"tableSizePicker": "Insert table"
+		"tableSizePicker": "Insert table",
+		"chartTypeRecent": "Recent",
+		"chartTypeTemplates": "Templates",
+		"chartTypeAll": "Charts",
+		"chartType.column": "Column",
+		"chartType.line": "Line",
+		"chartType.pie": "Pie",
+		"chartType.bar": "Bar",
+		"chartType.area": "Area",
+		"chartType.scatter": "X Y (Scatter)",
+		"chartType.stock": "Stock",
+		"chartType.surface": "Surface",
+		"chartType.radar": "Radar",
+		"chartType.treemap": "Treemap",
+		"chartType.sunburst": "Sunburst",
+		"chartType.histogram": "Histogram",
+		"chartType.boxWhisker": "Box & Whisker",
+		"chartType.waterfall": "Waterfall",
+		"chartType.combo": "Combo",
+		"chartType.templateColumn": "Column sample",
+		"chartType.templateLine": "Line sample",
+		"chartType.templatePie": "Pie sample"
 	},
 	"notice": {
 		"createFailed": "Could not create PPTX: {message}",
@@ -185,7 +206,8 @@
 		"couldNotMoveSlide": "Could not move slide: {message}",
 		"couldNotDuplicateSlide": "Could not duplicate slide: {message}",
 		"couldNotReorderSlides": "Could not reorder slides: {message}",
-		"couldNotHistoryAction": "Could not {action}: {message}"
+		"couldNotHistoryAction": "Could not {action}: {message}",
+		"chartDataUnavailable": "Chart data is not available for this object."
 	},
 	"save": {
 		"ready": "Ready",
@@ -294,7 +316,8 @@
 		"duplicateSlide": "Duplicate slide",
 		"moveUp": "Move up",
 		"moveDown": "Move down",
-		"deleteSlide": "Delete slide"
+		"deleteSlide": "Delete slide",
+		"editChart": "Edit chart"
 	},
 	"export": {
 		"currentSlidePng": "Current slide as PNG",
@@ -345,7 +368,16 @@
 		"percentSuffix": " (%)",
 		"insertTable": "Insert table",
 		"rows": "Rows",
-		"columns": "Columns"
+		"columns": "Columns",
+		"editChartData": "Edit chart data",
+		"editChartDataHint": "Edit categories and series values, then apply to update the chart and its embedded workbook.",
+		"importExcel": "Import Excel",
+		"importExcelSuccess": "Imported {fileName}.",
+		"importSeriesCountMismatch": "Imported data has {actual} series, but this chart expects {expected}.",
+		"excelDataLayout": "Excel data layout",
+		"excelDataLayoutHint": "Excel layout: blank corner, series names across the top, categories down the left.",
+		"chartDataLayoutHint": "Chart layout: category header with series columns.",
+		"seriesName": "Series {index} name"
 	},
 	"color": {
 		"noColor": "No color",

@@ -193,7 +193,7 @@ export class PptxMutationService implements MutationExecutor {
       case 'insert-table':
         return engine.addTable(command.slideIndex, command.rows, command.cols);
       case 'insert-chart':
-        return engine.addChart(command.slideIndex);
+        return engine.addChart(command.slideIndex, command.chartType ?? 'column');
       case 'update-shape-transform':
         return engine.updateShapeTransform(command.slideIndex, command.shapeIndex, command.transform);
       case 'delete-shape':

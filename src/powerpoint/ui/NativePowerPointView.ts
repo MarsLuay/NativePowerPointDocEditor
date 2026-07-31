@@ -21,6 +21,7 @@ import {
   type TextRangeDeletionResult,
 } from '../../PresentationEngine';
 import {
+  ChartDataEditModal,
   getImageMimeType,
   ImageCropModal,
   InsertTableModal,
@@ -300,6 +301,12 @@ export class NativePowerPointView extends FileView {
   private activeEditor: HTMLTextAreaElement | null = null;
   /** Last text intentionally written by this inline-edit transaction. */
   private activeEditorCanonicalText: string | null = null;
+  /**
+   * Last known textarea value for destructive-input detection. Must track
+   * programmatic `setInlineEditorValue` (Enter split → "") or the next keystroke
+   * compares against the pre-split string and falsely treats typing as a wipe.
+   */
+  private activeEditorInputBaseline: string | null = null;
   private activeEditorInitialWordCount = 0;
   /** True only after a user text mutation, never after a formatting re-render. */
   private activeEditorTextDirty = false;
@@ -622,6 +629,7 @@ export class NativePowerPointView extends FileView {
       renderEditedShape: (shapeIndex) => getView().renderEditedShape(shapeIndex),
       renderThumbnails: () => getView().renderThumbnails(),
       syncCurrentThumbnailShape: (shapeIndex) => getView().syncCurrentThumbnailShape(shapeIndex),
+      invalidateCachedSlideRenders: (indices) => getView().slideFilmstripController.invalidateCachedSlideRenders(indices),
       selectShape: (shapeIndex) => getView().selectShape(shapeIndex),
       selectShapeForTextEditing: (shapeIndex) => getView().selectShapeForTextEditing(shapeIndex),
       startTextEditor: () => getView().startTextEditor(),
@@ -1546,7 +1554,11 @@ export class NativePowerPointView extends FileView {
       { label: this.tb('arrow'), icon: 'move-right', onClick: () => void this.insertShape('rightArrow') },
       'separator',
       { label: this.tb('table'), icon: 'table', onClick: () => this.openTableSizePicker(this.insertTableButton) },
-      { label: this.tb('chart'), icon: 'bar-chart-3', onClick: () => void this.insertChart() },
+      {
+        label: this.tb('chart'),
+        icon: 'bar-chart-3',
+        onClick: () => this.insertController.openChartTypePicker(this.insertController.getInsertChartButton()),
+      },
       'separator',
       { label: this.tb('bulletedList'), icon: 'list', onClick: () => void this.insertController.applyListStyle('bullet') },
       {
@@ -2460,6 +2472,7 @@ export class NativePowerPointView extends FileView {
       );
       this.recordHistoryEntry(history);
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
         this.selectShape(shapeIndex);
@@ -2496,6 +2509,7 @@ export class NativePowerPointView extends FileView {
       );
       this.recordHistoryEntry(history);
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
         this.selectShape(shapeIndex);
@@ -2527,6 +2541,7 @@ export class NativePowerPointView extends FileView {
       const shapeIndex = await this.engine.addShapeGeometry(this.currentSlide, geometry);
       this.recordHistoryEntry(history);
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
         this.selectShape(shapeIndex);
@@ -2551,6 +2566,7 @@ export class NativePowerPointView extends FileView {
       const shapeIndex = await this.engine.addTable(this.currentSlide, rows, cols);
       this.recordHistoryEntry(history);
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
         this.selectShape(shapeIndex);
@@ -2569,26 +2585,7 @@ export class NativePowerPointView extends FileView {
   }
 
   private async insertChart(): Promise<void> {
-    if (!this.engine || !this.ensureEditable('insert chart')) return;
-
-    try {
-      const history = await this.captureHistoryEntry('Insert chart');
-      const shapeIndex = await this.engine.addChart(this.currentSlide);
-      this.recordHistoryEntry(history);
-      this.markDirty();
-      const rendered = await this.renderCurrentSlide();
-      if (rendered) {
-        this.selectShape(shapeIndex);
-        await this.renderThumbnails();
-      }
-      debugLog('insert', 'Inserted PowerPoint chart', {
-        slide: this.currentSlide,
-        shapeIndex
-      });
-    } catch (error) {
-      errorLog('insert', 'PowerPoint chart insertion failed', { slide: this.currentSlide, error });
-      pptNotice('powerpoint:notice.couldNotInsertChart', { message: cleanError(error) });
-    }
+    await this.insertController.insertChart('column');
   }
 
   private createIconButton(container: HTMLElement, icon: string, label: string, onClick: () => void): HTMLButtonElement {
@@ -4014,6 +4011,9 @@ export class NativePowerPointView extends FileView {
         await this.engine!.deleteShape(this.currentSlide, shapeIndex);
         this.clearSelection({ skipTextCommit: true });
         this.markDirty();
+        // Same class as structural insert: filmstrip still holds the pre-delete
+        // SVG. Promoting it leaves a ghost shape that Delete appears to ignore.
+        this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
         const rendered = await this.renderCurrentSlide();
         if (!rendered) {
           // Keep undo available even when the live surface fails to paint.
@@ -4069,6 +4069,7 @@ export class NativePowerPointView extends FileView {
       await this.engine.deleteShapes(this.currentSlide, indices);
       this.clearSelection({ skipTextCommit: true });
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (!rendered) {
         this.recordHistoryEntry(history);
@@ -4205,6 +4206,7 @@ export class NativePowerPointView extends FileView {
         );
         this.recordHistoryEntry(history);
         this.markDirty();
+        this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
         const rendered = await this.renderCurrentSlide();
         if (rendered) {
           this.selectShape(shapeIndex);
@@ -4254,6 +4256,7 @@ export class NativePowerPointView extends FileView {
       const shapeIndexes = await this.engine.pasteShapes(this.objectClipboard, this.currentSlide);
       this.recordHistoryEntry(history);
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
         this.applyMultiSelection(shapeIndexes);
@@ -4296,6 +4299,7 @@ export class NativePowerPointView extends FileView {
       const duplicatedIndexes = await this.engine.pasteShapes(clipboard, this.currentSlide);
       this.recordHistoryEntry(history);
       this.markDirty();
+      this.slideFilmstripController.invalidateCachedSlideRenders(this.currentSlide);
       const rendered = await this.renderCurrentSlide();
       if (rendered) {
         this.applyMultiSelection(duplicatedIndexes);
@@ -4687,6 +4691,12 @@ export class NativePowerPointView extends FileView {
 
     const selected = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
     if (!isSVGGElement(selected)) {
+      // Common when a structural insert/paste redraw reused a stale filmstrip
+      // SVG that never contained this shapeIndex.
+      warnLog('selection', 'PowerPoint selectShape missed shape in slide SVG', {
+        slide: this.currentSlide,
+        shapeIndex,
+      });
       this.selectedShapeIndex = null;
       this.selectedShapeIndices.clear();
       this.selectedTransform = null;
@@ -4716,6 +4726,10 @@ export class NativePowerPointView extends FileView {
 
     const selected = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
     if (!isSVGGElement(selected)) {
+      warnLog('selection', 'PowerPoint selectShapeForTextEditing missed shape in slide SVG', {
+        slide: this.currentSlide,
+        shapeIndex,
+      });
       this.selectedShapeIndex = null;
       this.selectedShapeIndices.clear();
       this.selectedTransform = null;
@@ -5354,7 +5368,7 @@ export class NativePowerPointView extends FileView {
         target,
         pendingText,
         result.paragraphIndex,
-        listStyle === 'none',
+        listStyle !== 'bullet' && listStyle !== 'number',
       );
       target.paragraphIndex = result.paragraphIndex;
       const rendered = previewed || await this.renderEditedShape(target.shapeIndex);
@@ -5471,7 +5485,7 @@ export class NativePowerPointView extends FileView {
         target,
         pendingText,
         result,
-        listStyle === 'none',
+        listStyle !== 'bullet' && listStyle !== 'number',
       );
       target.paragraphIndex = result.paragraphIndex;
       const rendered = previewed || await this.renderEditedShape(target.shapeIndex);
@@ -5675,10 +5689,20 @@ export class NativePowerPointView extends FileView {
     const atEditorEnd = rawStart === rawText.length && rawEnd === rawText.length;
     const slideIndex = this.currentSlide;
     const listStyle = engine.getParagraphListStyle(slideIndex, target.shapeIndex, target.paragraphIndex);
-    const splitOffset = hasPendingText
-      ? mapEditorOffsetToOoxmlOffset(textAfterSelection, normalizedText, rawStart, atEditorEnd)
-      : mapEditorOffsetToOoxmlOffset(rawText, ooxmlText, rawStart, atEditorEnd);
+    // Empty editor vs ZWSP-only OOXML: mapEditorOffset("", "\u200b") returns 0,
+    // which moves the anchor run onto the suffix (Enter-at-start). Treat
+    // logically empty paragraphs as EOF so Enter inserts after.
+    const logicalEditorEmpty = stripEmptyParagraphRenderAnchors(rawText).length === 0;
+    const logicalOoxmlEmpty = stripEmptyParagraphRenderAnchors(ooxmlText).length === 0;
+    const splitOffset = logicalEditorEmpty && logicalOoxmlEmpty
+      ? ooxmlText.length
+      : hasPendingText
+        ? mapEditorOffsetToOoxmlOffset(textAfterSelection, normalizedText, rawStart, atEditorEnd)
+        : mapEditorOffsetToOoxmlOffset(rawText, ooxmlText, rawStart, atEditorEnd);
     const scrollPosition = this.captureCanvasScroll();
+    // Match delete/merge/remove: lock the textarea so a programmatic shrink
+    // after Enter cannot fire a dirty `input` / blur-commit wipe.
+    editor.readOnly = true;
 
     logPptxAction('text-edit', 'split-paragraph', {
       slide: slideIndex,
@@ -5696,6 +5720,8 @@ export class NativePowerPointView extends FileView {
       // wrong-split repro is unambiguous about whether soft breaks were present.
       editorSoftBreaks: (rawText.match(/\n/g) ?? []).length,
       softBreaksBeforeCaret: (rawText.slice(0, rawStart).match(/\n/g) ?? []).length,
+      logicalEditorEmpty,
+      logicalOoxmlEmpty,
       listStyle,
       hasPendingText,
       atEditorEnd,
@@ -5732,7 +5758,9 @@ export class NativePowerPointView extends FileView {
         previewLeadingText,
         previewTrailingText,
         result.paragraphIndex,
-        listStyle === 'none',
+        // null = no explicit marker (common body text). Only real bullets/numbers
+        // need the canonical renderer for marker layout.
+        listStyle !== 'bullet' && listStyle !== 'number',
       );
       const rendered = previewed || await this.renderEditedShape(target.shapeIndex);
       if (!rendered) throw new Error('Could not re-render the split PowerPoint paragraph.');
@@ -5771,6 +5799,10 @@ export class NativePowerPointView extends FileView {
         error: cleanError(error),
       });
       pptNotice('powerpoint:notice.couldNotUpdateText', { message: cleanError(error) });
+    } finally {
+      if (this.activeEditor === editor) {
+        editor.readOnly = false;
+      }
     }
   }
 
@@ -5810,10 +5842,10 @@ export class NativePowerPointView extends FileView {
       return false;
     }
 
-    // A structural preview is safe only when it remains a single visual line
-    // and has no following paragraph to reflow. Any other case can outgrow the
-    // text frame before the authoritative renderer runs, leaving text visibly
-    // expanded or overlapping lower content after Enter.
+    // A structural preview is safe when the source stays one visual line and
+    // the new trailing line does not wrap. Downstream paragraphs are shifted
+    // below; blocking on their presence forced every mid-shape Enter onto the
+    // full engine render path (post-deploy logs: 0 live-dom).
     const hasDownstreamParagraph = this.getParagraphLineContainers(
       target.shapeIndex,
       insertedParagraphIndex,
@@ -5829,7 +5861,6 @@ export class NativePowerPointView extends FileView {
       : null;
     const trailingLineCount = trailingLines?.length ?? null;
     const previewIsSafe = sourceLinesBeforePreview.length === 1
-      && !hasDownstreamParagraph
       && trailingLines?.join('') === trailingText
       && trailingLineCount === 1;
     if (!previewIsSafe) {
@@ -5843,11 +5874,9 @@ export class NativePowerPointView extends FileView {
         trailingLineCount,
         reason: sourceLinesBeforePreview.length !== 1
           ? 'source-wrap'
-          : hasDownstreamParagraph
-            ? 'downstream-paragraph'
-            : trailingLineCount !== 1
-              ? 'trailing-wrap'
-              : 'preview-geometry-unavailable',
+          : trailingLineCount !== 1
+            ? 'trailing-wrap'
+            : 'preview-geometry-unavailable',
       });
       return false;
     }
@@ -5939,6 +5968,17 @@ export class NativePowerPointView extends FileView {
       overflowBottom,
       removedSoftBreaks: result.removedSoftBreaks,
     };
+
+    // Empty/ZWSP paras stacking past a fixed noAutofit frame is expected
+    // (post-deploy Enter repro); keep a debug breadcrumb, not a warn flood.
+    const paragraphText = paragraphTarget?.text ?? '';
+    const emptyParagraphStackOverflow = overflowBottom === true
+      && overflowRight !== true
+      && stripEmptyParagraphRenderAnchors(paragraphText).length === 0;
+    if (emptyParagraphStackOverflow) {
+      debugLog('text-edit', 'Paragraph split empty-stack overflow', data);
+      return;
+    }
 
     if (!frameBox || !textBox || !paragraphBox || overflowRight || overflowBottom) {
       warnLog('text-edit', 'Paragraph split layout needs attention', data);
@@ -6629,9 +6669,12 @@ export class NativePowerPointView extends FileView {
     return isSelectableShapeIndex(shapeIndex) ? shapeIndex : null;
   }
 
-  private getObjectKind(shapeIndex: number, shapeEl: SVGGElement): 'image' | 'text' | 'generic' {
+  private getObjectKind(shapeIndex: number, shapeEl: SVGGElement): 'image' | 'text' | 'chart' | 'generic' {
     const type = shapeEl.getAttribute('data-ooxml-shape-type');
-    if (type === 'table' || type === 'chart' || type === 'group') {
+    if (type === 'chart') {
+      return 'chart';
+    }
+    if (type === 'table' || type === 'group') {
       return 'generic';
     }
     if (this.engine?.isImageShape(this.currentSlide, shapeIndex) || shapeEl.querySelector('image')) {
@@ -6662,6 +6705,16 @@ export class NativePowerPointView extends FileView {
     const kind = isSVGGElement(shapeEl) ? this.getObjectKind(shapeIndex, shapeEl) : 'generic';
     const canEdit = this.canEdit();
     const menu = this.createNativeMenu();
+
+    if (kind === 'chart') {
+      menu.addItem((item) => {
+        item
+          .setTitle(this.t('powerpoint:contextMenu.editChart'))
+          .setIcon('table-2')
+          .onClick(() => this.openChartDataEditor(shapeIndex));
+      });
+      menu.addSeparator();
+    }
 
     menu.addItem((item) => {
       item.setTitle(this.tb('cut')).setIcon('scissors').onClick(() => void this.cutSelectedShape());
@@ -6725,6 +6778,72 @@ export class NativePowerPointView extends FileView {
     menu.showAtMouseEvent(event);
   }
 
+  private openChartDataEditor(shapeIndex: number): void {
+    if (!this.engine) return;
+
+    const chartData = this.engine.getChartDataGrid(this.currentSlide, shapeIndex);
+    if (!chartData) {
+      pptNotice('powerpoint:notice.chartDataUnavailable');
+      return;
+    }
+
+    logPptxAction('inspector', 'open-chart-data-editor', {
+      slide: this.currentSlide,
+      shapeIndexes: [shapeIndex],
+      editable: chartData.editable,
+      categoryCount: chartData.categories.length,
+      seriesCount: chartData.series.length,
+    });
+
+    new ChartDataEditModal(
+      this.app,
+      chartData,
+      {
+        canEdit: this.canEdit() && chartData.editable,
+        onSubmit: (update) => {
+          void this.applyChartDataForShape(shapeIndex, update);
+        },
+      },
+      this.t,
+    ).open();
+  }
+
+  private async applyChartDataForShape(
+    shapeIndex: number,
+    update: ChartDataUpdate,
+  ): Promise<void> {
+    if (!this.engine) return;
+    if (!this.ensureEditable('edit chart data')) return;
+
+    try {
+      const history = await this.captureHistoryEntry('Edit chart data');
+      await this.session.applyCommand({
+        type: 'update-chart-data',
+        slideIndex: this.currentSlide,
+        shapeIndex,
+        update,
+      });
+      this.recordHistoryEntry(history);
+      const rendered = await this.renderEditedShape(shapeIndex);
+      if (rendered) await this.renderThumbnails();
+      debugLog('inspector', 'Updated PowerPoint chart data', {
+        slide: this.currentSlide,
+        shapeIndex,
+        property: 'chart-data',
+        categoryCount: update.categories.length,
+        seriesCount: update.series.length,
+      });
+    } catch (error) {
+      errorLog('inspector', 'PowerPoint chart-data update failed', {
+        slide: this.currentSlide,
+        shapeIndex,
+        categoryCount: update.categories.length,
+        seriesCount: update.series.length,
+        error,
+      });
+      pptNotice('powerpoint:notice.couldNotUpdateChartData', { message: cleanError(error) });
+    }
+  }
   private addShapeFillColorMenuItem(menu: Menu, shapeIndex: number, canEdit: boolean): void {
     if (!this.engine?.canSetShapeFillColor(this.currentSlide, shapeIndex)) return;
 
@@ -6994,6 +7113,7 @@ export class NativePowerPointView extends FileView {
     this.positionTextRunEditor(editor, box);
     this.activeEditor = editor;
     this.activeEditorCanonicalText = initialText;
+    this.activeEditorInputBaseline = initialText;
     this.inlineUndoStack = [];
     this.inlineRedoStack = [];
     this.lastInlineHistoryRestoreFailed = false;
@@ -7088,8 +7208,20 @@ export class NativePowerPointView extends FileView {
     });
     editor.addEventListener('input', () => {
       if (this.activeEditor === editor) {
+        // Structural edits lock the textarea and rewrite value; ignore spurious
+        // `input` so Enter cannot mark dirty or trigger a destructive preview.
+        if (
+          editor.readOnly
+          || this.paragraphSplitPromise
+          || this.paragraphRemovalPromise
+          || this.rangeDeletionPromise
+        ) {
+          return;
+        }
         const inputType = pendingInlineInputType;
-        const previousText = previousInlineEditorValue;
+        // Prefer the baseline synced by setInlineEditorValue (Enter split → "")
+        // over the closure snapshot, which otherwise stays at the pre-split length.
+        const previousText = this.activeEditorInputBaseline ?? previousInlineEditorValue;
         // Electron can dispatch input without the matching beforeinput metadata.
         // The value transition is the reliable source of truth: every shrink
         // needs the owning SVG <text> frame to repaint immediately.
@@ -7187,6 +7319,7 @@ export class NativePowerPointView extends FileView {
           }
         }
         previousInlineEditorValue = editor.value;
+        this.activeEditorInputBaseline = editor.value;
         this.activeEditorCanonicalText = editor.value;
         const nextBox = this.getElementBox(target.element);
         if (nextBox) {
@@ -7517,6 +7650,7 @@ export class NativePowerPointView extends FileView {
     this.removeInlineSelection();
     this.activeEditor = null;
 		this.activeEditorCanonicalText = null;
+		this.activeEditorInputBaseline = null;
 		this.activeEditorInitialWordCount = 0;
     this.activeEditorTextDirty = false;
     this.activeEditorCommit = null;
@@ -9509,6 +9643,7 @@ export class NativePowerPointView extends FileView {
     editor.value = visibleText;
     if (this.activeEditor === editor) {
       this.activeEditorCanonicalText = visibleText;
+      this.activeEditorInputBaseline = visibleText;
     }
   }
 

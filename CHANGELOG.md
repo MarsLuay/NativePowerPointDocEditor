@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.14] - 2026-07-31
+
+### Added
+
+- Chart type picker for insert (classic and modern chart kinds).
+- Edit-chart Import Excel (.xlsx/.csv) and Excel vs chart data-layout toggle.
+- Right-click Edit chart opens the chart data editor.
+
+### Fixed
+
+- Large chart values (for example 687789 / 689999) no longer break preview scaling or flip bar charts to columns.
+- Chart data normalize/clamp for overflow and grouped number paste before OOXML apply.
+
 ## [1.1.13] - 2026-07-30
 
 ### Fixed

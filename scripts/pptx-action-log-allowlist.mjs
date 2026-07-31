@@ -9,9 +9,11 @@ export const PPTX_ACTION_LOG_ALLOWLIST = {
 		'closeInsertMenus',
 		'clickImageFileInput',
 		'getInsertTableButton',
+		'getInsertChartButton',
 		'openVaultImagePicker',
 		'openInsertTableModal',
 		'openTableSizePicker',
+		'openChartTypePicker',
 	],
 	inspectorController: ['render', 'updateValues'],
 	selectionDragController: [

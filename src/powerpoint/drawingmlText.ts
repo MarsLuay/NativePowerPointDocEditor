@@ -379,6 +379,33 @@ export interface DrawingParagraphFontSummary {
   fontSizesPt: number[];
 }
 
+function collectTypefacesFromRunProperties(rPr: Element | null | undefined, fontFamilies: Set<string>): void {
+  if (!rPr) return;
+  for (const child of getElementChildren(rPr)) {
+    if (
+      child.namespaceURI === DRAWINGML_NAMESPACE
+      && (
+        child.localName === 'latin'
+        || child.localName === 'ea'
+        || child.localName === 'cs'
+        || child.localName === 'sym'
+      )
+    ) {
+      const typeface = child.getAttribute('typeface')?.trim();
+      if (typeface) fontFamilies.add(typeface);
+    }
+  }
+  // Non-standard but present in fixtures / some decks: typeface on the rPr element.
+  const direct = rPr.getAttribute('typeface')?.trim();
+  if (direct) fontFamilies.add(direct);
+}
+
+function collectFontSizeFromRunProperties(rPr: Element | null | undefined, fontSizesPt: Set<number>): void {
+  if (!rPr) return;
+  const size = Number(rPr.getAttribute('sz'));
+  if (Number.isFinite(size) && size > 0) fontSizesPt.add(size / 100);
+}
+
 /** Compact, content-free font diagnostics for an edited DrawingML paragraph. */
 export function getDrawingParagraphFontSummary(paragraph: Element | null | undefined): DrawingParagraphFontSummary | null {
   if (!paragraph) return null;
@@ -390,16 +417,25 @@ export function getDrawingParagraphFontSummary(paragraph: Element | null | undef
     const rPr = getElementChildren(run).find((child) => (
       child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'rPr'
     ));
-    const latin = rPr
-      ? getElementChildren(rPr).find((child) => (
-        child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'latin'
-      ))
-      : null;
-    const typeface = latin?.getAttribute('typeface');
-    if (typeface) fontFamilies.add(typeface);
-    const size = Number(rPr?.getAttribute('sz'));
-    if (Number.isFinite(size) && size > 0) fontSizesPt.add(size / 100);
+    collectTypefacesFromRunProperties(rPr, fontFamilies);
+    collectFontSizeFromRunProperties(rPr, fontSizesPt);
   }
+
+  // Faces may live on endParaRPr or paragraph defRPr when runs are sz-only.
+  const endParaRPr = findEndParagraphProperties(paragraph);
+  collectTypefacesFromRunProperties(endParaRPr, fontFamilies);
+  collectFontSizeFromRunProperties(endParaRPr, fontSizesPt);
+
+  const paragraphProperties = getElementChildren(paragraph).find((element) => (
+    element.namespaceURI === DRAWINGML_NAMESPACE && element.localName === 'pPr'
+  ));
+  const defRPr = paragraphProperties
+    ? getElementChildren(paragraphProperties).find((element) => (
+      element.namespaceURI === DRAWINGML_NAMESPACE && element.localName === 'defRPr'
+    ))
+    : null;
+  collectTypefacesFromRunProperties(defRPr, fontFamilies);
+  collectFontSizeFromRunProperties(defRPr, fontSizesPt);
 
   return {
     runCount: runs.length,
@@ -458,6 +494,57 @@ function ensureDrawingParagraphRun(paragraph: Element, templateRun: Element | nu
 }
 
 /**
+ * Run whose direct formatting should seed an empty paragraph created by Enter.
+ * Uses the glyph before the caret (EOF → last run), not always runs[0].
+ */
+function resolveDrawingParagraphStyleTemplateRun(
+  paragraph: Element,
+  splitOffset: number,
+): Element | null {
+  const segments = getDrawingRunSegments(paragraph);
+  if (segments.length === 0) return null;
+  const styleOffset = splitOffset > 0 ? splitOffset - 1 : 0;
+  return segments.find((segment) => styleOffset >= segment.start && styleOffset < segment.end)?.run
+    ?? segments.find((segment) => styleOffset >= segment.start && styleOffset <= segment.end)?.run
+    ?? segments.at(-1)?.run
+    ?? null;
+}
+
+function getDrawingRunProperties(run: Element | null | undefined): Element | null {
+  if (!run) return null;
+  return getElementChildren(run).find((child) => (
+    child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'rPr'
+  )) ?? null;
+}
+
+/** Keep endParaRPr aligned with the boundary run so empty-caret styling matches. */
+function syncEndParaRPrFromRun(paragraph: Element, templateRun: Element | null): void {
+  const rPr = getDrawingRunProperties(templateRun);
+  if (!rPr) return;
+  const doc = paragraph.ownerDocument;
+  let endParaRPr = findEndParagraphProperties(paragraph);
+  if (!endParaRPr) {
+    endParaRPr = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:endParaRPr');
+    paragraph.appendChild(endParaRPr);
+  }
+
+  while (endParaRPr.attributes.length > 0) {
+    endParaRPr.removeAttribute(endParaRPr.attributes.item(0)!.name);
+  }
+  while (endParaRPr.firstChild) {
+    endParaRPr.removeChild(endParaRPr.firstChild);
+  }
+  for (let index = 0; index < rPr.attributes.length; index++) {
+    const attribute = rPr.attributes.item(index);
+    if (!attribute) continue;
+    endParaRPr.setAttribute(attribute.name, attribute.value);
+  }
+  for (const child of getElementChildren(rPr)) {
+    endParaRPr.appendChild(child.cloneNode(true));
+  }
+}
+
+/**
  * Split one real DrawingML paragraph at its run-text offset. The sibling keeps
  * the source paragraph's pPr (including native list style), while the suffix
  * retains each run's direct formatting. This is the normal PowerPoint Enter
@@ -479,10 +566,11 @@ export function splitDrawingParagraphAtOffset(
   }
 
   const doc = paragraph.ownerDocument;
-  const templateRun = getDrawingRuns(paragraph)[0] ?? null;
   const segments = getDrawingRunSegments(paragraph);
   const total = segments.at(-1)?.end ?? 0;
   const splitOffset = Math.max(0, Math.min(total, offset));
+  // Capture before splitParagraphAtOffset mutates run boundaries.
+  const templateRun = resolveDrawingParagraphStyleTemplateRun(paragraph, splitOffset);
   splitParagraphAtOffset(paragraph, splitOffset, doc);
 
   const splitSegments = getDrawingRunSegments(paragraph);
@@ -509,6 +597,10 @@ export function splitDrawingParagraphAtOffset(
 
   ensureDrawingParagraphRun(paragraph, templateRun);
   ensureDrawingParagraphRun(suffixParagraph, templateRun);
+  const prefixStyleRun = getDrawingRuns(paragraph).at(-1) ?? templateRun;
+  const suffixStyleRun = getDrawingRuns(suffixParagraph)[0] ?? templateRun;
+  syncEndParaRPrFromRun(paragraph, prefixStyleRun);
+  syncEndParaRPrFromRun(suffixParagraph, suffixStyleRun);
   parent.insertBefore(suffixParagraph, paragraph.nextSibling);
   return paragraphIndex + 1;
 }
@@ -1168,33 +1260,73 @@ export function getShapeRunPositions(shape: Element): DrawingRunPosition[] {
 }
 
 /**
+ * Freeform text box detection (txBox marker, or legacy "TextBox" cNvPr name).
+ * Kept local so insert/edit paths can pick spAutoFit instead of shrink-to-fit.
+ */
+export function isDrawingTextBoxShape(shape: Element): boolean {
+  if (shape.localName !== 'sp') return false;
+  const nonVisualProperties = getDescendants(shape, 'cNvSpPr')[0];
+  const textBoxFlag = nonVisualProperties?.getAttribute('txBox');
+  if (textBoxFlag === '1' || textBoxFlag === 'true') return true;
+  const name = getDescendants(shape, 'cNvPr')[0]?.getAttribute('name') ?? '';
+  return /^TextBox(?:\s|$)/i.test(name);
+}
+
+function findBodyAutofitChild(bodyPr: Element): Element | undefined {
+  return getElementChildren(bodyPr).find((element) => (
+    element.namespaceURI === DRAWINGML_NAMESPACE
+      && (element.localName === 'noAutofit'
+        || element.localName === 'normAutofit'
+        || element.localName === 'spAutoFit')
+  ));
+}
+
+function bodyPrAutofitInsertionPoint(bodyPr: Element): Element | null {
+  return getElementChildren(bodyPr).find((element) => (
+    element.namespaceURI === DRAWINGML_NAMESPACE
+      && (element.localName === 'scene3d'
+        || element.localName === 'flatTx'
+        || element.localName === 'extLst')
+  )) ?? null;
+}
+
+/**
  * Text bodies without an explicit AutoFit child are rendered as no-auto-fit by
  * pptx-svg, unlike PowerPoint's shrink-on-overflow editing behavior. Preserve
  * explicit `noAutofit`, `normAutofit`, and `spAutoFit` choices; otherwise make
  * the safe default explicit before text mutations can overflow the frame.
+ *
+ * Freeform text boxes are an exception: PowerPoint grows the frame (`spAutoFit`)
+ * rather than shrinking fonts. Injecting `normAutofit` made Enter overflows look
+ * like a font-size change (OOXML stayed 18pt while CSS dropped to ~9px).
+ * Legacy text boxes that already received `normAutofit` are healed to `spAutoFit`.
  */
 export function ensureDefaultShrinkAutofit(shape: Element, doc: XMLDocument): boolean {
   const bodyProps = getDescendants(shape, 'bodyPr')
     .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+  const textBox = isDrawingTextBoxShape(shape);
 
   let changed = false;
   for (const bodyPr of bodyProps) {
-    const hasExplicitAutofit = getElementChildren(bodyPr).some((element) => (
-      element.namespaceURI === DRAWINGML_NAMESPACE
-        && (element.localName === 'noAutofit'
-          || element.localName === 'normAutofit'
-          || element.localName === 'spAutoFit')
-    ));
-    if (hasExplicitAutofit) continue;
+    const existing = findBodyAutofitChild(bodyPr);
+    if (textBox) {
+      if (existing?.localName === 'spAutoFit' || existing?.localName === 'noAutofit') {
+        continue;
+      }
+      const spAutoFit = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:spAutoFit');
+      if (existing?.localName === 'normAutofit') {
+        bodyPr.replaceChild(spAutoFit, existing);
+      } else {
+        bodyPr.insertBefore(spAutoFit, bodyPrAutofitInsertionPoint(bodyPr));
+      }
+      changed = true;
+      continue;
+    }
+
+    if (existing) continue;
 
     const normAutofit = doc.createElementNS(DRAWINGML_NAMESPACE, 'a:normAutofit');
-    const insertionPoint = getElementChildren(bodyPr).find((element) => (
-      element.namespaceURI === DRAWINGML_NAMESPACE
-        && (element.localName === 'scene3d'
-          || element.localName === 'flatTx'
-          || element.localName === 'extLst')
-    ));
-    bodyPr.insertBefore(normAutofit, insertionPoint ?? null);
+    bodyPr.insertBefore(normAutofit, bodyPrAutofitInsertionPoint(bodyPr));
     changed = true;
   }
   return changed;

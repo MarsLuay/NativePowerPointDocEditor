@@ -442,15 +442,34 @@ export function getChartDataDescriptor(zip: ZipContents, chartPath: string): Cha
   };
 }
 
+/**
+ * Normalize a chart numeric cell for OOXML/Excel doubles.
+ *
+ * Users often paste formatted values (`1,000`) or type magnitudes past IEEE
+ * range (`1e400`). Rejecting those with "must be a finite number" made Edit
+ * chart look broken for "massive" inputs. Strip grouping separators, accept
+ * plain/scientific literals, and clamp overflows to ±Number.MAX_VALUE (same
+ * ceiling Excel uses) so the chart still updates.
+ */
 function normalizeNumber(value: string, label: string): string {
   const trimmedValue = value.trim();
   if (trimmedValue === '') return '';
 
-  const numericValue = Number(trimmedValue);
-  if (!Number.isFinite(numericValue)) {
-    throw new Error(`${label} must be a finite number.`);
+  const withoutGrouping = trimmedValue.replace(/[,\s_]/g, '');
+  const candidate = withoutGrouping.replace(/^\+/, '');
+  if (!/^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(candidate)) {
+    throw new Error(`${label} must be a number.`);
   }
-  return trimmedValue;
+
+  const numericValue = Number(candidate);
+  if (Number.isNaN(numericValue)) {
+    throw new Error(`${label} must be a number.`);
+  }
+  if (!Number.isFinite(numericValue)) {
+    const clamped = candidate.startsWith('-') ? -Number.MAX_VALUE : Number.MAX_VALUE;
+    return String(clamped);
+  }
+  return String(numericValue);
 }
 
 function normalizeValues(values: string[], kind: ChartDataValueKind, label: string): string[] {
@@ -796,9 +815,10 @@ function applyChartSourceUpdate(
   values: string[],
   label: string
 ): void {
-  const nextFormula = getUpdatedSourceFormula(source, values, label);
-  updateChartCaches(chartDoc, source.formula, values, nextFormula);
-  addResizedWorkbookEdit(workbookEdits, source, values, nextFormula, label);
+  const normalizedValues = normalizeValues(values, source.kind, label);
+  const nextFormula = getUpdatedSourceFormula(source, normalizedValues, label);
+  updateChartCaches(chartDoc, source.formula, normalizedValues, nextFormula);
+  addResizedWorkbookEdit(workbookEdits, source, normalizedValues, nextFormula, label);
 }
 
 function validatePointLabelRowResize(

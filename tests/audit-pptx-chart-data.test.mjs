@@ -219,6 +219,42 @@ test("updateChartData applies edits to chart caches and the embedded workbook, a
   assert.match(workbookXml, /forceFullCalc="1"/);
 });
 
+test("updateChartData accepts grouped and overflow-scale numeric values", async () => {
+  const { extractZip } = zipHelpers;
+  const buffer = await buildEditableChartDeck();
+  const descriptor = chartData.getChartDataDescriptor(await extractZip(buffer), CHART_PATH);
+
+  const output = await chartData.updateChartData(buffer, descriptor, {
+    categories: descriptor.grid.categories,
+    series: [{
+      values: ["1,000,000", "1e400"],
+      pointLabels: null,
+    }],
+  });
+
+  const reloaded = chartData.getChartDataDescriptor(await extractZip(output), CHART_PATH);
+  assert.equal(reloaded.grid.series[0].values[0], "1000000");
+  assert.equal(reloaded.grid.series[0].values[1], String(Number.MAX_VALUE));
+
+  const negative = await chartData.updateChartData(output, reloaded, {
+    categories: reloaded.grid.categories,
+    series: [{
+      values: ["1000000", "-9e999"],
+      pointLabels: null,
+    }],
+  });
+  const negativeReloaded = chartData.getChartDataDescriptor(await extractZip(negative), CHART_PATH);
+  assert.equal(negativeReloaded.grid.series[0].values[1], String(-Number.MAX_VALUE));
+
+  await assert.rejects(
+    () => chartData.updateChartData(buffer, descriptor, {
+      categories: descriptor.grid.categories,
+      series: [{ values: ["nope", "20"], pointLabels: null }],
+    }),
+    /Series 1 row 1 must be a number/,
+  );
+});
+
 test("updateChartData inserts chart rows by extending caches, formulas, and the embedded workbook", async () => {
   const { extractZip } = zipHelpers;
   const buffer = await buildEditableChartDeck();

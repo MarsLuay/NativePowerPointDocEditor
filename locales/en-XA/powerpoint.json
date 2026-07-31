@@ -88,7 +88,28 @@
     "alignRight": "[Ąſįğñ rįğhţ]",
     "justify": "[Jųşţįfÿ]",
     "tableSize": "[{columns} × {rows}]",
-    "tableSizePicker": "[Įñşęrţ ţąbſę]"
+    "tableSizePicker": "[Įñşęrţ ţąbſę]",
+    "chartTypeRecent": "[Ręćęñţ]",
+    "chartTypeTemplates": "[Ţęmpſąţęş]",
+    "chartTypeAll": "[Ćhąrţş]",
+    "chartType.column": "[Ćǫſųmñ]",
+    "chartType.line": "[Łįñę]",
+    "chartType.pie": "[Pįę]",
+    "chartType.bar": "[Bąr]",
+    "chartType.area": "[Ąręą]",
+    "chartType.scatter": "[X Ÿ (Şćąţţęr)]",
+    "chartType.stock": "[Şţǫćk]",
+    "chartType.surface": "[Şųrfąćę]",
+    "chartType.radar": "[Rąḑąr]",
+    "chartType.treemap": "[Ţręęmąp]",
+    "chartType.sunburst": "[Şųñbųrşţ]",
+    "chartType.histogram": "[Hįşţǫğrąm]",
+    "chartType.boxWhisker": "[Bǫx & Whįşkęr]",
+    "chartType.waterfall": "[Wąţęrfąſſ]",
+    "chartType.combo": "[Ćǫmbǫ]",
+    "chartType.templateColumn": "[Ćǫſųmñ şąmpſę]",
+    "chartType.templateLine": "[Łįñę şąmpſę]",
+    "chartType.templatePie": "[Pįę şąmpſę]"
   },
   "notice": {
     "createFailed": "[Ćǫųſḑ ñǫţ ćręąţę PPŢX: {message}]",
@@ -185,7 +206,8 @@
     "couldNotMoveSlide": "[Ćǫųſḑ ñǫţ mǫvę şſįḑę: {message}]",
     "couldNotDuplicateSlide": "[Ćǫųſḑ ñǫţ ḑųpſįćąţę şſįḑę: {message}]",
     "couldNotReorderSlides": "[Ćǫųſḑ ñǫţ ręǫrḑęr şſįḑęş: {message}]",
-    "couldNotHistoryAction": "[Ćǫųſḑ ñǫţ {action}: {message}]"
+    "couldNotHistoryAction": "[Ćǫųſḑ ñǫţ {action}: {message}]",
+    "chartDataUnavailable": "[Ćhąrţ ḑąţą įş ñǫţ ąvąįſąbſę fǫr ţhįş ǫbjęćţ.]"
   },
   "save": {
     "ready": "[Ręąḑÿ]",
@@ -294,7 +316,8 @@
     "duplicateSlide": "[Ḑųpſįćąţę şſįḑę]",
     "moveUp": "[Mǫvę ųp]",
     "moveDown": "[Mǫvę ḑǫwñ]",
-    "deleteSlide": "[Ḑęſęţę şſįḑę]"
+    "deleteSlide": "[Ḑęſęţę şſįḑę]",
+    "editChart": "[Ęḑįţ ćhąrţ]"
   },
   "export": {
     "currentSlidePng": "[Ćųrręñţ şſįḑę ąş PÑĞ]",
@@ -345,7 +368,16 @@
     "percentSuffix": "[ (%)]",
     "insertTable": "[Įñşęrţ ţąbſę]",
     "rows": "[Rǫwş]",
-    "columns": "[Ćǫſųmñş]"
+    "columns": "[Ćǫſųmñş]",
+    "editChartData": "[Ęḑįţ ćhąrţ ḑąţą]",
+    "editChartDataHint": "[Ęḑįţ ćąţęğǫrįęş ąñḑ şęrįęş vąſųęş, ţhęñ ąppſÿ ţǫ ųpḑąţę ţhę ćhąrţ ąñḑ įţş ęmbęḑḑęḑ wǫrkbǫǫk.]",
+    "importExcel": "[Įmpǫrţ Ęxćęſ]",
+    "importExcelSuccess": "[Įmpǫrţęḑ {fileName}.]",
+    "importSeriesCountMismatch": "[Įmpǫrţęḑ ḑąţą hąş {actual} şęrįęş, bųţ ţhįş ćhąrţ ęxpęćţş {expected}.]",
+    "excelDataLayout": "[Ęxćęſ ḑąţą ſąÿǫųţ]",
+    "excelDataLayoutHint": "[Ęxćęſ ſąÿǫųţ: bſąñk ćǫrñęr, şęrįęş ñąmęş ąćrǫşş ţhę ţǫp, ćąţęğǫrįęş ḑǫwñ ţhę ſęfţ.]",
+    "chartDataLayoutHint": "[Ćhąrţ ſąÿǫųţ: ćąţęğǫrÿ hęąḑęr wįţh şęrįęş ćǫſųmñş.]",
+    "seriesName": "[Şęrįęş {index} ñąmę]"
   },
   "color": {
     "noColor": "[Ñǫ ćǫſǫr]",

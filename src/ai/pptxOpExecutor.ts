@@ -10,6 +10,7 @@ import type {
 } from '../PresentationEngine';
 import type { ShapeTransform } from 'pptx-svg';
 import type { ParagraphListStyle } from '../SlideInsertions';
+import { normalizeInsertableChartType } from '../SlideInsertions';
 import type { DrawingParagraphText } from '../powerpoint/drawingmlText';
 import { isEditableShapeIndex } from '../powerpoint/svgUtils';
 import { readRasterImageDimensions } from '../powerpoint/imageDimensions';
@@ -625,9 +626,10 @@ export async function executePptxOp(
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const transform = requireTransform(payload.transform);
 			assertSlideInRange(context.engine, slideIndex);
+			const chartType = normalizeInsertableChartType(payload.chartType);
 			let shapeIndex = 0;
 			if (!context.dryRun) {
-				shapeIndex = await context.engine.addChart(slideIndex);
+				shapeIndex = await context.engine.addChart(slideIndex, chartType);
 				await applyTransformToInsertedShape(context.engine, slideIndex, shapeIndex, transform);
 			}
 			result.changedIds.push(pptxShapeId(slideIndex, shapeIndex));

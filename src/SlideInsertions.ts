@@ -1,11 +1,5 @@
 import { buildZip, extractZip, pxToEmu, type ZipContents } from 'pptx-svg';
 import {
-  CHART_INSERT_CHART_RELS_XML,
-  CHART_INSERT_CHART_XML,
-  CHART_INSERT_FRAME_TEMPLATE,
-  CHART_INSERT_WORKBOOK_BASE64
-} from './chartInsertTemplate';
-import {
   getDescendants,
   getElementChildren,
   getShapeChildren,
@@ -24,6 +18,13 @@ import {
   applyDrawingParagraphListStyle,
   type ParagraphListStyle,
 } from './powerpoint/paragraphListStyle';
+import {
+  buildChartInsertParts,
+  CHARTEX_NAMESPACE,
+  CLASSIC_CHART_NAMESPACE,
+  normalizeInsertableChartType,
+  type InsertableChartType,
+} from './powerpoint/chartInsertTypes';
 import { debugLog } from './logger';
 
 const DRAWINGML_NAMESPACE = 'http://schemas.openxmlformats.org/drawingml/2006/main';
@@ -31,8 +32,18 @@ const PACKAGE_RELATIONSHIP_NAMESPACE =
   'http://schemas.openxmlformats.org/package/2006/relationships';
 const CONTENT_TYPES_NAMESPACE =
   'http://schemas.openxmlformats.org/package/2006/content-types';
-const CHART_RELATIONSHIP_TYPE =
-  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart';
+const OFFICE_RELATIONSHIPS_NAMESPACE =
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+
+export type { InsertableChartType } from './powerpoint/chartInsertTypes';
+export {
+  INSERTABLE_CHART_TYPES,
+  CHART_TEMPLATE_ENTRIES,
+  isInsertableChartType,
+  normalizeInsertableChartType,
+  readRecentChartTypes,
+  rememberRecentChartType,
+} from './powerpoint/chartInsertTypes';
 
 export type { ParagraphListStyle } from './powerpoint/paragraphListStyle';
 
@@ -125,27 +136,38 @@ function buildAutoShapeXml(
     fontSize?: number;
     name?: string;
     textInset?: { horizontal: number; vertical: number };
+    /** Freeform text box: mark txBox and use spAutoFit so Enter/overflow does not shrink fonts. */
+    textBox?: boolean;
   } = {},
 ): string {
   const displayName = options.name ?? SHAPE_DISPLAY_NAMES[geometry];
   const extentCy = geometry === 'line' ? Math.max(cy, 1) : Math.max(cy, 1);
+  const bodyPrAttrs = options.textInset
+    ? ` lIns="${options.textInset.horizontal}" tIns="${options.textInset.vertical}" rIns="${options.textInset.horizontal}" bIns="${options.textInset.vertical}"`
+    : '';
+  // Text boxes must declare an autofit mode up front. Bare <a:bodyPr/> gets
+  // ensureDefaultShrinkAutofit → normAutofit on first edit, which halves CSS
+  // font size when empty paragraphs overflow a small frame (log: 18px → 9px).
+  const bodyPrInner = options.textBox ? '<a:spAutoFit/>' : '';
+  const bodyPr = bodyPrInner
+    ? `<a:bodyPr${bodyPrAttrs}>${bodyPrInner}</a:bodyPr>`
+    : `<a:bodyPr${bodyPrAttrs}/>`;
   const textBody = options.text
     ? [
-      `<p:txBody><a:bodyPr${options.textInset
-        ? ` lIns="${options.textInset.horizontal}" tIns="${options.textInset.vertical}" rIns="${options.textInset.horizontal}" bIns="${options.textInset.vertical}"`
-        : ''}/><a:lstStyle/>`,
+      `<p:txBody>${bodyPr}<a:lstStyle/>`,
       `<a:p><a:r><a:rPr lang="en-US" sz="${options.fontSize ?? 1800}"/>`,
       `<a:t>${escapeXmlText(options.text)}</a:t></a:r>`,
       `<a:endParaRPr lang="en-US" sz="${options.fontSize ?? 1800}"/></a:p>`,
       '</p:txBody>',
     ].join('')
     : '';
+  const cNvSpPr = options.textBox ? '<p:cNvSpPr txBox="1"/>' : '<p:cNvSpPr/>';
 
   return [
     '<p:sp>',
     '<p:nvSpPr>',
     `<p:cNvPr id="0" name="${escapeXmlText(displayName)}"/>`,
-    '<p:cNvSpPr/>',
+    cNvSpPr,
     '<p:nvPr/>',
     '</p:nvSpPr>',
     '<p:spPr>',
@@ -216,6 +238,7 @@ export async function insertTextBoxIntoPresentation(
       fontSize: 1800,
       name: 'TextBox',
       textInset: TEXT_BOX_INSET_EMU,
+      textBox: true,
     }),
     'TextBox',
   );
@@ -403,8 +426,11 @@ export async function insertTableIntoPresentation(
 
 export async function insertChartIntoPresentation(
   buffer: ArrayBuffer,
-  slideIndex: number
+  slideIndex: number,
+  chartType: InsertableChartType = 'column',
 ): Promise<SlideInsertionResult> {
+  const normalizedType = normalizeInsertableChartType(chartType);
+  const parts = buildChartInsertParts(normalizedType);
   const zip = await extractZip(buffer);
   const slidePath = getSlidePath(slideIndex);
   const slideDocument = parseXml(getRequiredTextFile(zip, slidePath), slidePath);
@@ -429,37 +455,32 @@ export async function insertChartIntoPresentation(
     'Relationship'
   );
   chartRelationship.setAttribute('Id', chartRelationshipId);
-  chartRelationship.setAttribute('Type', CHART_RELATIONSHIP_TYPE);
+  chartRelationship.setAttribute('Type', parts.relationshipType);
   chartRelationship.setAttribute('Target', getRelativePartPath(slidePath, chartPath));
   relationshipsDocument.documentElement.appendChild(chartRelationship);
 
+  const frameNamespaces = parts.kind === 'chartex'
+    ? `xmlns:a="${DRAWINGML_NAMESPACE}" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:cx="${CHARTEX_NAMESPACE}" xmlns:r="${OFFICE_RELATIONSHIPS_NAMESPACE}"`
+    : `xmlns:a="${DRAWINGML_NAMESPACE}" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:c="${CLASSIC_CHART_NAMESPACE}" xmlns:r="${OFFICE_RELATIONSHIPS_NAMESPACE}"`;
   const frameDocument = parseXml(
-    `<p:slide xmlns:a="${DRAWINGML_NAMESPACE}" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">${CHART_INSERT_FRAME_TEMPLATE}</p:slide>`,
+    `<p:slide ${frameNamespaces}>${parts.frameXml}</p:slide>`,
     '(chart frame)'
   );
   const importedFrame = slideDocument.importNode(getDescendants(frameDocument, 'graphicFrame')[0]!, true);
   const chartReference = getDescendants(importedFrame, 'chart')[0];
-  chartReference?.setAttributeNS(
-    'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
-    'r:id',
-    chartRelationshipId
-  );
+  chartReference?.setAttributeNS(OFFICE_RELATIONSHIPS_NAMESPACE, 'r:id', chartRelationshipId);
   assignUniqueNonVisualIds(slideDocument, importedFrame, 'Chart');
   getShapeTree(slideDocument).appendChild(importedFrame);
   const shapeIndex = getShapeChildren(getShapeTree(slideDocument)).length - 1;
 
-  const chartRelsDocument = parseXml(CHART_INSERT_CHART_RELS_XML, chartRelsPath);
+  const chartRelsDocument = parseXml(parts.chartRelsXml, chartRelsPath);
   const workbookRelationship = getDescendants(chartRelsDocument, 'Relationship')[0];
   workbookRelationship?.setAttribute(
     'Target',
     getRelativePartPath(chartPath, workbookPath)
   );
 
-  ensureContentTypeOverride(
-    contentTypesDocument,
-    chartPath,
-    'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
-  );
+  ensureContentTypeOverride(contentTypesDocument, chartPath, parts.contentType);
   ensureContentTypeDefault(
     contentTypesDocument,
     'xlsx',
@@ -469,13 +490,20 @@ export async function insertChartIntoPresentation(
   const textModifications = new Map<string, string>([
     [slidePath, serializeXml(slideDocument)],
     [relationshipsPath, serializeXml(relationshipsDocument)],
-    [chartPath, CHART_INSERT_CHART_XML],
+    [chartPath, parts.chartXml],
     [chartRelsPath, serializeXml(chartRelsDocument)],
     ['[Content_Types].xml', serializeXml(contentTypesDocument)]
   ]);
   const binaryModifications = new Map<string, Uint8Array>([
-    [workbookPath, decodeBase64(CHART_INSERT_WORKBOOK_BASE64)]
+    [workbookPath, decodeBase64(parts.workbookBase64)]
   ]);
+
+  debugLog('insert', 'Built PowerPoint chart insert parts', {
+    slideIndex,
+    chartType: normalizedType,
+    kind: parts.kind,
+    chartPath,
+  });
 
   const patched = await buildZip(buffer, textModifications, undefined, binaryModifications);
   return { buffer: patched, shapeIndex };

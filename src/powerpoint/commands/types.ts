@@ -1,7 +1,7 @@
 import type { ShapeTransform } from 'pptx-svg';
 import type { ChartDataUpdate } from '../../ChartData';
 import type { SlideObjectClipboard } from '../../ShapeClipboard';
-import type { ParagraphListStyle } from '../../SlideInsertions';
+import type { InsertableChartType, ParagraphListStyle } from '../../SlideInsertions';
 import type {
   GeneratedTextEdit,
   ImageCrop,
@@ -45,7 +45,7 @@ export type PptxCommand =
   | { readonly type: 'insert-shape'; readonly slideIndex: number; readonly geometry: InsertableShapeGeometry }
   | { readonly type: 'insert-text-box'; readonly slideIndex: number; readonly origin?: TextBoxInsertOrigin }
   | { readonly type: 'insert-table'; readonly slideIndex: number; readonly rows: number; readonly cols: number }
-  | { readonly type: 'insert-chart'; readonly slideIndex: number }
+  | { readonly type: 'insert-chart'; readonly slideIndex: number; readonly chartType?: InsertableChartType }
   | {
       readonly type: 'update-shape-transform';
       readonly slideIndex: number;

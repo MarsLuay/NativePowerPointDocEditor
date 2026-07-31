@@ -88,7 +88,28 @@
 		"alignRight": "Wyrównaj do prawej",
 		"justify": "Wyjustuj",
 		"tableSize": "{columns} × {rows}",
-		"tableSizePicker": "Wstaw tabelę"
+		"tableSizePicker": "Wstaw tabelę",
+		"chartTypeRecent": "Ostatnie",
+		"chartTypeTemplates": "Szablony",
+		"chartTypeAll": "Wykresy",
+		"chartType.column": "Kolumnowy",
+		"chartType.line": "Liniowy",
+		"chartType.pie": "Kołowy",
+		"chartType.bar": "Słupkowy",
+		"chartType.area": "Obszarowy",
+		"chartType.scatter": "X Y (Punktowy)",
+		"chartType.stock": "Giełdowy",
+		"chartType.surface": "Powierzchniowy",
+		"chartType.radar": "Radarowy",
+		"chartType.treemap": "Mapa drzewa",
+		"chartType.sunburst": "Promieniowy",
+		"chartType.histogram": "Histogram",
+		"chartType.boxWhisker": "Skrzynka i wąsy",
+		"chartType.waterfall": "Wodospadowy",
+		"chartType.combo": "Kombi",
+		"chartType.templateColumn": "Próbka kolumnowa",
+		"chartType.templateLine": "Próbka liniowa",
+		"chartType.templatePie": "Próbka kołowa"
 	},
 	"notice": {
 		"createFailed": "Nie udało się utworzyć PPTX: {message}",
@@ -185,7 +206,8 @@
 		"couldNotMoveSlide": "Nie udało się przesunąć slajdu: {message}",
 		"couldNotDuplicateSlide": "Nie udało się zduplikować slajdu: {message}",
 		"couldNotReorderSlides": "Nie udało się zmienić kolejności slajdów: {message}",
-		"couldNotHistoryAction": "Nie udało się {action}: {message}"
+		"couldNotHistoryAction": "Nie udało się {action}: {message}",
+		"chartDataUnavailable": "Dane wykresu są niedostępne dla tego obiektu."
 	},
 	"save": {
 		"ready": "Gotowy",
@@ -294,7 +316,8 @@
 		"duplicateSlide": "Duplikuj slajd",
 		"moveUp": "Przesuń w górę",
 		"moveDown": "Przesuń w dół",
-		"deleteSlide": "Usuń slajd"
+		"deleteSlide": "Usuń slajd",
+		"editChart": "Edytuj wykres"
 	},
 	"export": {
 		"currentSlidePng": "Bieżący slajd jako PNG",
@@ -345,7 +368,16 @@
 		"percentSuffix": " (%)",
 		"insertTable": "Wstaw tabelę",
 		"rows": "Wiersze",
-		"columns": "Kolumny"
+		"columns": "Kolumny",
+		"editChartData": "Edytuj dane wykresu",
+		"editChartDataHint": "Edytuj kategorie i wartości serii, a następnie zastosuj, aby zaktualizować wykres i osadzony skoroszyt.",
+		"importExcel": "Importuj Excel",
+		"importExcelSuccess": "Zaimportowano {fileName}.",
+		"importSeriesCountMismatch": "Zaimportowane dane mają {actual} serie, a ten wykres oczekuje {expected}.",
+		"excelDataLayout": "Układ danych Excel",
+		"excelDataLayoutHint": "Układ Excel: pusty róg, nazwy serii u góry, kategorie po lewej.",
+		"chartDataLayoutHint": "Układ wykresu: nagłówek kategorii z kolumnami serii.",
+		"seriesName": "Nazwa serii {index}"
 	},
 	"color": {
 		"noColor": "Bez koloru",

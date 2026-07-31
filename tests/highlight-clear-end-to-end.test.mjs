@@ -200,6 +200,16 @@ test("soft-break newlines are editor-only glyphs: split offsets skip them in OOX
   assert.equal(mapEditorOffsetToOoxmlOffset(editorSpace, editorSpace, 4, false), 4);
 });
 
+test("empty editor vs ZWSP-only OOXML maps Enter to paragraph end (not offset 0)", () => {
+  // Empty paragraphs store a ZWSP render anchor in OOXML while the textarea is
+  // logically empty. Without consuming that anchor, Enter at EOF maps to 0 and
+  // splitDrawingParagraphAtOffset moves the anchor run onto the suffix.
+  const zwsp = "\u200B";
+  assert.equal(mapEditorOffsetToOoxmlOffset("", zwsp, 0, false), 0);
+  assert.equal(mapEditorOffsetToOoxmlOffset("", zwsp, 0, true), 1);
+  assert.equal(mapEditorOffsetToOoxmlOffset("", zwsp + zwsp, 0, true), 2);
+});
+
 test("end-to-end: clearing the full editor selection removes every highlight (no residual)", async () => {
   const engine = await loadEngineWithBulletParagraph();
   const slide = 0;

@@ -98,3 +98,77 @@ test('closed Find never repaints matches on a newly rendered slide', async () =>
   assert.match(applyMethod, /reason: this\.isFindPanelOpen\(\) \? 'missing-slide' : 'panel-closed'/);
   assert.match(findSource, /PowerPoint find panel closed/);
 });
+
+test('structural inserts invalidate the filmstrip slide cache before canvas redraw', async () => {
+  const insertSource = await readFile(
+    path.join(projectRoot, 'src/powerpoint/insertController.ts'),
+    'utf8',
+  );
+  const start = insertSource.indexOf('  private async commitInsertedShape(');
+  const end = insertSource.indexOf('  registerMenus(): void', start);
+  assert.ok(start >= 0 && end > start, 'commitInsertedShape source boundaries must exist');
+  const method = insertSource.slice(start, end);
+
+  assert.match(method, /invalidateCachedSlideRenders\(this\.host\.currentSlide\)/);
+  const invalidateAt = method.indexOf('invalidateCachedSlideRenders(this.host.currentSlide)');
+  const renderAt = method.indexOf('renderCurrentSlide(editImmediately)');
+  assert.ok(invalidateAt >= 0 && renderAt > invalidateAt, 'cache must be dropped before renderCurrentSlide');
+});
+
+test('legacy view insert helpers invalidate the filmstrip cache before redraw', async () => {
+  const insertControllerSource = await readFile(
+    path.join(projectRoot, 'src/powerpoint/insertController.ts'),
+    'utf8',
+  );
+
+  const cases = [
+    { marker: 'Inserted PowerPoint shape', source: viewSource },
+    { marker: 'Inserted PowerPoint table', source: viewSource },
+    {
+      marker: 'Inserted PowerPoint chart',
+      source: insertControllerSource,
+      // Chart insert invalidates inside commitInsertedShape, not inline.
+      require: /commitInsertedShape\(/,
+    },
+    { marker: 'Inserted PowerPoint image from vault', source: viewSource },
+    { marker: 'Inserted PowerPoint image from local file', source: viewSource },
+  ];
+
+  for (const item of cases) {
+    const markerAt = item.source.indexOf(item.marker);
+    assert.ok(markerAt >= 0, `missing log ${item.marker}`);
+    const windowStart = Math.max(0, markerAt - 500);
+    const window = item.source.slice(windowStart, markerAt);
+    if (item.require) {
+      assert.match(window, item.require, `${item.marker} must go through commitInsertedShape`);
+      continue;
+    }
+    assert.match(
+      window,
+      /invalidateCachedSlideRenders\(this\.(?:host\.)?currentSlide\)/,
+    );
+    const invalidateAt = Math.max(
+      window.lastIndexOf('invalidateCachedSlideRenders(this.currentSlide)'),
+      window.lastIndexOf('invalidateCachedSlideRenders(this.host.currentSlide)'),
+    );
+    const renderAt = Math.max(
+      window.lastIndexOf('renderCurrentSlide()'),
+      window.lastIndexOf('renderCurrentSlide(editImmediately)'),
+      window.lastIndexOf('this.host.renderCurrentSlide'),
+    );
+    assert.ok(invalidateAt >= 0 && renderAt > invalidateAt, `${item.marker} must invalidate before render`);
+  }
+});
+
+test('shape delete invalidates the filmstrip cache before canvas redraw', () => {
+  for (const marker of ['Deleted PowerPoint object', 'Deleted PowerPoint objects']) {
+    const markerAt = viewSource.indexOf(`'${marker}'`);
+    assert.ok(markerAt >= 0, `missing log ${marker}`);
+    const windowStart = Math.max(0, markerAt - 700);
+    const window = viewSource.slice(windowStart, markerAt);
+    assert.match(window, /invalidateCachedSlideRenders\(this\.currentSlide\)/);
+    const invalidateAt = window.lastIndexOf('invalidateCachedSlideRenders(this.currentSlide)');
+    const renderAt = window.lastIndexOf('renderCurrentSlide()');
+    assert.ok(invalidateAt >= 0 && renderAt > invalidateAt, `${marker} must invalidate before render`);
+  }
+});

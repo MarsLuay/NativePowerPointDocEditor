@@ -23,10 +23,14 @@ async function loadDrawingMlTextModule() {
 		stdin: {
 			contents: [
 				"export { ensureDefaultShrinkAutofit } from './src/powerpoint/drawingmlText.ts';",
+				"export { isDrawingTextBoxShape } from './src/powerpoint/drawingmlText.ts';",
 				"export { deleteDrawingTextRanges } from './src/powerpoint/drawingmlText.ts';",
-				"export { getDrawingParagraphs, getDrawingRunText } from './src/powerpoint/drawingmlText.ts';",
+				"export { getDrawingParagraphs, getDrawingRunText, getDrawingRuns } from './src/powerpoint/drawingmlText.ts';",
 				"export { setDrawingText } from './src/powerpoint/drawingmlText.ts';",
 				"export { setDrawingParagraphText } from './src/powerpoint/drawingmlText.ts';",
+				"export { splitDrawingParagraphAtOffset } from './src/powerpoint/drawingmlText.ts';",
+				"export { getDrawingParagraphFontSummary } from './src/powerpoint/drawingmlText.ts';",
+				"export { EMPTY_PARAGRAPH_RENDER_ANCHOR } from './src/powerpoint/drawingmlText.ts';",
 				"export { replaceDrawingParagraphs } from './src/powerpoint/drawingmlText.ts';",
 				"export { hasEmptyDrawingParagraphBefore, removeEmptyDrawingParagraphBefore, mergeDrawingParagraphWithPrevious } from './src/powerpoint/drawingmlText.ts';",
 				"export { getDescendants, parseXml } from './src/powerpoint/ooxmlXml.ts';",
@@ -67,6 +71,35 @@ test('edited text bodies default to shrink-to-fit only when no auto-fit mode is 
 	assert.equal(ensureDefaultShrinkAutofit(fixedShape, fixedShape.ownerDocument), false);
 	assert.equal(getDescendants(fixedShape, 'noAutofit').length, 1);
 	assert.equal(getDescendants(fixedShape, 'normAutofit').length, 0);
+});
+
+test('text boxes get spAutoFit instead of shrink-to-fit, and legacy normAutofit is healed', async () => {
+	const { ensureDefaultShrinkAutofit, getDescendants, isDrawingTextBoxShape, parseXml } = await loadDrawingMlTextModule();
+
+	const bareTextBox = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:nvSpPr><p:cNvPr id="1" name="TextBox 1"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>
+			<p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>Hello</a:t></a:r></a:p></p:txBody>
+		</p:sp>
+	`, 'textbox-bare.xml').documentElement;
+	assert.equal(isDrawingTextBoxShape(bareTextBox), true);
+	assert.equal(ensureDefaultShrinkAutofit(bareTextBox, bareTextBox.ownerDocument), true);
+	assert.equal(getDescendants(bareTextBox, 'spAutoFit').length, 1);
+	assert.equal(getDescendants(bareTextBox, 'normAutofit').length, 0);
+	assert.equal(ensureDefaultShrinkAutofit(bareTextBox, bareTextBox.ownerDocument), false);
+
+	const shrunkLegacy = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:nvSpPr><p:cNvPr id="2" name="TextBox"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>
+			<p:txBody><a:bodyPr><a:normAutofit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:t>Hi</a:t></a:r></a:p></p:txBody>
+		</p:sp>
+	`, 'textbox-legacy-shrink.xml').documentElement;
+	assert.equal(isDrawingTextBoxShape(shrunkLegacy), true);
+	assert.equal(ensureDefaultShrinkAutofit(shrunkLegacy, shrunkLegacy.ownerDocument), true);
+	assert.equal(getDescendants(shrunkLegacy, 'spAutoFit').length, 1);
+	assert.equal(getDescendants(shrunkLegacy, 'normAutofit').length, 0);
 });
 
 test('setDrawingText populates an empty template placeholder paragraph', async () => {
@@ -255,4 +288,170 @@ test('replaceDrawingParagraphs does not inherit heading bold onto later body par
 	assert.equal(getDescendants(paragraphs[2], 'rPr')[0]?.getAttribute('b'), '0');
 	assert.equal(getDescendants(paragraphs[0], 't')[0]?.textContent, 'ASAP and the Fluent');
 	assert.equal(getDescendants(paragraphs[1], 't')[0]?.textContent, 'Body copy about autonomous experiments.');
+});
+
+test('Enter at end of ZWSP-only paragraph keeps styled anchor on source', async () => {
+	const {
+		EMPTY_PARAGRAPH_RENDER_ANCHOR,
+		getDescendants,
+		getDrawingParagraphs,
+		getDrawingRunText,
+		getDrawingRuns,
+		parseXml,
+		splitDrawingParagraphAtOffset,
+	} = await loadDrawingMlTextModule();
+	const shape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody>
+				<a:bodyPr/><a:lstStyle/>
+				<a:p>
+					<a:r><a:rPr lang="en-US" sz="2100" typeface="Calibri"/><a:t>${EMPTY_PARAGRAPH_RENDER_ANCHOR}</a:t></a:r>
+					<a:endParaRPr lang="en-US" sz="2100"/>
+				</a:p>
+			</p:txBody>
+		</p:sp>
+	`, 'zwsp-only-paragraph.xml').documentElement;
+
+	const beforeRuns = getDrawingRuns(getDrawingParagraphs(shape)[0]);
+	const ooxmlLen = beforeRuns.reduce((sum, run) => sum + getDrawingRunText(run).length, 0);
+	assert.equal(ooxmlLen, 1);
+
+	const inserted = splitDrawingParagraphAtOffset(shape, 0, ooxmlLen);
+	assert.equal(inserted, 1);
+	const paragraphs = getDrawingParagraphs(shape);
+	assert.equal(paragraphs.length, 2);
+	assert.equal(getDrawingRunText(getDrawingRuns(paragraphs[0])[0]), EMPTY_PARAGRAPH_RENDER_ANCHOR);
+	assert.equal(getDescendants(getDrawingRuns(paragraphs[0])[0], 'rPr')[0]?.getAttribute('sz'), '2100');
+	assert.equal(getDrawingRunText(getDrawingRuns(paragraphs[1])[0]), EMPTY_PARAGRAPH_RENDER_ANCHOR);
+});
+
+test('Enter at EOF seeds empty suffix from caret run, not first run', async () => {
+	const {
+		EMPTY_PARAGRAPH_RENDER_ANCHOR,
+		getDescendants,
+		getDrawingParagraphs,
+		getDrawingRunText,
+		getDrawingRuns,
+		parseXml,
+		splitDrawingParagraphAtOffset,
+	} = await loadDrawingMlTextModule();
+	const shape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody>
+				<a:bodyPr/><a:lstStyle/>
+				<a:p>
+					<a:r>
+						<a:rPr lang="en-US" sz="1800"><a:latin typeface="Arial"/></a:rPr>
+						<a:t>Hello </a:t>
+					</a:r>
+					<a:r>
+						<a:rPr lang="en-US" sz="2800"><a:latin typeface="Georgia"/></a:rPr>
+						<a:t>World</a:t>
+					</a:r>
+					<a:endParaRPr lang="en-US" sz="1800"/>
+				</a:p>
+			</p:txBody>
+		</p:sp>
+	`, 'multi-run-eof-split.xml').documentElement;
+
+	const source = getDrawingParagraphs(shape)[0];
+	const ooxmlLen = getDrawingRuns(source).reduce((sum, run) => sum + getDrawingRunText(run).length, 0);
+	assert.equal(ooxmlLen, 11);
+
+	assert.equal(splitDrawingParagraphAtOffset(shape, 0, ooxmlLen), 1);
+	const paragraphs = getDrawingParagraphs(shape);
+	assert.equal(paragraphs.length, 2);
+	assert.equal(getDrawingRunText(getDrawingRuns(paragraphs[0])[0]), 'Hello ');
+	assert.equal(getDrawingRunText(getDrawingRuns(paragraphs[0])[1]), 'World');
+	const suffixRun = getDrawingRuns(paragraphs[1])[0];
+	assert.equal(getDrawingRunText(suffixRun), EMPTY_PARAGRAPH_RENDER_ANCHOR);
+	assert.equal(getDescendants(suffixRun, 'rPr')[0]?.getAttribute('sz'), '2800');
+	assert.equal(getDescendants(suffixRun, 'latin')[0]?.getAttribute('typeface'), 'Georgia');
+	const suffixEnd = getDescendants(paragraphs[1], 'endParaRPr')[0];
+	assert.equal(suffixEnd?.getAttribute('sz'), '2800');
+	assert.equal(getDescendants(suffixEnd, 'latin')[0]?.getAttribute('typeface'), 'Georgia');
+});
+
+test('font summary includes ea and endParaRPr typefaces', async () => {
+	const {
+		getDrawingParagraphFontSummary,
+		getDrawingParagraphs,
+		parseXml,
+	} = await loadDrawingMlTextModule();
+	const shape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody>
+				<a:bodyPr/><a:lstStyle/>
+				<a:p>
+					<a:r>
+						<a:rPr lang="en-US" sz="2100"><a:ea typeface="Yu Gothic"/></a:rPr>
+						<a:t>文</a:t>
+					</a:r>
+					<a:endParaRPr lang="en-US" sz="2100"><a:latin typeface="Calibri"/></a:endParaRPr>
+				</a:p>
+			</p:txBody>
+		</p:sp>
+	`, 'font-summary-ea-end.xml').documentElement;
+
+	const summary = getDrawingParagraphFontSummary(getDrawingParagraphs(shape)[0]);
+	assert.deepEqual(summary?.fontSizesPt, [21]);
+	assert.ok(summary?.fontFamilies.includes('Yu Gothic'));
+	assert.ok(summary?.fontFamilies.includes('Calibri'));
+});
+
+test('font summary reads rPr typeface attribute and pPr/defRPr', async () => {
+	const {
+		getDrawingParagraphFontSummary,
+		getDrawingParagraphs,
+		parseXml,
+	} = await loadDrawingMlTextModule();
+	const attrShape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody>
+				<a:bodyPr/><a:lstStyle/>
+				<a:p>
+					<a:r><a:rPr lang="en-US" sz="2100" typeface="Calibri"/><a:t>Hi</a:t></a:r>
+					<a:endParaRPr lang="en-US" sz="2100"/>
+				</a:p>
+			</p:txBody>
+		</p:sp>
+	`, 'font-summary-rpr-attr.xml').documentElement;
+	assert.ok(getDrawingParagraphFontSummary(getDrawingParagraphs(attrShape)[0])?.fontFamilies.includes('Calibri'));
+
+	const defShape = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody>
+				<a:bodyPr/><a:lstStyle/>
+				<a:p>
+					<a:pPr><a:defRPr sz="1800"><a:latin typeface="Georgia"/></a:defRPr></a:pPr>
+					<a:r><a:rPr lang="en-US" sz="2100"/><a:t>Hi</a:t></a:r>
+					<a:endParaRPr lang="en-US" sz="2100"/>
+				</a:p>
+			</p:txBody>
+		</p:sp>
+	`, 'font-summary-defRPr.xml').documentElement;
+	const defSummary = getDrawingParagraphFontSummary(getDrawingParagraphs(defShape)[0]);
+	assert.ok(defSummary?.fontFamilies.includes('Georgia'));
+	assert.deepEqual(defSummary?.fontSizesPt, [18, 21]);
+
+	const szOnly = parseXml(`
+		<p:sp xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+			xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+			<p:txBody>
+				<a:bodyPr/><a:lstStyle/>
+				<a:p>
+					<a:r><a:rPr lang="en-US" sz="2100"/><a:t>Hi</a:t></a:r>
+					<a:endParaRPr lang="en-US" sz="2100"/>
+				</a:p>
+			</p:txBody>
+		</p:sp>
+	`, 'font-summary-sz-only.xml').documentElement;
+	const szSummary = getDrawingParagraphFontSummary(getDrawingParagraphs(szOnly)[0]);
+	assert.deepEqual(szSummary?.fontFamilies, []);
+	assert.deepEqual(szSummary?.fontSizesPt, [21]);
 });

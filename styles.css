@@ -2653,16 +2653,40 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	z-index: 100020;
 }
 
+.native-powerpoint-insert-chart-menu {
+	max-height: min(70vh, 480px);
+	min-width: 220px;
+	overflow: auto;
+}
+
+.native-powerpoint-insert-menu-section {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: 600;
+	padding: 8px 10px 4px;
+	text-transform: none;
+}
+
 .native-powerpoint-insert-menu-item {
+	align-items: center;
 	background: transparent;
 	border: 0;
 	border-radius: 6px;
 	color: var(--text-normal);
 	cursor: pointer;
+	display: flex;
 	font: inherit;
 	font-size: var(--font-ui-small);
+	gap: 8px;
 	padding: 8px 10px;
 	text-align: left;
+}
+
+.native-powerpoint-insert-menu-icon {
+	display: inline-flex;
+	flex: 0 0 auto;
+	height: 16px;
+	width: 16px;
 }
 
 .native-powerpoint-insert-menu-item:hover,
@@ -3957,6 +3981,65 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 	border-top: 1px solid var(--background-modifier-border);
 	margin-top: 14px;
 	padding-top: 12px;
+}
+
+.native-powerpoint-chart-data-modal {
+	max-width: min(92vw, 720px);
+	width: 720px;
+}
+
+.native-powerpoint-chart-data-toolbar {
+	align-items: center;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px 16px;
+	justify-content: space-between;
+}
+
+.native-powerpoint-chart-data-file-input {
+	height: 0;
+	opacity: 0;
+	overflow: hidden;
+	position: absolute;
+	width: 0;
+}
+
+.native-powerpoint-chart-data-layout-row {
+	align-items: center;
+	cursor: pointer;
+	display: inline-flex;
+	gap: 8px;
+	margin: 0;
+}
+
+.native-powerpoint-chart-data-layout-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+}
+
+.native-powerpoint-chart-data-layout-label {
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+.native-powerpoint-chart-data-layout-description {
+	display: none;
+}
+
+.native-powerpoint-chart-data-layout-control {
+	align-items: center;
+	display: inline-flex;
+}
+
+.native-powerpoint-chart-data-status.is-error {
+	color: var(--text-error);
+}
+
+.native-powerpoint-chart-data-form {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 .native-powerpoint-chart-data-scroll {

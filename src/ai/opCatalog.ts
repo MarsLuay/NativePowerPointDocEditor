@@ -240,12 +240,20 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
-	pptxOp('addChart', 'insert', 'Insert a chart placeholder.', {
+	pptxOp('addChart', 'insert', 'Insert a chart of the requested type (default: column).', {
 		type: 'object',
 		required: ['slideIndex', 'transform'],
 		properties: {
 			slideIndex: SLIDE_INDEX,
 			transform: TRANSFORM,
+			chartType: {
+				type: 'string',
+				enum: [
+					'column', 'line', 'pie', 'bar', 'area', 'scatter', 'stock', 'surface', 'radar',
+					'treemap', 'sunburst', 'histogram', 'boxWhisker', 'waterfall', 'combo',
+				],
+				description: 'Chart family to insert. Defaults to column.',
+			},
 		},
 		additionalProperties: false,
 	}),

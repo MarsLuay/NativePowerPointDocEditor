@@ -585,7 +585,7 @@ test("font-size formatting survives a later paragraph split without restoring sh
   assert.ok(exportedSlideXml);
   assert.match(exportedSlideXml, /<a:noAutofit\s*\/>/);
   assert.doesNotMatch(exportedSlideXml, /<a:normAutofit\b/);
-  assert.equal((exportedSlideXml.match(/\bsz="3100"/g) ?? []).length, 3);
+  assert.equal((exportedSlideXml.match(/<a:rPr\b[^>]*\bsz="3100"/g) ?? []).length, 3);
 });
 
 test("setParagraphAlignmentForRanges aligns only selected paragraphs", async () => {

@@ -1,3 +1,4 @@
+import type { ChartDataGrid } from '../ChartData';
 import {
   DRAWINGML_NAMESPACE,
   RELATIONSHIP_NAMESPACE,
@@ -22,6 +23,13 @@ export interface ChartAxisFormat {
   majorUnit: number | null;
   date1904: boolean;
 }
+
+/**
+ * pptx-svg stores chart values as fixed-point `value * 10000` in i32.
+ * Parsing overflows above ~214748; axis nice-max overflows earlier (~1.2e5).
+ * Correct column/bar geometry from float OOXML data when that happens.
+ */
+const PPTX_SVG_CHART_VALUE_OVERFLOW_THRESHOLD = 100_000;
 
 interface ChartTickRun {
   orientation: ChartAxisOrientation;
@@ -187,23 +195,40 @@ function getChartAxisFormats(textFiles: Map<string, string>, slideIndex: number,
   const categoryValues = getCachedNumbers(chartDoc, ['cat']);
   const yValues = getCachedNumbers(chartDoc, ['yVal']);
   const seriesValues = getCachedNumbers(chartDoc, ['val']);
+  const barDir = getDescendants(chartDoc, 'barDir')[0]?.getAttribute('val');
   const formats: ChartAxisFormat[] = [];
 
   for (const axisName of ['valAx', 'dateAx']) {
     for (const axisElement of getDescendants(chartDoc, axisName)) {
       const axisPosition = getValAttribute(axisElement, 'axPos');
-      const orientation: ChartAxisOrientation =
+      let orientation: ChartAxisOrientation =
         axisPosition === 'l' || axisPosition === 'r' ? 'vertical' : 'horizontal';
+
+      // Inserted bar charts may reuse column axPos; barDir is authoritative.
+      if (axisName === 'valAx' && barDir === 'bar') {
+        orientation = 'horizontal';
+      } else if (axisName === 'valAx' && barDir === 'col') {
+        orientation = 'vertical';
+      }
+
       let values: number[];
 
-      if (orientation === 'horizontal') {
+      if (axisName === 'valAx') {
+        values =
+          seriesValues.length > 0
+            ? seriesValues
+            : orientation === 'horizontal'
+              ? xValues.length > 0
+                ? xValues
+                : categoryValues
+              : yValues.length > 0
+                ? yValues
+                : categoryValues;
+      } else if (orientation === 'horizontal') {
         values = xValues.length > 0 ? xValues : categoryValues;
-        if (values.length === 0 && axisName === 'valAx') {
-          values = seriesValues;
-        }
       } else {
         values = yValues.length > 0 ? yValues : seriesValues;
-        if (values.length === 0 && axisName === 'dateAx') {
+        if (values.length === 0) {
           values = categoryValues;
         }
       }
@@ -451,4 +476,259 @@ function removeRedundantTickRuns(runs: ChartTickRun[], axis: ChartAxisFormat): C
   return keptRuns;
 }
 
-export { findChartPartPath, getChartAxisFormats, getChartTextValues, getChartTickRuns, removeRedundantTickRuns };
+function parseSvgNumber(value: string | null): number | null {
+  if (value === null || value.trim() === '') {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function getChartSeriesValues(grid: ChartDataGrid): number[][] {
+  return grid.series.map((series) =>
+    series.values.map((value) => {
+      const parsed = Number(String(value).replace(/,/g, '').trim());
+      return Number.isFinite(parsed) ? parsed : 0;
+    })
+  );
+}
+
+function chartValuesNeedGeometryCorrection(values: number[], chartGroup: Element): boolean {
+  if (values.some((value) => Math.abs(value) > PPTX_SVG_CHART_VALUE_OVERFLOW_THRESHOLD)) {
+    return true;
+  }
+
+  return getDescendants(chartGroup, 'rect').some((rect) => {
+    const height = parseSvgNumber(rect.getAttribute('height'));
+    const width = parseSvgNumber(rect.getAttribute('width'));
+    return (height !== null && height < 0) || (width !== null && width < 0);
+  });
+}
+
+function findChartPlotRect(chartGroup: Element): Element | null {
+  let best: Element | null = null;
+  let bestArea = -1;
+
+  for (const rect of getDescendants(chartGroup, 'rect')) {
+    if ((rect.getAttribute('fill') || '').toLowerCase() !== 'none') {
+      continue;
+    }
+
+    const width = parseSvgNumber(rect.getAttribute('width'));
+    const height = parseSvgNumber(rect.getAttribute('height'));
+    if (width === null || height === null || width < 40 || height < 40) {
+      continue;
+    }
+
+    const area = width * height;
+    if (area > bestArea) {
+      best = rect;
+      bestArea = area;
+    }
+  }
+
+  return best;
+}
+
+function isChartDataBarRect(rect: Element, plot: Element): boolean {
+  if (rect === plot) {
+    return false;
+  }
+
+  const fill = (rect.getAttribute('fill') || '').toLowerCase();
+  if (!fill || fill === 'none' || fill === 'white' || fill === '#ffffff') {
+    return false;
+  }
+
+  const width = parseSvgNumber(rect.getAttribute('width'));
+  const height = parseSvgNumber(rect.getAttribute('height'));
+  if (width === null || height === null) {
+    return false;
+  }
+
+  // Legend swatches are 10×10; plot chrome uses fill=none.
+  if (width <= 12 && height <= 12) {
+    return false;
+  }
+
+  return width > 0 || height > 0 || width < 0 || height < 0;
+}
+
+function detectIsColumnChart(existingBars: Element[], formats: ChartAxisFormat[]): boolean {
+  let horizontalVotes = 0;
+  let verticalVotes = 0;
+
+  for (const bar of existingBars) {
+    const width = Math.abs(parseSvgNumber(bar.getAttribute('width')) ?? 0);
+    const height = Math.abs(parseSvgNumber(bar.getAttribute('height')) ?? 0);
+    if (width <= 0 && height <= 0) continue;
+    if (width > height * 1.15) horizontalVotes += 1;
+    else if (height > width * 1.15) verticalVotes += 1;
+  }
+
+  if (horizontalVotes > verticalVotes) return false;
+  if (verticalVotes > horizontalVotes) return true;
+
+  const valueAxis =
+    formats.find((axis) => axis.orientation === 'horizontal' && axis.max > axis.min) ??
+    formats.find((axis) => axis.orientation === 'vertical' && axis.max > axis.min) ??
+    formats[0];
+  return valueAxis?.orientation !== 'horizontal';
+}
+
+function pickValueAxis(formats: ChartAxisFormat[], flatValues: number[], isColumn: boolean): ChartAxisFormat | null {
+  const preferredOrientation: ChartAxisOrientation = isColumn ? 'vertical' : 'horizontal';
+  const flatMax = Math.max(0, ...flatValues.map((value) => Math.abs(value)));
+  const matching = formats.filter((axis) => axis.orientation === preferredOrientation);
+  const pool = matching.length > 0 ? matching : formats;
+  if (pool.length === 0) return null;
+
+  return pool.slice().sort((left, right) => {
+    return Math.abs(left.max - flatMax) - Math.abs(right.max - flatMax);
+  })[0] ?? null;
+}
+
+function valueToLength(value: number, min: number, max: number, size: number): number {
+  if (!(max > min) || size <= 0) {
+    return 0;
+  }
+
+  return Math.max(0, ((value - min) / (max - min)) * size);
+}
+
+function createSvgRect(parent: Element, fill: string): Element {
+  const doc = parent.ownerDocument;
+  if (!doc) {
+    throw new Error('Chart geometry correction requires an owner document.');
+  }
+
+  const rect = doc.createElementNS(parent.namespaceURI || 'http://www.w3.org/2000/svg', 'rect');
+  parent.insertBefore(rect, plotInsertBefore(parent));
+  rect.setAttribute('fill', fill);
+  return rect;
+}
+
+function plotInsertBefore(parent: Element): Element | null {
+  for (const child of Array.from(parent.childNodes)) {
+    if (child.nodeType !== 1) {
+      continue;
+    }
+
+    const element = child as Element;
+    if (element.localName === 'rect' && (element.getAttribute('fill') || '').toLowerCase() === 'none') {
+      return element;
+    }
+
+    if (element.localName === 'text') {
+      return element;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Rebuild column/bar rects when pptx-svg's i32 fixed-point chart math overflows.
+ * Keeps OOXML values intact; only the preview SVG is corrected.
+ */
+export function correctOverflowedChartGeometry(
+  chartGroup: Element,
+  formats: ChartAxisFormat[],
+  grid: ChartDataGrid | null
+): void {
+  if (!grid || grid.series.length === 0 || grid.categories.length === 0) {
+    return;
+  }
+
+  const seriesValues = getChartSeriesValues(grid);
+  const flatValues = seriesValues.flat();
+  if (flatValues.length === 0 || !chartValuesNeedGeometryCorrection(flatValues, chartGroup)) {
+    return;
+  }
+
+  if (formats.length === 0) {
+    return;
+  }
+
+  const plot = findChartPlotRect(chartGroup);
+  if (!plot) {
+    return;
+  }
+
+  const plotX = parseSvgNumber(plot.getAttribute('x')) ?? 0;
+  const plotY = parseSvgNumber(plot.getAttribute('y')) ?? 0;
+  const plotWidth = parseSvgNumber(plot.getAttribute('width'));
+  const plotHeight = parseSvgNumber(plot.getAttribute('height'));
+  if (plotWidth === null || plotHeight === null || plotWidth <= 0 || plotHeight <= 0) {
+    return;
+  }
+
+  const parent = plot.parentElement;
+  if (!parent) {
+    return;
+  }
+
+  const existingBars = getDescendants(chartGroup, 'rect').filter((rect) => isChartDataBarRect(rect, plot));
+  const isColumn = detectIsColumnChart(existingBars, formats);
+  const valueAxis = pickValueAxis(formats, flatValues, isColumn);
+  if (!valueAxis) {
+    return;
+  }
+
+  const fill =
+    existingBars[0]?.getAttribute('fill') ||
+    getDescendants(chartGroup, 'rect').find((rect) => {
+      const width = parseSvgNumber(rect.getAttribute('width'));
+      const height = parseSvgNumber(rect.getAttribute('height'));
+      const rectFill = rect.getAttribute('fill') || '';
+      return width === 10 && height === 10 && rectFill.startsWith('rgb');
+    })?.getAttribute('fill') ||
+    'rgb(68,114,196)';
+
+  for (const bar of existingBars) {
+    bar.parentNode?.removeChild(bar);
+  }
+
+  const categoryCount = grid.categories.length;
+  const seriesCount = seriesValues.length;
+  const slotSize = (isColumn ? plotWidth : plotHeight) / categoryCount;
+  const clusterGap = slotSize * 0.2;
+  const barSize = Math.max(1, (slotSize - clusterGap) / seriesCount);
+
+  for (let categoryIndex = 0; categoryIndex < categoryCount; categoryIndex++) {
+    for (let seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++) {
+      const value = seriesValues[seriesIndex]?.[categoryIndex] ?? 0;
+      const length = valueToLength(value, valueAxis.min, valueAxis.max, isColumn ? plotHeight : plotWidth);
+      if (length <= 0) {
+        continue;
+      }
+
+      const rect = createSvgRect(parent, fill);
+      if (isColumn) {
+        const x = plotX + categoryIndex * slotSize + clusterGap / 2 + seriesIndex * barSize;
+        const y = plotY + plotHeight - length;
+        rect.setAttribute('x', String(Math.round(x)));
+        rect.setAttribute('y', String(Math.round(y)));
+        rect.setAttribute('width', String(Math.max(1, Math.round(barSize))));
+        rect.setAttribute('height', String(Math.max(1, Math.round(length))));
+      } else {
+        const y = plotY + categoryIndex * slotSize + clusterGap / 2 + seriesIndex * barSize;
+        rect.setAttribute('x', String(Math.round(plotX)));
+        rect.setAttribute('y', String(Math.round(y)));
+        rect.setAttribute('width', String(Math.max(1, Math.round(length))));
+        rect.setAttribute('height', String(Math.max(1, Math.round(barSize))));
+      }
+
+      rect.setAttribute('data-native-powerpoint-chart-bar', 'true');
+    }
+  }
+}
+
+export {
+  findChartPartPath,
+  getChartAxisFormats,
+  getChartTextValues,
+  getChartTickRuns,
+  removeRedundantTickRuns,
+};

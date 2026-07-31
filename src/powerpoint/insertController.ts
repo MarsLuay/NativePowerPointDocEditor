@@ -5,7 +5,7 @@ import { createTranslateNotice } from '../i18n/translate';
 
 import { isElement, isNode } from '../domGuards';
 import { debugLog, errorLog, logPptxAction } from '../logger';
-import { createMenuItem, createPopoverShell, positionPopoverBelow } from '../menuControls';
+import { createMenuItem, createMenuSection, createPopoverShell, positionPopoverBelow } from '../menuControls';
 import type { InsertableShapeGeometry, ParagraphTextRange, PresentationEngine, TextBoxInsertOrigin } from '../PresentationEngine';
 import {
   getImageMimeType,
@@ -14,7 +14,15 @@ import {
   VaultImageSuggestModal
 } from '../PowerPointInsertModals';
 import { normalizeImageForPowerPoint } from './heicToPng';
-import { TEXT_BOX_INSET_EMU, type ParagraphListStyle } from '../SlideInsertions';
+import {
+  CHART_TEMPLATE_ENTRIES,
+  INSERTABLE_CHART_TYPES,
+  readRecentChartTypes,
+  rememberRecentChartType,
+  TEXT_BOX_INSET_EMU,
+  type InsertableChartType,
+  type ParagraphListStyle,
+} from '../SlideInsertions';
 import { cleanError } from './runtimeCompat';
 import type { PresentationSession } from './session/PresentationSession';
 import type { PptxCommand } from './commands/types';
@@ -39,6 +47,8 @@ export interface InsertHost {
   renderEditedShape(shapeIndex: number): Promise<boolean>;
   renderThumbnails(): Promise<void>;
   syncCurrentThumbnailShape(shapeIndex: number): boolean;
+  /** Drop filmstrip SVG reuse before a structural insert redraw. */
+  invalidateCachedSlideRenders(indices: number | number[]): void;
   selectShape(shapeIndex: number): void;
   selectShapeForTextEditing(shapeIndex: number): void;
   startTextEditor(): void;
@@ -55,6 +65,7 @@ export interface InsertHost {
 export class InsertController {
   private activeInsertMenu: HTMLElement | null = null;
   private insertTableButton: HTMLButtonElement | null = null;
+  private insertChartButton: HTMLButtonElement | null = null;
   private imageFileInput: HTMLInputElement | null = null;
   private readonly notice: TranslateNoticeFn;
 
@@ -99,6 +110,10 @@ export class InsertController {
     const history = await this.host.captureHistoryEntry(historyLabel);
     const shapeIndex = await this.host.session.applyCommand(command) as number;
     this.host.recordHistoryEntry(history);
+    // Structural inserts update OOXML but leave the filmstrip thumbnail marked
+    // rendered. Without invalidation, renderCurrentSlide clones that stale SVG
+    // (source: thumbnail-cache) and selectShape cannot find the new shapeIndex.
+    this.host.invalidateCachedSlideRenders(this.host.currentSlide);
     const rendered = await this.host.renderCurrentSlide(editImmediately);
     if (rendered) {
       if (editImmediately) {
@@ -155,19 +170,22 @@ export class InsertController {
       ]);
     });
 
-    this.host.createEditIconButton(insertGroup, 'type', this.tb('insertTextBox'), () => void this.insertTextBox());
+    this.host.createEditIconButton(insertGroup, 'type', this.tb('insertTextBox'), () => void this.insertTextBox(true));
     const tableButton = this.host.createEditIconButton(insertGroup, 'table', this.tb('insertTable'), () =>
       this.openTableSizePicker(tableButton)
     );
     this.insertTableButton = tableButton;
-    this.host.createEditIconButton(insertGroup, 'bar-chart-3', this.tb('insertChart'), () => void this.insertChart());
+    const chartButton = this.host.createEditIconButton(insertGroup, 'bar-chart-3', this.tb('insertChart'), () =>
+      this.openChartTypePicker(chartButton)
+    );
+    this.insertChartButton = chartButton;
     this.host.createEditIconButton(insertGroup, 'list', this.tb('bulletedList'), () => void this.applyListStyle('bullet'));
     this.host.createEditIconButton(insertGroup, 'list-ordered', this.tb('numberedList'), () => void this.applyListStyle('number'));
   }
 
   toggleInsertMenu(
     anchor: HTMLButtonElement,
-    items: { label: string; onClick: () => void }[]
+    items: { label: string; icon?: string; onClick: () => void }[]
   ): void {
     if (!anchor.dataset.menuId) {
       anchor.dataset.menuId = `insert-menu-${Math.random().toString(36).slice(2)}`;
@@ -192,17 +210,93 @@ export class InsertController {
       createMenuItem(menu, {
         className: 'native-powerpoint-insert-menu-item',
         text: item.label,
+        icon: item.icon ? { name: item.icon, className: 'native-powerpoint-insert-menu-icon' } : undefined,
         preventDefaultOnClick: true,
         stopClickPropagation: true,
         onClick: () => {
-        this.closeInsertMenus();
-        item.onClick();
+          this.closeInsertMenus();
+          item.onClick();
         }
       });
     }
 
     positionPopoverBelow(menu, anchor);
     this.activeInsertMenu = menu;
+  }
+
+  openChartTypePicker(anchor?: HTMLButtonElement | null): void {
+    const chartAnchor = anchor ?? this.insertChartButton;
+    if (!chartAnchor) return;
+
+    if (!chartAnchor.dataset.menuId) {
+      chartAnchor.dataset.menuId = `insert-menu-${Math.random().toString(36).slice(2)}`;
+    }
+    if (this.activeInsertMenu && this.activeInsertMenu.dataset.anchorId === chartAnchor.dataset.menuId) {
+      this.closeInsertMenus();
+      return;
+    }
+
+    this.closeInsertMenus();
+    chartAnchor.classList.add('native-powerpoint-insert-menu-anchor');
+    logPptxAction('insert', 'open-chart-type-picker', {
+      slide: this.host.currentSlide,
+      recentCount: readRecentChartTypes().length,
+    });
+
+    const menu = createPopoverShell(activeDocument.body, {
+      className: 'native-powerpoint-insert-menu native-powerpoint-insert-chart-menu native-powerpoint-light-surface'
+    });
+    menu.dataset.anchorId = chartAnchor.dataset.menuId;
+
+    const addChartItem = (label: string, icon: string, chartType: InsertableChartType) => {
+      createMenuItem(menu, {
+        className: 'native-powerpoint-insert-menu-item',
+        text: label,
+        icon: { name: icon, className: 'native-powerpoint-insert-menu-icon' },
+        preventDefaultOnClick: true,
+        stopClickPropagation: true,
+        onClick: () => {
+          this.closeInsertMenus();
+          void this.insertChart(chartType);
+        }
+      });
+    };
+
+    const recent = readRecentChartTypes();
+    if (recent.length > 0) {
+      createMenuSection(menu, {
+        className: 'native-powerpoint-insert-menu-section',
+        text: this.tb('chartTypeRecent'),
+      });
+      for (const chartType of recent) {
+        const entry = INSERTABLE_CHART_TYPES.find((candidate) => candidate.id === chartType);
+        if (!entry) continue;
+        addChartItem(this.tb(`chartType.${entry.labelKey}`), entry.icon, entry.id);
+      }
+    }
+
+    createMenuSection(menu, {
+      className: 'native-powerpoint-insert-menu-section',
+      text: this.tb('chartTypeTemplates'),
+    });
+    for (const template of CHART_TEMPLATE_ENTRIES) {
+      addChartItem(this.tb(`chartType.${template.labelKey}`), template.icon, template.chartType);
+    }
+
+    createMenuSection(menu, {
+      className: 'native-powerpoint-insert-menu-section',
+      text: this.tb('chartTypeAll'),
+    });
+    for (const entry of INSERTABLE_CHART_TYPES) {
+      addChartItem(this.tb(`chartType.${entry.labelKey}`), entry.icon, entry.id);
+    }
+
+    positionPopoverBelow(menu, chartAnchor);
+    this.activeInsertMenu = menu;
+  }
+
+  getInsertChartButton(): HTMLButtonElement | null {
+    return this.insertChartButton;
   }
 
   closeInsertMenus(): void {
@@ -423,20 +517,27 @@ export class InsertController {
     }
   }
 
-  async insertChart(): Promise<void> {
-    if (!this.getInsertEngine('insert chart', 'PowerPoint chart insertion failed')) return;
+  async insertChart(chartType: InsertableChartType = 'column'): Promise<void> {
+    if (!this.getInsertEngine('insert chart', 'PowerPoint chart insertion failed', { chartType })) return;
 
     try {
       const shapeIndex = await this.commitInsertedShape('Insert chart', {
         type: 'insert-chart',
-        slideIndex: this.host.currentSlide
+        slideIndex: this.host.currentSlide,
+        chartType,
       });
+      rememberRecentChartType(chartType);
       debugLog('insert', 'Inserted PowerPoint chart', {
         slide: this.host.currentSlide,
-        shapeIndex
+        shapeIndex,
+        chartType,
       });
     } catch (error) {
-      errorLog('insert', 'PowerPoint chart insertion failed', { slide: this.host.currentSlide, error });
+      errorLog('insert', 'PowerPoint chart insertion failed', {
+        slide: this.host.currentSlide,
+        chartType,
+        error,
+      });
       this.notice('powerpoint:notice.couldNotInsertChart', { message: cleanError(error) });
     }
   }

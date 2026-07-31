@@ -45,6 +45,7 @@ import {
   mergeMissingPackageParts,
   mergeSlideGraphicFramesFromBuffer,
   permuteSlidesInBuffer,
+  type InsertableChartType,
   type ParagraphListStyle,
   type ParagraphListStyleRangeResult,
 } from './SlideInsertions';
@@ -107,6 +108,7 @@ import {
 import { getDrawingParagraphListStyle } from './powerpoint/paragraphListStyle';
 
 import {
+  correctOverflowedChartGeometry,
   findChartPartPath,
   formatChartAxisValue,
   getChartAxisFormats,
@@ -765,6 +767,12 @@ export class PresentationEngine {
       if (!Number.isInteger(shapeIndex) || formats === undefined) {
         continue;
       }
+
+      correctOverflowedChartGeometry(
+        chartGroup,
+        formats,
+        this.getChartDataGrid(slideIndex, shapeIndex)
+      );
 
       for (const orientation of ['horizontal', 'vertical'] as const) {
         const axes = formats.filter((axis) => axis.orientation === orientation);
@@ -2273,9 +2281,9 @@ export class PresentationEngine {
     return inserted.shapeIndex;
   }
 
-  async addChart(slideIndex: number): Promise<number> {
+  async addChart(slideIndex: number, chartType: InsertableChartType = 'column'): Promise<number> {
     const historyBuffer = await this.exportRendererState();
-    const inserted = await insertChartIntoPresentation(historyBuffer, slideIndex);
+    const inserted = await insertChartIntoPresentation(historyBuffer, slideIndex, chartType);
     await this.reloadFromBuffer(inserted.buffer, this.slideCountValue);
     await this.refreshChartTextValues(inserted.buffer);
     return inserted.shapeIndex;

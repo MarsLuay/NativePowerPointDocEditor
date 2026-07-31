@@ -90,6 +90,8 @@ test("insert text box honors a requested slide-space origin and clamps it to the
 		/<a:bodyPr\b[^>]*\blIns="91440"[^>]*\btIns="45720"[^>]*\brIns="91440"[^>]*\bbIns="45720"/,
 		"inserted text boxes need PowerPoint's normal interior buffer around their text",
 	);
+	assert.match(textBox, /<p:cNvSpPr\b[^>]*\btxBox="1"/, "inserted text boxes must be marked txBox");
+	assert.match(textBox, /<a:spAutoFit\s*\/>/, "inserted text boxes must use spAutoFit so overflow does not shrink fonts");
   await assertExportRoundTrips("positioned text box", engine);
 });
 
