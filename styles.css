@@ -2461,10 +2461,12 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	background: transparent;
 	border: 2px solid transparent;
 	border-radius: 6px;
-	cursor: pointer;
+	cursor: grab;
 	margin-bottom: 8px;
 	padding: 4px;
 	position: relative;
+	-webkit-user-select: none;
+	user-select: none;
 }
 
 .native-powerpoint-thumbnail:hover {
@@ -2481,7 +2483,14 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 }
 
 .native-powerpoint-thumbnail.is-dragging {
+	cursor: grabbing;
 	opacity: 0.5;
+}
+
+.native-powerpoint-thumbnail-preview,
+.native-powerpoint-thumbnail-preview * {
+	-webkit-user-drag: none;
+	pointer-events: none;
 }
 
 .native-powerpoint-thumbnail.drop-before::before,

@@ -69,9 +69,38 @@ export interface CachedSlideRender {
  * `NativePowerPointView`; it borrows shared editor state through
  * {@link SlideFilmstripHost}.
  */
+/** Pixel distance before a thumbnail pointer-down becomes a slide reorder drag. */
+export const THUMBNAIL_REORDER_DRAG_THRESHOLD_PX = 6;
+
+/**
+ * Convert a drop "before/after target" gesture into the final index in the
+ * post-removal slide order (same math PowerPoint filmstrips use).
+ */
+export function resolveThumbnailReorderIndex(
+  fromIndex: number,
+  targetIndex: number,
+  after: boolean,
+): number {
+  let toIndex = after ? targetIndex + 1 : targetIndex;
+  if (fromIndex < toIndex) toIndex -= 1;
+  return toIndex;
+}
+
+/** Inclusive slide indices for a shift-click range selection. */
+export function slideIndicesInRange(anchor: number, index: number): number[] {
+  const start = Math.min(anchor, index);
+  const end = Math.max(anchor, index);
+  const indices: number[] = [];
+  for (let slide = start; slide <= end; slide += 1) {
+    indices.push(slide);
+  }
+  return indices;
+}
+
 export class SlideFilmstripController {
   readonly selectedSlideIndices = new Set<number>();
-  private thumbnailDragIndex: number | null = null;
+  /** Last plain / modifier click used as the Shift+click range anchor. */
+  private slideSelectionAnchor: number | null = null;
   private slideNavigationPromise: Promise<void> = Promise.resolve();
   private readonly notice: TranslateNoticeFn;
   private pendingThumbnailIndices = new Set<number>();
@@ -82,12 +111,27 @@ export class SlideFilmstripController {
   private cancelIdleThumbnailFill: (() => void) | null = null;
   private renderedThumbnailIndices = new Set<number>();
   private readonly thumbnailFontSubstitutions = new Map<number, FontSubstitution[]>();
+  private thumbnailPointerDrag: {
+    fromIndex: number;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null = null;
+  private suppressNextThumbnailClick = false;
+  private readonly onThumbnailPointerMove = (event: PointerEvent): void => {
+    this.handleThumbnailPointerMove(event);
+  };
+  private readonly onThumbnailPointerUp = (event: PointerEvent): void => {
+    this.handleThumbnailPointerUp(event);
+  };
 
   constructor(private readonly host: SlideFilmstripHost) {
     this.notice = createTranslateNotice(this.host.t);
   }
 
   dispose(): void {
+    this.teardownThumbnailPointerDrag();
     this.cancelThumbnailRefresh?.();
     this.cancelThumbnailRefresh = null;
     this.thumbnailRefreshScheduled = false;
@@ -361,18 +405,37 @@ export class SlideFilmstripController {
     const numberEl = item.createDiv({ cls: 'native-powerpoint-thumbnail-number' });
     numberEl.textContent = String(index + 1);
     item.addEventListener('click', (event) => {
+      if (this.suppressNextThumbnailClick) {
+        this.suppressNextThumbnailClick = false;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       this.host.lastInteractionRegion = 'thumbnails';
       if (event.shiftKey) {
-        this.selectSlideRange(this.host.currentSlide, index);
-      } else if (event.metaKey || event.ctrlKey) {
-        this.toggleSlideSelection(index);
-      } else {
-        this.selectedSlideIndices.clear();
-        this.selectedSlideIndices.add(index);
-        this.navigateToSlide(index, 'thumbnail-click');
+        const anchor = this.slideSelectionAnchor ?? this.host.currentSlide;
+        this.selectSlideRange(anchor, index);
+        void this.navigateToSlideAndWait(index, 'thumbnail-shift-select');
+        return;
       }
+      if (event.metaKey || event.ctrlKey) {
+        this.applyAdditiveThumbnailClick(index);
+        return;
+      }
+      this.selectedSlideIndices.clear();
+      this.selectedSlideIndices.add(index);
+      this.slideSelectionAnchor = index;
+      this.navigateToSlide(index, 'thumbnail-click');
     });
     item.addEventListener('contextmenu', (event) => {
+      // macOS Ctrl+click synthesizes contextmenu; treat it as additive select.
+      if (event.ctrlKey && !event.metaKey) {
+        event.preventDefault();
+        this.host.lastInteractionRegion = 'thumbnails';
+        this.suppressNextThumbnailClick = true;
+        this.applyAdditiveThumbnailClick(index);
+        return;
+      }
       event.preventDefault();
       this.showSlideContextMenu(event, index);
     });
@@ -470,66 +533,158 @@ export class SlideFilmstripController {
     this.cancelIdleThumbnailFill = scheduleIdleWork(fillBatch, { timeout: 1500 });
   }
 
+  /**
+   * Pointer-based reorder. HTML5 DnD failed here: inner SVG previews steal the
+   * drag source, and dragend can clear state before drop in Electron.
+   */
   private registerThumbnailDrag(item: HTMLElement, index: number): void {
-    item.draggable = this.host.canEdit();
+    item.draggable = false;
     item.dataset.slideIndex = String(index);
-
-    item.addEventListener('dragstart', (event) => {
-      if (!this.host.canEdit()) {
-        event.preventDefault();
-        return;
-      }
-      this.thumbnailDragIndex = index;
-      item.addClass('is-dragging');
-      if (event.dataTransfer) {
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', String(index));
-      }
-    });
-
-    item.addEventListener('dragend', () => {
-      this.thumbnailDragIndex = null;
-      this.clearThumbnailDropIndicators();
-      item.removeClass('is-dragging');
-    });
-
-    item.addEventListener('dragover', (event) => {
-      if (this.thumbnailDragIndex === null) return;
-      event.preventDefault();
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-      const after = this.isPointerInLowerHalf(event, item);
-      this.clearThumbnailDropIndicators();
-      item.addClass(after ? 'drop-after' : 'drop-before');
-    });
-
-    item.addEventListener('dragleave', () => {
-      item.removeClass('drop-before');
-      item.removeClass('drop-after');
-    });
-
-    item.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const fromIndex = this.thumbnailDragIndex;
-      this.thumbnailDragIndex = null;
-      this.clearThumbnailDropIndicators();
-      if (fromIndex === null) return;
-
-      const after = this.isPointerInLowerHalf(event, item);
-      let toIndex = after ? index + 1 : index;
-      if (fromIndex < toIndex) toIndex -= 1;
-      void this.reorderSlideByDrag(fromIndex, toIndex);
+    item.addEventListener('pointerdown', (event) => {
+      this.handleThumbnailPointerDown(event, index);
     });
   }
 
-  private isPointerInLowerHalf(event: DragEvent, item: HTMLElement): boolean {
-    const rect = item.getBoundingClientRect();
-    return event.clientY > rect.top + rect.height / 2;
+  private handleThumbnailPointerDown(event: PointerEvent, index: number): void {
+    if (!this.host.canEdit()) return;
+    if (event.button !== 0) return;
+    if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+    if (event.pointerType === 'touch' && event.isPrimary === false) return;
+
+    this.teardownThumbnailPointerDrag();
+    this.thumbnailPointerDrag = {
+      fromIndex: index,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragging: false,
+    };
+    window.addEventListener('pointermove', this.onThumbnailPointerMove);
+    window.addEventListener('pointerup', this.onThumbnailPointerUp);
+    window.addEventListener('pointercancel', this.onThumbnailPointerUp);
+  }
+
+  private handleThumbnailPointerMove(event: PointerEvent): void {
+    const drag = this.thumbnailPointerDrag;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.dragging) {
+      if ((dx * dx) + (dy * dy) < THUMBNAIL_REORDER_DRAG_THRESHOLD_PX ** 2) return;
+      drag.dragging = true;
+      this.suppressNextThumbnailClick = true;
+      this.host.lastInteractionRegion = 'thumbnails';
+      this.getThumbnailItem(drag.fromIndex)?.addClass('is-dragging');
+      debugLog('slide', 'Thumbnail drag started', { fromIndex: drag.fromIndex });
+    }
+
+    event.preventDefault();
+    this.updateThumbnailDropIndicatorAtPoint(event.clientY);
+  }
+
+  private handleThumbnailPointerUp(event: PointerEvent): void {
+    const drag = this.thumbnailPointerDrag;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+
+    const { fromIndex, dragging } = drag;
+    this.teardownThumbnailPointerDrag();
+    this.clearThumbnailDropIndicators();
+    this.getThumbnailItem(fromIndex)?.removeClass('is-dragging');
+
+    if (!dragging) return;
+
+    const target = this.resolveThumbnailDropAtPoint(event.clientY);
+    if (!target) {
+      debugLog('slide', 'Thumbnail drag cancelled (no drop target)', { fromIndex });
+      this.suppressNextThumbnailClick = false;
+      return;
+    }
+
+    const toIndex = resolveThumbnailReorderIndex(fromIndex, target.targetIndex, target.after);
+    debugLog('slide', 'Thumbnail drag dropped', {
+      fromIndex,
+      targetIndex: target.targetIndex,
+      after: target.after,
+      toIndex,
+    });
+    void this.reorderSlideByDrag(fromIndex, toIndex);
+  }
+
+  private teardownThumbnailPointerDrag(): void {
+    window.removeEventListener('pointermove', this.onThumbnailPointerMove);
+    window.removeEventListener('pointerup', this.onThumbnailPointerUp);
+    window.removeEventListener('pointercancel', this.onThumbnailPointerUp);
+    this.thumbnailPointerDrag = null;
+  }
+
+  private getThumbnailItem(index: number): HTMLElement | null {
+    const item = this.host.thumbnailContainer
+      ?.querySelectorAll('.native-powerpoint-thumbnail')
+      .item(index);
+    return isHTMLElement(item) ? item : null;
+  }
+
+  private resolveThumbnailDropAtPoint(clientY: number): { targetIndex: number; after: boolean } | null {
+    const container = this.host.thumbnailContainer;
+    if (!container) return null;
+    const items = Array.from(container.querySelectorAll('.native-powerpoint-thumbnail'))
+      .filter(isHTMLElement);
+    if (items.length === 0) return null;
+
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
+      if (clientY < rect.top || clientY > rect.bottom) continue;
+      const targetIndex = Number(item.dataset.slideIndex);
+      if (!Number.isInteger(targetIndex)) continue;
+      return {
+        targetIndex,
+        after: clientY > rect.top + rect.height / 2,
+      };
+    }
+
+    // Pointer is in a gap or past the list — snap to nearest edge.
+    let nearest: HTMLElement | null = null;
+    let nearestDist = Number.POSITIVE_INFINITY;
+    for (const item of items) {
+      const rect = item.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      const dist = Math.abs(clientY - mid);
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = item;
+      }
+    }
+    if (!nearest) return null;
+    const targetIndex = Number(nearest.dataset.slideIndex);
+    if (!Number.isInteger(targetIndex)) return null;
+    const rect = nearest.getBoundingClientRect();
+    return {
+      targetIndex,
+      after: clientY > rect.top + rect.height / 2,
+    };
+  }
+
+  private updateThumbnailDropIndicatorAtPoint(clientY: number): void {
+    this.clearThumbnailDropIndicators();
+    const target = this.resolveThumbnailDropAtPoint(clientY);
+    if (!target) return;
+    const item = this.getThumbnailItem(target.targetIndex);
+    item?.addClass(target.after ? 'drop-after' : 'drop-before');
   }
 
   private clearThumbnailDropIndicators(): void {
     this.host.thumbnailContainer?.querySelectorAll('.drop-before, .drop-after').forEach((element) => {
       element.classList.remove('drop-before', 'drop-after');
     });
+  }
+
+  private applyAdditiveThumbnailClick(index: number): void {
+    this.toggleSlideSelection(index);
+    this.slideSelectionAnchor = index;
+    // Keep the canvas on the last toggled slide so Delete/duplicate match the
+    // filmstrip primary, without wiping the multi-select set.
+    void this.navigateToSlideAndWait(index, 'thumbnail-multiselect');
   }
 
   navigateToSlide(index: number, reason: string): void {
@@ -569,6 +724,8 @@ export class SlideFilmstripController {
     const fromSlide = this.host.currentSlide;
     const focusesFilmstrip =
       reason === 'thumbnail-click'
+      || reason === 'thumbnail-multiselect'
+      || reason === 'thumbnail-shift-select'
       || reason.startsWith('keyboard-');
     if (focusesFilmstrip) {
       this.host.lastInteractionRegion = 'thumbnails';
@@ -872,6 +1029,9 @@ export class SlideFilmstripController {
       const history = await this.host.captureHistoryEntry('Reorder slides');
       await this.host.engine.reorderSlides(order);
       this.host.currentSlide = toIndex;
+      this.selectedSlideIndices.clear();
+      this.selectedSlideIndices.add(toIndex);
+      this.slideSelectionAnchor = toIndex;
       this.host.clearSelection();
       this.host.recordHistoryEntry(history);
       this.host.markDirty();
@@ -937,12 +1097,14 @@ export class SlideFilmstripController {
     for (let index = 0; index < count; index += 1) {
       this.selectedSlideIndices.add(index);
     }
+    this.slideSelectionAnchor = this.host.currentSlide;
     this.applySlideSelectionClasses();
   }
 
   clearSlideSelection(): void {
     if (this.selectedSlideIndices.size === 0) return;
     this.selectedSlideIndices.clear();
+    this.slideSelectionAnchor = null;
     this.applySlideSelectionClasses();
   }
 
@@ -950,16 +1112,18 @@ export class SlideFilmstripController {
     if (this.selectedSlideIndices.has(index)) {
       this.selectedSlideIndices.delete(index);
     } else {
+      // First additive click from an empty set still keeps the viewed slide.
+      if (this.selectedSlideIndices.size === 0) {
+        this.selectedSlideIndices.add(this.host.currentSlide);
+      }
       this.selectedSlideIndices.add(index);
     }
     this.applySlideSelectionClasses();
   }
 
   private selectSlideRange(anchor: number, index: number): void {
-    const start = Math.min(anchor, index);
-    const end = Math.max(anchor, index);
     this.selectedSlideIndices.clear();
-    for (let slide = start; slide <= end; slide += 1) {
+    for (const slide of slideIndicesInRange(anchor, index)) {
       this.selectedSlideIndices.add(slide);
     }
     this.applySlideSelectionClasses();
