@@ -96,7 +96,7 @@
 		"jszip": "^3.10.1",
 		"obsidian": "1.13.1",
 		"pizzip": "^3.2.0",
-		"pptx-svg": "0.6.4",
+		"pptx-svg": "0.6.5",
 		"prosemirror-commands": "1.7.1",
 		"prosemirror-dropcursor": "1.8.3",
 		"prosemirror-history": "1.5.0",
