@@ -1,0 +1,1 @@
+'use strict';var chunkFPUT4CSA_js=require('./chunk-FPUT4CSA.js');var t=new chunkFPUT4CSA_js.r(chunkFPUT4CSA_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;

@@ -54,6 +54,21 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	'docx.setRunText': { op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Updated' },
 	'docx.setRunStyle': { op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 	'docx.setParagraphStyle': { op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading1' } },
+	'docx.setParagraphDefaultRunStyle': {
+		op: 'docx.setParagraphDefaultRunStyle',
+		blockId: 'body/p[0]',
+		style: { fontSizePt: 12 },
+	},
+	'docx.setParagraphLayout': {
+		op: 'docx.setParagraphLayout',
+		blockId: 'body/p[0]',
+		layout: { spacing: { before: 0, after: 0, line: 240, lineRule: 'auto' }, alignment: 'left' },
+	},
+	'docx.setSectionLayout': {
+		op: 'docx.setSectionLayout',
+		sectionIndex: 0,
+		layout: { pageSize: { width: 12240, height: 15840, orient: 'portrait' }, margins: { top: 432, right: 720, bottom: 432, left: 720 } },
+	},
 	'docx.setParagraphBottomBorder': {
 		op: 'docx.setParagraphBottomBorder',
 		blockId: 'body/p[0]',

@@ -1,8 +1,8 @@
 const RUN_PATTERN = /<w:r\b[^>]*?(?:\/>|>([\s\S]*?)<\/w:r>)/g;
 import { extractDocxRunText } from '../docxXmlText';
+import { parseParagraphLayout, type DocxParagraphLayout } from './docxLayout';
 
-export interface ParsedDocxRun {
-	text: string;
+export interface ParsedDocxRunStyle {
 	bold: boolean;
 	italic: boolean;
 	underline: boolean;
@@ -11,8 +11,14 @@ export interface ParsedDocxRun {
 	color: string | null;
 }
 
+export interface ParsedDocxRun extends ParsedDocxRunStyle {
+	text: string;
+}
+
 export interface ParsedDocxParagraph {
 	style: string | null;
+	layout: DocxParagraphLayout;
+	defaultRunStyle: ParsedDocxRunStyle | null;
 	runs: ParsedDocxRun[];
 	text: string;
 	inlineImage?: {
@@ -79,6 +85,11 @@ function getAttribute(xml: string, name: string): string | null {
 	return xml.match(pattern)?.[1] ?? null;
 }
 
+function getElementValue(xml: string, tag: string): string | null {
+	const pattern = new RegExp(`<w:${tag}\\b[^>]*w:val="([^"]*)"`);
+	return xml.match(pattern)?.[1] ?? null;
+}
+
 function isFlagEnabled(propertiesXml: string, tag: string): boolean {
 	const match = new RegExp(`<w:${tag}\\b([^>]*)>|<w:${tag}\\b([^>]*)/>`).exec(propertiesXml);
 	if (!match) return false;
@@ -99,21 +110,32 @@ function getParagraphProperties(paragraphXml: string): string {
 	return match?.[1] ?? '';
 }
 
-function parseRun(runXml: string, runInnerXml: string): ParsedDocxRun {
-	const runProperties = getRunProperties(runXml);
-	const fontSizeHalfPoints = getAttribute(runProperties, 'sz');
+function getParagraphDefaultRunProperties(paragraphPropertiesXml: string): string | null {
+	const match = /<w:rPr\b[^>]*?(?:\/>|>([\s\S]*?)<\/w:rPr>)/.exec(paragraphPropertiesXml);
+	return match ? match[1] ?? '' : null;
+}
+
+function parseRunStyle(runProperties: string): ParsedDocxRunStyle {
+	const fontSizeHalfPoints = getElementValue(runProperties, 'sz')
+		?? getElementValue(runProperties, 'szCs');
 	const parsedFontSize = fontSizeHalfPoints ? Number(fontSizeHalfPoints) : Number.NaN;
 	const latinMatch = /<w:rFonts\b[^>]*w:ascii="([^"]*)"/.exec(runProperties)
 		?? /<w:rFonts\b[^>]*w:hAnsi="([^"]*)"/.exec(runProperties);
 
 	return {
-		text: extractDocxRunText(runInnerXml),
 		bold: isFlagEnabled(runProperties, 'b'),
 		italic: isFlagEnabled(runProperties, 'i'),
 		underline: isFlagEnabled(runProperties, 'u'),
 		fontFamily: latinMatch?.[1] ?? null,
 		fontSizePt: Number.isFinite(parsedFontSize) ? parsedFontSize / 2 : null,
 		color: getAttribute(runProperties, 'color'),
+	};
+}
+
+function parseRun(runXml: string, runInnerXml: string): ParsedDocxRun {
+	return {
+		text: extractDocxRunText(runInnerXml),
+		...parseRunStyle(getRunProperties(runXml)),
 	};
 }
 
@@ -125,18 +147,18 @@ export function parseParagraph(paragraphXml: string): ParsedDocxParagraph {
 	RUN_PATTERN.lastIndex = 0;
 
 	while ((runMatch = RUN_PATTERN.exec(paragraphXml)) !== null) {
-		const runInner = runMatch[1];
-		if (runInner === undefined) continue;
+		const runInner = runMatch[1] ?? '';
 		const parsed = parseRun(runMatch[0], runInner);
-		if (parsed.text.length > 0 || runs.length === 0) {
-			runs.push(parsed);
-		}
+		runs.push(parsed);
 	}
 
 	const text = runs.map((run) => run.text).join('');
 	const inlineImage = parseInlineImageInfo(paragraphXml);
+	const defaultRunProperties = getParagraphDefaultRunProperties(propertiesXml);
 	return {
 		style: styleMatch?.[1] ?? null,
+		layout: parseParagraphLayout(paragraphXml),
+		defaultRunStyle: defaultRunProperties === null ? null : parseRunStyle(defaultRunProperties),
 		runs,
 		text,
 		...(inlineImage ? { inlineImage } : {}),

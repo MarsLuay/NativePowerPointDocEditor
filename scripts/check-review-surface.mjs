@@ -26,7 +26,6 @@ const FACADE_FILES = [
 	'src/docx/runtime/contract.ts',
 	BRIDGE_RELATIVE_PATH,
 	'src/docx/runtime/bridge.d.mts',
-	'src/docx/runtime/index.ts',
 	STYLES_RELATIVE_PATH,
 ];
 const REACT_ALIAS_KEYS = [
@@ -152,14 +151,6 @@ async function checkFacade(projectRoot, violations) {
 		const bridge = await readFile(bridgePath, 'utf8');
 		if (!bridge.includes('@npde/')) {
 			push(violations, `${BRIDGE_RELATIVE_PATH} must be the explicit vendor-package bridge`);
-		}
-	}
-
-	const indexPath = path.join(projectRoot, 'src/docx/runtime/index.ts');
-	if (existsSync(indexPath)) {
-		const index = await readFile(indexPath, 'utf8');
-		if (!index.includes('./contract') || !index.includes('./bridge.mjs')) {
-			push(violations, 'src/docx/runtime/index.ts must expose contract and bridge exports');
 		}
 	}
 

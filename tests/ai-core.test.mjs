@@ -14,7 +14,7 @@ const stubObsidianPlugin = {
 	setup(buildContext) {
 		buildContext.onResolve({ filter: /^obsidian$/ }, () => ({ path: 'obsidian', namespace: 'stub-obsidian' }));
 		buildContext.onLoad({ filter: /.*/, namespace: 'stub-obsidian' }, () => ({
-			contents: `export const normalizePath = (value) => value.replace(/\\\\/g, '/').replace(/\\/{2,}/g, '/');`,
+			contents: `export class TFile {}\nexport const normalizePath = (value) => value.replace(/\\\\/g, '/').replace(/\\/{2,}/g, '/');`,
 			loader: 'js',
 		}));
 	},

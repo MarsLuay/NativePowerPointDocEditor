@@ -5,6 +5,7 @@ export interface DocxViewAgentBridge {
 	getLoadedDocumentPath(): string | null;
 	canAgentEdit(): boolean;
 	exportBufferForAgent(): Promise<ArrayBuffer | null>;
+	exportRenderedPdfForAgent(): Promise<ArrayBuffer | null>;
 	reloadFromAgentBuffer(buffer: ArrayBuffer): Promise<void>;
 	saveCurrentDocument(): Promise<boolean>;
 	canUndoAgentEdit(): boolean;

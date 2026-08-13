@@ -57,34 +57,105 @@ function setRunTextContent(runXml: string, text: string): string {
 	return runXml.replace(/<\/w:r>$/, `<w:t>${encoded}</w:t></w:r>`);
 }
 
-function upsertRunProperties(runInner: string, patchXml: string): string {
-	if (/<w:rPr\b/.test(runInner)) {
-		return runInner.replace(/<w:rPr\b[^>]*>([\s\S]*?)<\/w:rPr>/, `<w:rPr>${patchXml}</w:rPr>`);
-	}
-	return `<w:rPr>${patchXml}</w:rPr>${runInner}`;
+function getChildElementXml(propertiesXml: string, tag: string): string | null {
+	return propertiesXml.match(new RegExp(`<w:${tag}\\b[^>]*(?:\\/>|>[\\s\\S]*?<\\/w:${tag}>)`))?.[0] ?? null;
 }
 
-function buildRunPropertiesPatch(style: DocxRunStylePatch): string {
-	const parts: string[] = [];
-	if (style.bold === true) parts.push('<w:b/>');
-	if (style.bold === false) parts.push('<w:b w:val="false"/>');
-	if (style.italic === true) parts.push('<w:i/>');
-	if (style.italic === false) parts.push('<w:i w:val="false"/>');
-	if (style.underline === true) parts.push('<w:u w:val="single"/>');
-	if (style.underline === false) parts.push('<w:u w:val="none"/>');
-	if (typeof style.fontFamily === 'string' && style.fontFamily.length > 0) {
-		const fontFamily = encodeXmlText(style.fontFamily);
-		parts.push(`<w:rFonts w:ascii="${fontFamily}" w:hAnsi="${fontFamily}" w:cs="${fontFamily}"/>`);
+function upsertChildElement(propertiesXml: string, tag: string, replacement: string | null): string {
+	const pattern = new RegExp(`<w:${tag}\\b[^>]*(?:\\/>|>[\\s\\S]*?<\\/w:${tag}>)`);
+	if (pattern.test(propertiesXml)) {
+		return propertiesXml.replace(pattern, replacement ?? '');
 	}
-	if (typeof style.fontSizePt === 'number' && Number.isFinite(style.fontSizePt)) {
-		const halfPoints = Math.round(style.fontSizePt * 2);
-		parts.push(`<w:sz w:val="${halfPoints}"/><w:szCs w:val="${halfPoints}"/>`);
+	return replacement === null ? propertiesXml : `${propertiesXml}${replacement}`;
+}
+
+function patchElementAttributes(
+	existingXml: string | null,
+	tag: string,
+	patch: Record<string, string>,
+): string {
+	const attributes = new Map<string, string>();
+	if (existingXml) {
+		for (const match of existingXml.matchAll(/([\w:-]+)="([^"]*)"/g)) {
+			const name = match[1];
+			const value = match[2];
+			if (name && value !== undefined) attributes.set(name, value);
+		}
 	}
-	if (typeof style.color === 'string' && style.color.length > 0) {
-		const hex = style.color.replace(/^#/, '').toUpperCase();
-		parts.push(`<w:color w:val="${hex}"/>`);
+	for (const [name, value] of Object.entries(patch)) {
+		attributes.set(`w:${name}`, value);
 	}
-	return parts.join('');
+	const serialized = [...attributes.entries()]
+		.map(([name, value]) => `${name}="${encodeXmlText(value)}"`)
+		.join(' ');
+	return `<w:${tag}${serialized ? ` ${serialized}` : ''}/>`;
+}
+
+function patchRunProperties(propertiesXml: string, style: DocxRunStylePatch): string {
+	let next = propertiesXml;
+	if (style.bold !== undefined) {
+		next = upsertChildElement(next, 'b', style.bold ? '<w:b/>' : '<w:b w:val="false"/>');
+	}
+	if (style.italic !== undefined) {
+		next = upsertChildElement(next, 'i', style.italic ? '<w:i/>' : '<w:i w:val="false"/>');
+	}
+	if (style.underline !== undefined) {
+		next = upsertChildElement(next, 'u', `<w:u w:val="${style.underline ? 'single' : 'none'}"/>`);
+	}
+	if (style.fontFamily !== undefined) {
+		const fontFamily = style.fontFamily;
+		next = upsertChildElement(
+			next,
+			'rFonts',
+			patchElementAttributes(getChildElementXml(next, 'rFonts'), 'rFonts', {
+				ascii: fontFamily,
+				hAnsi: fontFamily,
+				cs: fontFamily,
+			}),
+		);
+	}
+	if (style.fontSizePt !== undefined) {
+		const halfPoints = String(Math.round(style.fontSizePt * 2));
+		for (const tag of ['sz', 'szCs']) {
+			next = upsertChildElement(
+				next,
+				tag,
+				patchElementAttributes(getChildElementXml(next, tag), tag, { val: halfPoints }),
+			);
+		}
+	}
+	if (style.color !== undefined) {
+		const color = style.color;
+		next = upsertChildElement(
+			next,
+			'color',
+			color === null
+				? null
+				: patchElementAttributes(getChildElementXml(next, 'color'), 'color', {
+					val: color.replace(/^#/, '').toUpperCase(),
+				}),
+		);
+	}
+	return next;
+}
+
+function patchRunPropertiesContainer(
+	containerXml: string,
+	style: DocxRunStylePatch,
+	placement: 'prepend' | 'append' = 'prepend',
+): string {
+	const paired = /<w:rPr\b([^>]*)>([\s\S]*?)<\/w:rPr>/.exec(containerXml);
+	if (paired) {
+		const [full, attributes = '', properties = ''] = paired;
+		return containerXml.replace(full, `<w:rPr${attributes}>${patchRunProperties(properties, style)}</w:rPr>`);
+	}
+	if (/<w:rPr\b[^>]*\/>/.test(containerXml)) {
+		return containerXml.replace(/<w:rPr\b([^>]*)\/>/, (_match, attributes: string) => (
+			`<w:rPr${attributes}>${patchRunProperties('', style)}</w:rPr>`
+		));
+	}
+	const properties = `<w:rPr>${patchRunProperties('', style)}</w:rPr>`;
+	return placement === 'prepend' ? `${properties}${containerXml}` : `${containerXml}${properties}`;
 }
 
 function replaceRunAtIndex(paragraphXml: string, runIndex: number, nextRunXml: string): string {
@@ -125,8 +196,7 @@ export function patchRunStyle(paragraphXml: string, runIndex: number, style: Doc
 	}
 
 	const run = runs[runIndex]!;
-	const patchXml = buildRunPropertiesPatch(style);
-	const nextInner = upsertRunProperties(run.inner, patchXml);
+	const nextInner = patchRunPropertiesContainer(run.inner, style);
 	const isSelfClosingRun = /^<w:r\b[^>]*\/>$/.test(run.full.trim());
 	const nextRunXml = isSelfClosingRun
 		? run.full
@@ -135,6 +205,29 @@ export function patchRunStyle(paragraphXml: string, runIndex: number, style: Doc
 		? run.full.replace(/\/>$/, `>${nextInner}</w:r>`)
 		: nextRunXml;
 	return replaceRunAtIndex(paragraphXml, runIndex, patched);
+}
+
+/** Patch w:pPr/w:rPr, including empty paragraphs, without replacing other paragraph or run properties. */
+export function patchParagraphDefaultRunStyle(
+	paragraphXml: string,
+	style: DocxRunStylePatch,
+): string {
+	const match = /^(<w:p\b[^>]*>)([\s\S]*?)(<\/w:p>)$/.exec(paragraphXml);
+	if (!match) {
+		throw createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Failed to parse paragraph XML.');
+	}
+	const [, opening, body = '', closing] = match;
+	const pairedProperties = /^(<w:pPr\b[^>]*>)([\s\S]*?)(<\/w:pPr>)([\s\S]*)$/.exec(body);
+	if (pairedProperties) {
+		const [, propertiesOpening, propertiesBody = '', propertiesClosing, remainder = ''] = pairedProperties;
+		return `${opening}${propertiesOpening}${patchRunPropertiesContainer(propertiesBody, style, 'append')}${propertiesClosing}${remainder}${closing}`;
+	}
+	const selfClosingProperties = /^(<w:pPr\b([^>]*)\/>)([\s\S]*)$/.exec(body);
+	if (selfClosingProperties) {
+		const [, , attributes = '', remainder = ''] = selfClosingProperties;
+		return `${opening}<w:pPr${attributes}>${patchRunPropertiesContainer('', style, 'append')}</w:pPr>${remainder}${closing}`;
+	}
+	return `${opening}<w:pPr>${patchRunPropertiesContainer('', style, 'append')}</w:pPr>${body}${closing}`;
 }
 
 export function patchParagraphStyle(paragraphXml: string, style: DocxParagraphStylePatch): string {

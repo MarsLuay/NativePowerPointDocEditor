@@ -33,7 +33,7 @@ test("BaseKeymap Enter falls back beyond splitBlockClearBorders", async () => {
 	);
 });
 
-test("empty list Enter exit splits so the caret advances", async () => {
+test("empty list Enter exits in place without creating another paragraph", async () => {
 	const source = await readFile(
 		path.join(
 			projectRoot,
@@ -43,8 +43,12 @@ test("empty list Enter exit splits so the caret advances", async () => {
 	);
 
 	assert.match(source, /paragraph\.content\.size > 0 \|\| paragraph\.textContent\.length > 0/);
-	assert.match(source, /canSplit\(tr\.doc, pos\)/);
-	assert.match(source, /tr\.split\(pos, 1/);
+	const exitListBody = source.slice(
+		source.indexOf("function exitListOnEmptyEnter"),
+		source.indexOf("function splitListItem"),
+	);
+	assert.match(exitListBody, /setNodeMarkup\(\$from\.before\(\), undefined, clearedAttrs\)/);
+	assert.doesNotMatch(exitListBody, /\.split\(/);
 });
 
 test("empty layout runs carry pm caret attrs", async () => {

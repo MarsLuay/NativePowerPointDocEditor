@@ -24,6 +24,21 @@ test("shipped PagedEditor dist does not replay a space key already handled by hi
   );
 });
 
+test("shipped PagedEditor dist does not replay deletion after hidden ProseMirror mutated", async () => {
+  for (const filename of ["index.js", "index.mjs"]) {
+    const dist = await readFile(
+      path.join(projectRoot, "vendor/docx-editor-runtime/react/dist", filename),
+      "utf8",
+    );
+
+    assert.match(
+      dist,
+      /\.defaultPrevented&&\(![\w$]+\|\|[\w$]+\)/,
+      `${filename} must stop a handled deletion when the same hidden-editor event mutated the document`,
+    );
+  }
+});
+
 test("DOCX space routes emit bounded, text-free diagnostics", async () => {
   const source = await readFile(path.join(projectRoot, "src/DocxReactView.tsx"), "utf8");
 

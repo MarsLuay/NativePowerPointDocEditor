@@ -207,7 +207,12 @@ function createStampFixture() {
   const titleBar = createElement("div", { "data-testid": "title-bar" }, [menubar]);
   const formattingBar = createElement("div", { "data-testid": "formatting-bar" });
   const toolbar = createElement("div", { "data-testid": "editor-toolbar" }, [formattingBar]);
-  const pages = createElement("div", { className: "paged-editor__pages" });
+  const renderedParagraph = createElement("div", {
+    className: "layout-paragraph",
+    "data-pm-start": "10",
+    "data-pm-end": "20",
+  });
+  const pages = createElement("div", { className: "paged-editor__pages" }, [renderedParagraph]);
   const scroll = createElement("div", { className: "docx-editor__scroll-container" }, [pages]);
   const root = createElement(
     "div",
@@ -227,6 +232,7 @@ function createStampFixture() {
     fileDropdown,
     saveItem,
     saveItemBtn,
+    renderedParagraph,
   };
 }
 
@@ -243,6 +249,7 @@ test("stampDocxEditorChromeRegions maps vendor hooks onto plugin attrs", async (
     DOCX_EDITOR_SCROLL_CONTAINER_ATTRIBUTE,
     DOCX_EDITOR_TITLE_BAR_ATTRIBUTE,
     DOCX_EDITOR_TOOLBAR_ATTRIBUTE,
+    DOCX_RENDERED_PARAGRAPH_ATTRIBUTE,
     stampDocxEditorChromeRegions,
   } = await loadDocxEditorChromeMarkersModule();
 
@@ -258,6 +265,7 @@ test("stampDocxEditorChromeRegions maps vendor hooks onto plugin attrs", async (
     fileDropdown,
     saveItem,
     saveItemBtn,
+    renderedParagraph,
   } = createStampFixture();
 
   stampDocxEditorChromeRegions(host);
@@ -277,4 +285,5 @@ test("stampDocxEditorChromeRegions maps vendor hooks onto plugin attrs", async (
   assert.equal(fileDropdown.getAttribute(DOCX_EDITOR_MENU_DROPDOWN_ATTRIBUTE), "true");
   assert.equal(saveItem.getAttribute(DOCX_EDITOR_MENU_ITEM_ATTRIBUTE), "true");
   assert.equal(saveItemBtn.getAttribute(DOCX_EDITOR_MENU_ITEM_BUTTON_ATTRIBUTE), "true");
+  assert.equal(renderedParagraph.getAttribute(DOCX_RENDERED_PARAGRAPH_ATTRIBUTE), "true");
 });

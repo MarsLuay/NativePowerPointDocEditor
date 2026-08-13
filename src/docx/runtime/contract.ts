@@ -2,6 +2,8 @@ import type { Command, Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import type { ForwardRefExoticComponent, ReactNode, RefAttributes } from 'react';
 
+export const DOCX_PACKAGE_DOCUMENT_KEY = 'document';
+
 /** Editing states exposed by the vendored DOCX editor. */
 export type EditorMode = 'editing' | 'suggesting' | 'viewing';
 
@@ -29,19 +31,26 @@ export interface DocxComment {
 	id: number;
 	author?: string;
 	parentId?: number | null;
-	[key: string]: unknown;
+	done?: boolean;
 }
 
 /** DOCX document fields read by NPDE's pagination and ruler integrations. */
 export interface DocxDocument {
-	package?: Record<string, DocxDocumentPart | undefined>;
+	package?: DocxDocumentPackage;
+}
+
+export interface DocxDocumentPackage {
+	[DOCX_PACKAGE_DOCUMENT_KEY]?: DocxDocumentPart;
+	[key: string]: unknown;
 }
 
 export interface DocxDocumentPart {
 	finalSectionProperties?: DocxSectionProperties;
-	sections?: Array<{
-		properties?: DocxSectionProperties;
-	}>;
+	sections?: DocxSection[];
+}
+
+export interface DocxSection {
+	properties?: DocxSectionProperties;
 }
 
 export interface DocxSectionProperties {
@@ -132,3 +141,7 @@ export interface DocxEditorProps {
 
 export type DocxEditorComponent = ForwardRefExoticComponent<DocxEditorProps & RefAttributes<DocxEditorRef>>;
 export type DocxCommand = Command;
+export interface DocxTextRange {
+	from: number;
+	to: number;
+}

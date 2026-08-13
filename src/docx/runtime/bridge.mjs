@@ -13,6 +13,10 @@ export {
 } from /* vendored runtime alias */ '@npde/docx-editor-core/prosemirror/commands';
 
 export {
+	textFormattingToMarks,
+} from /* vendored runtime alias */ '@npde/docx-editor-core/prosemirror/commands/formatting';
+
+export {
 	loadFontFromBuffer,
 } from /* vendored runtime alias */ '@npde/docx-editor-core/utils';
 

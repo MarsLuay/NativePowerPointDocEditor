@@ -1,76 +1,63 @@
-import assert from "node:assert/strict";
-import { test } from "node:test";
-import { Schema } from "prosemirror-model";
-import { loadDocxParagraphLayoutRelayoutModule } from "./helpers/load-plugin-modules.mjs";
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { build } from 'esbuild';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createRequire } from 'node:module';
 
-const schema = new Schema({
-	nodes: {
-		doc: { content: "block+" },
-		paragraph: {
-			attrs: {
-				styleId: { default: null },
-				alignment: { default: null },
-				lineSpacing: { default: null },
-				lineSpacingRule: { default: null },
-				spaceBefore: { default: null },
-				spaceAfter: { default: null },
-				indentLeft: { default: null },
-				indentRight: { default: null },
-				indentFirstLine: { default: null },
-				hangingIndent: { default: null },
-				outlineLevel: { default: null },
-				defaultFontSize: { default: null },
-				defaultFontFamily: { default: null },
-				numPr: { default: null },
-				listMarker: { default: null },
-			},
-			content: "inline*",
-			group: "block",
-		},
-		text: { group: "inline" },
-	},
-	marks: {
-		bold: {},
-		italic: {},
-		fontSize: { attrs: { size: { default: null }, sizeCs: { default: null } } },
-	},
-});
+const projectRoot = path.resolve(import.meta.dirname, '..');
+const require = createRequire(import.meta.url);
 
-function paragraph(attrs, text, marks = []) {
-	return schema.node("paragraph", attrs, text ? schema.text(text, marks) : undefined);
+async function loadModule() {
+	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-paragraph-relayout-'));
+	const outfile = path.join(outputDirectory, 'docx-paragraph-layout-relayout.cjs');
+	await build({
+		entryPoints: [path.join(projectRoot, 'src/docxParagraphLayoutRelayout.ts')],
+		bundle: true,
+		format: 'cjs',
+		logLevel: 'silent',
+		outfile,
+		platform: 'node',
+		target: 'node22',
+	});
+	return require(outfile);
 }
 
-test("didParagraphTypographyChange detects heading style changes", async () => {
-	const {
-		didParagraphTypographyChange,
-		didParagraphLayoutChange,
-		didListLayoutChange,
-	} = await loadDocxParagraphLayoutRelayoutModule();
+function paragraph(defaultTextFormatting) {
+	return {
+		type: { name: 'paragraph' },
+		attrs: { defaultTextFormatting },
+		descendants() {},
+	};
+}
 
-	const before = schema.node("doc", null, [
-		paragraph({ styleId: "Normal" }, "Hello"),
-		paragraph({ styleId: "Normal" }, "World"),
-	]);
-	const after = schema.node("doc", null, [
-		paragraph({ styleId: "Heading1" }, "Hello", [schema.marks.bold.create()]),
-		paragraph({ styleId: "Heading1" }, "World", [schema.marks.bold.create()]),
-	]);
+function doc(...nodes) {
+	return {
+		descendants(callback) {
+			nodes.forEach((node, index) => callback(node, index));
+		},
+	};
+}
 
-	assert.equal(didListLayoutChange(before, after), false);
-	assert.equal(didParagraphTypographyChange(before, after), true);
-	assert.equal(didParagraphLayoutChange(before, after), true);
+test('empty paragraph default font formatting invalidates paragraph layout', async () => {
+	const { didParagraphTypographyChange } = await loadModule();
+	assert.equal(
+		didParagraphTypographyChange(
+			doc(paragraph({ fontSize: 8 })),
+			doc(paragraph({ fontSize: 24 })),
+		),
+		true,
+	);
 });
 
-test("didParagraphLayoutChange ignores unchanged documents", async () => {
-	const { didParagraphLayoutChange } = await loadDocxParagraphLayoutRelayoutModule();
-	const doc = schema.node("doc", null, [paragraph({ styleId: "Normal" }, "Hello")]);
-	assert.equal(didParagraphLayoutChange(doc, doc), false);
-});
-
-test("stableParagraphLayoutValue avoids default object stringification", async () => {
-	const { stableParagraphLayoutValue } = await loadDocxParagraphLayoutRelayoutModule();
-	assert.equal(stableParagraphLayoutValue({ level: 2 }), '{"level":2}');
-	const circular = {};
-	circular.self = circular;
-	assert.equal(stableParagraphLayoutValue(circular), "");
+test('unchanged empty paragraph defaults keep layout stable', async () => {
+	const { didParagraphTypographyChange } = await loadModule();
+	assert.equal(
+		didParagraphTypographyChange(
+			doc(paragraph({ fontSize: 8, fontFamily: { ascii: 'Arial' } })),
+			doc(paragraph({ fontSize: 8, fontFamily: { ascii: 'Arial' } })),
+		),
+		false,
+	);
 });

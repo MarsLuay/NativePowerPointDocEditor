@@ -8,6 +8,7 @@ export { validateAgainstSchema } from './schemaValidation';
 export { createNpdeAiApi } from './pluginApi';
 export type { AiDocumentSession, NpdeAiApi, NpdeAiApiInfo } from './pluginApi';
 export type { ExportPdfOptions, ExportPdfResult, ExportPdfConflict } from './pptxExportPdf';
+export type { DocxExportPdfOptions, DocxExportPdfResult, DocxExportPdfConflict } from './docxExportPdf';
 export {
 	buildSlideSvgElementForExport,
 	exportPresentationToPdfBytes,
@@ -51,5 +52,22 @@ export { describePptxFromEngine } from './pptxDescribe';
 export { DocxDocumentService } from './docxDocumentService';
 export { describeDocxFromBuffer } from './docxDescribe';
 export type { DocxDescribeSnapshot, DocxDescribedBlock, DocxDescribedRun, DocxDescribeScope } from './docxDescribe';
+export {
+	parseDocumentSectionLayouts,
+	parseParagraphLayout,
+	patchDocumentSectionLayout,
+	patchParagraphLayout,
+} from './docxLayout';
+export type {
+	DocxParagraphAlignment,
+	DocxParagraphIndent,
+	DocxParagraphLayout,
+	DocxParagraphSpacing,
+	DocxParagraphTab,
+	DocxSectionLayout,
+	DocxSectionLayoutPatch,
+	DocxSectionMargins,
+	DocxSectionPageSize,
+} from './docxLayout';
 export { parseDocumentBody } from './docxOoxml';
 export { AI_EDIT_UNDO_LABEL, aiUndoStore } from './aiUndoStore';

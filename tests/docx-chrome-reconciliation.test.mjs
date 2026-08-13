@@ -12,9 +12,15 @@ test('DOCX chrome reconciles after the vendor editor view becomes ready', async 
 	assert.match(view, /private reconcileEditorChromeAfterViewReady\(\)/);
 	assert.match(view, /this\.runEditorChromeSync\(\);/);
 	assert.match(view, /DOCX chrome reconciled after editor view ready/);
-	assert.match(
-		view,
-		/if \(phase === 'editor-view-ready'\) \{\s*this\.reconcileEditorChromeAfterViewReady\(\);\s*\}/,
+	const readyPhase = view.slice(
+		view.indexOf("if (phase === 'editor-view-ready')"),
+		view.indexOf("if (phase === 'editor-view-ready' && origin"),
+	);
+	assert.match(readyPhase, /this\.finishOpenLoadTrace\('editor-view-ready'/);
+	assert.match(readyPhase, /this\.reconcileEditorChromeAfterViewReady\(\);/);
+	assert.ok(
+		readyPhase.indexOf("this.finishOpenLoadTrace('editor-view-ready'")
+			< readyPhase.indexOf('this.reconcileEditorChromeAfterViewReady();'),
 	);
 });
 

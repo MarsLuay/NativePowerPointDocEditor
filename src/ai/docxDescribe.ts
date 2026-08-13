@@ -8,9 +8,15 @@ import {
 	getWrapperInner,
 	resolveInlineImageMediaPath,
 	type ParsedDocxParagraph,
+	type ParsedDocxRunStyle,
 	type ParsedDocxTable,
 } from './docxOoxml';
 import { docxIdPrefix } from './docxStableIds';
+import {
+	parseDocumentSectionLayouts,
+	type DocxParagraphLayout,
+	type DocxSectionLayout,
+} from './docxLayout';
 
 export interface DocxDescribedRun {
 	id: string;
@@ -22,6 +28,8 @@ export interface DocxDescribedRun {
 	fontSizePt?: number | null;
 	color?: string | null;
 }
+
+export type DocxDescribedRunStyle = Omit<DocxDescribedRun, 'id' | 'text'>;
 
 export interface DocxDescribeScope {
 	sources: string[];
@@ -38,6 +46,8 @@ export interface DocxDescribedBlock {
 	kind: 'paragraph' | 'image' | 'table' | 'tableCell' | 'comment';
 	part?: string;
 	style?: string | null;
+	layout?: DocxParagraphLayout;
+	defaultRunStyle?: DocxDescribedRunStyle;
 	text?: string | null;
 	runs?: DocxDescribedRun[];
 	relationshipId?: string;
@@ -59,18 +69,25 @@ export interface DocxDescribeSnapshot {
 	blockCount: number;
 	scope: DocxDescribeScope;
 	blocks: DocxDescribedBlock[];
+	sections: DocxSectionLayout[];
 }
 
-function mapRuns(idPrefix: string, paragraphIndex: number, paragraph: ParsedDocxParagraph): DocxDescribedRun[] {
-	return paragraph.runs.map((run, runIndex) => ({
-		id: `${idPrefix}/p[${paragraphIndex}]/r[${runIndex}]`,
-		text: run.text,
+function mapRunStyle(run: ParsedDocxRunStyle): DocxDescribedRunStyle {
+	return {
 		...(run.bold ? { bold: true } : {}),
 		...(run.italic ? { italic: true } : {}),
 		...(run.underline ? { underline: true } : {}),
 		...(run.fontFamily ? { fontFamily: run.fontFamily } : {}),
 		...(run.fontSizePt !== null ? { fontSizePt: run.fontSizePt } : {}),
 		...(run.color ? { color: run.color } : {}),
+	};
+}
+
+function mapRuns(idPrefix: string, paragraphIndex: number, paragraph: ParsedDocxParagraph): DocxDescribedRun[] {
+	return paragraph.runs.map((run, runIndex) => ({
+		id: `${idPrefix}/p[${paragraphIndex}]/r[${runIndex}]`,
+		text: run.text,
+		...mapRunStyle(run),
 	}));
 }
 
@@ -85,6 +102,8 @@ function mapParagraphBlock(
 		kind: 'paragraph',
 		part: partLabel,
 		style: paragraph.style,
+		layout: paragraph.layout,
+		...(paragraph.defaultRunStyle ? { defaultRunStyle: mapRunStyle(paragraph.defaultRunStyle) } : {}),
 		text: paragraph.text,
 		runs: mapRuns(idPrefix, paragraphIndex, paragraph),
 	};
@@ -138,6 +157,10 @@ function mapTableBlock(
 				col: colIndex,
 				text: cell.text,
 				style: primaryParagraph?.style ?? null,
+				...(primaryParagraph ? { layout: primaryParagraph.layout } : {}),
+				...(primaryParagraph?.defaultRunStyle
+					? { defaultRunStyle: mapRunStyle(primaryParagraph.defaultRunStyle) }
+					: {}),
 				runs: primaryParagraph
 					? primaryParagraph.runs.map((run, runIndex) => ({
 						id: `${cellId}/r[${runIndex}]`,
@@ -201,6 +224,7 @@ function describePartLabel(part: string, partNumber: number | null): string {
 
 export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: string): Promise<DocxDescribeSnapshot> {
 	const zip = await JSZip.loadAsync(buffer.slice(0));
+	const documentXml = (await zip.file('word/document.xml')?.async('string')) ?? '';
 	const relsXml = (await zip.file('word/_rels/document.xml.rels')?.async('string')) ?? null;
 	const blocks: DocxDescribedBlock[] = [];
 	const sources: string[] = [];
@@ -265,5 +289,6 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 			review,
 		},
 		blocks,
+		sections: parseDocumentSectionLayouts(documentXml),
 	};
 }

@@ -12,11 +12,22 @@ import {
 	setFontSize,
 	setFontFamily,
 	setLineSpacing,
+	textFormattingToMarks,
 	loadFontFromBuffer,
 	isSuggestionModeActive,
 } from './docx/runtime/bridge.mjs';
-import type { DocxEditorRef, EditorMode, FontOption, RenderedDomContext, Translations } from './docx/runtime/contract';
+import {
+	DOCX_PACKAGE_DOCUMENT_KEY,
+	type DocxDocument,
+	type DocxEditorRef,
+	type EditorMode,
+	type FontOption,
+	type RenderedDomContext,
+	type DocxTextRange,
+	type Translations,
+} from './docx/runtime/contract';
 import { docxEditorRuntimeStyles } from './docx/runtime/styles';
+import { ensureDocxDocumentStyles } from './docxEditorStyles';
 import { parsePrimaryFontFamily } from './powerpoint/textUtils';
 import { isClipboardEvent, isElement, isHTMLElement, isHTMLButtonElement, isInputEvent, isNode, isPointerEvent } from './domGuards';
 import { summarizeDocxComment, summarizeDocxComments } from './docxCommentLogging';
@@ -39,6 +50,15 @@ import {
 	summarizeTransactionSteps,
 } from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
+import {
+	resolveDocxFormattingTarget,
+	resolveDocxFontSizeStepBase,
+	type DocxFormattingTargetSource,
+} from './docxFontSizeTarget';
+import {
+	shouldResetDocxPreservedTextSelection,
+	updateDocxPreservedTextSelection,
+} from './docxTextSelectionMemory';
 import type { DocxEditorAdapterController, DocxFindMatch } from './docx/adapter/DocxEditorAdapter';
 import { DocxSession, type DocxSaveSource } from './docx/session/DocxSession';
 import {
@@ -61,34 +81,17 @@ import {
 	DOCX_FONT_SIZE_DISPLAY_SELECTOR,
 	DOCX_FONT_SIZE_INCREASE_SELECTOR,
 	DOCX_FONT_SIZE_INPUT_SELECTOR,
+	DOCX_HIDDEN_PROSEMIRROR_SELECTOR,
 	DOCX_RENDERED_LIST_MARKER_SELECTOR,
 	DOCX_RENDERED_PAGE_SELECTOR,
 	DOCX_RENDERED_PARAGRAPH_SELECTOR,
 } from './docxEditorChromeMarkers';
 
-let stylesInjected = false;
 let editorInstanceCounter = 0;
 const docxEditorStyles = [
 	proseMirrorViewStyles,
 	docxEditorRuntimeStyles,
 ].join('\n');
-
-interface DocxSectionProperties {
-	pageHeight?: number;
-	marginTop?: number;
-	marginBottom?: number;
-}
-
-interface DocxDocumentWithSectionProperties {
-	package?: {
-		[DOCX_PACKAGE_DOCUMENT_KEY]?: {
-			finalSectionProperties?: DocxSectionProperties;
-			sections?: Array<{
-				properties?: DocxSectionProperties;
-			}>;
-		};
-	};
-}
 
 interface DocxPaginationSourceDiagnostics {
 	paragraphs: number;
@@ -102,7 +105,6 @@ interface DocxPaginationSourceDiagnostics {
 
 const DEFAULT_PAGE_HEIGHT_TWIPS = 15840;
 const DEFAULT_MARGIN_TWIPS = 1440;
-const DOCX_PACKAGE_DOCUMENT_KEY = 'document';
 const MIN_TOUCH_ZOOM = 0.25;
 const MAX_TOUCH_ZOOM = 4;
 const TOUCH_ZOOM_SENSITIVITY = 0.55;
@@ -518,6 +520,44 @@ function readFontSizeControlPoints(control: HTMLElement | null) {
 	return parseFontSizePoints(display?.textContent);
 }
 
+function readSelectionFontSizePoints(view: EditorView): number[] {
+	const markType = view.state.schema.marks.fontSize;
+	if (!markType) {
+		return [];
+	}
+
+	const sizes: number[] = [];
+	const addMarkSize = (marks: readonly Mark[]) => {
+		const mark = marks.find((candidate) => candidate.type === markType);
+		const halfPoints = Number(mark?.attrs.sizeValue ?? mark?.attrs.size);
+		if (Number.isFinite(halfPoints) && halfPoints > 0) {
+			sizes.push(clampFontSizePoints(halfPoints / 2));
+		}
+	};
+
+	const selection = view.state.selection;
+	if (selection.empty) {
+		addMarkSize(view.state.storedMarks ?? selection.$from.marks());
+		if (sizes.length === 0 && selection.$from.parent.type.name === 'paragraph' && selection.$from.parent.content.size === 0) {
+			const defaults = selection.$from.parent.attrs.defaultTextFormatting as {
+				fontSize?: unknown;
+			} | null | undefined;
+			const halfPoints = Number(defaults?.fontSize);
+			if (Number.isFinite(halfPoints) && halfPoints > 0) {
+				sizes.push(clampFontSizePoints(halfPoints / 2));
+			}
+		}
+		return sizes;
+	}
+
+	view.state.doc.nodesBetween(selection.from, selection.to, (node) => {
+		if (node.isText) {
+			addMarkSize(node.marks);
+		}
+	});
+	return sizes;
+}
+
 function updateFontSizeControlDisplay(control: HTMLElement | null, value: number) {
 	const nextText = String(clampFontSizePoints(value));
 	const input = control?.querySelector<HTMLInputElement>(DOCX_FONT_SIZE_INPUT_SELECTOR);
@@ -900,9 +940,12 @@ function scheduleFontFamilySelectDisplaySync(
 	window.setTimeout(sync, 320);
 }
 
-interface TextSelectionRange {
-	from: number;
-	to: number;
+type TextSelectionRange = DocxTextRange;
+
+interface PreparedFormattingSelection {
+	range: TextSelectionRange;
+	source: DocxFormattingTargetSource;
+	paragraphId: string | null;
 }
 
 function clampTextSelectionRange(doc: ProseMirrorNode, range: TextSelectionRange): TextSelectionRange {
@@ -979,18 +1022,83 @@ function getFontFamilyNameFromEditorSelection(view: EditorView): string | null {
 	}
 }
 
-function getActiveTextSelectionRange(
-	view: EditorView,
-	preserved: TextSelectionRange | null,
-): TextSelectionRange | null {
-	if (!view.state.selection.empty) {
-		return clampTextSelectionRange(view.state.doc, {
-			from: view.state.selection.from,
-			to: view.state.selection.to,
-		});
+function getCurrentParagraphTextRange(view: EditorView): TextSelectionRange | null {
+	const $from = view.state.selection.$from;
+	if (!$from.parent.isTextblock) {
+		return null;
 	}
 
-	return preserved;
+	return clampTextSelectionRange(view.state.doc, {
+		from: $from.start(),
+		to: $from.end(),
+	});
+}
+
+function setEditorTextSelection(view: EditorView, range: TextSelectionRange): void {
+	const clamped = clampTextSelectionRange(view.state.doc, range);
+	if (
+		clamped.from === view.state.selection.from
+		&& clamped.to === view.state.selection.to
+	) {
+		return;
+	}
+
+	const selection = clamped.from === 0 && clamped.to === view.state.doc.content.size
+		? new AllSelection(view.state.doc)
+		: TextSelection.create(view.state.doc, clamped.from, clamped.to);
+	view.dispatch(view.state.tr.setSelection(selection));
+}
+
+function seedEmptyParagraphStoredMarks(view: EditorView): void {
+	const { selection } = view.state;
+	const paragraph = selection.$from.parent;
+	if (!selection.empty || paragraph.type.name !== 'paragraph' || paragraph.content.size !== 0) {
+		return;
+	}
+
+	const defaults = paragraph.attrs.defaultTextFormatting as Record<string, unknown> | null | undefined;
+	if (!defaults) {
+		return;
+	}
+
+	const merged = [...textFormattingToMarks(defaults)];
+	for (const mark of view.state.storedMarks ?? selection.$from.marks()) {
+		const existingIndex = merged.findIndex((candidate) => candidate.type === mark.type);
+		if (existingIndex >= 0) merged[existingIndex] = mark;
+		else merged.push(mark);
+	}
+	if (merged.length > 0) {
+		view.dispatch(view.state.tr.setStoredMarks(merged));
+	}
+}
+
+function prepareFormattingSelection(
+	view: EditorView,
+	preservedRange: TextSelectionRange | null,
+	renderedParagraphRange: TextSelectionRange | null,
+	preferCurrentSelection: boolean,
+): PreparedFormattingSelection {
+	const currentRange = clampTextSelectionRange(view.state.doc, {
+		from: view.state.selection.from,
+		to: view.state.selection.to,
+	});
+	const target = resolveDocxFormattingTarget({
+		selection: currentRange,
+		preservedSelection: preservedRange,
+		caretParagraph: getCurrentParagraphTextRange(view),
+		renderedParagraph: renderedParagraphRange,
+		preferCurrentSelection,
+	});
+	setEditorTextSelection(view, target.range);
+	if (target.source === 'empty-paragraph') {
+		seedEmptyParagraphStoredMarks(view);
+	}
+
+	const $from = view.state.doc.resolve(target.range.from);
+	const paragraphId = typeof $from.parent.attrs.paraId === 'string'
+		? $from.parent.attrs.paraId
+		: null;
+	return { range: target.range, source: target.source, paragraphId };
 }
 
 function summarizeSelectedEmptyParagraphFonts(
@@ -1044,18 +1152,15 @@ function applyFontFamilyToEditorView(
 	view: EditorView,
 	fontFamily: string,
 	preservedRange: TextSelectionRange | null,
-): { applied: boolean; range: TextSelectionRange | null } {
-	const activeRange = getActiveTextSelectionRange(view, preservedRange);
-
-	if (activeRange && (
-		activeRange.from !== view.state.selection.from
-		|| activeRange.to !== view.state.selection.to
-	)) {
-		const selection = activeRange.from === 0 && activeRange.to === view.state.doc.content.size
-			? new AllSelection(view.state.doc)
-			: TextSelection.create(view.state.doc, activeRange.from, activeRange.to);
-		view.dispatch(view.state.tr.setSelection(selection));
-	}
+	renderedParagraphRange: TextSelectionRange | null,
+	preferCurrentSelection: boolean,
+): { applied: boolean; range: TextSelectionRange; source: DocxFormattingTargetSource } {
+	const prepared = prepareFormattingSelection(
+		view,
+		preservedRange,
+		renderedParagraphRange,
+		preferCurrentSelection,
+	);
 
 	// Use the core command for both a range and an empty paragraph. It updates
 	// text marks plus defaultTextFormatting for every selected empty paragraph;
@@ -1070,7 +1175,7 @@ function applyFontFamilyToEditorView(
 			hasDefaultTextFormatting: Boolean($from.parent.attrs.defaultTextFormatting),
 		});
 	}
-	return { applied, range: activeRange };
+	return { applied, range: prepared.range, source: prepared.source };
 }
 
 function tagFontFamilySelectTrigger(container: HTMLElement) {
@@ -1366,8 +1471,32 @@ const preserveTypedSpacePlugin = new Plugin({
 					selectionStart: selection.from,
 					selectionEnd: selection.to,
 					parentOffset: selection.$from.parentOffset,
+					paragraphContentSize: selection.$from.parent.content.size,
+					hasIndentLeft: Number(selection.$from.parent.attrs.indentLeft) > 0,
+					hasFirstLineIndent: Number(selection.$from.parent.attrs.indentFirstLine) > 0,
+					hasHangingIndent: Boolean(selection.$from.parent.attrs.hangingIndent),
 					isList: Boolean(listProperties),
 					listLevel: listProperties?.ilvl ?? null,
+					suggestionMode: isSuggestionModeActive(view.state),
+				});
+				return false;
+			}
+
+			if (event.key === 'Enter' || event.code === 'NumpadEnter') {
+				const { selection } = view.state;
+				const paragraph = selection.$from.parent;
+				const paragraphAttrs = paragraph.attrs as { numPr?: { ilvl?: number } | null };
+				const listProperties = paragraph.type.name === 'paragraph' ? paragraphAttrs.numPr : null;
+				debugLog('text-input', 'DOCX Enter key received', {
+					key: event.key,
+					code: event.code,
+					selectionStart: selection.from,
+					selectionEnd: selection.to,
+					parentOffset: selection.$from.parentOffset,
+					paragraphContentSize: paragraph.content.size,
+					isList: Boolean(listProperties),
+					listLevel: listProperties?.ilvl ?? null,
+					defaultPrevented: event.defaultPrevented,
 					suggestionMode: isSuggestionModeActive(view.state),
 				});
 				return false;
@@ -1788,11 +1917,7 @@ async function pasteClipboardIntoEditor(view: EditorView, options: PasteClipboar
 	return view.state.doc !== docBefore;
 }
 
-export function ensureEditorStyles() {
-	if (stylesInjected) {
-		return;
-	}
-
+export function ensureEditorStyles(targetDocument: Document = activeDocument) {
 	// After vendor tokens: pin --doc-caret to page ink. Vendor `.dark` uses a
 	// light caret for inverted canvas; Obsidian keeps Word-white pages.
 	const hostCaretOverride = `
@@ -1811,27 +1936,13 @@ export function ensureEditorStyles() {
 }
 `.trim();
 
-	const useAdoptedSheets =
-		typeof CSSStyleSheet !== 'undefined'
-		&& 'adoptedStyleSheets' in activeDocument
-		&& Array.isArray(activeDocument.adoptedStyleSheets);
-
-	if (!useAdoptedSheets) {
-		throw new Error('DOCX editor styles require adoptedStyleSheets (Obsidian Chromium).');
-	}
-
-	const styleSheet = new CSSStyleSheet();
-	styleSheet.replaceSync(docxEditorStyles);
-	const caretSheet = new CSSStyleSheet();
-	caretSheet.replaceSync(hostCaretOverride);
-	activeDocument.adoptedStyleSheets = [
-		...activeDocument.adoptedStyleSheets,
-		styleSheet,
-		caretSheet,
-	];
-	stylesInjected = true;
+	const injection = ensureDocxDocumentStyles(
+		targetDocument,
+		`${docxEditorStyles}\n${hostCaretOverride}`,
+	);
 	debugLog('editor', 'DOCX editor styles injected with white-page caret override', {
-		via: 'adoptedStyleSheets',
+		via: injection.method,
+		fallbackReason: injection.fallbackReason ?? null,
 		caretOverride: '--doc-caret: #000000; layout-page filter: none',
 	});
 }
@@ -2116,6 +2227,7 @@ export interface DocxReactViewProps {
 	autosave: boolean;
 	defaultZoom: number;
 	reserveReviewSidebar: boolean;
+	hostDocument?: Document;
 	onDirtyChange: (isDirty: boolean) => void;
 	onSave: (buffer: ArrayBuffer) => Promise<void>;
 	onDocumentNameChange: (name: string, expectedPath?: string | null) => Promise<void>;
@@ -2143,7 +2255,7 @@ export interface DocxReactViewHandle {
 }
 
 export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>(function DocxReactView(
-	{ file, buffer, documentKey, editorAdapter, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, onDirtyChange, onSave, onDocumentNameChange, onWordCountChange, onLoadPhase },
+	{ file, buffer, documentKey, editorAdapter, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, hostDocument, onDirtyChange, onSave, onDocumentNameChange, onWordCountChange, onLoadPhase },
 	ref,
 ) {
 	const editorRef = useRef<DocxEditorRef>(null);
@@ -2167,6 +2279,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const pinchZoomScrollFrameRef = useRef<number | null>(null);
 	const activeTouchPointersRef = useRef<Map<number, PointerPoint>>(new Map());
 	const fontSizeHoldRef = useRef<FontSizeHoldState | null>(null);
+	const preservedFormattingSelectionRef = useRef<TextSelectionRange | null>(null);
+	const renderedFormattingParagraphRef = useRef<TextSelectionRange | null>(null);
+	const preferCurrentFormattingSelectionRef = useRef(false);
 	const listMarkerSelectionFrameRef = useRef<number | null>(null);
 	const listLayoutRelayoutFrameRef = useRef<number | null>(null);
 	const listLayoutRelayoutSecondFrameRef = useRef<number | null>(null);
@@ -2221,7 +2336,6 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	], [importedFonts]);
 	const fontFamiliesRef = useRef(fontFamilies);
 	fontFamiliesRef.current = fontFamilies;
-	const preservedTextSelectionRef = useRef<TextSelectionRange | null>(null);
 	const fontFamilyDisplaySyncVersionRef = useRef(0);
 	useEffect(() => {
 		editorAdapter.bindEditor(() => editorRef.current);
@@ -2492,8 +2606,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [filePath, markCommentsDirty]);
 
 	useEffect(() => {
-		ensureEditorStyles();
-	}, []);
+		ensureEditorStyles(hostDocument ?? activeDocument);
+	}, [hostDocument]);
 
 	useEffect(() => {
 		setCommentsSidebarOpen(false);
@@ -2930,7 +3044,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		clearRenameTimeout();
 	}, [clearRenameTimeout, filePath]);
 
-	const syncVerticalRulerMarkers = useCallback((docxDocument: DocxDocumentWithSectionProperties | null | undefined) => {
+	const syncVerticalRulerMarkers = useCallback((docxDocument: DocxDocument | null | undefined) => {
 		if (!showRuler || !docxDocument) {
 			return;
 		}
@@ -2961,7 +3075,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		}
 	}, [showRuler]);
 
-	const scheduleVerticalRulerMarkerSync = useCallback((sourceDocument: DocxDocumentWithSectionProperties | null | undefined) => {
+	const scheduleVerticalRulerMarkerSync = useCallback((sourceDocument: DocxDocument | null | undefined) => {
 		if (rulerSyncFrameRef.current !== null) {
 			window.cancelAnimationFrame(rulerSyncFrameRef.current);
 		}
@@ -3666,14 +3780,21 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			return false;
 		}
 
+		const selectionBefore = {
+			from: view.state.selection.from,
+			to: view.state.selection.to,
+		};
+		const preservedSelectionBefore = preservedFormattingSelectionRef.current;
 		const result = applyFontFamilyToEditorView(
 			view,
 			fontFamily,
-			preservedTextSelectionRef.current,
+			preservedSelectionBefore,
+			renderedFormattingParagraphRef.current,
+			preferCurrentFormattingSelectionRef.current,
 		);
 
 		if (result.range) {
-			preservedTextSelectionRef.current = result.range;
+			preservedFormattingSelectionRef.current = result.range;
 		}
 
 		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
@@ -3698,6 +3819,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			fontFamily,
 			applied: result.applied,
 			restoredSelection: Boolean(result.range),
+			selectionBefore,
+			preservedSelectionBefore,
+			selectionAfter: {
+				from: view.state.selection.from,
+				to: view.state.selection.to,
+			},
 			...emptyParagraphSummary,
 			displayName: resolveFontFamilyDisplayName(fontFamily, fontFamiliesRef.current),
 			storedFontFamily: getFontFamilyFromMark(storedFontMark),
@@ -3734,15 +3861,26 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			return false;
 		}
 
+		const selectionBefore = {
+			from: view.state.selection.from,
+			to: view.state.selection.to,
+			empty: view.state.selection.empty,
+		};
+		const prepared = prepareFormattingSelection(
+			view,
+			preservedFormattingSelectionRef.current,
+			renderedFormattingParagraphRef.current,
+			preferCurrentFormattingSelectionRef.current,
+		);
 		const hold = fontSizeHoldRef.current;
-		const currentSize = hold && hold.control === control
+		const controlSize = readFontSizeControlPoints(control);
+		const currentSize = hold && hold.control === control && Number.isFinite(hold.currentSize)
 			? hold.currentSize
-			: readFontSizeControlPoints(control);
+			: resolveDocxFontSizeStepBase(readSelectionFontSizePoints(view), controlSize);
 		const nextSize = clampFontSizePoints(currentSize + direction);
 		if (nextSize === currentSize) {
 			return false;
 		}
-
 		const applied = setFontSize(fontSizePointsToHalfPoints(nextSize))(view.state, view.dispatch);
 		if (!applied) {
 			return false;
@@ -3751,12 +3889,23 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		if (hold && hold.control === control) {
 			hold.currentSize = nextSize;
 		}
+		preservedFormattingSelectionRef.current = null;
+		renderedFormattingParagraphRef.current = null;
+		preferCurrentFormattingSelectionRef.current = false;
 		updateFontSizeControlDisplay(control, nextSize);
 		debugLog('editor', 'Applied DOCX font-size step', {
 			file: filePath,
 			direction,
 			fromPoints: currentSize,
 			toPoints: nextSize,
+			selectionBefore,
+			selectionApplied: {
+				from: prepared.range.from,
+				to: prepared.range.to,
+				characters: prepared.range.to - prepared.range.from,
+			},
+			targetSource: prepared.source,
+			paragraphId: prepared.paragraphId,
 		});
 		view.focus();
 		return true;
@@ -3770,15 +3919,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		stopFontSizeHold();
 
 		const control = getFontSizeControl(button);
-		const currentSize = readFontSizeControlPoints(control);
-		const nextSize = clampFontSizePoints(currentSize + direction);
-		if (nextSize === currentSize) {
-			return;
-		}
 
 		const hold: FontSizeHoldState = {
 			control,
-			currentSize,
+			currentSize: Number.NaN,
 			direction,
 			repeatCount: 0,
 			repeatTimer: null,
@@ -3866,10 +4010,54 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				return;
 			}
 
+			const hiddenProseMirror = evt.target.closest(DOCX_HIDDEN_PROSEMIRROR_SELECTOR)
+				?? evt.target.closest('.paged-editor__hidden-pm');
+			const editorPages = evt.target.closest<HTMLElement>(DOCX_EDITOR_PAGES_SELECTOR);
+			const resetPreservedTextSelection = shouldResetDocxPreservedTextSelection({
+				eventType: evt.type,
+				insideEditorPages: Boolean(editorPages),
+				insideHiddenProseMirror: Boolean(hiddenProseMirror),
+			});
+			if (resetPreservedTextSelection) {
+				preservedFormattingSelectionRef.current = updateDocxPreservedTextSelection(
+					preservedFormattingSelectionRef.current,
+					null,
+					true,
+				);
+			}
+			if (evt.type === 'keydown' && hiddenProseMirror) {
+				preferCurrentFormattingSelectionRef.current = true;
+				preservedFormattingSelectionRef.current = null;
+			}
+			if (editorPages) {
+				renderedFormattingParagraphRef.current = null;
+				preservedFormattingSelectionRef.current = null;
+				preferCurrentFormattingSelectionRef.current = false;
+			}
+			const renderedParagraph = evt.target.closest<HTMLElement>(DOCX_RENDERED_PARAGRAPH_SELECTOR);
+			if (editorPages && renderedParagraph) {
+				const paragraphStart = Number.parseInt(renderedParagraph.dataset.pmStart ?? '', 10);
+				const paragraphEnd = Number.parseInt(renderedParagraph.dataset.pmEnd ?? '', 10);
+				const view = editorRef.current?.getEditorRef()?.getView();
+				if (view && Number.isFinite(paragraphStart) && Number.isFinite(paragraphEnd)) {
+					renderedFormattingParagraphRef.current = clampTextSelectionRange(view.state.doc, {
+						from: paragraphStart + 1,
+						to: Math.max(paragraphStart + 1, paragraphEnd - 1),
+					});
+					preservedFormattingSelectionRef.current = null;
+				}
+			}
+
 			const trigger = evt.target.closest<HTMLElement>(`[${FONT_FAMILY_TRIGGER_ATTRIBUTE}]`);
 			const isFontItem = Boolean(isFontPickerMenuItem(evt.target));
+			const fontSizeControl = evt.target.closest<HTMLElement>([
+				DOCX_FONT_SIZE_DECREASE_SELECTOR,
+				DOCX_FONT_SIZE_INCREASE_SELECTOR,
+				DOCX_FONT_SIZE_INPUT_SELECTOR,
+				DOCX_FONT_SIZE_DISPLAY_SELECTOR,
+			].join(', '));
 
-			if (!trigger && !isFontItem) {
+			if (!trigger && !isFontItem && !fontSizeControl) {
 				return;
 			}
 
@@ -3879,16 +4067,89 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			}
 
 			const remembered = rememberTextSelectionFromView(view);
-			if (remembered) {
-				preservedTextSelectionRef.current = remembered;
+			if (fontSizeControl || trigger || isFontItem) {
+				preservedFormattingSelectionRef.current = updateDocxPreservedTextSelection(
+					preservedFormattingSelectionRef.current,
+					remembered,
+					false,
+				);
 			}
 		};
 
 		activeDocument.addEventListener('pointerdown', rememberSelectionForFontPicker, true);
+		activeDocument.addEventListener('keydown', rememberSelectionForFontPicker, true);
 		return () => {
 			activeDocument.removeEventListener('pointerdown', rememberSelectionForFontPicker, true);
+			activeDocument.removeEventListener('keydown', rememberSelectionForFontPicker, true);
 		};
 	}, [buffer, filePath, isLoading]);
+
+	useEffect(() => {
+		const getFontSizeOption = (target: EventTarget | null) => {
+			if (!isElement(target)) {
+				return null;
+			}
+			const option = target.closest<HTMLElement>('[role="option"]');
+			const listbox = option?.closest<HTMLElement>('[role="listbox"]');
+			if (!option || !listbox) {
+				return null;
+			}
+			const options = Array.from(listbox.querySelectorAll<HTMLElement>('[role="option"]'));
+			const numericOptions = options.filter((candidate) => /^\d+(?:\.\d+)?$/.test(candidate.textContent?.trim() ?? ''));
+			if (numericOptions.length < 4 || numericOptions.length !== options.length) {
+				return null;
+			}
+			return option;
+		};
+
+		const prepareSelectionForFontSizeOption = (evt: Event) => {
+			if ('button' in evt && evt.button !== 0) {
+				return;
+			}
+			if ('key' in evt && evt.key !== 'Enter' && evt.key !== ' ') {
+				return;
+			}
+			const option = getFontSizeOption(evt.target);
+			if (!option) {
+				return;
+			}
+			const view = editorRef.current?.getEditorRef()?.getView();
+			if (!view || editorMode === 'viewing') {
+				return;
+			}
+
+			// Keep pointer focus from replacing the document selection. Keyboard
+			// activation must retain its default so the vendor handles Enter/Space.
+			if (!('key' in evt)) {
+				evt.preventDefault();
+			}
+			const prepared = prepareFormattingSelection(
+				view,
+				preservedFormattingSelectionRef.current,
+				renderedFormattingParagraphRef.current,
+				preferCurrentFormattingSelectionRef.current,
+			);
+			preservedFormattingSelectionRef.current = null;
+			renderedFormattingParagraphRef.current = null;
+			preferCurrentFormattingSelectionRef.current = false;
+			debugLog('editor', 'Prepared DOCX font-size option target', {
+				file: filePath,
+				points: parseFontSizePoints(option.textContent),
+				from: prepared.range.from,
+				to: prepared.range.to,
+				characters: prepared.range.to - prepared.range.from,
+				targetSource: prepared.source,
+				paragraphId: prepared.paragraphId,
+			});
+		};
+
+		activeDocument.addEventListener('pointerdown', prepareSelectionForFontSizeOption, true);
+		activeDocument.addEventListener('keydown', prepareSelectionForFontSizeOption, true);
+		return () => {
+			activeDocument.removeEventListener('pointerdown', prepareSelectionForFontSizeOption, true);
+			activeDocument.removeEventListener('keydown', prepareSelectionForFontSizeOption, true);
+		};
+	}, [buffer, editorMode, filePath, isLoading]);
 
 	useEffect(() => {
 		const syncFontFamilyAfterPicker = (evt: Event) => {
@@ -3901,7 +4162,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				return;
 			}
 
-			if (!activeDocument.querySelector(`.${editorClassNameRef.current}`)) {
+			const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+			if (!editorRoot?.closest('.workspace-leaf.mod-active')) {
 				return;
 			}
 
@@ -4351,9 +4613,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						const view = editorRef.current?.getEditorRef()?.getView();
 						publishWordCount(view);
 						const remembered = view ? rememberTextSelectionFromView(view) : null;
-						if (remembered) {
-							preservedTextSelectionRef.current = remembered;
-						}
+						preservedFormattingSelectionRef.current = updateDocxPreservedTextSelection(
+							preservedFormattingSelectionRef.current,
+							remembered,
+							false,
+						);
 						const syncVersion = ++fontFamilyDisplaySyncVersionRef.current;
 						const fontFamily = view ? getFontFamilyNameFromEditorSelection(view) : null;
 						const paragraph = view?.state.selection.$from.parent;
@@ -4412,6 +4676,10 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				}}
 				onSave={() => {}}
 				onError={(docxError) => {
+					onLoadPhase?.('editor-render-error', {
+						message: docxError.message,
+						name: docxError.name,
+					});
 					errorLog('render', `Could not render ${file.name}`, docxError);
 					warnLog('render', `DOCX editor render error for ${file.name}`, {
 						message: docxError.message,

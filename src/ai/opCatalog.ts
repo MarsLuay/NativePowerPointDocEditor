@@ -374,6 +374,113 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
+	docxOp('setParagraphDefaultRunStyle', 'font', 'Patch the paragraph-level default run style, including empty paragraphs, without replacing other paragraph or run properties.', {
+		type: 'object',
+		required: ['blockId', 'style'],
+		properties: {
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[22].' },
+			style: {
+				type: 'object',
+				properties: {
+					bold: { type: 'boolean' },
+					italic: { type: 'boolean' },
+					underline: { type: 'boolean' },
+					fontFamily: { type: 'string', minLength: 1 },
+					fontSizePt: { type: 'number', minimum: 0.5 },
+					color: { type: 'string', description: 'RGB hex color, with or without #.' },
+				},
+				additionalProperties: false,
+			},
+		},
+		additionalProperties: false,
+	}),
+	docxOp('setParagraphLayout', 'layout', 'Patch paragraph spacing, indentation, tab stops, alignment, or pagination flags without replacing text or styles.', {
+		type: 'object',
+		required: ['blockId', 'layout'],
+		properties: {
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[12].' },
+			layout: {
+				type: 'object',
+				properties: {
+					alignment: { type: 'string', enum: ['left', 'center', 'right', 'both', 'distribute'] },
+					spacing: {
+						type: 'object',
+						properties: {
+							before: { type: 'integer', minimum: 0, description: 'Spacing before in twips.' },
+							after: { type: 'integer', minimum: 0, description: 'Spacing after in twips.' },
+							line: { type: 'integer', minimum: 0, description: 'Line spacing value in twips.' },
+							lineRule: { type: 'string', enum: ['auto', 'exact', 'atLeast'] },
+						},
+						additionalProperties: false,
+					},
+					indent: {
+						type: 'object',
+						properties: {
+							left: { type: 'integer', description: 'Left indent in twips.' },
+							right: { type: 'integer', description: 'Right indent in twips.' },
+							firstLine: { type: 'integer', description: 'First-line indent in twips.' },
+							hanging: { type: 'integer', description: 'Hanging indent in twips.' },
+						},
+						additionalProperties: false,
+					},
+					tabs: {
+						type: 'array',
+						items: {
+							type: 'object',
+							required: ['val', 'pos'],
+							properties: {
+								val: { type: 'string', enum: ['left', 'center', 'right', 'decimal', 'bar', 'clear'] },
+								pos: { type: 'integer', minimum: 0, description: 'Tab stop position in twips.' },
+							},
+							additionalProperties: false,
+						},
+					},
+					keepNext: { type: 'boolean' },
+					keepLines: { type: 'boolean' },
+					pageBreakBefore: { type: 'boolean' },
+				},
+				additionalProperties: false,
+			},
+		},
+		additionalProperties: false,
+	}),
+	docxOp('setSectionLayout', 'layout', 'Patch page size or section margins in twips without rewriting document content.', {
+		type: 'object',
+		required: ['sectionIndex', 'layout'],
+		properties: {
+			sectionIndex: { type: 'integer', minimum: 0, description: '0-based section index from describe().sections.' },
+			layout: {
+				type: 'object',
+				properties: {
+					pageSize: {
+						type: 'object',
+						required: ['width', 'height'],
+						properties: {
+							width: { type: 'integer', minimum: 1, description: 'Page width in twips.' },
+							height: { type: 'integer', minimum: 1, description: 'Page height in twips.' },
+							orient: { type: 'string', enum: ['portrait', 'landscape'] },
+						},
+						additionalProperties: false,
+					},
+					margins: {
+						type: 'object',
+						properties: {
+							top: { type: 'integer', minimum: 0, description: 'Top margin in twips.' },
+							right: { type: 'integer', minimum: 0, description: 'Right margin in twips.' },
+							bottom: { type: 'integer', minimum: 0, description: 'Bottom margin in twips.' },
+							left: { type: 'integer', minimum: 0, description: 'Left margin in twips.' },
+							header: { type: 'integer', minimum: 0, description: 'Header distance in twips.' },
+							footer: { type: 'integer', minimum: 0, description: 'Footer distance in twips.' },
+							gutter: { type: 'integer', minimum: 0, description: 'Gutter in twips.' },
+						},
+						additionalProperties: false,
+					},
+				},
+				additionalProperties: false,
+			},
+		},
+		additionalProperties: false,
+	}),
 	docxOp('setParagraphBottomBorder', 'font', 'Set the bottom paragraph border without replacing the paragraph or other border sides.', {
 		type: 'object',
 		required: ['blockId', 'border'],

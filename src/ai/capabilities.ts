@@ -103,6 +103,11 @@ const PLUGIN_API_METHODS: Record<string, ClipboardCommandSpec> = {
 		output: '{ ok: boolean, path?: string, bytes?: number, slideCount?: number, errors: AiErrorDetail[] }',
 		notes: 'Rasters PPTX/POTX/PPSX slides to a vault PDF via the NPDE SVG renderer (same path as Export → Whole deck PDF). Page size uses p:sldSz EMUs (true inches). Default output is <basename>.pdf beside the source; conflict defaults to keep-both. Does not call Microsoft PowerPoint.',
 	},
+	exportDocxPdf: {
+		input: '{ "path": "vault/file.docx", "outputPath"?: "vault/file.pdf", "conflict"?: "replace"|"keep-both" }',
+		output: '{ ok: boolean, path?: string, bytes?: number, errors: AiErrorDetail[] }',
+		notes: 'Exports the rendered NPDE DOCX pages to a vault PDF. The DOCX must be open and rendered in an active NPDE view so pagination matches the editor preview.',
+	},
 };
 
 export function buildCapabilityManifest(options: BuildCapabilityManifestOptions): CapabilityManifest {

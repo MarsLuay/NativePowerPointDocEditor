@@ -1071,6 +1071,10 @@ export class DocxView extends FileView {
 		this.reactMountLoading = false;
 		this.hostEl?.empty();
 		this.hostEl?.createDiv({ cls: 'native-powerpoint-doc-editor-editor-load-error', text: this.error });
+		this.finishOpenLoadTrace('agent-reload-failed', {
+			file: origin.filePath,
+			message,
+		});
 		errorLog('agent', this.error, error);
 	}
 
@@ -1080,6 +1084,7 @@ export class DocxView extends FileView {
 				file: this.file?.path,
 				documentSession: this.documentSession,
 			});
+			this.startOpenHeartbeat();
 		}
 
 		this.openLoadTrace.mark(phase, data);
@@ -1108,27 +1113,35 @@ export class DocxView extends FileView {
 	}
 
 	async onOpen() {
-		this.beginOpenLoadTrace('view-onOpen-start');
-		this.startOpenHeartbeat();
-		logLifecycleStep('view-onOpen', { file: this.file?.path });
-		debugLog('view', 'Opening DOCX view');
-		traceSyncStep('view-onOpen:empty-content', () => {
-			this.contentEl.empty();
-			this.hostEl = this.contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-host' });
-			this.editorAdapter = createDocxEditorAdapter(this.hostEl);
-		}, { file: this.file?.path });
-		traceSyncStep('view-onOpen:apply-theme', () => this.applyThemeClass());
-		traceSyncStep('view-onOpen:prepare-host', () => this.prepareViewHost());
-		traceSyncStep('view-onOpen:host-metrics', () => this.registerHostMetrics());
-		traceSyncStep('view-onOpen:save-interceptor', () => this.registerEditorSaveInterceptor());
-		traceSyncStep('view-onOpen:copy-interceptor', () => this.registerEditorListAwareCopyInterceptor());
-		traceSyncStep('view-onOpen:save-shortcut', () => this.registerSaveShortcut());
-		traceSyncStep('view-onOpen:agent-undo-shortcut', () => this.registerAgentUndoShortcut());
-		traceSyncStep('view-onOpen:find-shortcut', () => this.registerFindShortcut());
-		traceSyncStep('view-onOpen:scroll-guard', () => this.registerEditorDropdownScrollGuard());
-		traceSyncStep('view-onOpen:active-leaf', () => this.registerActiveLeafMounting());
-		this.markOpenLoadPhase('view-onOpen-ready');
-		this.render();
+		try {
+			this.beginOpenLoadTrace('view-onOpen-start');
+			logLifecycleStep('view-onOpen', { file: this.file?.path });
+			debugLog('view', 'Opening DOCX view');
+			traceSyncStep('view-onOpen:empty-content', () => {
+				this.contentEl.empty();
+				this.hostEl = this.contentEl.createDiv({ cls: 'native-powerpoint-doc-editor-host' });
+				this.editorAdapter = createDocxEditorAdapter(this.hostEl);
+			}, { file: this.file?.path });
+			traceSyncStep('view-onOpen:apply-theme', () => this.applyThemeClass());
+			traceSyncStep('view-onOpen:prepare-host', () => this.prepareViewHost());
+			traceSyncStep('view-onOpen:host-metrics', () => this.registerHostMetrics());
+			traceSyncStep('view-onOpen:save-interceptor', () => this.registerEditorSaveInterceptor());
+			traceSyncStep('view-onOpen:copy-interceptor', () => this.registerEditorListAwareCopyInterceptor());
+			traceSyncStep('view-onOpen:save-shortcut', () => this.registerSaveShortcut());
+			traceSyncStep('view-onOpen:agent-undo-shortcut', () => this.registerAgentUndoShortcut());
+			traceSyncStep('view-onOpen:find-shortcut', () => this.registerFindShortcut());
+			traceSyncStep('view-onOpen:scroll-guard', () => this.registerEditorDropdownScrollGuard());
+			traceSyncStep('view-onOpen:active-leaf', () => this.registerActiveLeafMounting());
+			this.markOpenLoadPhase('view-onOpen-ready');
+			this.render();
+		} catch (openError) {
+			const message = openError instanceof Error ? openError.message : String(openError);
+			this.finishOpenLoadTrace('view-open-failed', {
+				file: this.file?.path,
+				message,
+			});
+			throw openError;
+		}
 	}
 
 	private registerEditorChromeCustomization() {
@@ -1342,13 +1355,11 @@ export class DocxView extends FileView {
 
 	async onClose() {
 		debugLog('view', 'Closing DOCX view', { file: this.file?.path });
-		if (this.openLoadTrace) {
-			this.finishOpenLoadTrace('view-closed-before-ready', { file: this.file?.path });
-		}
 		if (!await this.promptToSaveIfDirty()) {
 			warnLog('view', 'Canceled DOCX view close because unsaved changes were kept', { file: this.file?.path });
 			return;
 		}
+		this.finishOpenLoadTrace('view-closed-before-ready', { file: this.file?.path });
 		this.beginDocumentSession();
 		this.agentReloadGuard.clear(new Error('DOCX view closed before the agent reload completed.'));
 		this.reactMount?.unmount();
@@ -1376,6 +1387,7 @@ export class DocxView extends FileView {
 
 	async onLoadFile(file: TFile) {
 		logLifecycleStep('file-onLoadFile', { file: file.path, bytes: file.stat.size });
+		const hadOpenLoadTrace = Boolean(this.openLoadTrace);
 		this.beginOpenLoadTrace('file-load-start', {
 			file: file.path,
 			bytes: file.stat.size,
@@ -1386,6 +1398,9 @@ export class DocxView extends FileView {
 			size: file.stat.size,
 		});
 		if (!await this.promptToSaveIfDirty()) {
+			if (!hadOpenLoadTrace) {
+				this.finishOpenLoadTrace('file-load-canceled', { file: file.path });
+			}
 			warnLog('file', `Canceled loading ${file.path} because the current DOCX has unsaved changes`);
 			return;
 		}
@@ -1453,6 +1468,10 @@ export class DocxView extends FileView {
 			}
 			const message = readError instanceof Error ? readError.message : 'Unknown read error';
 			this.error = `Could not load ${file.name}: ${message}`;
+			this.finishOpenLoadTrace('file-load-failed', {
+				file: file.path,
+				message,
+			});
 			errorLog('file', this.error, readError);
 			showI18nNotice(this.getPluginI18n(), this.error);
 		} finally {
@@ -1472,8 +1491,20 @@ export class DocxView extends FileView {
 		data?: Record<string, unknown>,
 		origin?: DocxSaveOrigin,
 	) => {
+		if (origin && !this.isCurrentSaveOrigin(origin)) {
+			debugLog('load', 'Ignoring stale DOCX editor load phase', {
+				phase,
+				file: origin.filePath,
+				documentSession: origin.documentSession,
+			});
+			return;
+		}
 		this.markOpenLoadPhase(phase, data);
 		if (phase === 'editor-view-ready') {
+			this.finishOpenLoadTrace('editor-view-ready', {
+				file: this.file?.path,
+				...data,
+			});
 			this.reconcileEditorChromeAfterViewReady();
 		}
 		if (phase === 'editor-view-ready' && origin && this.agentReloadGuard.complete(origin)) {
@@ -1482,7 +1513,7 @@ export class DocxView extends FileView {
 				documentSession: origin.documentSession,
 			});
 		}
-		if (phase === 'editor-fonts-loaded') {
+		if (phase === 'editor-fonts-loaded' && this.openLoadTrace) {
 			this.finishOpenLoadTrace('editor-ready', {
 				file: this.file?.path,
 				...data,
@@ -1496,6 +1527,7 @@ export class DocxView extends FileView {
 			warnLog('file', `Canceled unloading ${_file.path} because unsaved changes were kept`);
 			return;
 		}
+		this.finishOpenLoadTrace('file-unloaded-before-ready', { file: _file.path });
 		this.beginDocumentSession();
 		this.agentReloadGuard.clear(new Error('DOCX file unloaded before the agent reload completed.'));
 		this.buffer = null;
@@ -1613,6 +1645,11 @@ export class DocxView extends FileView {
 		}
 
 		return this.buffer ? this.buffer.slice(0) : null;
+	}
+
+	async exportRenderedPdfForAgent(): Promise<ArrayBuffer | null> {
+		if (!this.canAgentEdit()) return null;
+		return this.getReactHandle()?.exportRenderedPdf() ?? null;
 	}
 
 	async reloadFromAgentBuffer(buffer: ArrayBuffer): Promise<void> {
@@ -3802,6 +3839,7 @@ export class DocxView extends FileView {
 			autosave: this.getAutosave(),
 			defaultZoom: this.getDefaultZoom(),
 			reserveReviewSidebar: this.reserveReviewSidebar,
+			hostDocument: this.hostEl?.ownerDocument,
 			onDirtyChange: (isDirty) => {
 				if (origin && this.isCurrentSaveOrigin(origin)) {
 					this.isDirty = isDirty;
@@ -3845,7 +3883,17 @@ export class DocxView extends FileView {
 
 			this.hostEl.empty();
 			const mountStartedAt = monotonicNow();
-			this.reactMount = createDocxReactMount(this.hostEl);
+			const mountOrigin = this.file ? this.createSaveOrigin(this.file) : null;
+			this.reactMount = createDocxReactMount(this.hostEl, (renderError) => {
+				if (mountOrigin && !this.isCurrentSaveOrigin(mountOrigin)) {
+					return;
+				}
+				this.finishOpenLoadTrace('react-render-failed', {
+					file: mountOrigin?.filePath ?? this.file?.path,
+					message: renderError.message,
+					name: renderError.name,
+				});
+			});
 			this.reactMount.render(this.getReactProps());
 			this.markOpenLoadPhase('react-mount-rendered', {
 				durationMs: Math.round((monotonicNow() - mountStartedAt) * 10) / 10,
@@ -3855,6 +3903,10 @@ export class DocxView extends FileView {
 		} catch (loadError) {
 			const message = loadError instanceof Error ? loadError.message : 'Unknown load error';
 			this.error = `Could not load DOCX editor: ${message}`;
+			this.finishOpenLoadTrace('react-mount-failed', {
+				file: this.file?.path,
+				message,
+			});
 			errorLog('editor', this.error, loadError);
 			showI18nNotice(this.getPluginI18n(), this.error);
 			if (this.hostEl) {

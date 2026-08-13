@@ -77,8 +77,12 @@ export function getParagraphTypographySignature(node: ProseMirrorNode): string {
 		stableParagraphLayoutValue(attrs.indentFirstLine),
 		stableParagraphLayoutValue(attrs.hangingIndent),
 		stableParagraphLayoutValue(attrs.outlineLevel),
-		stableParagraphLayoutValue(attrs.defaultFontSize),
-		stableParagraphLayoutValue(attrs.defaultFontFamily),
+		// Empty paragraphs store direct font defaults in the PM node's
+		// `defaultTextFormatting` attr. The layout-level `defaultFontSize` /
+		// `defaultFontFamily` names are created later by toFlowBlocks and are
+		// not present here, so omitting this attr leaves the old line measure in
+		// place after an empty-line font change.
+		stableParagraphLayoutValue(attrs.defaultTextFormatting),
 		getParagraphRunTypographySignature(node),
 	].join('\u001f');
 }

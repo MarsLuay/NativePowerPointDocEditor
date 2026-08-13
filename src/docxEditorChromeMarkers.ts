@@ -113,6 +113,7 @@ export const DOCX_VENDOR_TITLE_BAR_SELECTOR = '[data-testid="title-bar"]';
 export const DOCX_VENDOR_FORMATTING_BAR_SELECTOR = '[data-testid="formatting-bar"]';
 export const DOCX_VENDOR_MENUBAR_SELECTOR = '[role="menubar"]';
 export const DOCX_VENDOR_SCROLL_CONTAINER_SELECTOR = '.docx-editor__scroll-container';
+export const DOCX_VENDOR_RENDERED_PARAGRAPH_SELECTOR = '.layout-paragraph';
 
 function stampAttribute(element: Element, attribute: string): void {
 	if (!element.hasAttribute(attribute)) {
@@ -201,6 +202,7 @@ function stampChromeWithin(scope: ParentNode): void {
 	stampAllMatches(scope, '[data-testid="caret"]', DOCX_CARET_ATTRIBUTE);
 	stampAllMatches(scope, '.layout-page', DOCX_RENDERED_PAGE_ATTRIBUTE);
 	stampAllMatches(scope, '.layout-page-content', DOCX_RENDERED_PAGE_CONTENT_ATTRIBUTE);
+	stampAllMatches(scope, DOCX_VENDOR_RENDERED_PARAGRAPH_SELECTOR, DOCX_RENDERED_PARAGRAPH_ATTRIBUTE);
 	stampAllMatches(
 		scope,
 		`.${DOCX_VENDOR_TABLE_TOOLBAR_CLASS}[role="toolbar"]`,

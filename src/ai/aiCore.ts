@@ -1,3 +1,4 @@
+import { TFile } from 'obsidian';
 import { debugLog } from '../logger';
 import { isPowerPointExtension } from '../powerpoint/extensions';
 import type { AiRuntime } from './aiRuntime';
@@ -9,6 +10,12 @@ import {
 } from './createOfficeDocument';
 import { createAiError, AI_ERROR_CODES } from './errors';
 import type { AiErrorDetail } from './errors';
+import {
+	toDocxExportPdfFailure,
+	writeDocxExportPdfArtifact,
+	type DocxExportPdfOptions,
+	type DocxExportPdfResult,
+} from './docxExportPdf';
 import { getOpDefinition, validateDocumentOps } from './opRegistry';
 import type {
 	ApplyOptions,
@@ -249,6 +256,42 @@ export class AiCore {
 			return { ok: false, errors: [this.missingRuntimeError()] };
 		}
 		return pptxService.exportPdf(path, options);
+	}
+
+	async exportDocxPdf(path: string, options: DocxExportPdfOptions = {}): Promise<DocxExportPdfResult> {
+		if (!this.isEnabled()) return { ok: false, errors: [this.disabledError()] };
+		if (!this.options.runtime) return { ok: false, errors: [this.missingRuntimeError()] };
+
+		const normalizedPath = this.options.runtime.normalizePath(path);
+		const extension = normalizedPath.split('.').pop()?.toLowerCase() ?? '';
+		if (extension !== 'docx') {
+			return {
+				ok: false,
+				errors: [createAiError(AI_ERROR_CODES.UNSUPPORTED_FORMAT, `Unsupported DOCX file: ${path}.`, { path })],
+			};
+		}
+
+		try {
+			const view = this.options.runtime.findOpenDocxView(normalizedPath);
+			if (!view || !view.canAgentEdit()) {
+				return {
+					ok: false,
+					errors: [createAiError(AI_ERROR_CODES.NOT_IMPLEMENTED, 'DOCX PDF export requires the document to be open and rendered in NPDE.', { path })],
+				};
+			}
+			const source = this.options.runtime.vault.getAbstractFileByPath(normalizedPath);
+			if (!(source instanceof TFile) || source.extension.toLowerCase() !== 'docx') {
+				return { ok: false, errors: [createAiError(AI_ERROR_CODES.FILE_NOT_FOUND, `DOCX file not found: ${path}.`, { path })] };
+			}
+			const bytes = await view.exportRenderedPdfForAgent();
+			if (!bytes) {
+				return { ok: false, errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'NPDE did not produce rendered DOCX pages.', { path })] };
+			}
+			const written = await writeDocxExportPdfArtifact(this.options.runtime.vault, source, bytes, options);
+			return { ok: true, ...written, errors: [] };
+		} catch (error) {
+			return toDocxExportPdfFailure(error, path);
+		}
 	}
 
 	async saveSession(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {

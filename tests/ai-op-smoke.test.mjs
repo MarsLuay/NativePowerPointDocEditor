@@ -242,6 +242,7 @@ test('DOCX agent ops smoke all implemented operations', async () => {
 		{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Alpha new' },
 		{ op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 		{ op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading2' } },
+		{ op: 'docx.setParagraphDefaultRunStyle', blockId: 'body/p[0]', style: { fontSizePt: 12 } },
 		{ op: 'docx.insertText', blockId: 'body/p[0]', offset: 5, text: ' extra' },
 		{ op: 'docx.deleteRange', range: { start: { blockId: 'body/p[0]', offset: 0 }, end: { blockId: 'body/p[0]', offset: 1 } } },
 		{ op: 'docx.insertHyperlink', range: { start: { blockId: 'body/p[0]', offset: 1 }, end: { blockId: 'body/p[0]', offset: 4 } }, url: 'https://example.com' },
@@ -272,7 +273,7 @@ test('DOCX run-style edits survive runs with existing self-closing properties', 
 	const docPath = 'notes/run-style.docx';
 	const initialBuffer = await createDocxBuffer({
 		'word/document.xml': wrapBody(
-			'<w:p><w:r><w:rPr><w:rFonts w:ascii="Aptos"/><w:b/></w:rPr><w:t>Style me</w:t></w:r></w:p>',
+			'<w:p><w:r><w:rPr><w:rFonts w:ascii="Aptos"/><w:b/><w:sz w:val="22"/><w:lang w:val="en-US"/></w:rPr><w:t>Style me</w:t></w:r></w:p>',
 		),
 	});
 	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
@@ -295,6 +296,8 @@ test('DOCX run-style edits survive runs with existing self-closing properties', 
 	assert.match(documentXml ?? '', /<w:b w:val="false"\/>/);
 	assert.doesNotMatch(documentXml ?? '', /<w:b\/>/);
 	assert.match(documentXml ?? '', /<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"\/>/);
+	assert.match(documentXml ?? '', /<w:sz w:val="22"\/>/);
+	assert.match(documentXml ?? '', /<w:lang w:val="en-US"\/>/);
 });
 
 test('DOCX replaceBodyParagraphs rewrites body while preserving sectPr', async () => {

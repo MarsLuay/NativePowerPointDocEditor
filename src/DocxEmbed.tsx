@@ -1,4 +1,4 @@
-import type { App, MarkdownPostProcessorContext, Plugin, TFile } from 'obsidian';
+import type { App, MarkdownPostProcessorContext, TFile } from 'obsidian';
 import { useCallback, useEffect, useRef } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { DocxEditor } from './docx/runtime/bridge.mjs';
@@ -9,7 +9,6 @@ import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { ensureEditorStyles } from './DocxReactView';
 import { isHTMLElement } from './domGuards';
 import { Component, MarkdownRenderChild } from './obsidianRuntime';
-import { CoalescedTimeout } from './coalescedTimeout';
 
 const DOCX_EMBED_SELECTOR = '.internal-embed[src], .internal-embed[data-src]';
 
@@ -173,19 +172,6 @@ interface EmbedInfo {
 	containerEl: HTMLElement;
 }
 
-type DocxFileEmbedCreator = (info: EmbedInfo, file: TFile, subpath: string) => Component;
-
-interface EmbedRegistry {
-	registerExtension?: (extension: string, creator: DocxFileEmbedCreator) => void;
-	registerExtensions?: (extensions: string[], creator: DocxFileEmbedCreator) => void;
-	unregisterExtension?: (extension: string) => void;
-	unregisterExtensions?: (extensions: string[]) => void;
-}
-
-function getEmbedRegistry(app: App) {
-	return (app as App & { embedRegistry?: EmbedRegistry }).embedRegistry;
-}
-
 export class DocxFileEmbed extends Component {
 	private root: Root | null = null;
 	private unloaded = false;
@@ -222,7 +208,7 @@ export class DocxFileEmbed extends Component {
 		containerEl.createDiv({ cls: 'native-powerpoint-doc-editor-embed-loading', text: `Loading ${this.file.name}...` });
 
 		try {
-			ensureEditorStyles();
+			ensureEditorStyles(containerEl.ownerDocument);
 			const sourceBuffer = await this.app.vault.readBinary(this.file);
 			const { buffer } = await ensureDocxDefaultStyles(sourceBuffer);
 			if (this.unloaded) {
@@ -271,48 +257,6 @@ class DocxEmbedRenderChild extends MarkdownRenderChild {
 	}
 }
 
-class DocxEmbedScanChild extends MarkdownRenderChild {
-	private observer: MutationObserver | null = null;
-	private readonly scanTimer: CoalescedTimeout;
-
-	constructor(
-		containerEl: HTMLElement,
-		private app: App,
-		private ctx: MarkdownPostProcessorContext,
-		private getEditorLocale: () => Translations | undefined,
-	) {
-		super(containerEl);
-		this.scanTimer = new CoalescedTimeout(
-			containerEl.ownerDocument.defaultView ?? window,
-			() => this.scan(),
-		);
-	}
-
-	onload() {
-		this.scan();
-		this.scanTimer.schedule(0);
-		this.scanTimer.schedule(100);
-		this.observer = new MutationObserver(() => this.scanTimer.schedule(25));
-		this.observer.observe(this.containerEl, {
-			attributes: true,
-			attributeFilter: ['data-src', 'src'],
-			childList: true,
-			subtree: true,
-		});
-	}
-
-	onunload() {
-		this.scanTimer.cancel();
-		this.observer?.disconnect();
-		this.observer = null;
-		super.onunload();
-	}
-
-	private scan() {
-		renderDocxEmbeds(this.app, this.containerEl, this.ctx, this.getEditorLocale);
-	}
-}
-
 function collectEmbedElements(el: HTMLElement) {
 	const embeds = Array.from(el.querySelectorAll(DOCX_EMBED_SELECTOR));
 	if (el.matches(DOCX_EMBED_SELECTOR)) {
@@ -348,40 +292,4 @@ export function renderDocxEmbeds(
 		embedEl.dataset.nativePowerPointDocEditorEmbed = 'true';
 		ctx.addChild(new DocxEmbedRenderChild(embedEl, app, file, linkPath.split('#')[1] ?? '', getEditorLocale));
 	}
-}
-
-export function processDocxEmbeds(
-	app: App,
-	el: HTMLElement,
-	ctx: MarkdownPostProcessorContext,
-	getEditorLocale: () => Translations | undefined,
-) {
-	ctx.addChild(new DocxEmbedScanChild(el, app, ctx, getEditorLocale));
-}
-
-export function registerDocxFileEmbed(plugin: Plugin, getEditorLocale: () => Translations | undefined) {
-	const registry = getEmbedRegistry(plugin.app);
-	if (!registry) {
-		return false;
-	}
-
-	const createEmbed: DocxFileEmbedCreator = (info, file, subpath) => new DocxFileEmbed(info, plugin.app, file, getEditorLocale, subpath);
-
-	try {
-		if (typeof registry.registerExtension === 'function') {
-			registry.registerExtension('docx', createEmbed);
-			plugin.register(() => registry.unregisterExtension?.('docx'));
-			return true;
-		}
-
-		if (typeof registry.registerExtensions === 'function') {
-			registry.registerExtensions(['docx'], createEmbed);
-			plugin.register(() => registry.unregisterExtensions?.(['docx']));
-			return true;
-		}
-	} catch {
-		return false;
-	}
-
-	return false;
 }

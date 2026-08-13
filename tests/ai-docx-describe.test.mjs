@@ -69,6 +69,26 @@ test('describeDocxFromBuffer maps paragraphs, styles, and runs', async () => {
 	assert.equal(snapshot.blocks[1]?.text, 'Body text');
 });
 
+test('describeDocxFromBuffer exposes direct font sizes and preserves raw run ids', async () => {
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const buffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r/><w:r><w:tab/></w:r><w:r><w:rPr><w:sz w:val="24"/><w:szCs w:val="22"/></w:rPr><w:t>Sized</w:t></w:r></w:p>',
+		),
+	});
+
+	const snapshot = await describeDocxFromBuffer(buffer, 'resume.docx');
+	const runs = snapshot.blocks[0]?.runs;
+	assert.equal(runs?.length, 3);
+	assert.deepEqual(runs?.map((run) => run.id), [
+		'body/p[0]/r[0]',
+		'body/p[0]/r[1]',
+		'body/p[0]/r[2]',
+	]);
+	assert.deepEqual(runs?.map((run) => run.text), ['', '\t', 'Sized']);
+	assert.equal(runs?.[2]?.fontSizePt, 12);
+});
+
 test('describeDocxFromBuffer maps table cells with stable ids', async () => {
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
 	const buffer = await createDocxBuffer({

@@ -12,6 +12,7 @@ export interface DocxReactMount {
 interface DocxReactErrorBoundaryProps {
 	children: ReactNode;
 	fileName: string;
+	onRenderError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface DocxReactErrorBoundaryState {
@@ -32,6 +33,7 @@ class DocxReactErrorBoundary extends Component<DocxReactErrorBoundaryProps, Docx
 			error,
 			componentStack: errorInfo.componentStack,
 		});
+		this.props.onRenderError?.(error, errorInfo);
 	}
 
 	componentDidUpdate(previousProps: DocxReactErrorBoundaryProps) {
@@ -53,7 +55,10 @@ class DocxReactErrorBoundary extends Component<DocxReactErrorBoundaryProps, Docx
 	}
 }
 
-export function createDocxReactMount(hostEl: HTMLElement): DocxReactMount {
+export function createDocxReactMount(
+	hostEl: HTMLElement,
+	onRenderError?: (error: Error, errorInfo: ErrorInfo) => void,
+): DocxReactMount {
 	const ref = createRef<DocxReactViewHandle>();
 	const root: Root = createRoot(hostEl);
 
@@ -61,7 +66,10 @@ export function createDocxReactMount(hostEl: HTMLElement): DocxReactMount {
 		getHandle: () => ref.current,
 		render: (props) => {
 			root.render(
-				<DocxReactErrorBoundary fileName={props.file?.name ?? 'DOCX'}>
+				<DocxReactErrorBoundary
+					fileName={props.file?.name ?? 'DOCX'}
+					onRenderError={onRenderError}
+				>
 					<DocxReactView ref={ref} {...props} />
 				</DocxReactErrorBoundary>,
 			);

@@ -5,6 +5,7 @@ import type {
 	Translations,
 } from './contract';
 import type { EditorView } from 'prosemirror-view';
+import type { Mark } from 'prosemirror-model';
 
 export const DocxEditor: DocxEditorComponent;
 
@@ -14,6 +15,7 @@ export function insertTable(rows: number, columns: number): DocxCommand;
 export function setFontSize(size: number): DocxCommand;
 export function setFontFamily(fontFamily: string): DocxCommand;
 export function setLineSpacing(value: number): DocxCommand;
+export function textFormattingToMarks(formatting: Record<string, unknown>): Mark[];
 export function insertImageFromFile(
 	view: EditorView,
 	file: File,
