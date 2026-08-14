@@ -36,6 +36,7 @@ import {
 	listOpDefinitions,
 	registerAiCommands,
 	removeCapabilitiesManifest,
+	writeAiSkill,
 	writeCapabilitiesManifest,
 	type NpdeAiApi,
 } from './ai';
@@ -541,6 +542,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				this.manifest.version,
 				true,
 			);
+			await this.syncAiSkill();
 			infoLog('agent', 'AI interfacing enabled', {
 				manifestPath,
 				operationCount: listOpDefinitions().length,
@@ -551,6 +553,18 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		this.ai = undefined;
 		await removeCapabilitiesManifest(this.app.vault.adapter, this.manifest.dir);
 		infoLog('agent', 'AI interfacing disabled');
+	}
+
+	async syncAiSkill(): Promise<string | null> {
+		if (!this.pluginSettings.enableAiInterfacing || !this.pluginSettings.addAiSkill) {
+			return null;
+		}
+
+		const skillPath = await writeAiSkill(this.app.vault.adapter);
+		infoLog('agent', skillPath ? 'AI skill available' : 'AI skill could not be added', {
+			skillPath,
+		});
+		return skillPath;
 	}
 
 	private registerAiCommands(): void {

@@ -74,6 +74,7 @@ export interface NativePowerPointDocEditorSettings {
 	disableDocxFiles: boolean;
 	disablePowerPointFiles: boolean;
 	enableAiInterfacing: boolean;
+	addAiSkill: boolean;
 }
 
 export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
@@ -93,6 +94,7 @@ export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
 	disableDocxFiles: false,
 	disablePowerPointFiles: false,
 	enableAiInterfacing: false,
+	addAiSkill: false,
 };
 
 export type NativePowerPointDocEditorSettingSectionId =
@@ -124,6 +126,7 @@ export type NativePowerPointDocEditorSettingId =
 	| 'autoIndexDocxSearch'
 	| 'rebuildDocxSearchIndex'
 	| 'enableAiInterfacing'
+	| 'addAiSkill'
 	| 'debugLogging'
 	| 'copyDocxLog'
 	| 'copyPptxLog'
@@ -218,6 +221,7 @@ export function mergeNativePowerPointDocEditorSettings(
 	const normalizedDisableDocxFiles = raw.disableDocxFiles === true;
 	const normalizedDisablePowerPointFiles = raw.disablePowerPointFiles === true;
 	const normalizedEnableAiInterfacing = raw.enableAiInterfacing === true;
+	const normalizedAddAiSkill = raw.addAiSkill === true;
 
 	const settings: NativePowerPointDocEditorSettings = {
 		authorName: readString(raw.authorName, DEFAULT_SETTINGS.authorName),
@@ -236,6 +240,7 @@ export function mergeNativePowerPointDocEditorSettings(
 		disableDocxFiles: normalizedDisableDocxFiles,
 		disablePowerPointFiles: normalizedDisablePowerPointFiles,
 		enableAiInterfacing: normalizedEnableAiInterfacing,
+		addAiSkill: normalizedAddAiSkill,
 	};
 
 	const shouldPersistSettings = hadLegacyEditorLanguage
@@ -252,7 +257,8 @@ export function mergeNativePowerPointDocEditorSettings(
 		|| raw.powerPointYoloMode !== undefined
 		|| raw.disableDocxFiles !== normalizedDisableDocxFiles
 		|| raw.disablePowerPointFiles !== normalizedDisablePowerPointFiles
-		|| raw.enableAiInterfacing !== normalizedEnableAiInterfacing;
+		|| raw.enableAiInterfacing !== normalizedEnableAiInterfacing
+		|| raw.addAiSkill !== normalizedAddAiSkill;
 
 	return {
 		settings,
@@ -550,6 +556,11 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 						desc: descriptors.enableAiInterfacing.description,
 						control: { type: 'toggle', key: 'enableAiInterfacing' },
 					},
+					...(this.plugin.pluginSettings.enableAiInterfacing ? [{
+						name: descriptors.addAiSkill.name,
+						desc: descriptors.addAiSkill.description,
+						control: { type: 'toggle' as const, key: 'addAiSkill' },
+					}] : []),
 				],
 			},
 			{
@@ -707,6 +718,17 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				settings.enableAiInterfacing = Boolean(value);
 				await this.plugin.saveSettings();
 				await this.plugin.syncAiInterfacing();
+				this.refreshSettingsUi();
+				return;
+			case 'addAiSkill':
+				settings.addAiSkill = Boolean(value);
+				if (settings.addAiSkill) {
+					const skillPath = await this.plugin.syncAiSkill();
+					if (!skillPath) {
+						settings.addAiSkill = false;
+					}
+				}
+				await this.plugin.saveSettings();
 				return;
 			case 'debugLogging':
 				settings.debugLogging = Boolean(value);
@@ -993,7 +1015,29 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 					this.plugin.pluginSettings.enableAiInterfacing = value;
 					await this.plugin.saveSettings();
 					await this.plugin.syncAiInterfacing();
+					this.renderSettings();
 				}));
+
+		if (this.plugin.pluginSettings.enableAiInterfacing) {
+			new Setting(containerEl)
+				.setName(settingDescriptors.addAiSkill.name)
+				.setDesc(settingDescriptors.addAiSkill.description)
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.pluginSettings.addAiSkill)
+					.onChange(async (value) => {
+						this.plugin.pluginSettings.addAiSkill = value;
+						if (value) {
+							const skillPath = await this.plugin.syncAiSkill();
+							if (!skillPath) {
+								this.plugin.pluginSettings.addAiSkill = false;
+								showI18nNotice(i18n, 'settings:ai.skillAddFailed');
+							} else {
+								showI18nNotice(i18n, 'settings:ai.skillAdded');
+							}
+						}
+						await this.plugin.saveSettings();
+					}));
+		}
 
 		new Setting(containerEl)
 			.setName(sectionLabels.diagnostics)

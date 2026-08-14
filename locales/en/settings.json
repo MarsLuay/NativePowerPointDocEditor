@@ -111,6 +111,12 @@
 			"name": "Enable AI-Interfacing",
 			"description": "Expose the plugin API, on-disk capability manifest, and clipboard JSON commands so external AI tools can describe, validate, apply, and save PPTX and DOCX edits. When off, no agent surface is published."
 		},
+		"addAiSkill": {
+			"name": "Add AI skill",
+			"description": "Switch on to add the NPDE AI skill to .agents/skills/npde/SKILL.md in this vault. Existing skill files are preserved."
+		},
+		"skillAdded": "NPDE AI skill is available at .agents/skills/npde/SKILL.md.",
+		"skillAddFailed": "Could not add the NPDE AI skill to this vault.",
 		"disabledNotice": "Enable AI-Interfacing in plugin settings first.",
 		"manifestCopied": "Copied AI capability manifest to the clipboard.",
 		"describeCopied": "Copied describe() result to the clipboard.",

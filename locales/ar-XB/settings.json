@@ -111,6 +111,12 @@
       "name": "‫gnicafretnI-IA elbanE",
       "description": "‫.dehsilbup si ecafrus tnega on ,ffo nehW .stide XCOD dna XTPP evas dna ,ylppa ,etadilav ,ebircsed nac sloot IA lanretxe os sdnammoc NOSJ draobpilc dna ,tsefinam ytilibapac ksid-no ,IPA nigulp eht esopxE"
     },
+    "addAiSkill": {
+      "name": "‫lliks IA ddA",
+      "description": "‫.devreserp era selif lliks gnitsixE .tluav siht ni dm.LLIKS/edpn/slliks/stnega. ot lliks IA EDPN eht dda ot no hctiwS"
+    },
+    "skillAdded": "‫.dm.LLIKS/edpn/slliks/stnega. ta elbaliava si lliks IA EDPN",
+    "skillAddFailed": "‫.tluav siht ot lliks IA EDPN eht dda ton dluoC",
     "disabledNotice": "‫.tsrif sgnittes nigulp ni gnicafretnI-IA elbanE",
     "manifestCopied": "‫.draobpilc eht ot tsefinam ytilibapac IA deipoC",
     "describeCopied": "‫.draobpilc eht ot tluser )(ebircsed deipoC",

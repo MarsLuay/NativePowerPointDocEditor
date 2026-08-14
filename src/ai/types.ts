@@ -46,6 +46,7 @@ export interface ApplyResult {
 	ok: boolean;
 	dryRun?: boolean;
 	changed?: string[];
+	created?: string[];
 	undoLabel?: string;
 	canUndo?: boolean;
 	canRedo?: boolean;

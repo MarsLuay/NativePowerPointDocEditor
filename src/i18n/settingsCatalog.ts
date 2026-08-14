@@ -145,6 +145,12 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:ai.enableInterfacing.description'),
 			defaultValue: DEFAULT_SETTINGS.enableAiInterfacing,
 		},
+		addAiSkill: {
+			sectionId: 'ai',
+			name: i18n.t('settings:ai.addAiSkill.name'),
+			description: i18n.t('settings:ai.addAiSkill.description'),
+			defaultValue: DEFAULT_SETTINGS.addAiSkill,
+		},
 		debugLogging: {
 			sectionId: 'diagnostics',
 			name: i18n.t('settings:docx.debugLogging.name'),
@@ -185,7 +191,7 @@ export function getNativePowerPointDocEditorSettingsTabSections(i18n: I18nServic
 		{ id: 'saving', label: sectionLabels.saving, settings: ['autosave', 'createBackupsBeforeSave', 'powerPointAutosaveEnabled'] },
 		{ id: 'powerpoint', label: sectionLabels.powerpoint, settings: ['powerPointShowInspector', 'powerPointHideUnsupportedSvgContent', 'powerPointOpenWithYoloMode'] },
 		{ id: 'search', label: sectionLabels.search, settings: ['enableDocxSearchIndex', 'autoIndexDocxSearch', 'rebuildDocxSearchIndex'] },
-		{ id: 'ai', label: sectionLabels.ai, settings: ['enableAiInterfacing'] },
+		{ id: 'ai', label: sectionLabels.ai, settings: ['enableAiInterfacing', 'addAiSkill'] },
 		{ id: 'diagnostics', label: sectionLabels.diagnostics, settings: ['debugLogging', 'copyDocxLog', 'copyPptxLog', 'copyFullLog'] },
 	];
 }

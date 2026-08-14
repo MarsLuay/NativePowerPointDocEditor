@@ -1,4 +1,5 @@
 import { AI_ERROR_CODES, createAiError } from './errors';
+import { extractDocxRunText } from '../docxXmlText';
 
 export { extractBlipEmbedId, paragraphContainsDrawing } from './docxOoxml';
 
@@ -187,6 +188,14 @@ export function patchRunText(paragraphXml: string, runIndex: number, text: strin
 		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Run index ${runIndex} is out of range.`, { field: 'runId' });
 	}
 	return replaceRunAtIndex(paragraphXml, runIndex, setRunTextContent(runs[runIndex]!.full, text));
+}
+
+export function getRunText(paragraphXml: string, runIndex: number): string {
+	const runs = extractRuns(paragraphXml);
+	if (runIndex < 0 || runIndex >= runs.length) {
+		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Run index ${runIndex} is out of range.`, { field: 'runId' });
+	}
+	return extractDocxRunText(runs[runIndex]!.full);
 }
 
 export function patchRunStyle(paragraphXml: string, runIndex: number, style: DocxRunStylePatch): string {

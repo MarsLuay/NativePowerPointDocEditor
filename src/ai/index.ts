@@ -30,6 +30,8 @@ export {
 	resolveDocumentPath,
 } from './commandProtocol';
 export { getAiManifestPath, removeCapabilitiesManifest, writeCapabilitiesManifest } from './manifestWriter';
+export { NPDE_AI_SKILL_PATH } from './npdeSkill';
+export { writeAiSkill } from './skillWriter';
 export type {
 	ApplyOptions,
 	ApplyPreviewChange,

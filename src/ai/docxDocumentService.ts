@@ -11,6 +11,7 @@ import type { ApplyOptions, ApplyResult, DescribeResult, DocumentOp } from './ty
 
 export class DocxDocumentService {
 	private readonly sessions: DocxSessionManager;
+	private readonly operationLocks = new Map<string, Promise<void>>();
 
 	constructor(private readonly runtime: AiRuntime) {
 		this.sessions = new DocxSessionManager(runtime);
@@ -20,11 +21,40 @@ export class DocxDocumentService {
 		return this.sessions.resolveDocxFile(path);
 	}
 
+	private async withPathLock<T>(path: string, operation: () => Promise<T>): Promise<T> {
+		const normalized = this.runtime.normalizePath(path);
+		const previous = this.operationLocks.get(normalized) ?? Promise.resolve();
+		let release!: () => void;
+		const current = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		this.operationLocks.set(normalized, current);
+		await previous;
+		try {
+			return await operation();
+		} finally {
+			release();
+			if (this.operationLocks.get(normalized) === current) {
+				this.operationLocks.delete(normalized);
+			}
+		}
+	}
+
 	async describe(path: string): Promise<DescribeResult> {
+		return this.withPathLock(path, () => this.describeUnlocked(path));
+	}
+
+	private async describeUnlocked(path: string): Promise<DescribeResult> {
 		const startedAt = performance.now();
 		try {
-			const file = this.resolveDocxFile(path);
-			const buffer = await this.runtime.vault.readBinary(file);
+			const lease = await this.sessions.acquire(path);
+			const buffer = lease.mode === 'view'
+				? await lease.view.exportBufferForAgent()
+				: await lease.patch.export();
+			if (!buffer) {
+				throw createAiError(AI_ERROR_CODES.FILE_NOT_FOUND, `DOCX view has no exportable document for ${path}.`, { path });
+			}
+			const file = lease.file;
 			const snapshot = await describeDocxFromBuffer(buffer, file.path);
 			debugLog('agent', 'AI DOCX describe completed', {
 				path: file.path,
@@ -49,6 +79,10 @@ export class DocxDocumentService {
 	}
 
 	async apply(path: string, ops: DocumentOp[], options: ApplyOptions = {}): Promise<ApplyResult> {
+		return this.withPathLock(path, () => this.applyUnlocked(path, ops, options));
+	}
+
+	private async applyUnlocked(path: string, ops: DocumentOp[], options: ApplyOptions = {}): Promise<ApplyResult> {
 		const startedAt = performance.now();
 		const dryRun = options.dryRun === true;
 		const validationErrors = validateDocumentOps(ops);
@@ -81,6 +115,7 @@ export class DocxDocumentService {
 			const originalXml = patch.getDocumentXml();
 			let documentXml = originalXml;
 			const changed = new Set<string>();
+			const created = new Set<string>();
 			const preview: ApplyResult['preview'] = [];
 			const warnings: string[] = [];
 
@@ -97,6 +132,7 @@ export class DocxDocumentService {
 				);
 				documentXml = result.documentXml;
 				for (const id of result.changedIds) changed.add(id);
+				for (const id of result.createdIds) created.add(id);
 				preview.push(...(result.preview ?? []));
 				warnings.push(...result.warnings);
 			}
@@ -130,6 +166,7 @@ export class DocxDocumentService {
 				ok: true,
 				dryRun,
 				changed: [...changed],
+				created: created.size > 0 ? [...created] : undefined,
 				undoLabel: dryRun ? undefined : AI_EDIT_UNDO_LABEL,
 				canUndo: !dryRun && aiUndoStore.canUndo(lease.file.path),
 				preview: preview.length > 0 ? preview : undefined,
@@ -156,6 +193,10 @@ export class DocxDocumentService {
 	}
 
 	async save(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
+		return this.withPathLock(path, () => this.saveUnlocked(path));
+	}
+
+	private async saveUnlocked(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		const startedAt = performance.now();
 		try {
 			const lease = await this.sessions.acquire(path);
@@ -198,10 +239,14 @@ export class DocxDocumentService {
 	async close(path: string): Promise<void> {
 		// Keep AI undo/redo snapshots after session.close() so agents can undo
 		// apply→save→close without falling back to git restore.
-		await this.sessions.release(path);
+		await this.withPathLock(path, () => this.sessions.release(path));
 	}
 
 	async undo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
+		return this.withPathLock(path, () => this.undoUnlocked(path));
+	}
+
+	private async undoUnlocked(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		try {
 			const normalized = this.runtime.normalizePath(path);
 			const entry = aiUndoStore.popUndo(normalized);
@@ -215,7 +260,7 @@ export class DocxDocumentService {
 							errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to undo.', { path })],
 						};
 					}
-					const saved = await this.save(path);
+					const saved = await this.saveUnlocked(path);
 					return saved.ok ? { ok: true, errors: [] } : saved;
 				}
 				return {
@@ -238,7 +283,7 @@ export class DocxDocumentService {
 			if (lease.mode === 'view') {
 				await lease.view.reloadFromAgentBuffer(entry.before.buffer);
 			}
-			const saved = await this.save(path);
+			const saved = await this.saveUnlocked(path);
 			return saved.ok ? { ok: true, errors: [] } : saved;
 		} catch (error) {
 			if (isAiErrorDetail(error)) {
@@ -252,6 +297,10 @@ export class DocxDocumentService {
 	}
 
 	async redo(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
+		return this.withPathLock(path, () => this.redoUnlocked(path));
+	}
+
+	private async redoUnlocked(path: string): Promise<{ ok: boolean; errors: ApplyResult['errors'] }> {
 		try {
 			const normalized = this.runtime.normalizePath(path);
 			const entry = aiUndoStore.popRedo(normalized);
@@ -265,7 +314,7 @@ export class DocxDocumentService {
 							errors: [createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Nothing to redo.', { path })],
 						};
 					}
-					const saved = await this.save(path);
+					const saved = await this.saveUnlocked(path);
 					return saved.ok ? { ok: true, errors: [] } : saved;
 				}
 				return {
@@ -288,7 +337,7 @@ export class DocxDocumentService {
 			if (lease.mode === 'view') {
 				await lease.view.reloadFromAgentBuffer(entry.before.buffer);
 			}
-			const saved = await this.save(path);
+			const saved = await this.saveUnlocked(path);
 			return saved.ok ? { ok: true, errors: [] } : saved;
 		} catch (error) {
 			if (isAiErrorDetail(error)) {

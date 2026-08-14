@@ -496,7 +496,12 @@ export class NativePowerPointView extends FileView {
       clearSelection: (options) => getView().clearSelection(options),
       renderInspector: () => getView().renderInspector(),
       prepareSvgForRender: (svg, isThumbnail) => getView().prepareSvgForRender(svg, isThumbnail),
-      createNativeMenu: () => getView().createNativeMenu()
+      createNativeMenu: () => getView().createNativeMenu(),
+      registerThumbnailPointerEvents: (onMove, onUp) => {
+        getView().registerDomEvent(window, 'pointermove', onMove);
+        getView().registerDomEvent(window, 'pointerup', onUp);
+        getView().registerDomEvent(window, 'pointercancel', onUp);
+      },
     };
   }
 

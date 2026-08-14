@@ -24,6 +24,7 @@ let cachedErrorsModule;
 let cachedOpRegistryModule;
 let cachedAiCoreModule;
 let cachedManifestWriterModule;
+let cachedSkillWriterModule;
 
 async function loadErrorsModule() {
 	if (cachedErrorsModule) return cachedErrorsModule;
@@ -95,6 +96,23 @@ async function loadManifestWriterModule() {
 	return cachedManifestWriterModule;
 }
 
+async function loadSkillWriterModule() {
+	if (cachedSkillWriterModule) return cachedSkillWriterModule;
+	const outputDirectory = await mkdtemp(path.join(tmpdir(), 'npde-ai-test-'));
+	const outfile = path.join(outputDirectory, 'skill-writer.cjs');
+	await build({
+		entryPoints: [path.join(projectRoot, 'src/ai/skillWriter.ts')],
+		bundle: true,
+		format: 'cjs',
+		logLevel: 'silent',
+		outfile,
+		platform: 'node',
+		target: 'node22',
+	});
+	cachedSkillWriterModule = require(outfile);
+	return cachedSkillWriterModule;
+}
+
 test('AI errors are throwable Error objects with a stable JSON detail contract', async () => {
 	const { AiError, AI_ERROR_CODES, createAiError, isAiErrorDetail } = await loadErrorsModule();
 	const error = createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'Invalid operation.', {
@@ -126,6 +144,27 @@ test('AI manifest paths honor a custom Obsidian config directory', async () => {
 		'.custom-obsidian/plugins/native-powerpoint-doc-editor/ai/capabilities.json',
 	);
 	assert.equal(getAiManifestPath(undefined), null);
+});
+
+test('AI skill writer creates the vault skill and preserves an existing file', async () => {
+	const { writeAiSkill } = await loadSkillWriterModule();
+	const directories = new Set();
+	const files = new Map();
+	const adapter = {
+		exists: async (target) => directories.has(target) || files.has(target),
+		mkdir: async (target) => directories.add(target),
+		write: async (target, value) => files.set(target, value),
+	};
+
+	assert.equal(await writeAiSkill(adapter), '.agents/skills/npde/SKILL.md');
+	assert.deepEqual([...directories], ['.agents', '.agents/skills', '.agents/skills/npde']);
+	assert.match(files.get('.agents/skills/npde/SKILL.md'), /name: npde/);
+
+	const original = files.get('.agents/skills/npde/SKILL.md');
+	files.set('.agents/skills/npde/SKILL.md', 'user-authored skill');
+	assert.equal(await writeAiSkill(adapter), '.agents/skills/npde/SKILL.md');
+	assert.equal(files.get('.agents/skills/npde/SKILL.md'), 'user-authored skill');
+	assert.notEqual(original, 'user-authored skill');
 });
 
 test('AI op catalog validates known pptx.updateShapeText payload', async () => {

@@ -14,6 +14,7 @@ import {
 	replaceFootnoteInner,
 	replaceWrapperInner,
 } from './docxOoxml';
+import { patchRunStyle } from './docxOoxmlWrite';
 import { AI_ERROR_CODES, createAiError } from './errors';
 
 export interface DocxTextPosition {
@@ -37,6 +38,22 @@ interface FlatRun {
 	hyperlinkClose?: string;
 }
 
+export type DocxListStyle = 'none' | 'bullet' | 'number';
+
+export interface DocxInsertedParagraph {
+	text: string;
+	listStyle?: DocxListStyle;
+	bold?: boolean;
+}
+
+export interface DocxParagraphMutationResult {
+	partXml: string;
+	createdBlockIds: string[];
+	inheritedListProperties: boolean;
+}
+
+let nextGeneratedParagraphId = (Date.now() ^ Math.floor(Math.random() * 0x1_0000_0000)) >>> 0;
+
 function encodeXmlText(value: string): string {
 	return value
 		.replace(/&/g, '&amp;')
@@ -44,6 +61,17 @@ function encodeXmlText(value: string): string {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&apos;');
+}
+
+function nextWordId(): string {
+	nextGeneratedParagraphId = (nextGeneratedParagraphId + 0x0101_0101) >>> 0;
+	return nextGeneratedParagraphId.toString(16).padStart(8, '0').toUpperCase();
+}
+
+function cloneParagraphOpenTag(openTag: string): string {
+	return openTag
+		.replace(/w14:paraId="[^"]*"/, `w14:paraId="${nextWordId()}"`)
+		.replace(/w14:textId="[^"]*"/, `w14:textId="${nextWordId()}"`);
 }
 
 function extractElementXml(
@@ -175,7 +203,8 @@ function setRunTextContent(runXml: string, text: string): string {
 }
 
 function buildRunXml(text: string): string {
-	return `<w:r><w:t>${encodeXmlText(text)}</w:t></w:r>`;
+	const preserveSpace = /^\s|\s$/.test(text) ? ' xml:space="preserve"' : '';
+	return `<w:r><w:t${preserveSpace}>${encodeXmlText(text)}</w:t></w:r>`;
 }
 
 function rebuildContentFromRuns(runs: FlatRun[]): string {
@@ -216,10 +245,28 @@ export function getParagraphPlainText(paragraphXml: string): string {
 function insertTextInParagraphContent(contentXml: string, offset: number, text: string): string {
 	const runs = flattenParagraphRuns(contentXml);
 	const totalLength = runs.reduce((sum, run) => sum + run.text.length, 0);
-	const clampedOffset = Math.max(0, Math.min(offset, totalLength));
+	if (offset < 0 || offset > totalLength) {
+		throw createAiError(
+			AI_ERROR_CODES.SCHEMA_INVALID,
+			`offset ${offset} is outside paragraph text (0..${totalLength}).`,
+			{ field: 'offset' },
+		);
+	}
+	const clampedOffset = offset;
 
 	if (runs.length === 0) {
 		return buildRunXml(text);
+	}
+
+	// Empty paragraphs commonly contain several placeholder runs after an editor
+	// round trip. Collapse that shape to one run so one insert produces one text
+	// run instead of leaving stale empty siblings for the editor to duplicate.
+	if (
+		totalLength === 0
+		&& !/<w:(drawing|object|fldChar|instrText|tab|br)\b/.test(contentXml)
+	) {
+		const template = cloneRunTemplate(runs[0]!.xml);
+		return setRunTextContent(template, text);
 	}
 
 	const nextRuns: FlatRun[] = [];
@@ -299,10 +346,24 @@ function deleteRangeInParagraphContent(contentXml: string, startOffset: number, 
 
 function splitParagraphContent(contentXml: string, offset: number): { before: string; after: string } {
 	const totalLength = getParagraphPlainText(`<w:p>${contentXml}</w:p>`).length;
-	const clampedOffset = Math.max(0, Math.min(offset, totalLength));
+	if (offset < 0 || offset > totalLength) {
+		throw createAiError(
+			AI_ERROR_CODES.SCHEMA_INVALID,
+			`offset ${offset} is outside paragraph text (0..${totalLength}).`,
+			{ field: 'offset' },
+		);
+	}
+	const clampedOffset = offset;
+	const runs = flattenParagraphRuns(contentXml);
+	const before = deleteRangeInParagraphContent(contentXml, clampedOffset, totalLength);
+	const after = deleteRangeInParagraphContent(contentXml, 0, clampedOffset);
+	const ensureContent = (value: string, templateXml: string | undefined): string => {
+		if (value.trim().length > 0) return value;
+		return templateXml ? cloneRunTemplate(templateXml) : buildRunXml('');
+	};
 	return {
-		before: deleteRangeInParagraphContent(contentXml, clampedOffset, totalLength),
-		after: deleteRangeInParagraphContent(contentXml, 0, clampedOffset),
+		before: ensureContent(before, runs[0]?.xml),
+		after: ensureContent(after, runs[runs.length - 1]?.xml),
 	};
 }
 
@@ -396,7 +457,7 @@ export function splitParagraphAtOffset(paragraphXml: string, offset: number): { 
 	const split = splitParagraphContent(contentXml, offset);
 	return {
 		before: composeParagraph(openTag, prefixXml, split.before, closeTag),
-		after: composeParagraph(openTag, prefixXml, split.after, closeTag),
+		after: composeParagraph(cloneParagraphOpenTag(openTag), prefixXml, split.after, closeTag),
 	};
 }
 
@@ -616,7 +677,10 @@ export function applyDeleteParagraphInPart(partXml: string, blockId: string): st
 	);
 }
 
-export function applyInsertParagraphBreakInPart(partXml: string, position: DocxTextPosition): string {
+export function applyInsertParagraphBreakInPart(
+	partXml: string,
+	position: DocxTextPosition,
+): DocxParagraphMutationResult {
 	const location = resolveParagraphLocation(position.blockId);
 	validateOptionalRunId(position.blockId, position.runId, position.offset, partXml, location);
 	const paragraphXml = getParagraphXml(partXml, location);
@@ -628,7 +692,107 @@ export function applyInsertParagraphBreakInPart(partXml: string, position: DocxT
 		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Block ${position.blockId} was not found.`, { field: 'blockId' });
 	}
 	const nextInner = `${inner.slice(0, block.startInBody)}${split.before}${split.after}${inner.slice(block.endInBody)}`;
-	return setEditableInner(partXml, location, nextInner);
+	const nextPartXml = setEditableInner(partXml, location, nextInner);
+	const nextBlocks = enumerateTopLevelBlockPositions(nextInner, idPrefix);
+	const paragraphCount = nextBlocks.filter((entry) => entry.kind === 'paragraph').length;
+	const previousParagraphCount = enumerateTopLevelBlockPositions(inner, idPrefix)
+		.filter((entry) => entry.kind === 'paragraph').length;
+	if (paragraphCount !== previousParagraphCount + 1) {
+		throw createAiError(
+			AI_ERROR_CODES.VALIDATION_FAILED,
+			`Paragraph break did not create exactly one new paragraph for ${position.blockId}.`,
+			{ field: 'blockId' },
+		);
+	}
+	return {
+		partXml: nextPartXml,
+		createdBlockIds: [paragraphIdForLocation({ ...location, paragraphIndex: location.paragraphIndex + 1 })],
+		inheritedListProperties: /<w:numPr\b/.test(decomposeParagraph(paragraphXml).prefixXml),
+	};
+}
+
+function paragraphWithInsertedText(
+	templateParagraphXml: string,
+	paragraph: DocxInsertedParagraph,
+): string {
+	const template = decomposeParagraph(templateParagraphXml);
+	let paragraphProperties = template.prefixXml;
+	const listStyle = paragraph.listStyle;
+	if (listStyle === 'none') {
+		paragraphProperties = paragraphProperties.replace(/<w:numPr\b[\s\S]*?<\/w:numPr>|<w:numPr\b[^>]*\/>/, '');
+	} else if ((listStyle === 'bullet' || listStyle === 'number') && !/<w:numPr\b/.test(paragraphProperties)) {
+		throw createAiError(
+			AI_ERROR_CODES.VALIDATION_FAILED,
+			`Cannot create a ${listStyle} paragraph without native numbering on the anchor paragraph.`,
+			{ field: 'paragraphs' },
+		);
+	}
+
+	const templateRun = flattenParagraphRuns(template.contentXml)[0]?.xml;
+	const runXml = templateRun
+		? setRunTextContent(cloneRunTemplate(templateRun), paragraph.text)
+		: buildRunXml(paragraph.text);
+	const openTag = cloneParagraphOpenTag(template.openTag);
+	let nextParagraph = composeParagraph(openTag, paragraphProperties, runXml, template.closeTag);
+	if (paragraph.bold !== undefined) {
+		nextParagraph = patchRunStyle(nextParagraph, 0, { bold: paragraph.bold });
+	}
+	return nextParagraph;
+}
+
+export function applyInsertParagraphsAfterInPart(
+	partXml: string,
+	afterBlockId: string,
+	paragraphs: DocxInsertedParagraph[],
+): DocxParagraphMutationResult {
+	if (paragraphs.length === 0) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must contain at least one paragraph.', { field: 'paragraphs' });
+	}
+	const location = resolveParagraphLocation(afterBlockId);
+	const inner = getEditableInner(partXml, location);
+	const idPrefix = idPrefixForLocation(location);
+	const blocks = enumerateTopLevelBlockPositions(inner, idPrefix);
+	const block = blocks.find((entry) => entry.id === afterBlockId);
+	if (!block || block.kind !== 'paragraph') {
+		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Block ${afterBlockId} was not found.`, { field: 'afterBlockId' });
+	}
+	const templateParagraphXml = block.xml;
+	const templateProperties = decomposeParagraph(templateParagraphXml).prefixXml;
+	const insertedXml = paragraphs.map((paragraph, index) => {
+		if (typeof paragraph.text !== 'string') {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must be a string.`, { field: 'paragraphs' });
+		}
+		if (paragraph.text.includes('\n') || paragraph.text.includes('\r')) {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must not contain line breaks.`, { field: 'paragraphs' });
+		}
+		if (paragraph.listStyle !== undefined && !['none', 'bullet', 'number'].includes(paragraph.listStyle)) {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].listStyle is invalid.`, { field: 'paragraphs' });
+		}
+		if (paragraph.bold !== undefined && typeof paragraph.bold !== 'boolean') {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].bold must be boolean.`, { field: 'paragraphs' });
+		}
+		return paragraphWithInsertedText(templateParagraphXml, paragraph);
+	}).join('');
+	const nextInner = `${inner.slice(0, block.endInBody)}${insertedXml}${inner.slice(block.endInBody)}`;
+	const nextBlocks = enumerateTopLevelBlockPositions(nextInner, idPrefix);
+	const nextParagraphCount = nextBlocks.filter((entry) => entry.kind === 'paragraph').length;
+	const previousParagraphCount = blocks.filter((entry) => entry.kind === 'paragraph').length;
+	if (nextParagraphCount !== previousParagraphCount + paragraphs.length) {
+		throw createAiError(
+			AI_ERROR_CODES.VALIDATION_FAILED,
+			`Paragraph insertion did not create ${paragraphs.length} new paragraphs for ${afterBlockId}.`,
+			{ field: 'afterBlockId' },
+		);
+	}
+
+	return {
+		partXml: setEditableInner(partXml, location, nextInner),
+		createdBlockIds: paragraphs.map((_, index) => paragraphIdForLocation({
+			...location,
+			paragraphIndex: location.paragraphIndex + 1 + index,
+		})),
+		inheritedListProperties: /<w:numPr\b/.test(templateProperties),
+	};
 }
 
 export function applyInsertHyperlinkInPart(

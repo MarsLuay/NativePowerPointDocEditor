@@ -55,6 +55,10 @@ export interface SlideFilmstripHost {
     isThumbnail?: boolean
   ): { svg: string; issues: SvgSecurityIssue[]; allowed: boolean };
   createNativeMenu(): Menu;
+  registerThumbnailPointerEvents(
+    onMove: (event: PointerEvent) => void,
+    onUp: (event: PointerEvent) => void,
+  ): void;
 }
 
 /** A completed filmstrip preview is also a safe, display-ready slide render. */
@@ -128,6 +132,9 @@ export class SlideFilmstripController {
 
   constructor(private readonly host: SlideFilmstripHost) {
     this.notice = createTranslateNotice(this.host.t);
+    if (typeof window !== 'undefined') {
+      this.host.registerThumbnailPointerEvents(this.onThumbnailPointerMove, this.onThumbnailPointerUp);
+    }
   }
 
   dispose(): void {
@@ -559,9 +566,6 @@ export class SlideFilmstripController {
       startY: event.clientY,
       dragging: false,
     };
-    window.addEventListener('pointermove', this.onThumbnailPointerMove);
-    window.addEventListener('pointerup', this.onThumbnailPointerUp);
-    window.addEventListener('pointercancel', this.onThumbnailPointerUp);
   }
 
   private handleThumbnailPointerMove(event: PointerEvent): void {
@@ -612,9 +616,6 @@ export class SlideFilmstripController {
   }
 
   private teardownThumbnailPointerDrag(): void {
-    window.removeEventListener('pointermove', this.onThumbnailPointerMove);
-    window.removeEventListener('pointerup', this.onThumbnailPointerUp);
-    window.removeEventListener('pointercancel', this.onThumbnailPointerUp);
     this.thumbnailPointerDrag = null;
   }
 

@@ -502,6 +502,32 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	}),
 
 	// DOCX — table
+	docxOp('insertParagraphsAfter', 'font', 'Insert one or more native DOCX paragraphs after a paragraph anchor and return their new block ids. Inherits the anchor paragraph properties, including native list formatting.', {
+		type: 'object',
+		required: ['afterBlockId', 'paragraphs'],
+		properties: {
+			afterBlockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[3].' },
+			paragraphs: {
+				type: 'array',
+				minimum: 1,
+				items: {
+					type: 'object',
+					required: ['text'],
+					properties: {
+						text: { type: 'string', description: 'One paragraph of text; do not include line breaks.' },
+						listStyle: {
+							type: 'string',
+							enum: ['none', 'bullet', 'number'],
+							description: 'Optional. none removes inherited numbering; bullet/number preserve the anchor paragraph’s native numbering properties.',
+						},
+						bold: { type: 'boolean', description: 'Optional bold state for the inserted paragraph text.' },
+					},
+					additionalProperties: false,
+				},
+			},
+		},
+		additionalProperties: false,
+	}),
 	docxOp('insertTable', 'table', 'Insert a table at a block anchor.', {
 		type: 'object',
 		required: ['afterBlockId', 'rows', 'cols'],

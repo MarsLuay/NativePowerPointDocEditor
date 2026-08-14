@@ -111,6 +111,12 @@
 			"name": "Włącz interfejs AI",
 			"description": "Udostępnia API wtyczki, manifest możliwości na dysku oraz polecenia JSON ze schowka, aby zewnętrzne narzędzia AI mogły opisywać, walidować, stosować i zapisywać edycje PPTX i DOCX. Gdy wyłączone, żaden interfejs agenta nie jest publikowany."
 		},
+		"addAiSkill": {
+			"name": "Dodaj umiejętność AI",
+			"description": "Włącz, aby dodać umiejętność AI NPDE do pliku .agents/skills/npde/SKILL.md w tym skarbcu. Istniejące pliki umiejętności są zachowywane."
+		},
+		"skillAdded": "Umiejętność AI NPDE jest dostępna w .agents/skills/npde/SKILL.md.",
+		"skillAddFailed": "Nie udało się dodać umiejętności AI NPDE do tego skarbca.",
 		"disabledNotice": "Najpierw włącz interfejs AI w ustawieniach wtyczki.",
 		"manifestCopied": "Skopiowano manifest możliwości AI do schowka.",
 		"describeCopied": "Skopiowano wynik describe() do schowka.",

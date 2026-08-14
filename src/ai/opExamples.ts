@@ -75,6 +75,11 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		border: { style: 'single', size: 8, color: '000000' },
 	},
 	'docx.insertTable': { op: 'docx.insertTable', afterBlockId: 'body/p[0]', rows: 2, cols: 2 },
+	'docx.insertParagraphsAfter': {
+		op: 'docx.insertParagraphsAfter',
+		afterBlockId: 'body/p[0]',
+		paragraphs: [{ text: 'Added item', listStyle: 'bullet', bold: false }],
+	},
 	'docx.setCellText': { op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Cell' },
 	'docx.setCellStyle': { op: 'docx.setCellStyle', cellId: 'body/tbl[0]/tr[0]/tc[0]', style: { name: 'Normal' } },
 	'docx.deleteTable': { op: 'docx.deleteTable', tableId: 'body/tbl[0]' },

@@ -234,6 +234,7 @@ test("settings catalog covers DOCX and PowerPoint configurable settings", async 
       "disableDocxFiles",
       "disablePowerPointFiles",
       "editorTheme",
+      "addAiSkill",
       "enableAiInterfacing",
       "enableDocxSearchIndex",
       "powerPointAutosaveEnabled",

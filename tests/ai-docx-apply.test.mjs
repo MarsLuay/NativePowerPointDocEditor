@@ -588,6 +588,100 @@ test('DocxDocumentService applies insertText, deleteRange, hyperlink, and paragr
 	assert.equal(snapshot.blocks[1]?.text, ' world');
 });
 
+test('DocxDocumentService makes empty-run writes explicit and describes unsaved headless edits', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/empty-run.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t></w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Following paragraph</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const falseSuccess = await service.apply(docPath, [{
+		op: 'docx.setRunText',
+		blockId: 'body/p[0]',
+		runId: 'body/p[0]/r[0]',
+		text: 'Inserted',
+	}]);
+	assert.equal(falseSuccess.ok, false);
+	assert.equal(falseSuccess.errors[0]?.code, 'EMPTY_RUN_USE_INSERT_TEXT');
+
+	const inserted = await service.apply(docPath, [{
+		op: 'docx.insertText',
+		blockId: 'body/p[0]',
+		offset: 0,
+		text: 'Inserted',
+	}]);
+	assert.equal(inserted.ok, true, JSON.stringify(inserted.errors));
+
+	const described = await service.describe(docPath);
+	assert.equal(described.ok, true, JSON.stringify(described.errors));
+	assert.equal(described.snapshot.blocks[0]?.text, 'Inserted');
+	assert.equal(described.snapshot.blocks[1]?.text, 'Following paragraph');
+});
+
+test('DocxDocumentService inserts stable list paragraphs and reports created ids', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/list-insert.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p w14:paraId="AAAAAAA1" w14:textId="11111111"><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>Existing bullet</w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Following paragraph</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const breakResult = await service.apply(docPath, [{
+		op: 'docx.insertParagraphBreak',
+		blockId: 'body/p[0]',
+		offset: 0,
+	}]);
+	assert.equal(breakResult.ok, true, JSON.stringify(breakResult.errors));
+	assert.deepEqual(breakResult.created, ['body/p[1]']);
+	assert.equal(breakResult.preview?.[0]?.after?.inheritedListProperties, true);
+
+	const afterBreak = await service.describe(docPath);
+	assert.equal(afterBreak.ok, true, JSON.stringify(afterBreak.errors));
+	assert.equal(afterBreak.snapshot.blocks[0]?.text, '');
+	assert.equal(afterBreak.snapshot.blocks[1]?.text, 'Existing bullet');
+	assert.equal(afterBreak.snapshot.blockCount, 3);
+
+	const insertResult = await service.apply(docPath, [{
+		op: 'docx.insertParagraphsAfter',
+		afterBlockId: 'body/p[1]',
+		paragraphs: [{ text: 'Added bullet', listStyle: 'bullet', bold: true }],
+	}]);
+	assert.equal(insertResult.ok, true, JSON.stringify(insertResult.errors));
+	assert.deepEqual(insertResult.created, ['body/p[2]']);
+	assert.equal(insertResult.preview?.[0]?.after?.inheritedListProperties, true);
+
+	const described = await service.describe(docPath);
+	assert.equal(described.ok, true, JSON.stringify(described.errors));
+	assert.equal(described.snapshot.blocks[2]?.text, 'Added bullet');
+	assert.equal(described.snapshot.blocks[2]?.runs?.[0]?.bold, true);
+
+	await service.save(docPath);
+	const savedBytes = vault.store.get(docPath);
+	const savedXml = await (await JSZip.loadAsync(savedBytes.buffer)).file('word/document.xml').async('string');
+	assert.equal((savedXml.match(/<w:numPr\b/g) ?? []).length, 3);
+	assert.equal((savedXml.match(/w14:paraId="AAAAAAA1"/g) ?? []).length, 1);
+	assert.equal((savedXml.match(/w14:paraId="[0-9A-F]+"/g) ?? []).length, 3);
+});
+
 test('DocxDocumentService deletes a blank paragraph without merging the next heading', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();

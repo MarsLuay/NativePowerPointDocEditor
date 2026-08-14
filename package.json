@@ -1,6 +1,6 @@
 {
 	"name": "native-powerpoint-doc-editor",
-	"version": "1.1.14",
+	"version": "1.1.15",
 	"description": "Open, search, and edit DOCX and PPTX files directly in your vault.",
 	"main": "main.js",
 	"type": "module",
@@ -90,7 +90,7 @@
 		"@radix-ui/react-select": "^2.3.7",
 		"clsx": "^2.1.1",
 		"docxtemplater": "^3.69.3",
-		"dompurify": "3.4.12",
+		"dompurify": "3.4.13",
 		"heic-decode": "^2.1.0",
 		"html2canvas": "^1.4.1",
 		"jszip": "^3.10.1",
@@ -115,7 +115,7 @@
 		"esbuild@0.28.1": true
 	},
 	"overrides": {
-		"js-yaml": "^4.2.0",
+		"js-yaml": "^4.3.1",
 		"prosemirror-commands": "1.7.1",
 		"prosemirror-dropcursor": "1.8.3",
 		"prosemirror-history": "1.5.0",
@@ -127,7 +127,9 @@
 		"prosemirror-view": "1.41.9",
 		"orderedmap": "2.1.1",
 		"@eslint/config-array": "0.23.5",
-		"brace-expansion": "5.0.8",
-		"minimatch": "10.2.5"
+		"brace-expansion": "5.0.9",
+		"fast-uri": "3.1.5",
+		"minimatch": "10.2.6",
+		"undici": "7.29.0"
 	}
 }
