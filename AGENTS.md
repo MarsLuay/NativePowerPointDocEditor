@@ -307,6 +307,8 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 
 ## Code analysis — wont-fix
 
+obsidian: allow missing-release
+
 - `main.js` (`perf/bundle-size`): Soft 90% warning under the Sync Standard 5 MB budget. Gzip-embedded PPTX/HEIC runtimes keep community releases to Obsidian-supported assets while staying under the hard Sync limit; further shrinking would drop engines or reintroduce unsupported release sidecars.
 - `src/powerpoint/measureCanvas.ts` (`grouped-diagnostics.recommendation`): Detached measure canvas must use native `Document.createElement` when Obsidian `Window.createEl` is unavailable; `Document.createEl` can throw HierarchyRequestError on SVG/XML owner documents. Factory exempts `prefer-create-el` / `no-deprecated`.
 - `src/powerpoint/measureCanvas.ts` (`grouped-diagnostics.warning`): Same detached factory — plugin-review / `obsidianmd/prefer-create-el` is intentional.

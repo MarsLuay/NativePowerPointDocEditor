@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.15] - 2026-08-15
+
+- Synchronized the release notes with the current manifest version.
+
 ## [1.1.14] - 2026-07-31
 
 ### Added
