@@ -7,6 +7,7 @@ import { DocxSearchModal } from './DocxSearchModal';
 import { DocxView } from './DocxView';
 import { VIEW_TYPE_DOCX } from './docxViewConstants';
 import { configureDocxEditorChunkPaths } from './docxEditorLoader';
+import { selectDocxViewForPath } from './docxViewSelection';
 import { DocxSearchIndex } from './docxSearchIndex';
 import { scheduleIdleWork } from './idleSchedule';
 import { errorLog, infoLog } from './logger';
@@ -319,13 +320,15 @@ export async function rebuildDocxSearchIndex(
 
 export function findDocxViewForPath(app: App, path: string): DocxViewAgentBridge | null {
 	const normalized = normalizePath(path);
-	for (const leaf of app.workspace.getLeavesOfType(VIEW_TYPE_DOCX)) {
-		const view = leaf.view;
-		if (view instanceof DocxView && view.getLoadedDocumentPath() === normalized) {
-			return view;
-		}
-	}
-	return null;
+	const views = app.workspace
+		.getLeavesOfType(VIEW_TYPE_DOCX)
+		.map(leaf => leaf.view)
+		.filter((view): view is DocxView => view instanceof DocxView);
+	return selectDocxViewForPath(
+		views,
+		app.workspace.getActiveViewOfType(DocxView),
+		normalized,
+	);
 }
 
 /**
