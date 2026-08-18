@@ -108,7 +108,7 @@
 		"prosemirror-view": "1.41.9",
 		"react": "^19.2.8",
 		"react-dom": "^19.2.8",
-		"sonner": "^2.0.7",
+		"sonner": "^2.0.8",
 		"xml-js": "^1.6.11"
 	},
 	"allowScripts": {
