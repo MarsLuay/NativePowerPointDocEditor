@@ -172,3 +172,27 @@ test("a full add/duplicate/delete sequence exports to a still-loadable deck", as
   assert.match(reloaded.renderSlideSvg(0), /^<svg\b/);
   assert.match(reloaded.renderSlideSvg(1), /^<svg\b/);
 });
+
+test("deleting a slide with relationships and markers validates successfully", async () => {
+  const { validatePowerPointExportContents } = await import("./helpers/load-plugin-modules.mjs").then(m => m.loadPowerPointPackageModule());
+  const engine = await loadEngine("features.pptx");
+
+  // Add a slide so we can delete the first one (the one with charts/hyperlinks/unknown markers)
+  await engine.addSlide(0);
+  const inputBuffer = toArrayBuffer(await readDeck("features.pptx"));
+
+  // Actually we need to validate against the state AFTER adding the slide
+  const beforeBuffer = await engine.export();
+
+  await engine.deleteSlide(0);
+
+  const exported = await engine.export();
+  const validation = await validatePowerPointExportContents(beforeBuffer, exported, {
+    allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+    allowedPartRemovals: engine.getPrunedPackageParts(),
+    allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+    allowedExternalRelationshipRemovals: engine.getExternalRelationshipRemovalAllowance(),
+  });
+
+  assert.equal(validation.ok, true, `Validation failed: ${validation.errors.join(", ")}`);
+});

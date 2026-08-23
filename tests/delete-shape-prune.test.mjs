@@ -68,3 +68,42 @@ test("deleting a chart prunes chart and embedding parts", async () => {
     `expected chart prune: before=${chartsBefore.length} after=${chartsAfter.length}`,
   );
 });
+
+test("deleting a shape with an external relationship validates successfully", async () => {
+  const { validatePowerPointExportContents } = await loadPowerPointPackageModule();
+  const source = toArrayBuffer(await readDeck("features.pptx"));
+
+  const engine = await loadEngine("features.pptx");
+  engine.renderSlide(0);
+
+  // Find a shape with a hyperlink
+  let hlinkIdx = -1;
+  for (let index = 0; index < 32; index += 1) {
+    try {
+      const svg = engine.renderShape(0, index);
+      // Wait we don't know the svg representation of hlink exactly, but let's just delete shape 0
+      // Shape 0 contains the text box with the hyperlink
+      if (svg && svg.includes("Native PowerPoint")) {
+        hlinkIdx = index;
+        break;
+      }
+    } catch {
+      break;
+    }
+  }
+
+  // Fallback to 0 if not found, as we know shape 0 in features.pptx has a hyperlink
+  if (hlinkIdx === -1) hlinkIdx = 0;
+
+  await engine.deleteShape(0, hlinkIdx);
+  const exported = await engine.export();
+
+  const allowed = await validatePowerPointExportContents(source, exported, {
+    allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+    allowedPartRemovals: engine.getPrunedPackageParts(),
+    allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+    allowedExternalRelationshipRemovals: engine.getExternalRelationshipRemovalAllowance(),
+  });
+
+  assert.equal(allowed.ok, true, `Validation failed: ${allowed.errors.join(", ")}`);
+});

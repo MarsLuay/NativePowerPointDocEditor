@@ -22,6 +22,7 @@ export interface ShapePartPruneResult {
   buffer: ArrayBuffer;
   removedPartPaths: string[];
   removedRelationshipIds: string[];
+  removedExternalTargets: string[];
 }
 
 /** Collect `r:*` relationship ids from a shape subtree (blip embeds, hyperlinks, charts). */
@@ -45,7 +46,7 @@ function relationshipsPathToPartPath(relsPath: string): string {
   return relsPath.replace(/\/_rels\/([^/]+)\.rels$/, '/$1');
 }
 
-function collectReferencedInternalParts(
+export function collectReferencedInternalParts(
   zip: ZipContents,
   textOverrides: Map<string, string>,
 ): Set<string> {
@@ -68,7 +69,7 @@ function collectReferencedInternalParts(
   return referenced;
 }
 
-function isPrunablePart(partPath: string): boolean {
+export function isPrunablePart(partPath: string): boolean {
   return PRUNABLE_PART_PREFIXES.some((prefix) => partPath.startsWith(prefix));
 }
 
@@ -108,6 +109,7 @@ export async function pruneAfterShapeDeletion(
   ]);
   const removals = new Set<string>();
   const removedRelationshipIds: string[] = [];
+  const removedExternalTargets: string[] = [];
 
   const uniqueDeletedIds = [...new Set(deletedRelationshipIds)];
   if (uniqueDeletedIds.length > 0) {
@@ -125,6 +127,14 @@ export async function pruneAfterShapeDeletion(
         const relationshipId = relationship.getAttribute('Id');
         if (!relationshipId || stillNeeded.has(relationshipId)) continue;
         if (!uniqueDeletedIds.includes(relationshipId)) continue;
+
+        if (relationship.getAttribute('TargetMode') === 'External') {
+          const target = relationship.getAttribute('Target');
+          if (target) {
+            removedExternalTargets.push(target);
+          }
+        }
+
         relationship.parentNode?.removeChild(relationship);
         removedRelationshipIds.push(relationshipId);
       }
@@ -161,5 +171,6 @@ export async function pruneAfterShapeDeletion(
     buffer,
     removedPartPaths: [...removals].sort(),
     removedRelationshipIds,
+    removedExternalTargets,
   };
 }
