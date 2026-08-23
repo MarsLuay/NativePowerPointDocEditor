@@ -68,3 +68,53 @@ test("deleting a chart prunes chart and embedding parts", async () => {
     `expected chart prune: before=${chartsBefore.length} after=${chartsAfter.length}`,
   );
 });
+
+test("deleting a shape with an external relationship validates successfully", async () => {
+  const { validatePowerPointExportContents } = await loadPowerPointPackageModule();
+  const source = toArrayBuffer(await readDeck("features.pptx"));
+
+  const engine = await loadEngine("features.pptx");
+  engine.renderSlide(0);
+  const titleSvg = engine.renderShape(0, 0);
+  assert.match(
+    String(titleSvg).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    /Native PowerPoint fixture/,
+    "features.pptx shape 0 must be the hyperlink title",
+  );
+
+  await engine.deleteShape(0, 0);
+  const exported = await engine.export();
+
+  const unallowed = await validatePowerPointExportContents(source, exported);
+  assert.equal(unallowed.ok, false);
+  assert.ok(
+    unallowed.errors.some((error) => error.includes("external relationship")),
+    `expected an external-relationship drop without an allowance, got ${JSON.stringify(unallowed.errors)}`,
+  );
+
+  const allowance = engine.getExternalRelationshipRemovalAllowance();
+  assert.ok(
+    (allowance["https://example.com/native-powerpoint"] ?? 0) > 0,
+    `expected hyperlink target allowance, got ${JSON.stringify(allowance)}`,
+  );
+
+  const withoutExternalAllowance = await validatePowerPointExportContents(source, exported, {
+    allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+    allowedPartRemovals: engine.getPrunedPackageParts(),
+    allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+  });
+  assert.equal(withoutExternalAllowance.ok, false);
+  assert.ok(
+    withoutExternalAllowance.errors.some((error) => error.includes("external relationship")),
+    `save-path options without external-relationship allowance should still fail, got ${JSON.stringify(withoutExternalAllowance.errors)}`,
+  );
+
+  const allowed = await validatePowerPointExportContents(source, exported, {
+    allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+    allowedPartRemovals: engine.getPrunedPackageParts(),
+    allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+    allowedExternalRelationshipRemovals: allowance,
+  });
+
+  assert.equal(allowed.ok, true, `Validation failed: ${allowed.errors.join(", ")}`);
+});

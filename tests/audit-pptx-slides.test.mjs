@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { loadPresentationEngineModule } from "./helpers/load-plugin-modules.mjs";
+import { loadPowerPointPackageModule, loadPresentationEngineModule } from "./helpers/load-plugin-modules.mjs";
 import { createRenderer, readDeck, toArrayBuffer } from "./helpers/renderer.mjs";
 
 // Audit coverage for the "PPTX · Slides: navigate & manage" feature group.
@@ -171,4 +171,40 @@ test("a full add/duplicate/delete sequence exports to a still-loadable deck", as
   assert.equal(reloaded.getSlideCount(), 2);
   assert.match(reloaded.renderSlideSvg(0), /^<svg\b/);
   assert.match(reloaded.renderSlideSvg(1), /^<svg\b/);
+});
+
+test("deleting a slide with relationships and markers validates successfully", async () => {
+  const { validatePowerPointExportContents } = await loadPowerPointPackageModule();
+  const source = toArrayBuffer(await readDeck("features.pptx"));
+  const engine = await loadEngine("features.pptx");
+
+  // addSlide(afterIndex) inserts after the original features slide, so deleting
+  // index 0 removes the slide that carries charts, hyperlinks, and unknown markers.
+  // Save validation compares against the originally loaded package, not the
+  // pre-delete export, so keep a 1-slide vs 1-slide comparison here.
+  await engine.addSlide(0);
+  await engine.deleteSlide(0);
+
+  const exported = await engine.export();
+  const unallowed = await validatePowerPointExportContents(source, exported);
+  assert.equal(unallowed.ok, false);
+  assert.ok(
+    unallowed.errors.some((error) => error.includes("external relationship")),
+    `expected an external-relationship drop without an allowance, got ${JSON.stringify(unallowed.errors)}`,
+  );
+
+  const allowance = engine.getExternalRelationshipRemovalAllowance();
+  assert.ok(
+    (allowance["https://example.com/native-powerpoint"] ?? 0) > 0,
+    `expected hyperlink target allowance, got ${JSON.stringify(allowance)}`,
+  );
+
+  const validation = await validatePowerPointExportContents(source, exported, {
+    allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
+    allowedPartRemovals: engine.getPrunedPackageParts(),
+    allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+    allowedExternalRelationshipRemovals: allowance,
+  });
+
+  assert.equal(validation.ok, true, `Validation failed: ${validation.errors.join(", ")}`);
 });

@@ -26,6 +26,7 @@ export async function exportValidatedPptx(
 	const contentValidation = await validatePowerPointExportContents(sourceBuffer, output, {
 		allowedMarkerRemovals: engine.getProtectedSlideMarkerRemovalAllowance(),
 		allowedUnknownElementRemovals: engine.getUnknownSlideElementRemovalAllowance(),
+		allowedExternalRelationshipRemovals: engine.getExternalRelationshipRemovalAllowance(),
 		allowedPartRemovals,
 	});
 	if (!contentValidation.ok) {

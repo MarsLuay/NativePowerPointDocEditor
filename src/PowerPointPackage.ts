@@ -45,6 +45,7 @@ export interface PowerPointContentValidationOptions {
   allowedUnknownElementRemovals?: Record<string, number>;
   /** Package parts removed by an explicit delete (media/charts/embeddings). */
   allowedPartRemovals?: ReadonlySet<string> | readonly string[];
+  allowedExternalRelationshipRemovals?: Record<string, number>;
 }
 
 function isAllowedPartRemoval(
@@ -329,9 +330,24 @@ export async function validatePowerPointExportContents(
       }
     }
 
+    const originalTargets = collectSlideRelationshipTargets(original.textFiles);
     const exportedTargets = collectSlideRelationshipTargets(exported.textFiles);
-    for (const target of collectSlideRelationshipTargets(original.textFiles)) {
-      if (!exportedTargets.includes(target)) {
+
+    const originalTargetCounts = new Map<string, number>();
+    for (const target of originalTargets) {
+      originalTargetCounts.set(target, (originalTargetCounts.get(target) ?? 0) + 1);
+    }
+
+    const exportedTargetCounts = new Map<string, number>();
+    for (const target of exportedTargets) {
+      exportedTargetCounts.set(target, (exportedTargetCounts.get(target) ?? 0) + 1);
+    }
+
+    for (const [target, count] of originalTargetCounts) {
+      const exportedCount = exportedTargetCounts.get(target) ?? 0;
+      const removedCount = Math.max(0, count - exportedCount);
+      const allowedCount = Math.max(0, Math.floor(options.allowedExternalRelationshipRemovals?.[target] ?? 0));
+      if (removedCount > allowedCount) {
         errors.push(`Slide edit dropped external relationship ${target}.`);
       }
     }
@@ -452,7 +468,7 @@ export function countElementName(contents: string, name: string): number {
   return countMatches(contents, new RegExp(`<${escapeRegex(name)}\\b`, 'g'));
 }
 
-function collectExternalRelationshipTargets(contents: string): string[] {
+export function collectExternalRelationshipTargets(contents: string): string[] {
   const targets: string[] = [];
   for (const match of contents.matchAll(/<Relationship\b([^>]*)\/?>/g)) {
     const attrs = match[1] ?? '';

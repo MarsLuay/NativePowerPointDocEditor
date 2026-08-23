@@ -52,6 +52,8 @@ import {
 import {
   collectShapeRelationshipIds,
   pruneAfterShapeDeletion,
+  collectReferencedInternalParts,
+  isPrunablePart,
 } from './powerpoint/pruneDeletedShapeParts';
 import {
   DRAWINGML_NAMESPACE,
@@ -143,6 +145,7 @@ import {
 import {
   addProtectedSlideMarkerAllowances,
   collectUnknownElementNames,
+  collectExternalRelationshipTargets,
   countElementName,
   countProtectedSlideMarkers,
   type ProtectedSlideMarkerRemovalAllowance,
@@ -599,6 +602,7 @@ export class PresentationEngine {
   private slideLayouts: SlideLayoutDefinition[] = [];
   private protectedSlideMarkerRemovalAllowance: ProtectedSlideMarkerRemovalAllowance = {};
   private unknownSlideElementRemovalAllowance = new Map<string, number>();
+  private externalRelationshipRemovalAllowance = new Map<string, number>();
   /** Package parts removed by explicit deletes; merge funnels must not resurrect them. */
   private prunedPackageParts = new Set<string>();
   // Invariant: the lossless package buffer is authoritative; renderer state is derived.
@@ -2402,6 +2406,7 @@ export class PresentationEngine {
   clearProtectedSlideMarkerRemovalAllowance(): void {
     this.protectedSlideMarkerRemovalAllowance = {};
     this.unknownSlideElementRemovalAllowance.clear();
+    this.externalRelationshipRemovalAllowance.clear();
   }
 
   /** Parts removed by delete; used so list-style merge cannot resurrect orphans. */
@@ -2411,6 +2416,10 @@ export class PresentationEngine {
 
   getUnknownSlideElementRemovalAllowance(): Record<string, number> {
     return Object.fromEntries(this.unknownSlideElementRemovalAllowance);
+  }
+
+  getExternalRelationshipRemovalAllowance(): Record<string, number> {
+    return Object.fromEntries(this.externalRelationshipRemovalAllowance);
   }
 
   async deleteShape(slideIndex: number, shapeIndex: number): Promise<void> {
@@ -2490,6 +2499,12 @@ export class PresentationEngine {
       );
       for (const partPath of pruned.removedPartPaths) {
         this.prunedPackageParts.add(partPath);
+      }
+      for (const target of pruned.removedExternalTargets) {
+        this.externalRelationshipRemovalAllowance.set(
+          target,
+          (this.externalRelationshipRemovalAllowance.get(target) ?? 0) + 1,
+        );
       }
       await this.reloadFromBuffer(pruned.buffer, this.slideCountValue);
       debugLog('mutate', 'Slide tree mutation committed', {
@@ -2864,13 +2879,75 @@ export class PresentationEngine {
 
     // Fold live OOXML (incl. WASM transforms) without a full package encode.
     await this.pptxDocument.foldLiveSlidesIntoPackage();
+
+    let deletedMarkerCounts: ProtectedSlideMarkerRemovalAllowance = {};
+    const deletedUnknownElementCounts = new Map<string, number>();
+    const deletedExternalRelationshipCounts = new Map<string, number>();
+
+    const zip = await extractZip(this.currentBuffer);
+
+    for (const index of unique) {
+      const slideXml = this.getMutationSlideXml(index);
+      if (slideXml) {
+        deletedMarkerCounts = addProtectedSlideMarkerAllowances(
+          deletedMarkerCounts,
+          countProtectedSlideMarkers(slideXml),
+        );
+        for (const elementName of collectUnknownElementNames(slideXml)) {
+          const count = countElementName(slideXml, elementName);
+          deletedUnknownElementCounts.set(
+            elementName,
+            (deletedUnknownElementCounts.get(elementName) ?? 0) + count,
+          );
+        }
+      }
+
+      const relsPath = getSlideRelationshipsPath(index);
+      const relsXml = zip.textFiles.get(relsPath);
+      if (relsXml) {
+        for (const target of collectExternalRelationshipTargets(relsXml)) {
+          deletedExternalRelationshipCounts.set(target, (deletedExternalRelationshipCounts.get(target) ?? 0) + 1);
+        }
+      }
+    }
+
     const remaining = Array.from({ length: beforeCount }, (_, index) => index).filter(
       (index) => !unique.includes(index)
     );
     const slideCount = remaining.length;
     const permuted = await permuteSlidesInBuffer(this.currentBuffer, remaining);
     const normalized = await normalizeSlideManifest(permuted, slideCount);
+
+    const zipNormalized = await extractZip(normalized);
+    const referenced = collectReferencedInternalParts(zipNormalized, new Map());
+    for (const partPath of [...zip.textFiles.keys(), ...zip.binaryFiles.keys()]) {
+      if (!isPrunablePart(partPath)) continue;
+      if (referenced.has(partPath)) continue;
+      this.prunedPackageParts.add(partPath);
+      if (partPath.startsWith('ppt/charts/') && partPath.endsWith('.xml')) {
+        const chartRels = partPath.replace(/^(.*\/)([^/]+)$/, '$1_rels/$2.rels');
+        if (zip.textFiles.has(chartRels)) this.prunedPackageParts.add(chartRels);
+      }
+    }
+
     await this.reloadFromBuffer(normalized, slideCount);
+
+    this.protectedSlideMarkerRemovalAllowance = addProtectedSlideMarkerAllowances(
+      this.protectedSlideMarkerRemovalAllowance,
+      deletedMarkerCounts,
+    );
+    for (const [elementName, count] of deletedUnknownElementCounts) {
+      this.unknownSlideElementRemovalAllowance.set(
+        elementName,
+        (this.unknownSlideElementRemovalAllowance.get(elementName) ?? 0) + count,
+      );
+    }
+    for (const [target, count] of deletedExternalRelationshipCounts) {
+      this.externalRelationshipRemovalAllowance.set(
+        target,
+        (this.externalRelationshipRemovalAllowance.get(target) ?? 0) + count,
+      );
+    }
 
     const focusHint = Math.min(...unique);
     const slideIndex = Math.min(focusHint, slideCount - 1);
