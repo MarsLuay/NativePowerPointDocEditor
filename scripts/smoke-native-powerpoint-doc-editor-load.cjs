@@ -316,6 +316,9 @@ function createAppStub() {
 				write() {
 					return Promise.resolve();
 				},
+				writeBinary() {
+					return Promise.resolve();
+				},
 			},
 			getAbstractFileByPath() {
 				return null;
