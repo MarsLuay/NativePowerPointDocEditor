@@ -2884,10 +2884,11 @@ export class PresentationEngine {
     const deletedUnknownElementCounts = new Map<string, number>();
     const deletedExternalRelationshipCounts = new Map<string, number>();
 
+    const reader = this.renderer as any;
     const zip = await extractZip(this.currentBuffer);
 
     for (const index of unique) {
-      const slideXml = this.getMutationSlideXml(index);
+      const slideXml = this.pptxDocument.getAuthoritativeSlideXml(index) ?? (typeof reader.getSlideOoxml === 'function' ? reader.getSlideOoxml(index) : null);
       if (slideXml) {
         deletedMarkerCounts = addProtectedSlideMarkerAllowances(
           deletedMarkerCounts,

@@ -8,7 +8,6 @@ import {
   summarizePackageMessages,
   validatePowerPointExport,
   validatePowerPointExportContents,
-  type PowerPointContentValidationOptions,
   type PowerPointPackageInspection
 } from '../PowerPointPackage';
 import { applySaveStatusPresentation, getSaveStatusLabel } from '../save/saveStatus';
@@ -55,16 +54,18 @@ interface PowerPointSaveContext {
   sourceBuffer: ArrayBuffer;
 }
 
-function getDeletionValidationAllowances(engine: PresentationEngine): PowerPointContentValidationOptions {
+function getDeletionValidationAllowances(engine: PresentationEngine): {
+  allowedMarkerRemovals: Record<string, number>;
+  allowedUnknownElementRemovals: Record<string, number>;
+  allowedPartRemovals: ReadonlySet<string>;
+} {
   const deletionAware = engine as Partial<Pick<PresentationEngine,
     | 'getProtectedSlideMarkerRemovalAllowance'
     | 'getUnknownSlideElementRemovalAllowance'
-    | 'getExternalRelationshipRemovalAllowance'
     | 'getPrunedPackageParts'>>;
   return {
     allowedMarkerRemovals: deletionAware.getProtectedSlideMarkerRemovalAllowance?.() ?? {},
     allowedUnknownElementRemovals: deletionAware.getUnknownSlideElementRemovalAllowance?.() ?? {},
-    allowedExternalRelationshipRemovals: deletionAware.getExternalRelationshipRemovalAllowance?.() ?? {},
     allowedPartRemovals: deletionAware.getPrunedPackageParts?.() ?? new Set<string>(),
   };
 }
