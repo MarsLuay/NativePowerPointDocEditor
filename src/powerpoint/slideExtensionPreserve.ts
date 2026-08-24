@@ -263,6 +263,16 @@ function restoreUnknownNamespaceMarkup(previousDocument: XMLDocument, exportedDo
       changed = true;
     }
   }
+
+  // Graft any root-level extensions (e.g. <p:extLst> with unknown elements) that aren't tied to shapes.
+  // We skip traversing the shape tree because the loop above already processes them.
+  const isSpTree = (element: Element) => element.localName === 'spTree';
+  if (previousDocument.documentElement && exportedDocument.documentElement) {
+    if (graftMissingUnknownNamespaceElements(previousDocument.documentElement, exportedDocument.documentElement, exportedDocument, isSpTree)) {
+      changed = true;
+    }
+  }
+
   return changed;
 }
 
@@ -353,10 +363,11 @@ function getShapeRoot(identity: ShapeIdentity): Element | null {
 function graftMissingUnknownNamespaceElements(
   previousRoot: Element,
   exportedRoot: Element,
-  exportedDocument: XMLDocument
+  exportedDocument: XMLDocument,
+  skipTraversal?: (element: Element) => boolean
 ): boolean {
-  const previousCounts = countUnknownElementNames(previousRoot);
-  const exportedCounts = countUnknownElementNames(exportedRoot);
+  const previousCounts = countUnknownElementNames(previousRoot, skipTraversal);
+  const exportedCounts = countUnknownElementNames(exportedRoot, skipTraversal);
   let changed = false;
 
   for (const [elementName, previousCount] of previousCounts) {
@@ -364,14 +375,14 @@ function graftMissingUnknownNamespaceElements(
     const deficit = previousCount - exportedCount;
     if (deficit <= 0) continue;
 
-    const candidates = findUnknownElementsByName(previousRoot, elementName);
+    const candidates = findUnknownElementsByName(previousRoot, elementName, skipTraversal);
     let grafted = 0;
     for (const candidate of candidates) {
       if (grafted >= deficit) break;
       const parentInPrevious = candidate.parentElement;
       if (!parentInPrevious) continue;
       const parentInExported = findCorrespondingElement(previousRoot, exportedRoot, parentInPrevious);
-      if (!parentInExported || elementExistsUnderParent(parentInExported, candidate)) continue;
+      if (!parentInExported || elementExistsUnderParent(parentInExported, candidate, skipTraversal)) continue;
       parentInExported.appendChild(exportedDocument.importNode(candidate, true));
       grafted++;
       changed = true;
@@ -381,30 +392,31 @@ function graftMissingUnknownNamespaceElements(
   return changed;
 }
 
-function countUnknownElementNames(root: Element): Map<string, number> {
+function countUnknownElementNames(root: Element, skipTraversal?: (element: Element) => boolean): Map<string, number> {
   const counts = new Map<string, number>();
   walkElements(root, (element) => {
     const qualifiedName = getQualifiedName(element);
     if (!qualifiedName || !isUnknownNamespaceQName(qualifiedName)) return;
     counts.set(qualifiedName, (counts.get(qualifiedName) ?? 0) + 1);
-  });
+  }, skipTraversal);
   return counts;
 }
 
-function findUnknownElementsByName(root: Element, elementName: string): Element[] {
+function findUnknownElementsByName(root: Element, elementName: string, skipTraversal?: (element: Element) => boolean): Element[] {
   const matches: Element[] = [];
   walkElements(root, (element) => {
     if (getQualifiedName(element) === elementName) {
       matches.push(element);
     }
-  });
+  }, skipTraversal);
   return matches;
 }
 
-function walkElements(root: Element, visit: (element: Element) => void): void {
+function walkElements(root: Element, visit: (element: Element) => void, skipTraversal?: (element: Element) => boolean): void {
+  if (skipTraversal?.(root)) return;
   visit(root);
   for (const child of getElementChildren(root)) {
-    walkElements(child, visit);
+    walkElements(child, visit, skipTraversal);
   }
 }
 
@@ -425,7 +437,7 @@ function isUnknownNamespaceQName(qualifiedName: string): boolean {
   return !KNOWN_OOXML_PREFIXES.has(prefix);
 }
 
-function elementExistsUnderParent(parent: Element, template: Element): boolean {
+function elementExistsUnderParent(parent: Element, template: Element, skipTraversal?: (element: Element) => boolean): boolean {
   const templateName = getQualifiedName(template);
   if (!templateName) return false;
 
@@ -433,7 +445,7 @@ function elementExistsUnderParent(parent: Element, template: Element): boolean {
   const embed = template.localName === 'blip' ? getBlipEmbedId(template) : null;
   const val = template.getAttribute('val');
 
-  for (const candidate of findUnknownElementsByName(parent, templateName)) {
+  for (const candidate of findUnknownElementsByName(parent, templateName, skipTraversal)) {
     if (uri && candidate.getAttribute('uri') !== uri) continue;
     if (embed && getBlipEmbedId(candidate) !== embed) continue;
     if (val !== null && candidate.getAttribute('val') !== val) continue;
