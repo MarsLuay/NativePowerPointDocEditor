@@ -1,5 +1,18 @@
 # Obsidian community plugin
 
+<!-- project-memory-bootstrap:v1 -->
+## Project memory bootstrap
+
+From this project root, before any task, run:
+
+```bash
+python3 ../../scripts/project-memory-context.py --root . --task "<current task>"
+```
+
+Read every path listed under `Required source reads` before editing. A non-zero result blocks the task; repair the project contract or route before continuing. Edit durable tasks and memory only at contract-listed paths.
+<!-- /project-memory-bootstrap:v1 -->
+
+
 > **Public GitHub branches:** `docx-editor-source` (edit DOCX monorepo) → `nightly-releases` (latest plugin + `vendor:docx`) → `main` (promote when satisfied). Release branches are vendor-only — no in-repo `docx-editor/`. See section **Branch workflow** below.
 >
 > **This vault tree** may still keep a local `docx-editor/` for analysis/dev; do not push that monorepo onto `nightly-releases` / `main`.
