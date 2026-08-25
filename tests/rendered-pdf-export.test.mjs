@@ -179,3 +179,30 @@ test('createRenderedImagePdf formats text runs with WinAnsi character encoding a
 	assert.ok(pdfText.includes('14 0 0 14 10.5 40 Tm'), 'Applies text matrix for font size 14 at x=10.5, y=40');
 	assert.ok(pdfText.includes('(Bullet \\225 Dash \\226 Quotes \\223Hello\\224 \\231) Tj'), 'WinAnsi characters properly mapped to octal byte codes');
 });
+
+test('dataUrlToBytes decodes standard data URLs, raw base64, empty payloads, and binary byte ranges', async () => {
+	const { dataUrlToBytes } = await loadRenderedPdfExportModule();
+
+	const helloWorldBase64 = Buffer.from('Hello World').toString('base64');
+	const jpegDataUrl = `data:image/jpeg;base64,${helloWorldBase64}`;
+	const bytes1 = dataUrlToBytes(jpegDataUrl);
+	assert.deepEqual(bytes1, new Uint8Array(Buffer.from('Hello World')));
+
+	const textDataUrl = `data:text/plain;charset=utf-8;base64,${helloWorldBase64}`;
+	const bytes2 = dataUrlToBytes(textDataUrl);
+	assert.deepEqual(bytes2, new Uint8Array(Buffer.from('Hello World')));
+
+	const bytes3 = dataUrlToBytes(helloWorldBase64);
+	assert.deepEqual(bytes3, new Uint8Array(Buffer.from('Hello World')));
+
+	assert.deepEqual(dataUrlToBytes(''), new Uint8Array(0));
+	assert.deepEqual(dataUrlToBytes('data:image/png;base64,'), new Uint8Array(0));
+
+	const allBytes = new Uint8Array(256);
+	for (let i = 0; i < 256; i++) {
+		allBytes[i] = i;
+	}
+	const binaryBase64 = Buffer.from(allBytes).toString('base64');
+	const binaryDataUrl = `data:application/octet-stream;base64,${binaryBase64}`;
+	assert.deepEqual(dataUrlToBytes(binaryDataUrl), allBytes);
+});

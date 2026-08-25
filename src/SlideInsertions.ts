@@ -675,6 +675,21 @@ function shouldPreservePackagePart(partPath: string): boolean {
   return PRESERVED_PACKAGE_PART_PATTERNS.some((pattern) => pattern.test(partPath));
 }
 
+function collectMissingPackageParts<T>(
+  previousParts: ReadonlyMap<string, T>,
+  exportedParts: ReadonlyMap<string, T>,
+  excludedPartPaths: ReadonlySet<string>,
+): Map<string, T> {
+  const modifications = new Map<string, T>();
+  for (const [partPath, contents] of previousParts) {
+    if (excludedPartPaths.has(partPath)) continue;
+    if (shouldPreservePackagePart(partPath) && !exportedParts.has(partPath)) {
+      modifications.set(partPath, contents);
+    }
+  }
+  return modifications;
+}
+
 export async function mergeMissingPackageParts(
   previousBuffer: ArrayBuffer,
   exportedBuffer: ArrayBuffer,
@@ -682,22 +697,19 @@ export async function mergeMissingPackageParts(
 ): Promise<ArrayBuffer> {
   const [previousZip, exportedZip] = await Promise.all([
     extractZip(previousBuffer),
-    extractZip(exportedBuffer)
+    extractZip(exportedBuffer),
   ]);
-  const textModifications = new Map<string, string>();
-  const binaryModifications = new Map<string, Uint8Array>();
 
-  for (const [partPath, contents] of previousZip.textFiles) {
-    if (excludedPartPaths.has(partPath)) continue;
-    if (!shouldPreservePackagePart(partPath) || exportedZip.textFiles.has(partPath)) continue;
-    textModifications.set(partPath, contents);
-  }
-
-  for (const [partPath, contents] of previousZip.binaryFiles) {
-    if (excludedPartPaths.has(partPath)) continue;
-    if (!shouldPreservePackagePart(partPath) || exportedZip.binaryFiles.has(partPath)) continue;
-    binaryModifications.set(partPath, contents);
-  }
+  const textModifications = collectMissingPackageParts(
+    previousZip.textFiles,
+    exportedZip.textFiles,
+    excludedPartPaths,
+  );
+  const binaryModifications = collectMissingPackageParts(
+    previousZip.binaryFiles,
+    exportedZip.binaryFiles,
+    excludedPartPaths,
+  );
 
   if (textModifications.size === 0 && binaryModifications.size === 0) {
     return exportedBuffer;

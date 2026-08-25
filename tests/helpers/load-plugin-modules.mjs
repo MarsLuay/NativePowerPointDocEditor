@@ -44,6 +44,7 @@ let textToolbarControllerModulePromise;
 let insertControllerModulePromise;
 let arrangeControllerModulePromise;
 let slideExtensionPreserveModulePromise;
+let renderedPdfExportModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
