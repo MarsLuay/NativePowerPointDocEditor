@@ -1312,33 +1312,17 @@ export class PresentationEngine {
     let total = 0;
 
     for (let slideIndex = slideStart; slideIndex < slideEnd; slideIndex++) {
-      const slidePath = getSlidePath(slideIndex);
-      const slideXml = zip.textFiles.get(slidePath);
-      if (!slideXml) continue;
-
-      const slideDoc = parseXml(slideXml, slidePath);
-      let scope: Element | XMLDocument = slideDoc;
-      if (scoped) {
-        try {
-          scope = getShapeElement(slideDoc, options.shapeIndex as number);
-        } catch {
-          continue;
-        }
-      }
-
-      const paragraphs = getDescendants(scope, 'p')
-        .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
-      let slideChanged = false;
-      for (const paragraph of paragraphs) {
-        const count = replaceTextInParagraph(paragraph, query, replacement, matchCase);
-        if (count > 0) {
-          total += count;
-          slideChanged = true;
-        }
-      }
-
-      if (slideChanged) {
-        updatedFiles.set(slidePath, serializeXml(slideDoc));
+      const result = this.replaceSlideText(
+        zip,
+        slideIndex,
+        query,
+        replacement,
+        matchCase,
+        scoped ? options.shapeIndex : undefined
+      );
+      if (result) {
+        total += result.count;
+        updatedFiles.set(result.slidePath, result.serializedXml);
       }
     }
 
@@ -1348,6 +1332,47 @@ export class PresentationEngine {
     }
 
     return total;
+  }
+
+  private replaceSlideText(
+    zip: ZipContents,
+    slideIndex: number,
+    query: string,
+    replacement: string,
+    matchCase: boolean,
+    shapeIndex?: number
+  ): { slidePath: string; serializedXml: string; count: number } | null {
+    const slidePath = getSlidePath(slideIndex);
+    const slideXml = zip.textFiles.get(slidePath);
+    if (!slideXml) return null;
+
+    const slideDoc = parseXml(slideXml, slidePath);
+    let scope: Element | XMLDocument = slideDoc;
+    if (shapeIndex !== undefined) {
+      try {
+        scope = getShapeElement(slideDoc, shapeIndex);
+      } catch {
+        return null;
+      }
+    }
+
+    const paragraphs = getDescendants(scope, 'p')
+      .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+    let count = 0;
+    for (const paragraph of paragraphs) {
+      const replaced = replaceTextInParagraph(paragraph, query, replacement, matchCase);
+      if (replaced > 0) {
+        count += replaced;
+      }
+    }
+
+    if (count === 0) return null;
+
+    return {
+      slidePath,
+      serializedXml: serializeXml(slideDoc),
+      count,
+    };
   }
 
   /**
