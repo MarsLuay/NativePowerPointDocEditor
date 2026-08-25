@@ -74,30 +74,30 @@ function findXmlElementRanges(xml: string, elementName: string): XmlRange[] {
 		}
 
 		const tag = readXmlTag(xml, tagStart);
-		if (!tag) {
-			index = tagStart + 1;
+		if (!tag || tag.name !== elementName) {
+			index = tag ? tag.close + 1 : tagStart + 1;
 			continue;
 		}
 
-		if (tag.name === elementName) {
-			if (tag.isClosing) {
-				if (depth > 0) {
-					depth -= 1;
-					if (depth === 0 && rangeStart >= 0) {
-						const end = tag.close + 1;
-						ranges.push({ start: rangeStart, end, xml: xml.slice(rangeStart, end) });
-						rangeStart = -1;
-					}
+		index = tag.close + 1;
+
+		if (tag.isClosing) {
+			if (depth > 0) {
+				depth -= 1;
+				if (depth === 0 && rangeStart >= 0) {
+					ranges.push({ start: rangeStart, end: index, xml: xml.slice(rangeStart, index) });
+					rangeStart = -1;
 				}
-			} else if (!tag.isSelfClosing) {
-				if (depth === 0) {
-					rangeStart = tagStart;
-				}
-				depth += 1;
 			}
+			continue;
 		}
 
-		index = tag.close + 1;
+		if (!tag.isSelfClosing) {
+			if (depth === 0) {
+				rangeStart = tagStart;
+			}
+			depth += 1;
+		}
 	}
 
 	return ranges;
