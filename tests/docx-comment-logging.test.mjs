@@ -54,3 +54,53 @@ test("summarizeDocxComments includes replies with parentId", async () => {
   assert.equal(summary.comments[1].parentId, 1);
   assert.equal(summary.comments[1].text, "add more polish");
 });
+
+test("extractDocxCommentPlainText handles explicit text, nested runs, edge cases, and truncation", async () => {
+  const { extractDocxCommentPlainText } = await loadCommentLoggingModule();
+
+  // Explicit text takes precedence
+  assert.equal(
+    extractDocxCommentPlainText({ id: 10, text: "Explicit comment text" }),
+    "Explicit comment text"
+  );
+
+  // Empty comment / no content
+  assert.equal(extractDocxCommentPlainText({ id: 11 }), "");
+  assert.equal(extractDocxCommentPlainText({ id: 12, content: [] }), "");
+  assert.equal(extractDocxCommentPlainText({ id: 13, content: [{ content: [] }] }), "");
+
+  // Non-run and non-text child nodes ignored gracefully
+  const mixedContent = [
+    {
+      content: [
+        { type: "image", content: [] },
+        {
+          type: "run",
+          content: [
+            { type: "bold_flag", text: undefined },
+            { type: "text", text: "Hello " },
+            { type: "text", text: "world!" },
+          ],
+        },
+      ],
+    },
+    {
+      content: [
+        {
+          type: "run",
+          content: [{ type: "text", text: " Next line." }],
+        },
+      ],
+    },
+  ];
+  assert.equal(
+    extractDocxCommentPlainText({ id: 14, content: mixedContent }),
+    "Hello world! Next line."
+  );
+
+  // Text truncation over 500 chars
+  const longStr = "A".repeat(600);
+  const truncated = extractDocxCommentPlainText({ id: 15, text: longStr });
+  assert.equal(truncated.length, 501); // 500 chars + '…'
+  assert.ok(truncated.endsWith("…"));
+});

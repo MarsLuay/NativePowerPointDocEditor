@@ -39,6 +39,28 @@ export interface DocxCommentsLogSummary {
 
 const MAX_COMMENT_TEXT_CHARS = 500;
 
+type ParagraphNode = NonNullable<DocxCommentLogSource['content']>[number];
+type ParagraphChildNode = NonNullable<ParagraphNode['content']>[number];
+type RunChildNode = NonNullable<ParagraphChildNode['content']>[number];
+
+function extractTextFromRunChild(runChild: RunChildNode): string {
+	return runChild.type === 'text' && typeof runChild.text === 'string' ? runChild.text : '';
+}
+
+function extractTextFromParagraphChild(child: ParagraphChildNode): string {
+	if (child.type !== 'run' || !child.content) {
+		return '';
+	}
+	return child.content.map(extractTextFromRunChild).join('');
+}
+
+function extractTextFromParagraph(paragraph: ParagraphNode): string {
+	if (!paragraph.content) {
+		return '';
+	}
+	return paragraph.content.map(extractTextFromParagraphChild).join('');
+}
+
 export function extractDocxCommentPlainText(comment: DocxCommentLogSource): string {
 	if (typeof comment.text === 'string' && comment.text.length > 0) {
 		return truncateCommentText(comment.text);
@@ -49,18 +71,8 @@ export function extractDocxCommentPlainText(comment: DocxCommentLogSource): stri
 		return '';
 	}
 
-	const parts: string[] = [];
-	for (const paragraph of paragraphs) {
-		for (const child of paragraph.content ?? []) {
-			if (child.type !== 'run') continue;
-			for (const runChild of child.content ?? []) {
-				if (runChild.type === 'text' && typeof runChild.text === 'string') {
-					parts.push(runChild.text);
-				}
-			}
-		}
-	}
-	return truncateCommentText(parts.join(''));
+	const rawText = paragraphs.map(extractTextFromParagraph).join('');
+	return truncateCommentText(rawText);
 }
 
 export function truncateCommentText(text: string, maxChars = MAX_COMMENT_TEXT_CHARS): string {
