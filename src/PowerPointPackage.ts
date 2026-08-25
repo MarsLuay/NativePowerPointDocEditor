@@ -87,13 +87,20 @@ const MUTABLE_PART_PATTERNS = [
   /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/
 ];
 
-export function inspectPowerPointPackage(buffer: ArrayBuffer): PowerPointPackageInspection {
-  const bytes = new Uint8Array(buffer);
-  if (bytes.byteLength < EOCD_MIN_LENGTH) {
-    throw new Error('The exported file is too small to be an Open XML ZIP package.');
-  }
+interface CentralDirectoryHeader {
+  totalEntries: number;
+  centralDirectorySize: number;
+  centralDirectoryOffset: number;
+}
 
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+interface ParsedZipEntries {
+  entries: PowerPointPackageEntry[];
+  entryMap: Map<string, PowerPointPackageEntry>;
+  duplicateEntries: string[];
+  unsafePaths: string[];
+}
+
+function readZipCentralDirectoryHeader(view: DataView, byteLength: number): CentralDirectoryHeader {
   const eocdOffset = findEndOfCentralDirectory(view);
   if (eocdOffset === -1) {
     throw new Error('The file is not a valid Open XML ZIP package.');
@@ -118,10 +125,23 @@ export function inspectPowerPointPackage(buffer: ArrayBuffer): PowerPointPackage
     throw new Error('ZIP64 PowerPoint packages need explicit validation before saving.');
   }
 
-  if (centralDirectoryOffset + centralDirectorySize > bytes.byteLength) {
+  if (centralDirectoryOffset + centralDirectorySize > byteLength) {
     throw new Error('The ZIP central directory points outside the file.');
   }
 
+  return {
+    totalEntries,
+    centralDirectorySize,
+    centralDirectoryOffset,
+  };
+}
+
+function parseZipCentralDirectoryEntries(
+  bytes: Uint8Array,
+  view: DataView,
+  header: CentralDirectoryHeader,
+): ParsedZipEntries {
+  const { totalEntries, centralDirectorySize, centralDirectoryOffset } = header;
   const entries: PowerPointPackageEntry[] = [];
   const entryMap = new Map<string, PowerPointPackageEntry>();
   const duplicateEntries: string[] = [];
@@ -180,6 +200,28 @@ export function inspectPowerPointPackage(buffer: ArrayBuffer): PowerPointPackage
   if (offset !== centralDirectoryOffset + centralDirectorySize) {
     throw new Error('The ZIP central directory entry count does not match its declared size.');
   }
+
+  return {
+    entries,
+    entryMap,
+    duplicateEntries,
+    unsafePaths,
+  };
+}
+
+export function inspectPowerPointPackage(buffer: ArrayBuffer): PowerPointPackageInspection {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.byteLength < EOCD_MIN_LENGTH) {
+    throw new Error('The exported file is too small to be an Open XML ZIP package.');
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const header = readZipCentralDirectoryHeader(view, bytes.byteLength);
+  const { entries, entryMap, duplicateEntries, unsafePaths } = parseZipCentralDirectoryEntries(
+    bytes,
+    view,
+    header,
+  );
 
   const slidePaths = entries
     .map((entry) => entry.name)
