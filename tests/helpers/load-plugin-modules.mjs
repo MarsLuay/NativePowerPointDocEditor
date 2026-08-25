@@ -38,6 +38,7 @@ let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
+let renderedPdfExportModulePromise;
 let parseRenderedSlideSvgModulePromise;
 let textToolbarControllerModulePromise;
 let insertControllerModulePromise;
