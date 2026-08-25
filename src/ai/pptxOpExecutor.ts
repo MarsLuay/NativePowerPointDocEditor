@@ -210,18 +210,21 @@ function fitInsertedImageTransform(
 	};
 }
 
-export async function executePptxOp(
-	context: PptxOpExecutionContext,
-	op: DocumentOp,
-): Promise<PptxOpExecutionResult> {
-	const payload = asRecord(op);
-	const opId = requireString(op.op, 'op');
-	const result: PptxOpExecutionResult = {
+function createExecutionResult(): PptxOpExecutionResult {
+	return {
 		changedIds: [],
 		preview: [],
 		affectedSlideIndices: new Set<number>(),
 		warnings: [],
 	};
+}
+
+async function executeTextOp(
+	context: PptxOpExecutionContext,
+	opId: string,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult | null> {
+	const result = createExecutionResult();
 
 	switch (opId) {
 		case 'pptx.updateShapeText': {
@@ -265,55 +268,6 @@ export async function executePptxOp(
 				await context.engine.replaceShapeParagraphs(slideIndex, shapeIndex, paragraphs);
 			}
 			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.deleteShape': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'shape', before, after: null });
-			if (!context.dryRun) {
-				await context.engine.deleteShape(slideIndex, shapeIndex);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.deleteShapes': {
-			// Internal batch op produced by coalescePptxOps — not a public catalog id.
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			if (!Array.isArray(payload.shapeIndexes) || payload.shapeIndexes.length === 0) {
-				throw createAiError(
-					AI_ERROR_CODES.SCHEMA_INVALID,
-					'shapeIndexes must be a non-empty array of numbers.',
-					{ field: 'shapeIndexes' },
-				);
-			}
-			const shapeIndexes = payload.shapeIndexes.map((value, index) => {
-				if (typeof value !== 'number' || !Number.isFinite(value)) {
-					throw createAiError(
-						AI_ERROR_CODES.SCHEMA_INVALID,
-						`shapeIndexes[${index}] must be a number.`,
-						{ field: `shapeIndexes[${index}]` },
-					);
-				}
-				assertEditableShape(slideIndex, value);
-				return value;
-			});
-			for (const shapeIndex of shapeIndexes) {
-				const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-				const changedId = pptxShapeId(slideIndex, shapeIndex);
-				result.preview.push({ id: changedId, field: 'shape', before, after: null });
-				result.changedIds.push(changedId);
-			}
-			if (!context.dryRun) {
-				await context.engine.deleteShapes(slideIndex, shapeIndexes);
-			}
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
@@ -436,6 +390,68 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		default:
+			return null;
+	}
+}
+
+async function executeShapeOp(
+	context: PptxOpExecutionContext,
+	opId: string,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult | null> {
+	const result = createExecutionResult();
+
+	switch (opId) {
+		case 'pptx.deleteShape': {
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			assertEditableShape(slideIndex, shapeIndex);
+			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+			const changedId = pptxShapeId(slideIndex, shapeIndex);
+			result.preview.push({ id: changedId, field: 'shape', before, after: null });
+			if (!context.dryRun) {
+				await context.engine.deleteShape(slideIndex, shapeIndex);
+			}
+			result.changedIds.push(changedId);
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
+		case 'pptx.deleteShapes': {
+			// Internal batch op produced by coalescePptxOps — not a public catalog id.
+			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+			assertSlideInRange(context.engine, slideIndex);
+			if (!Array.isArray(payload.shapeIndexes) || payload.shapeIndexes.length === 0) {
+				throw createAiError(
+					AI_ERROR_CODES.SCHEMA_INVALID,
+					'shapeIndexes must be a non-empty array of numbers.',
+					{ field: 'shapeIndexes' },
+				);
+			}
+			const shapeIndexes = payload.shapeIndexes.map((value, index) => {
+				if (typeof value !== 'number' || !Number.isFinite(value)) {
+					throw createAiError(
+						AI_ERROR_CODES.SCHEMA_INVALID,
+						`shapeIndexes[${index}] must be a number.`,
+						{ field: `shapeIndexes[${index}]` },
+					);
+				}
+				assertEditableShape(slideIndex, value);
+				return value;
+			});
+			for (const shapeIndex of shapeIndexes) {
+				const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+				const changedId = pptxShapeId(slideIndex, shapeIndex);
+				result.preview.push({ id: changedId, field: 'shape', before, after: null });
+				result.changedIds.push(changedId);
+			}
+			if (!context.dryRun) {
+				await context.engine.deleteShapes(slideIndex, shapeIndexes);
+			}
+			result.affectedSlideIndices.add(slideIndex);
+			return result;
+		}
 		case 'pptx.updateTransform': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
@@ -554,6 +570,19 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		default:
+			return null;
+	}
+}
+
+async function executeInsertionOp(
+	context: PptxOpExecutionContext,
+	opId: string,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult | null> {
+	const result = createExecutionResult();
+
+	switch (opId) {
 		case 'pptx.addImage': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const vaultImagePath = requireString(payload.vaultImagePath, 'vaultImagePath');
@@ -636,6 +665,19 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		default:
+			return null;
+	}
+}
+
+async function executeSlideOp(
+	context: PptxOpExecutionContext,
+	opId: string,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult | null> {
+	const result = createExecutionResult();
+
+	switch (opId) {
 		case 'pptx.addSlide': {
 			const afterIndex = requireNumber(payload.afterIndex, 'afterIndex');
 			const layout = (typeof payload.layout === 'string' ? payload.layout : 'blank') as SlideLayoutKind;
@@ -725,6 +767,19 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		default:
+			return null;
+	}
+}
+
+async function executeMediaOp(
+	context: PptxOpExecutionContext,
+	opId: string,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult | null> {
+	const result = createExecutionResult();
+
+	switch (opId) {
 		case 'pptx.setImageCrop': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
@@ -869,6 +924,19 @@ export async function executePptxOp(
 			result.affectedSlideIndices.add(slideIndex);
 			return result;
 		}
+		default:
+			return null;
+	}
+}
+
+async function executeChartOp(
+	context: PptxOpExecutionContext,
+	opId: string,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult | null> {
+	const result = createExecutionResult();
+
+	switch (opId) {
 		case 'pptx.updateChartData': {
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
@@ -885,6 +953,28 @@ export async function executePptxOp(
 			return result;
 		}
 		default:
-			throw createAiError(AI_ERROR_CODES.UNKNOWN_OP, `Unknown PPTX operation: ${opId}.`, { op: opId });
+			return null;
 	}
+}
+
+export async function executePptxOp(
+	context: PptxOpExecutionContext,
+	op: DocumentOp,
+): Promise<PptxOpExecutionResult> {
+	const payload = asRecord(op);
+	const opId = requireString(op.op, 'op');
+
+	const result =
+		(await executeTextOp(context, opId, payload)) ??
+		(await executeShapeOp(context, opId, payload)) ??
+		(await executeInsertionOp(context, opId, payload)) ??
+		(await executeSlideOp(context, opId, payload)) ??
+		(await executeMediaOp(context, opId, payload)) ??
+		(await executeChartOp(context, opId, payload));
+
+	if (result) {
+		return result;
+	}
+
+	throw createAiError(AI_ERROR_CODES.UNKNOWN_OP, `Unknown PPTX operation: ${opId}.`, { op: opId });
 }
