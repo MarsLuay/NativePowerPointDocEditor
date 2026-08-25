@@ -16,6 +16,8 @@ export interface PowerPointFindSearchIndexSlide {
   slideIndex: number;
   shapeMatches: PowerPointFindMatch[];
   fallbackText: string;
+  lowerShapeTexts?: string[];
+  lowerFallbackText?: string;
 }
 
 /**
@@ -29,11 +31,15 @@ export function createFindSearchIndexSlideFromOoxml(
 ): PowerPointFindSearchIndexSlide {
   const slideDocument = parseXml(slideXml, `slide ${slideIndex + 1}`);
   const shapeMatches: PowerPointFindMatch[] = [];
+  const lowerShapeTexts: string[] = [];
   const addShape = (shape: Element, shapeIndex: number): void => {
     const text = normalizeSearchText(
       getDescendants(shape, 't').map((element) => element.textContent ?? '').join(''),
     );
-    if (text) shapeMatches.push({ slideIndex, shapeIndex, text });
+    if (text) {
+      shapeMatches.push({ slideIndex, shapeIndex, text });
+      lowerShapeTexts.push(text.toLocaleLowerCase());
+    }
   };
 
   const shapes = getShapeChildren(getShapeTree(slideDocument));
@@ -46,10 +52,14 @@ export function createFindSearchIndexSlideFromOoxml(
       .forEach((child, childIndex) => addShape(child, (shapeIndex * 1000) + childIndex));
   });
 
+  const fallbackText = normalizeSearchText(slideDocument.documentElement.textContent ?? '');
+
   return {
     slideIndex,
     shapeMatches,
-    fallbackText: normalizeSearchText(slideDocument.documentElement.textContent ?? ''),
+    fallbackText,
+    lowerShapeTexts,
+    lowerFallbackText: fallbackText.toLocaleLowerCase(),
   };
 }
 
@@ -66,13 +76,30 @@ export function collectFindMatchesFromSearchIndex(
 
   const matches: PowerPointFindMatch[] = [];
   for (const slide of searchIndex) {
-    const shapeMatches = slide.shapeMatches.filter((match) => (
-      match.text.toLocaleLowerCase().includes(normalizedQuery)
-    ));
-    if (shapeMatches.length > 0) {
-      matches.push(...shapeMatches);
-    } else if (slide.fallbackText.toLocaleLowerCase().includes(normalizedQuery)) {
-      matches.push({ slideIndex: slide.slideIndex, shapeIndex: null, text: slide.fallbackText });
+    let slideHasMatch = false;
+    const shapeMatches = slide.shapeMatches;
+    let lowerShapeTexts = slide.lowerShapeTexts;
+    if (!lowerShapeTexts || lowerShapeTexts.length !== shapeMatches.length) {
+      lowerShapeTexts = shapeMatches.map((match) => match.text.toLocaleLowerCase());
+      (slide as PowerPointFindSearchIndexSlide).lowerShapeTexts = lowerShapeTexts;
+    }
+
+    for (let i = 0; i < shapeMatches.length; i++) {
+      const match = shapeMatches[i];
+      const lowerText = lowerShapeTexts[i];
+      if (match && lowerText !== undefined && lowerText.includes(normalizedQuery)) {
+        matches.push(match);
+        slideHasMatch = true;
+      }
+    }
+
+    if (!slideHasMatch && slide.fallbackText) {
+      const lowerFallback = slide.lowerFallbackText ?? (
+        (slide as PowerPointFindSearchIndexSlide).lowerFallbackText = slide.fallbackText.toLocaleLowerCase()
+      );
+      if (lowerFallback.includes(normalizedQuery)) {
+        matches.push({ slideIndex: slide.slideIndex, shapeIndex: null, text: slide.fallbackText });
+      }
     }
   }
   return matches;
