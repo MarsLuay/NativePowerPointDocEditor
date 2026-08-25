@@ -1424,26 +1424,36 @@ export class PresentationEngine {
    * model when the slide tree has gaps (graphic frames, groups). Re-resolve each
    * cached highlight against the paragraph text that still exists in the model.
    */
+  private findBestCandidateShapeIndex(slideIndex: number, highlight: RunHighlightInfo): number {
+    if (highlight.end <= highlight.start) return highlight.shapeIndex;
+
+    let bestIndex = highlight.shapeIndex;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    const targetLength = highlight.end - highlight.start;
+
+    for (let candidate = 0; candidate < 64; candidate++) {
+      const text = this.getParagraphRunText(slideIndex, candidate, highlight.paragraphIndex);
+      if (!text || highlight.end > text.length) continue;
+      if (text.slice(highlight.start, highlight.end).length !== targetLength) continue;
+
+      const distance = Math.abs(candidate - highlight.shapeIndex);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = candidate;
+      }
+    }
+
+    return bestIndex;
+  }
+
   private realignSlideRunCacheShapeIndices(slideIndex: number): void {
     const cached = this.slideRunCache.get(slideIndex);
     if (!cached || cached.highlights.length === 0) return;
 
-    const highlights = cached.highlights.map((highlight) => {
-      if (highlight.end <= highlight.start) return highlight;
-      let bestIndex = highlight.shapeIndex;
-      let bestDistance = Number.POSITIVE_INFINITY;
-      for (let candidate = 0; candidate < 64; candidate++) {
-        const text = this.getParagraphRunText(slideIndex, candidate, highlight.paragraphIndex);
-        if (!text || highlight.end > text.length) continue;
-        if (text.slice(highlight.start, highlight.end).length !== highlight.end - highlight.start) continue;
-        const distance = Math.abs(candidate - highlight.shapeIndex);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestIndex = candidate;
-        }
-      }
-      return { ...highlight, shapeIndex: bestIndex };
-    });
+    const highlights = cached.highlights.map((highlight) => ({
+      ...highlight,
+      shapeIndex: this.findBestCandidateShapeIndex(slideIndex, highlight),
+    }));
 
     this.slideRunCache.set(slideIndex, { ...cached, highlights });
   }
