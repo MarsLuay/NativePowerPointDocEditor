@@ -38,6 +38,7 @@ let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
+let renderedPdfExportModulePromise;
 let parseRenderedSlideSvgModulePromise;
 let textToolbarControllerModulePromise;
 let insertControllerModulePromise;
@@ -377,6 +378,16 @@ export function loadPowerPointToolbarTooltipTargetModule() {
 export function loadLoggerModule() {
   loggerModulePromise ??= bundleSource("src/logger.ts", "logger.cjs").then((outfile) => require(outfile));
   return loggerModulePromise;
+}
+
+export function loadRenderedPdfExportModule() {
+  renderedPdfExportModulePromise ??= bundleSource(
+    "src/renderedPdfExport.ts",
+    "rendered-pdf-export.cjs",
+    ["html2canvas"],
+    [stubObsidianPlugin],
+  ).then((outfile) => require(outfile));
+  return renderedPdfExportModulePromise;
 }
 
 export function loadNativePowerPointViewModule() {
