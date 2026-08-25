@@ -186,18 +186,7 @@ function restoreShapeNonVisualIdentity(previousDocument: XMLDocument, exportedDo
       }
     });
   } else {
-    const remaining = [...previousShapes];
-    for (const exported of exportedShapes) {
-      const matchIndex = remaining.findIndex(
-        (candidate) =>
-          candidate.fingerprint === exported.fingerprint
-      );
-      const previous = matchIndex >= 0 ? remaining[matchIndex] : undefined;
-      if (previous) {
-        pairs.push([previous, exported]);
-        remaining.splice(matchIndex, 1);
-      }
-    }
+    pairs.push(...matchShapeIdentitiesByFingerprint(previousShapes, exportedShapes));
   }
 
   let changed = false;
@@ -337,19 +326,39 @@ function pairShapeRoots(previousDocument: XMLDocument, exportedDocument: XMLDocu
     return pairs;
   }
 
-  const remaining = [...previousShapes];
-  for (const exported of exportedShapes) {
+  const matchedPairs = matchShapeIdentitiesByFingerprint(previousShapes, exportedShapes);
+  for (const [previous, exported] of matchedPairs) {
+    const previousRoot = getShapeRoot(previous);
     const exportedRoot = getShapeRoot(exported);
-    if (!exportedRoot) continue;
-    const matchIndex = remaining.findIndex(
-      (candidate) =>
-        candidate.fingerprint === exported.fingerprint
-    );
-    const previous = matchIndex >= 0 ? remaining[matchIndex] : undefined;
-    const previousRoot = previous ? getShapeRoot(previous) : undefined;
-    if (previous && previousRoot) {
+    if (previousRoot && exportedRoot) {
       pairs.push([previousRoot, exportedRoot]);
-      remaining.splice(matchIndex, 1);
+    }
+  }
+  return pairs;
+}
+
+function matchShapeIdentitiesByFingerprint(
+  previousShapes: ShapeIdentity[],
+  exportedShapes: ShapeIdentity[]
+): Array<[ShapeIdentity, ShapeIdentity]> {
+  const remainingByFingerprint = new Map<string, { items: ShapeIdentity[]; index: number }>();
+  for (const previous of previousShapes) {
+    let entry = remainingByFingerprint.get(previous.fingerprint);
+    if (!entry) {
+      entry = { items: [], index: 0 };
+      remainingByFingerprint.set(previous.fingerprint, entry);
+    }
+    entry.items.push(previous);
+  }
+
+  const pairs: Array<[ShapeIdentity, ShapeIdentity]> = [];
+  for (const exported of exportedShapes) {
+    const entry = remainingByFingerprint.get(exported.fingerprint);
+    if (entry && entry.index < entry.items.length) {
+      const previous = entry.items[entry.index++];
+      if (previous) {
+        pairs.push([previous, exported]);
+      }
     }
   }
   return pairs;

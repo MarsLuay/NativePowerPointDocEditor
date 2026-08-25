@@ -319,6 +319,205 @@ const SAMPLE_CATS = ['1g', '2g', '3g'];
 const SAMPLE_VALS_A = [1.04, 2.08, 1.56];
 const SAMPLE_VALS_B = [2.2, 1.7, 2.9];
 
+function buildColumnPlot(seriesA: string): string {
+  return [
+    '<c:barChart>',
+    '<c:barDir val="col"/>',
+    '<c:grouping val="clustered"/>',
+    seriesA,
+    dataLabels(),
+    '<c:gapWidth val="150"/>',
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:barChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+  ].join('');
+}
+
+function buildBarPlot(seriesA: string): string {
+  return [
+    '<c:barChart>',
+    '<c:barDir val="bar"/>',
+    '<c:grouping val="clustered"/>',
+    seriesA,
+    dataLabels(),
+    '<c:gapWidth val="150"/>',
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:barChart>',
+    catAx(CAT_AX, VAL_AX, 'l'),
+    valAx(VAL_AX, CAT_AX, 'b'),
+  ].join('');
+}
+
+function buildLinePlot(seriesA: string): string {
+  return [
+    '<c:lineChart>',
+    '<c:grouping val="standard"/>',
+    seriesA,
+    dataLabels(),
+    '<c:marker val="1"/>',
+    '<c:smooth val="0"/>',
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:lineChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+  ].join('');
+}
+
+function buildAreaPlot(seriesA: string): string {
+  return [
+    '<c:areaChart>',
+    '<c:grouping val="standard"/>',
+    seriesA,
+    dataLabels(),
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:areaChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+  ].join('');
+}
+
+function buildPiePlot(seriesA: string): string {
+  return [
+    '<c:pieChart>',
+    '<c:varyColors val="1"/>',
+    seriesA,
+    dataLabels(),
+    '<c:firstSliceAng val="0"/>',
+    '</c:pieChart>',
+  ].join('');
+}
+
+function buildRadarPlot(seriesA: string): string {
+  return [
+    '<c:radarChart>',
+    '<c:radarStyle val="marker"/>',
+    '<c:varyColors val="0"/>',
+    seriesA,
+    dataLabels(),
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:radarChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+  ].join('');
+}
+
+function buildScatterPlot(): string {
+  return [
+    '<c:scatterChart>',
+    '<c:scatterStyle val="marker"/>',
+    '<c:varyColors val="0"/>',
+    scatterSeries({
+      index: 0,
+      name: 'Samples',
+      nameFormula: 'Sheet1!$B$1',
+      xValues: [1, 2, 3],
+      xFormula: 'Sheet1!$A$2:$A$4',
+      yValues: SAMPLE_VALS_A,
+      yFormula: 'Sheet1!$B$2:$B$4',
+    }),
+    dataLabels(),
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:scatterChart>',
+    valAx(CAT_AX, VAL_AX, 'b'),
+    valAx(VAL_AX, CAT_AX),
+  ].join('');
+}
+
+function buildStockPlot(): string {
+  const high = classicSeries({
+    index: 0,
+    name: 'High',
+    nameFormula: 'Sheet1!$B$1',
+    categories: SAMPLE_CATS,
+    catFormula: 'Sheet1!$A$2:$A$4',
+    values: [2.5, 3.1, 2.8],
+    valFormula: 'Sheet1!$B$2:$B$4',
+    color: SERIES_COLORS[0],
+  });
+  const low = classicSeries({
+    index: 1,
+    name: 'Low',
+    nameFormula: 'Sheet1!$C$1',
+    categories: SAMPLE_CATS,
+    catFormula: 'Sheet1!$A$2:$A$4',
+    values: [1.0, 1.5, 1.2],
+    valFormula: 'Sheet1!$C$2:$C$4',
+    color: SERIES_COLORS[1],
+  });
+  const close = classicSeries({
+    index: 2,
+    name: 'Close',
+    nameFormula: 'Sheet1!$D$1',
+    categories: SAMPLE_CATS,
+    catFormula: 'Sheet1!$A$2:$A$4',
+    values: [2.1, 2.7, 2.0],
+    valFormula: 'Sheet1!$D$2:$D$4',
+    color: SERIES_COLORS[2],
+  });
+  return [
+    '<c:stockChart>',
+    high,
+    low,
+    close,
+    '<c:hiLowLines/>',
+    dataLabels(),
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:stockChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+  ].join('');
+}
+
+function buildSurfacePlot(seriesA: string, seriesB: string): string {
+  return [
+    '<c:surfaceChart>',
+    '<c:wireframe val="0"/>',
+    seriesA,
+    seriesB,
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    `<c:axId val="${VAL_AX_2}"/>`,
+    '</c:surfaceChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+    serAx(VAL_AX_2, VAL_AX),
+  ].join('');
+}
+
+function buildComboPlot(seriesA: string, seriesB: string): string {
+  return [
+    '<c:barChart>',
+    '<c:barDir val="col"/>',
+    '<c:grouping val="clustered"/>',
+    seriesA,
+    dataLabels(),
+    '<c:gapWidth val="150"/>',
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX}"/>`,
+    '</c:barChart>',
+    '<c:lineChart>',
+    '<c:grouping val="standard"/>',
+    seriesB,
+    dataLabels(),
+    '<c:marker val="1"/>',
+    '<c:smooth val="0"/>',
+    `<c:axId val="${CAT_AX}"/>`,
+    `<c:axId val="${VAL_AX_2}"/>`,
+    '</c:lineChart>',
+    catAx(CAT_AX, VAL_AX),
+    valAx(VAL_AX, CAT_AX),
+    valAx(VAL_AX_2, CAT_AX, 'r'),
+  ].join('');
+}
+
 function buildClassicPlotXml(type: InsertableChartType): string {
   const seriesA = classicSeries({
     index: 0,
@@ -342,185 +541,25 @@ function buildClassicPlotXml(type: InsertableChartType): string {
 
   switch (type) {
     case 'column':
-      return [
-        '<c:barChart>',
-        '<c:barDir val="col"/>',
-        '<c:grouping val="clustered"/>',
-        seriesA,
-        dataLabels(),
-        '<c:gapWidth val="150"/>',
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:barChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-      ].join('');
+      return buildColumnPlot(seriesA);
     case 'bar':
-      return [
-        '<c:barChart>',
-        '<c:barDir val="bar"/>',
-        '<c:grouping val="clustered"/>',
-        seriesA,
-        dataLabels(),
-        '<c:gapWidth val="150"/>',
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:barChart>',
-        catAx(CAT_AX, VAL_AX, 'l'),
-        valAx(VAL_AX, CAT_AX, 'b'),
-      ].join('');
+      return buildBarPlot(seriesA);
     case 'line':
-      return [
-        '<c:lineChart>',
-        '<c:grouping val="standard"/>',
-        seriesA,
-        dataLabels(),
-        '<c:marker val="1"/>',
-        '<c:smooth val="0"/>',
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:lineChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-      ].join('');
+      return buildLinePlot(seriesA);
     case 'area':
-      return [
-        '<c:areaChart>',
-        '<c:grouping val="standard"/>',
-        seriesA,
-        dataLabels(),
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:areaChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-      ].join('');
+      return buildAreaPlot(seriesA);
     case 'pie':
-      return [
-        '<c:pieChart>',
-        '<c:varyColors val="1"/>',
-        seriesA,
-        dataLabels(),
-        '<c:firstSliceAng val="0"/>',
-        '</c:pieChart>',
-      ].join('');
+      return buildPiePlot(seriesA);
     case 'radar':
-      return [
-        '<c:radarChart>',
-        '<c:radarStyle val="marker"/>',
-        '<c:varyColors val="0"/>',
-        seriesA,
-        dataLabels(),
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:radarChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-      ].join('');
+      return buildRadarPlot(seriesA);
     case 'scatter':
-      return [
-        '<c:scatterChart>',
-        '<c:scatterStyle val="marker"/>',
-        '<c:varyColors val="0"/>',
-        scatterSeries({
-          index: 0,
-          name: 'Samples',
-          nameFormula: 'Sheet1!$B$1',
-          xValues: [1, 2, 3],
-          xFormula: 'Sheet1!$A$2:$A$4',
-          yValues: SAMPLE_VALS_A,
-          yFormula: 'Sheet1!$B$2:$B$4',
-        }),
-        dataLabels(),
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:scatterChart>',
-        valAx(CAT_AX, VAL_AX, 'b'),
-        valAx(VAL_AX, CAT_AX),
-      ].join('');
-    case 'stock': {
-      const high = classicSeries({
-        index: 0,
-        name: 'High',
-        nameFormula: 'Sheet1!$B$1',
-        categories: SAMPLE_CATS,
-        catFormula: 'Sheet1!$A$2:$A$4',
-        values: [2.5, 3.1, 2.8],
-        valFormula: 'Sheet1!$B$2:$B$4',
-        color: SERIES_COLORS[0],
-      });
-      const low = classicSeries({
-        index: 1,
-        name: 'Low',
-        nameFormula: 'Sheet1!$C$1',
-        categories: SAMPLE_CATS,
-        catFormula: 'Sheet1!$A$2:$A$4',
-        values: [1.0, 1.5, 1.2],
-        valFormula: 'Sheet1!$C$2:$C$4',
-        color: SERIES_COLORS[1],
-      });
-      const close = classicSeries({
-        index: 2,
-        name: 'Close',
-        nameFormula: 'Sheet1!$D$1',
-        categories: SAMPLE_CATS,
-        catFormula: 'Sheet1!$A$2:$A$4',
-        values: [2.1, 2.7, 2.0],
-        valFormula: 'Sheet1!$D$2:$D$4',
-        color: SERIES_COLORS[2],
-      });
-      return [
-        '<c:stockChart>',
-        high,
-        low,
-        close,
-        '<c:hiLowLines/>',
-        dataLabels(),
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:stockChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-      ].join('');
-    }
+      return buildScatterPlot();
+    case 'stock':
+      return buildStockPlot();
     case 'surface':
-      return [
-        '<c:surfaceChart>',
-        '<c:wireframe val="0"/>',
-        seriesA,
-        seriesB,
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        `<c:axId val="${VAL_AX_2}"/>`,
-        '</c:surfaceChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-        serAx(VAL_AX_2, VAL_AX),
-      ].join('');
+      return buildSurfacePlot(seriesA, seriesB);
     case 'combo':
-      return [
-        '<c:barChart>',
-        '<c:barDir val="col"/>',
-        '<c:grouping val="clustered"/>',
-        seriesA,
-        dataLabels(),
-        '<c:gapWidth val="150"/>',
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX}"/>`,
-        '</c:barChart>',
-        '<c:lineChart>',
-        '<c:grouping val="standard"/>',
-        seriesB,
-        dataLabels(),
-        '<c:marker val="1"/>',
-        '<c:smooth val="0"/>',
-        `<c:axId val="${CAT_AX}"/>`,
-        `<c:axId val="${VAL_AX_2}"/>`,
-        '</c:lineChart>',
-        catAx(CAT_AX, VAL_AX),
-        valAx(VAL_AX, CAT_AX),
-        valAx(VAL_AX_2, CAT_AX, 'r'),
-      ].join('');
+      return buildComboPlot(seriesA, seriesB);
     default:
       throw new Error(`Classic builder does not support chart type: ${type}`);
   }
