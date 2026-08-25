@@ -191,6 +191,40 @@ const RESETTABLE_IMAGE_EFFECTS = new Set([
   'tint',
 ]);
 
+function getRunFontSizePt(run: Element): number | null {
+  const runProperties = getElementChildren(run)
+    .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE) ?? null;
+  const fontSize = runProperties?.getAttribute('sz');
+  const size = fontSize ? Number(fontSize) : Number.NaN;
+  return Number.isFinite(size) ? size / 100 : null;
+}
+
+function resolveParagraphRangeFontSizePt(
+  paragraph: Element,
+  range: ParagraphTextRange,
+  currentResolved: number | null
+): { valid: boolean; fontSizePt: number | null } {
+  let offset = 0;
+  let matched = false;
+  let resolved = currentResolved;
+
+  for (const run of getDrawingRuns(paragraph)) {
+    const text = getDrawingRunText(run);
+    const end = offset + text.length;
+    const overlaps = text.length > 0 && range.start < end && range.end > offset;
+    if (overlaps) {
+      matched = true;
+      const fontSizePt = getRunFontSizePt(run);
+      if (fontSizePt === null) return { valid: false, fontSizePt: null };
+      if (resolved !== null && resolved !== fontSizePt) return { valid: false, fontSizePt: null };
+      resolved = fontSizePt;
+    }
+    offset = end;
+  }
+
+  return { valid: matched, fontSizePt: resolved };
+}
+
 function getImageResetDetails(shape: Element): {
   state: ImageResetState;
   srcRects: Element[];
@@ -1669,26 +1703,9 @@ export class PresentationEngine {
         const paragraph = paragraphs[range.paragraphIndex];
         if (!paragraph) return null;
 
-        let offset = 0;
-        let matched = false;
-        for (const run of getDrawingRuns(paragraph)) {
-          const text = getDrawingRunText(run);
-          const end = offset + text.length;
-          const overlaps = text.length > 0 && range.start < end && range.end > offset;
-          if (overlaps) {
-            matched = true;
-            const runProperties = getElementChildren(run)
-              .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE) ?? null;
-            const fontSize = runProperties?.getAttribute('sz');
-            const size = fontSize ? Number(fontSize) : Number.NaN;
-            if (!Number.isFinite(size)) return null;
-            const fontSizePt = size / 100;
-            if (resolved !== null && resolved !== fontSizePt) return null;
-            resolved = fontSizePt;
-          }
-          offset = end;
-        }
-        if (!matched) return null;
+        const result = resolveParagraphRangeFontSizePt(paragraph, range, resolved);
+        if (!result.valid) return null;
+        resolved = result.fontSizePt;
       }
 
       return resolved;
