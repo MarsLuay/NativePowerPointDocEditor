@@ -1,0 +1,167 @@
+{
+  "schema": 2,
+  "status": "review",
+  "mode": "check",
+  "root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor",
+  "docs_root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/docs/source-of-truth",
+  "source_root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor",
+  "changed_files": [],
+  "changed_files_truncated": false,
+  "changed": [],
+  "changed_truncated": false,
+  "baseline": {
+    "ok": true,
+    "strict": false,
+    "pages": 9,
+    "errors": [],
+    "warnings": [],
+    "affected_pages": []
+  },
+  "final": {
+    "ok": true,
+    "strict": false,
+    "pages": 9,
+    "errors": [],
+    "warnings": [],
+    "affected_pages": []
+  },
+  "source_references": {
+    "references": 26,
+    "search_roots": [
+      "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor"
+    ],
+    "missing": [
+      {
+        "page": "README.md",
+        "reference": "scripts/docs_nav.py"
+      },
+      {
+        "page": "cross-cutting.md",
+        "reference": ".obsidian/plugins/native-powerpoint-doc-editor/dev-debug.log"
+      },
+      {
+        "page": "entrypoints.md",
+        "reference": ".obsidian/plugins/native-powerpoint-doc-editor/main.js"
+      }
+    ],
+    "missing_truncated": false,
+    "outside_root": [],
+    "outside_root_truncated": false,
+    "dynamic": [],
+    "dynamic_truncated": false
+  },
+  "project_memory": {
+    "status": "passed",
+    "contract": {
+      "path": "PROJECT-CONTRACT.json",
+      "status": "valid",
+      "checker": "fallback-contract-validation",
+      "contract_id": "native-powerpoint-doc-editor-context-v1",
+      "contract_hash": null,
+      "schema_version": 1,
+      "route_count": 1,
+      "errors": []
+    },
+    "task_ledger": {
+      "json_path": "PROJECT-TASKS.json",
+      "markdown_path": "PROJECT-TASKS.md",
+      "task_count": 0,
+      "active_count": 0,
+      "statuses": {}
+    },
+    "managed_paths": [
+      "PROJECT-CONTRACT.json",
+      "PROJECT-TASKS.json",
+      "PROJECT-TASKS.md",
+      "project-memory/architecture.md",
+      "project-memory/candidates.jsonl",
+      "project-memory/decisions.md",
+      "project-memory/known-failures.md",
+      "project-memory/quirks.md",
+      "project-memory/verified.jsonl"
+    ],
+    "changed_paths": [],
+    "unknown_paths": [],
+    "memory_files": [
+      {
+        "path": "PROJECT-TASKS.json",
+        "kind": "task_json",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "PROJECT-TASKS.md",
+        "kind": "task_markdown",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "project-memory/architecture.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "project-memory/decisions.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "project-memory/quirks.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "project-memory/known-failures.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "project-memory/candidates.jsonl",
+        "kind": "candidate",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "project-memory/verified.jsonl",
+        "kind": "verified",
+        "ok": true,
+        "errors": []
+      }
+    ],
+    "route_selection": {
+      "status": "not_requested"
+    },
+    "errors": [],
+    "errors_truncated": false
+  },
+  "context_contract": {
+    "path": "PROJECT-CONTRACT.json",
+    "status": "valid",
+    "checker": "fallback-contract-validation",
+    "contract_id": "native-powerpoint-doc-editor-context-v1",
+    "contract_hash": null,
+    "schema_version": 1,
+    "route_count": 1,
+    "errors": []
+  },
+  "task": "",
+  "strict_references": false,
+  "agent_markdown": {
+    "files": [
+      "AGENTS.md"
+    ],
+    "conflicts": [],
+    "conflicts_truncated": false
+  },
+  "errors": [],
+  "errors_truncated": false,
+  "affected_pages": [],
+  "unmapped_changed_files": [],
+  "unmapped_changed_files_truncated": false,
+  "review_required": true,
+  "report_path": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/.agent-state/diagnostics/update-docs-69484.json"
+}

@@ -1,0 +1,17 @@
+{
+  "backup": "/Users/mars/.local/share/agents-md/backups/f2c5b3d0ed69/AGENTS.md.cf4a0dc7a698.bak",
+  "original_sha256": "cf4a0dc7a698726d92fef77141158f1410b8cee56bda97b04cff8aa9bd59ead8",
+  "references": [
+    {
+      "heading": "## Common tasks",
+      "path": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/AGENTS.details/common-tasks.md"
+    },
+    {
+      "heading": "## Code analysis \u2014 wont-fix",
+      "path": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/AGENTS.details/code-analysis-wont-fix.md"
+    }
+  ],
+  "result_sha256": "55e03c49cbcdf7530f976eb0ee8ad638e872268f2669b6169edff715ab5484bd",
+  "schema_version": 1,
+  "source": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/AGENTS.md"
+}

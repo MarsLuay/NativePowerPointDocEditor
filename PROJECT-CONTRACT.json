@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "contractId": "native-powerpoint-doc-editor-context-v1",
+  "routes": [
+    {
+      "id": "project-memory",
+      "path": "context/routes/project-memory.json"
+    }
+  ],
+  "projectMemory": {
+    "taskPath": "PROJECT-TASKS.json",
+    "candidatePath": "project-memory/candidates.jsonl",
+    "verifiedPath": "project-memory/verified.jsonl",
+    "humanReadablePaths": [
+      "project-memory/architecture.md",
+      "project-memory/decisions.md",
+      "project-memory/quirks.md",
+      "project-memory/known-failures.md"
+    ]
+  },
+  "taskLedger": {
+    "path": "PROJECT-TASKS.md",
+    "section": "Durable tasks"
+  },
+  "project": {
+    "key": "native-powerpoint-doc-editor"
+  },
+  "contextBudget": {
+    "maxTokens": 1800,
+    "charsPerToken": 4
+  }
+}
