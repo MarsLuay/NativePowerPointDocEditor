@@ -81,7 +81,7 @@ export function collectFindMatchesFromSearchIndex(
     let lowerShapeTexts = slide.lowerShapeTexts;
     if (!lowerShapeTexts || lowerShapeTexts.length !== shapeMatches.length) {
       lowerShapeTexts = shapeMatches.map((match) => match.text.toLocaleLowerCase());
-      (slide as PowerPointFindSearchIndexSlide).lowerShapeTexts = lowerShapeTexts;
+      slide.lowerShapeTexts = lowerShapeTexts;
     }
 
     for (let i = 0; i < shapeMatches.length; i++) {
@@ -95,7 +95,7 @@ export function collectFindMatchesFromSearchIndex(
 
     if (!slideHasMatch && slide.fallbackText) {
       const lowerFallback = slide.lowerFallbackText ?? (
-        (slide as PowerPointFindSearchIndexSlide).lowerFallbackText = slide.fallbackText.toLocaleLowerCase()
+        slide.lowerFallbackText = slide.fallbackText.toLocaleLowerCase()
       );
       if (lowerFallback.includes(normalizedQuery)) {
         matches.push({ slideIndex: slide.slideIndex, shapeIndex: null, text: slide.fallbackText });
