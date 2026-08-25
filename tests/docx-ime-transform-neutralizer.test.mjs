@@ -71,3 +71,63 @@ test("calculateHiddenImeAnchorPosition aligns hidden IME caret to visible caret"
 	assert.equal(hiddenCaretLeftAfterMove, 300);
 	assert.equal(hiddenCaretBottomAfterMove, 424);
 });
+
+test("attachDocxImeTransformNeutralizer registers listeners, emits diagnostics, and cleans up", async () => {
+	const { attachDocxImeTransformNeutralizer } = await loadNeutralizerModule();
+
+	const originalMutationObserver = globalThis.MutationObserver;
+	globalThis.MutationObserver = class MockMutationObserver {
+		observe() {}
+		disconnect() {}
+	};
+
+	try {
+		const addedListeners = [];
+	const removedListeners = [];
+	const diagnostics = [];
+
+	const mockWindow = {
+		requestAnimationFrame: () => 1,
+		cancelAnimationFrame: () => {},
+		setTimeout: () => 2,
+		clearTimeout: () => {},
+		setInterval: () => 3,
+		clearInterval: () => {},
+	};
+
+	const mockDocument = {
+		defaultView: mockWindow,
+		addEventListener: (type, handler, options) => {
+			addedListeners.push({ type, handler, options });
+		},
+		removeEventListener: (type, handler, options) => {
+			removedListeners.push({ type, handler, options });
+		},
+	};
+
+	const mockElement = {
+		ownerDocument: mockDocument,
+		querySelector: () => null,
+		contains: () => false,
+	};
+
+	const detach = attachDocxImeTransformNeutralizer(mockElement, {
+		ownerDocument: mockDocument,
+		onDiagnostic: (diag) => diagnostics.push(diag),
+	});
+
+	assert.ok(diagnostics.some((d) => d.event === "attached"));
+	assert.ok(addedListeners.length > 0);
+
+		detach();
+
+		assert.ok(diagnostics.some((d) => d.event === "detached"));
+		assert.equal(removedListeners.length, addedListeners.length);
+	} finally {
+		if (originalMutationObserver) {
+			globalThis.MutationObserver = originalMutationObserver;
+		} else {
+			delete globalThis.MutationObserver;
+		}
+	}
+});

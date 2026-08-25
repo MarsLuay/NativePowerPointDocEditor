@@ -29,17 +29,30 @@ function resolveDocxEmbed(app: App, linkPath: string, sourcePath: string) {
 	return file && file.extension.toLowerCase() === 'docx' ? file : null;
 }
 
-function DocxEmbedPreview({
-	file,
-	buffer,
-	hostEl,
-	i18n,
-}: {
-	file: TFile;
-	buffer: ArrayBuffer;
-	hostEl: HTMLElement;
-	i18n: Translations | undefined;
-}) {
+function copyRenderedPages(pagesContainer: HTMLElement, pagesEl: HTMLElement, hostEl: HTMLElement) {
+	const pages = Array.from(pagesContainer.querySelectorAll<HTMLElement>(DOCX_RENDERED_PAGE_SELECTOR));
+	if (pages.length === 0) {
+		return;
+	}
+
+	pagesEl.empty();
+	for (const page of pages) {
+		pagesEl.appendChild(page.cloneNode(true));
+	}
+
+	const firstPage = pages[0];
+	if (!firstPage) {
+		return;
+	}
+
+	const pageRect = firstPage.getBoundingClientRect();
+	hostEl.setCssProps({
+		'--native-powerpoint-doc-editor-embed-page-height': `${Math.ceil(pageRect.height)}px`,
+		'--native-powerpoint-doc-editor-embed-page-width': `${Math.ceil(pageRect.width)}px`,
+	});
+}
+
+function useDocxEmbedSync(hostEl: HTMLElement) {
 	const sourceRef = useRef<HTMLDivElement>(null);
 	const pagesRef = useRef<HTMLDivElement>(null);
 	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
@@ -52,26 +65,7 @@ function DocxEmbedPreview({
 			return;
 		}
 
-		const pages = Array.from(renderedDomContext.pagesContainer.querySelectorAll<HTMLElement>(DOCX_RENDERED_PAGE_SELECTOR));
-		if (pages.length === 0) {
-			return;
-		}
-
-		pagesEl.empty();
-		for (const page of pages) {
-			pagesEl.appendChild(page.cloneNode(true));
-		}
-
-		const firstPage = pages[0];
-		if (!firstPage) {
-			return;
-		}
-
-		const pageRect = firstPage.getBoundingClientRect();
-		hostEl.setCssProps({
-			'--native-powerpoint-doc-editor-embed-page-height': `${Math.ceil(pageRect.height)}px`,
-			'--native-powerpoint-doc-editor-embed-page-width': `${Math.ceil(pageRect.width)}px`,
-		});
+		copyRenderedPages(renderedDomContext.pagesContainer, pagesEl, hostEl);
 	}, [hostEl]);
 
 	const queueSyncPages = useCallback(() => {
@@ -141,6 +135,27 @@ function DocxEmbedPreview({
 			observer.disconnect();
 		};
 	}, [queueSyncPages]);
+
+	return {
+		pagesRef,
+		sourceRef,
+		queueSyncPages,
+		handleRenderedDomContextReady,
+	};
+}
+
+function DocxEmbedPreview({
+	file,
+	buffer,
+	hostEl,
+	i18n,
+}: {
+	file: TFile;
+	buffer: ArrayBuffer;
+	hostEl: HTMLElement;
+	i18n: Translations | undefined;
+}) {
+	const { pagesRef, sourceRef, queueSyncPages, handleRenderedDomContextReady } = useDocxEmbedSync(hostEl);
 
 	return (
 		<>

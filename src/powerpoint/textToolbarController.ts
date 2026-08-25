@@ -347,11 +347,12 @@ export class TextToolbarController {
     const runs = this.getRelevantTextRuns(context);
     if (runs.length === 0) return null;
 
+    const view = runs[0]?.ownerDocument?.defaultView ?? window;
     const EMU_PER_POINT = 12700;
     let detected: number | null = null;
     for (const run of runs) {
       if ((run.textContent || '').length === 0) continue;
-      const userUnits = Number.parseFloat(window.getComputedStyle(run).fontSize);
+      const userUnits = Number.parseFloat(view.getComputedStyle(run).fontSize);
       if (!Number.isFinite(userUnits) || userUnits <= 0) continue;
       const rounded = Math.round((userUnits * emuPerUnit) / EMU_PER_POINT);
       if (detected === null) {
@@ -367,10 +368,11 @@ export class TextToolbarController {
     const runs = this.getRelevantTextRuns(context);
     if (runs.length === 0) return null;
 
+    const view = runs[0]?.ownerDocument?.defaultView ?? window;
     let detected: string | null = null;
     for (const run of runs) {
       if ((run.textContent || '').length === 0) continue;
-      const family = parsePrimaryFontFamily(window.getComputedStyle(run).fontFamily);
+      const family = parsePrimaryFontFamily(view.getComputedStyle(run).fontFamily);
       if (!family) continue;
       if (detected === null) {
         detected = family;

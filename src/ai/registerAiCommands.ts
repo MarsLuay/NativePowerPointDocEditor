@@ -17,7 +17,7 @@ import {
 
 import { AI_COMMAND_IDS, AI_LEGACY_COMMAND_IDS } from './aiCommandIds';
 
-interface RegisterAiCommandsOptions {
+export interface RegisterAiCommandsOptions {
 	plugin: Plugin;
 	getI18n: () => PluginI18nService | null;
 	getAi: () => NpdeAiApi | undefined;
@@ -51,69 +51,67 @@ function resolvePathFromClipboard(
 	return resolved;
 }
 
-export function registerAiCommands(options: RegisterAiCommandsOptions): void {
+function registerCapabilitiesCommand(options: RegisterAiCommandsOptions, id: string, name: string): void {
 	const { plugin, getI18n, getAi } = options;
+	plugin.addCommand({
+		id,
+		name,
+		callback: async () => {
+			const ai = requireAi(getAi, getI18n);
+			if (!ai) return;
+			const manifest = ai.listCapabilities();
+			await copyJsonToClipboard(manifest);
+			showI18nNotice(getI18n(), 'settings:ai.manifestCopied');
+		},
+	});
+}
 
-	const registerCapabilities = (id: string, name: string) => {
-		plugin.addCommand({
-			id,
-			name,
-			callback: async () => {
-				const ai = requireAi(getAi, getI18n);
-				if (!ai) return;
-				const manifest = ai.listCapabilities();
-				await copyJsonToClipboard(manifest);
-				showI18nNotice(getI18n(), 'settings:ai.manifestCopied');
-			},
-		});
-	};
+function registerDescribeCommand(options: RegisterAiCommandsOptions, id: string, name: string): void {
+	const { plugin, getI18n, getAi } = options;
+	plugin.addCommand({
+		id,
+		name,
+		callback: async () => {
+			const ai = requireAi(getAi, getI18n);
+			if (!ai) return;
+			try {
+				const payload = parseDescribeRequest(await readClipboardJson());
+				const path = resolvePathFromClipboard(plugin, getI18n, payload.path);
+				if (!path) return;
+				const result = await ai.describe(path);
+				await copyJsonToClipboard(result);
+				showI18nNotice(getI18n(), 'settings:ai.describeCopied');
+			} catch {
+				showI18nNotice(getI18n(), 'settings:ai.clipboardInvalid');
+			}
+		},
+	});
+}
 
-	const registerDescribe = (id: string, name: string) => {
-		plugin.addCommand({
-			id,
-			name,
-			callback: async () => {
-				const ai = requireAi(getAi, getI18n);
-				if (!ai) return;
-				try {
-					const payload = parseDescribeRequest(await readClipboardJson());
-					const path = resolvePathFromClipboard(plugin, getI18n, payload.path);
-					if (!path) return;
-					const result = await ai.describe(path);
-					await copyJsonToClipboard(result);
-					showI18nNotice(getI18n(), 'settings:ai.describeCopied');
-				} catch {
-					showI18nNotice(getI18n(), 'settings:ai.clipboardInvalid');
-				}
-			},
-		});
-	};
+function registerApplyCommand(options: RegisterAiCommandsOptions, id: string, name: string): void {
+	const { plugin, getI18n, getAi } = options;
+	plugin.addCommand({
+		id,
+		name,
+		callback: async () => {
+			const ai = requireAi(getAi, getI18n);
+			if (!ai) return;
+			try {
+				const payload = parseApplyRequest(await readClipboardJson());
+				const path = resolvePathFromClipboard(plugin, getI18n, payload.path);
+				if (!path || !payload.ops) return;
+				const result = await ai.apply(path, payload.ops, { dryRun: payload.dryRun === true });
+				await copyJsonToClipboard(result);
+				showI18nNotice(getI18n(), 'settings:ai.applyCopied');
+			} catch {
+				showI18nNotice(getI18n(), 'settings:ai.clipboardInvalid');
+			}
+		},
+	});
+}
 
-	const registerApply = (id: string, name: string) => {
-		plugin.addCommand({
-			id,
-			name,
-			callback: async () => {
-				const ai = requireAi(getAi, getI18n);
-				if (!ai) return;
-				try {
-					const payload = parseApplyRequest(await readClipboardJson());
-					const path = resolvePathFromClipboard(plugin, getI18n, payload.path);
-					if (!path || !payload.ops) return;
-					const result = await ai.apply(path, payload.ops, { dryRun: payload.dryRun === true });
-					await copyJsonToClipboard(result);
-					showI18nNotice(getI18n(), 'settings:ai.applyCopied');
-				} catch {
-					showI18nNotice(getI18n(), 'settings:ai.clipboardInvalid');
-				}
-			},
-		});
-	};
-
-	registerCapabilities(AI_COMMAND_IDS.capabilities, 'AI: Copy capabilities (JSON)');
-	registerDescribe(AI_COMMAND_IDS.describe, 'AI: Describe document (clipboard JSON in/out)');
-	registerApply(AI_COMMAND_IDS.apply, 'AI: Apply operations (clipboard JSON in/out)');
-
+function registerValidateCommand(options: RegisterAiCommandsOptions): void {
+	const { plugin, getI18n, getAi } = options;
 	plugin.addCommand({
 		id: AI_COMMAND_IDS.validate,
 		name: 'AI: Validate operations (clipboard JSON in/out)',
@@ -130,7 +128,10 @@ export function registerAiCommands(options: RegisterAiCommandsOptions): void {
 			}
 		},
 	});
+}
 
+function registerSaveCommand(options: RegisterAiCommandsOptions): void {
+	const { plugin, getI18n, getAi } = options;
 	plugin.addCommand({
 		id: AI_COMMAND_IDS.save,
 		name: 'AI: Save document (clipboard JSON in/out)',
@@ -151,7 +152,10 @@ export function registerAiCommands(options: RegisterAiCommandsOptions): void {
 			}
 		},
 	});
+}
 
+function registerUndoCommand(options: RegisterAiCommandsOptions): void {
+	const { plugin, getI18n, getAi } = options;
 	plugin.addCommand({
 		id: AI_COMMAND_IDS.undo,
 		name: 'AI: Undo agent edit (clipboard JSON in/out)',
@@ -170,7 +174,10 @@ export function registerAiCommands(options: RegisterAiCommandsOptions): void {
 			}
 		},
 	});
+}
 
+function registerRedoCommand(options: RegisterAiCommandsOptions): void {
+	const { plugin, getI18n, getAi } = options;
 	plugin.addCommand({
 		id: AI_COMMAND_IDS.redo,
 		name: 'AI: Redo agent edit (clipboard JSON in/out)',
@@ -189,8 +196,18 @@ export function registerAiCommands(options: RegisterAiCommandsOptions): void {
 			}
 		},
 	});
+}
 
-	registerCapabilities(AI_LEGACY_COMMAND_IDS.capabilities, 'AI: Copy capability manifest (JSON, legacy id)');
-	registerDescribe(AI_LEGACY_COMMAND_IDS.describe, 'AI: Describe document from clipboard JSON (legacy id)');
-	registerApply(AI_LEGACY_COMMAND_IDS.apply, 'AI: Apply operations from clipboard JSON (legacy id)');
+export function registerAiCommands(options: RegisterAiCommandsOptions): void {
+	registerCapabilitiesCommand(options, AI_COMMAND_IDS.capabilities, 'AI: Copy capabilities (JSON)');
+	registerDescribeCommand(options, AI_COMMAND_IDS.describe, 'AI: Describe document (clipboard JSON in/out)');
+	registerApplyCommand(options, AI_COMMAND_IDS.apply, 'AI: Apply operations (clipboard JSON in/out)');
+	registerValidateCommand(options);
+	registerSaveCommand(options);
+	registerUndoCommand(options);
+	registerRedoCommand(options);
+
+	registerCapabilitiesCommand(options, AI_LEGACY_COMMAND_IDS.capabilities, 'AI: Copy capability manifest (JSON, legacy id)');
+	registerDescribeCommand(options, AI_LEGACY_COMMAND_IDS.describe, 'AI: Describe document from clipboard JSON (legacy id)');
+	registerApplyCommand(options, AI_LEGACY_COMMAND_IDS.apply, 'AI: Apply operations from clipboard JSON (legacy id)');
 }
