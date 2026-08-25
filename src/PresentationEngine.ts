@@ -191,6 +191,26 @@ const RESETTABLE_IMAGE_EFFECTS = new Set([
   'tint',
 ]);
 
+function shiftShapeAdjacent(
+  shapeTree: Element,
+  element: Element,
+  selected: Set<Element>,
+  direction: 1 | -1,
+  intersectingOnly: boolean
+): boolean {
+  const target = intersectingOnly
+    ? adjacentIntersectingUnselectedShape(element, selected, direction)
+    : adjacentUnselectedShape(element, selected, direction);
+  if (!target) return false;
+
+  if (direction === 1) {
+    shapeTree.insertBefore(element, target.nextSibling);
+  } else {
+    shapeTree.insertBefore(element, target);
+  }
+  return true;
+}
+
 function getImageResetDetails(shape: Element): {
   state: ImageResetState;
   srcRects: Element[];
@@ -2694,19 +2714,15 @@ export class PresentationEngine {
         for (let index = ordered.length - 1; index >= 0; index--) {
           const element = ordered[index];
           if (!element) continue;
-          const next = options.intersectingOnly
-            ? adjacentIntersectingUnselectedShape(element, selected, 1)
-            : adjacentUnselectedShape(element, selected, 1);
-          if (options.intersectingOnly && next) intersectionTargetCount += 1;
-          if (next) shapeTree.insertBefore(element, next.nextSibling);
+          if (shiftShapeAdjacent(shapeTree, element, selected, 1, Boolean(options.intersectingOnly)) && options.intersectingOnly) {
+            intersectionTargetCount += 1;
+          }
         }
       } else {
         for (const element of ordered) {
-          const previous = options.intersectingOnly
-            ? adjacentIntersectingUnselectedShape(element, selected, -1)
-            : adjacentUnselectedShape(element, selected, -1);
-          if (options.intersectingOnly && previous) intersectionTargetCount += 1;
-          if (previous) shapeTree.insertBefore(element, previous);
+          if (shiftShapeAdjacent(shapeTree, element, selected, -1, Boolean(options.intersectingOnly)) && options.intersectingOnly) {
+            intersectionTargetCount += 1;
+          }
         }
       }
 
