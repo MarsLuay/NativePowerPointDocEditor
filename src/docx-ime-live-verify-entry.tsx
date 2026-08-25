@@ -154,19 +154,32 @@ function collectMetrics(
 	};
 }
 
-function DocxLiveVerifyApp({
-	scenarioName,
-	initialZoom,
-	showOutline,
-}: {
-	scenarioName: string;
-	initialZoom: number;
-	showOutline: boolean;
-}) {
-	const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
-	const editorRef = useRef<DocxEditorRef>(null);
-	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
+function publishMetrics(metrics: LiveVerifyMetrics): void {
+	window.document.body.dataset.metrics = encodeURIComponent(JSON.stringify(metrics));
+	console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(metrics));
+}
 
+function publishVerificationError(scenarioName: string, errorMessage: string): void {
+	publishMetrics({
+		name: scenarioName,
+		error: errorMessage,
+		wrapper: null,
+		transformAncestorsOnCaret: -1,
+		editableFound: false,
+		hiddenImeRootFound: false,
+		hiddenImeAnchored: false,
+		hiddenCaretDelta: null,
+		compositionStartAnchored: false,
+		passed: false,
+	});
+}
+
+function useDocxImeNeutralizerVerification(
+	hostEl: HTMLDivElement | null,
+	scenarioName: string,
+	editorRef: React.RefObject<DocxEditorRef>,
+	renderedDomContextRef: React.RefObject<RenderedDomContext | null>,
+): void {
 	useEffect(() => {
 		if (!hostEl) {
 			return;
@@ -212,8 +225,7 @@ function DocxLiveVerifyApp({
 						compositionStartAnchored,
 						() => renderedDomContextRef.current,
 					);
-					window.document.body.dataset.metrics = encodeURIComponent(JSON.stringify(metrics));
-					console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(metrics));
+					publishMetrics(metrics);
 				}, 50);
 			}, 50);
 		};
@@ -234,7 +246,23 @@ function DocxLiveVerifyApp({
 			}
 			detachNeutralizer?.();
 		};
-	}, [hostEl, scenarioName]);
+	}, [hostEl, scenarioName, editorRef, renderedDomContextRef]);
+}
+
+function DocxLiveVerifyApp({
+	scenarioName,
+	initialZoom,
+	showOutline,
+}: {
+	scenarioName: string;
+	initialZoom: number;
+	showOutline: boolean;
+}) {
+	const [hostEl, setHostEl] = useState<HTMLDivElement | null>(null);
+	const editorRef = useRef<DocxEditorRef>(null);
+	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
+
+	useDocxImeNeutralizerVerification(hostEl, scenarioName, editorRef, renderedDomContextRef);
 
 	return (
 		<div className="native-powerpoint-doc-editor-host" ref={setHostEl}>
@@ -253,20 +281,7 @@ function DocxLiveVerifyApp({
 				}}
 				onFontsLoaded={() => undefined}
 				onError={(error) => {
-					const payload: LiveVerifyMetrics = {
-						name: scenarioName,
-						error: error.message,
-						wrapper: null,
-						transformAncestorsOnCaret: -1,
-						editableFound: false,
-						hiddenImeRootFound: false,
-						hiddenImeAnchored: false,
-						hiddenCaretDelta: null,
-						compositionStartAnchored: false,
-						passed: false,
-					};
-					window.document.body.dataset.metrics = encodeURIComponent(JSON.stringify(payload));
-					console.log('LIVE_VERIFY_RESULT:' + JSON.stringify(payload));
+					publishVerificationError(scenarioName, error.message);
 				}}
 			/>
 		</div>
