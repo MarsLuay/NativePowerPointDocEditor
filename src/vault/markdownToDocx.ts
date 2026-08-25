@@ -143,6 +143,84 @@ function joinParagraphLines(lines: string[]): string {
 	}).join('');
 }
 
+function parseCodeBlock(lines: string[], startIndex: number, fenceMatch: RegExpMatchArray): { block: MarkdownBlock; nextIndex: number } {
+	const fenceToken = fenceMatch[1] ?? '```';
+	const delimiter = fenceToken[0] ?? '`';
+	const minimumLength = fenceToken.length;
+	const codeLines: string[] = [];
+	let index = startIndex + 1;
+	const closingFence = new RegExp(`^\\s*${delimiter}{${minimumLength},}\\s*$`);
+	while (index < lines.length) {
+		const codeLine = lines[index];
+		if (codeLine === undefined || closingFence.test(codeLine)) {
+			break;
+		}
+		codeLines.push(codeLine);
+		index += 1;
+	}
+	if (index < lines.length) index += 1;
+	return { block: { kind: 'code', lines: codeLines.length ? codeLines : [''] }, nextIndex: index };
+}
+
+function parseListBlock(lines: string[], startIndex: number, listMatch: RegExpMatchArray): { block: MarkdownBlock; nextIndex: number } {
+	const continuation: string[] = [listMatch[4] ?? ''];
+	const indentation = (listMatch[1] ?? '').replace(/\t/g, '    ').length;
+	let index = startIndex + 1;
+	while (index < lines.length) {
+		const continuationLine = lines[index];
+		if (continuationLine === undefined || !/^\s+\S/.test(continuationLine) || /^(\s*)(?:[-+*]|\d+[.)])\s+/.test(continuationLine)) {
+			break;
+		}
+		continuation.push(continuationLine.trim());
+		index += 1;
+	}
+	return {
+		block: {
+			kind: 'list',
+			level: Math.min(8, Math.floor(indentation / 2)),
+			ordered: listMatch[3] !== undefined,
+			text: joinParagraphLines(continuation).replace(/^\[ \]\s+/, '☐ ').replace(/^\[[xX]\]\s+/, '☒ '),
+		},
+		nextIndex: index,
+	};
+}
+
+function parseQuoteBlock(lines: string[], startIndex: number): { block: MarkdownBlock; nextIndex: number } {
+	const quoteLines: string[] = [];
+	let index = startIndex;
+	while (index < lines.length) {
+		const quoteLine = lines[index];
+		if (quoteLine === undefined || !/^\s{0,3}>/.test(quoteLine)) {
+			break;
+		}
+		quoteLines.push(quoteLine.replace(/^\s{0,3}>\s?/, ''));
+		index += 1;
+	}
+	return { block: { kind: 'quote', text: joinParagraphLines(quoteLines) }, nextIndex: index };
+}
+
+function parseParagraphBlock(lines: string[], startIndex: number): { block: MarkdownBlock; nextIndex: number } {
+	const line = lines[startIndex];
+	const paragraphLines = line !== undefined ? [line] : [];
+	let index = startIndex + 1;
+	while (index < lines.length) {
+		const next = lines[index];
+		if (next === undefined) {
+			break;
+		}
+		if (!next.trim() || isFence(next) || /^\s{0,3}(?:#{1,6}\s+|>|(?:[-+*]|\d+[.)])\s+)/.test(next) || isRule(next)) {
+			break;
+		}
+		const following = lines[index + 1];
+		if (following !== undefined && /^\s{0,3}(?:=+|-+)\s*$/.test(following)) {
+			break;
+		}
+		paragraphLines.push(next);
+		index += 1;
+	}
+	return { block: { kind: 'paragraph', text: joinParagraphLines(paragraphLines) }, nextIndex: index };
+}
+
 function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
 	const lines = stripYamlFrontmatter(markdown.replace(/\r\n?/g, '\n').split('\n'));
 	const blocks: MarkdownBlock[] = [];
@@ -159,22 +237,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
 
 		const fence = isFence(line);
 		if (fence) {
-			const fenceToken = fence[1] ?? '```';
-			const delimiter = fenceToken[0] ?? '`';
-			const minimumLength = fenceToken.length;
-			const codeLines: string[] = [];
-			index += 1;
-			const closingFence = new RegExp(`^\\s*${delimiter}{${minimumLength},}\\s*$`);
-			while (index < lines.length) {
-				const codeLine = lines[index];
-				if (codeLine === undefined || closingFence.test(codeLine)) {
-					break;
-				}
-				codeLines.push(codeLine);
-				index += 1;
-			}
-			if (index < lines.length) index += 1;
-			blocks.push({ kind: 'code', lines: codeLines.length ? codeLines : [''] });
+			const { block, nextIndex } = parseCodeBlock(lines, index, fence);
+			blocks.push(block);
+			index = nextIndex;
 			continue;
 		}
 
@@ -194,37 +259,16 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
 
 		const list = line.match(/^(\s*)(?:([-+*])|(\d+)[.)])\s+(.+)$/);
 		if (list) {
-			const continuation: string[] = [list[4] ?? ''];
-			const indentation = (list[1] ?? '').replace(/\t/g, '    ').length;
-			index += 1;
-			while (index < lines.length) {
-				const continuationLine = lines[index];
-				if (continuationLine === undefined || !/^\s+\S/.test(continuationLine) || /^(\s*)(?:[-+*]|\d+[.)])\s+/.test(continuationLine)) {
-					break;
-				}
-				continuation.push(continuationLine.trim());
-				index += 1;
-			}
-			blocks.push({
-				kind: 'list',
-				level: Math.min(8, Math.floor(indentation / 2)),
-				ordered: list[3] !== undefined,
-				text: joinParagraphLines(continuation).replace(/^\[ \]\s+/, '☐ ').replace(/^\[[xX]\]\s+/, '☒ '),
-			});
+			const { block, nextIndex } = parseListBlock(lines, index, list);
+			blocks.push(block);
+			index = nextIndex;
 			continue;
 		}
 
 		if (/^\s{0,3}>/.test(line)) {
-			const quoteLines: string[] = [];
-			while (index < lines.length) {
-				const quoteLine = lines[index];
-				if (quoteLine === undefined || !/^\s{0,3}>/.test(quoteLine)) {
-					break;
-				}
-				quoteLines.push(quoteLine.replace(/^\s{0,3}>\s?/, ''));
-				index += 1;
-			}
-			blocks.push({ kind: 'quote', text: joinParagraphLines(quoteLines) });
+			const { block, nextIndex } = parseQuoteBlock(lines, index);
+			blocks.push(block);
+			index = nextIndex;
 			continue;
 		}
 
@@ -234,24 +278,9 @@ function parseMarkdownBlocks(markdown: string): MarkdownBlock[] {
 			continue;
 		}
 
-		const paragraphLines = [line];
-		index += 1;
-		while (index < lines.length) {
-			const next = lines[index];
-			if (next === undefined) {
-				break;
-			}
-			if (!next.trim() || isFence(next) || /^\s{0,3}(?:#{1,6}\s+|>|(?:[-+*]|\d+[.)])\s+)/.test(next) || isRule(next)) {
-				break;
-			}
-			const following = lines[index + 1];
-			if (following !== undefined && /^\s{0,3}(?:=+|-+)\s*$/.test(following)) {
-				break;
-			}
-			paragraphLines.push(next);
-			index += 1;
-		}
-		blocks.push({ kind: 'paragraph', text: joinParagraphLines(paragraphLines) });
+		const { block, nextIndex } = parseParagraphBlock(lines, index);
+		blocks.push(block);
+		index = nextIndex;
 	}
 
 	return blocks;
