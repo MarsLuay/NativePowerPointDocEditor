@@ -457,19 +457,15 @@ export function syncDocxImeHiddenProseMirrorAnchor(
 	return true;
 }
 
-export function attachDocxImeTransformNeutralizer(
-	editorRoot: HTMLElement,
-	options: DocxImeTransformNeutralizerOptions = {},
-): () => void {
-	const view = getNeutralizerWindow(editorRoot, options.ownerDocument);
-	const ownerDocument = options.ownerDocument ?? editorRoot.ownerDocument;
-	let frameId: number | null = null;
-	let pollIntervalId: number | null = null;
-	let suppressObserver = false;
-	const retryTimeouts: number[] = [];
-	let lastAnchorState = '';
+const IMMEDIATE_IME_EVENTS = ['keydown', 'beforeinput', 'compositionstart', 'compositionupdate', 'compositionend', 'input'] as const;
+const SCHEDULED_IME_EVENTS = ['keyup', 'mouseup', 'focusin', 'focusout', 'selectionchange'] as const;
+const RETRY_DELAYS_MS = [0, 100, 500, 1500] as const;
 
-	const diagnosticOptions: DocxImeTransformNeutralizerOptions = {
+function createDeduplicatedDiagnosticOptions(
+	options: DocxImeTransformNeutralizerOptions,
+): DocxImeTransformNeutralizerOptions {
+	let lastAnchorState = '';
+	return {
 		...options,
 		onDiagnostic: (event) => {
 			if (event.event === 'anchor-state') {
@@ -484,6 +480,88 @@ export function attachDocxImeTransformNeutralizer(
 			options.onDiagnostic?.(event);
 		},
 	};
+}
+
+function attachImeEventListeners(
+	ownerDocument: Document,
+	runImmediately: (event: Event) => void,
+	schedule: () => void,
+): void {
+	const eventOptions = { capture: true };
+	for (const eventName of IMMEDIATE_IME_EVENTS) {
+		ownerDocument.addEventListener(eventName, runImmediately, eventOptions);
+	}
+	for (const eventName of SCHEDULED_IME_EVENTS) {
+		ownerDocument.addEventListener(eventName, schedule, eventOptions);
+	}
+}
+
+function detachImeEventListeners(
+	ownerDocument: Document,
+	runImmediately: (event: Event) => void,
+	schedule: () => void,
+): void {
+	const eventOptions = { capture: true };
+	for (const eventName of IMMEDIATE_IME_EVENTS) {
+		ownerDocument.removeEventListener(eventName, runImmediately, eventOptions);
+	}
+	for (const eventName of SCHEDULED_IME_EVENTS) {
+		ownerDocument.removeEventListener(eventName, schedule, eventOptions);
+	}
+}
+
+function createImeMutationObserver(
+	editorRoot: HTMLElement,
+	isSuppressed: () => boolean,
+	schedule: () => void,
+): MutationObserver {
+	const observer = new MutationObserver((mutations) => {
+		if (isSuppressed()) {
+			return;
+		}
+
+		for (const mutation of mutations) {
+			if (mutation.type === 'childList') {
+				schedule();
+				return;
+			}
+
+			if (
+				mutation.type === 'attributes'
+				&& mutation.attributeName === 'style'
+				&& isHTMLElement(mutation.target)
+			) {
+				const wrapper = findDocxEditorZoomWrapper(editorRoot);
+				if (wrapper && (mutation.target === wrapper || wrapper.contains(mutation.target))) {
+					schedule();
+					return;
+				}
+			}
+		}
+	});
+
+	observer.observe(editorRoot, {
+		attributes: true,
+		attributeFilter: ['style'],
+		childList: true,
+		subtree: true,
+	});
+
+	return observer;
+}
+
+export function attachDocxImeTransformNeutralizer(
+	editorRoot: HTMLElement,
+	options: DocxImeTransformNeutralizerOptions = {},
+): () => void {
+	const view = getNeutralizerWindow(editorRoot, options.ownerDocument);
+	const ownerDocument = options.ownerDocument ?? editorRoot.ownerDocument;
+	let frameId: number | null = null;
+	let pollIntervalId: number | null = null;
+	let suppressObserver = false;
+	const retryTimeouts: number[] = [];
+
+	const diagnosticOptions = createDeduplicatedDiagnosticOptions(options);
 
 	const run = () => {
 		frameId = null;
@@ -550,49 +628,12 @@ export function attachDocxImeTransformNeutralizer(
 		schedule();
 	};
 
-	const observer = new MutationObserver((mutations) => {
-		if (suppressObserver) {
-			return;
-		}
+	const observer = createImeMutationObserver(editorRoot, () => suppressObserver, schedule);
 
-		for (const mutation of mutations) {
-			if (mutation.type === 'childList') {
-				schedule();
-				return;
-			}
-
-			if (
-				mutation.type === 'attributes'
-				&& mutation.attributeName === 'style'
-				&& isHTMLElement(mutation.target)
-			) {
-				const wrapper = findDocxEditorZoomWrapper(editorRoot);
-				if (wrapper && (mutation.target === wrapper || wrapper.contains(mutation.target))) {
-					schedule();
-					return;
-				}
-			}
-		}
-	});
-
-	observer.observe(editorRoot, {
-		attributes: true,
-		attributeFilter: ['style'],
-		childList: true,
-		subtree: true,
-	});
-
-	const immediateEventOptions = { capture: true };
-	const scheduledEventOptions = { capture: true };
-	for (const eventName of ['keydown', 'beforeinput', 'compositionstart', 'compositionupdate', 'compositionend', 'input']) {
-		ownerDocument.addEventListener(eventName, runImmediately, immediateEventOptions);
-	}
-	for (const eventName of ['keyup', 'mouseup', 'focusin', 'focusout', 'selectionchange']) {
-		ownerDocument.addEventListener(eventName, schedule, scheduledEventOptions);
-	}
+	attachImeEventListeners(ownerDocument, runImmediately, schedule);
 
 	schedule();
-	for (const delay of [0, 100, 500, 1500]) {
+	for (const delay of RETRY_DELAYS_MS) {
 		retryTimeouts.push(view.setTimeout(schedule, delay));
 	}
 	pollIntervalId = view.setInterval(schedule, 1000);
@@ -614,12 +655,7 @@ export function attachDocxImeTransformNeutralizer(
 				view.clearTimeout(timeoutId);
 			}
 		}
-		for (const eventName of ['keydown', 'beforeinput', 'compositionstart', 'compositionupdate', 'compositionend', 'input']) {
-			ownerDocument.removeEventListener(eventName, runImmediately, immediateEventOptions);
-		}
-		for (const eventName of ['keyup', 'mouseup', 'focusin', 'focusout', 'selectionchange']) {
-			ownerDocument.removeEventListener(eventName, schedule, scheduledEventOptions);
-		}
+		detachImeEventListeners(ownerDocument, runImmediately, schedule);
 		const editorView = options.getEditorView?.();
 		if (editorView) {
 			const hiddenRoot = findHiddenProseMirrorRoot(editorView);
