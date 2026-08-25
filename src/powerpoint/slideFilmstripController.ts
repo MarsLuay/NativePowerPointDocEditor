@@ -320,9 +320,7 @@ export class SlideFilmstripController {
 
     const started = performance.now();
     const sorted = [...indices].sort((left, right) => left - right);
-    for (const index of sorted) {
-      await this.renderThumbnailAt(index);
-    }
+    await Promise.all(sorted.map((index) => this.renderThumbnailAt(index)));
     debugLog('render', 'PowerPoint thumbnail refresh completed', {
       indices: sorted,
       ms: Math.round(performance.now() - started)
