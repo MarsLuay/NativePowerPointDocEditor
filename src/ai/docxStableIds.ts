@@ -13,30 +13,98 @@ export interface DocxStableLocation {
 	colIndex: number | null;
 }
 
-const BODY_PARAGRAPH_ID = /^body\/p\[(\d+)\]$/;
-const BODY_RUN_ID = /^body\/p\[(\d+)\]\/r\[(\d+)\]$/;
-const BODY_TABLE_ID = /^body\/tbl\[(\d+)\]$/;
-const BODY_CELL_ID = /^body\/tbl\[(\d+)\]\/tr\[(\d+)\]\/tc\[(\d+)\]$/;
+interface PartRule {
+	pattern: RegExp;
+	part: DocxPartKind;
+	getPartNumber: (match: RegExpExecArray) => number | null;
+}
 
-const HEADER_PARAGRAPH_ID = /^header\/(\d+)\/p\[(\d+)\]$/;
-const HEADER_RUN_ID = /^header\/(\d+)\/p\[(\d+)\]\/r\[(\d+)\]$/;
-const HEADER_TABLE_ID = /^header\/(\d+)\/tbl\[(\d+)\]$/;
-const HEADER_CELL_ID = /^header\/(\d+)\/tbl\[(\d+)\]\/tr\[(\d+)\]\/tc\[(\d+)\]$/;
+interface SuffixRule {
+	pattern: RegExp;
+	kind: DocxStableBlockKind;
+	getIndices: (match: RegExpExecArray) => {
+		paragraphIndex: number;
+		runIndex: number | null;
+		tableIndex: number | null;
+		rowIndex: number | null;
+		colIndex: number | null;
+	};
+}
 
-const FOOTER_PARAGRAPH_ID = /^footer\/(\d+)\/p\[(\d+)\]$/;
-const FOOTER_RUN_ID = /^footer\/(\d+)\/p\[(\d+)\]\/r\[(\d+)\]$/;
-const FOOTER_TABLE_ID = /^footer\/(\d+)\/tbl\[(\d+)\]$/;
-const FOOTER_CELL_ID = /^footer\/(\d+)\/tbl\[(\d+)\]\/tr\[(\d+)\]\/tc\[(\d+)\]$/;
+const PART_RULES: PartRule[] = [
+	{
+		pattern: /^body\/(.+)$/,
+		part: 'body',
+		getPartNumber: () => null,
+	},
+	{
+		pattern: /^header\/(\d+)\/(.+)$/,
+		part: 'header',
+		getPartNumber: (m) => Number(m[1]),
+	},
+	{
+		pattern: /^footer\/(\d+)\/(.+)$/,
+		part: 'footer',
+		getPartNumber: (m) => Number(m[1]),
+	},
+	{
+		pattern: /^footnotes\/fn\[(\d+)\]\/(.+)$/,
+		part: 'footnotes',
+		getPartNumber: (m) => Number(m[1]),
+	},
+	{
+		pattern: /^endnotes\/en\[(\d+)\]\/(.+)$/,
+		part: 'endnotes',
+		getPartNumber: (m) => Number(m[1]),
+	},
+];
 
-const FOOTNOTE_PARAGRAPH_ID = /^footnotes\/fn\[(\d+)\]\/p\[(\d+)\]$/;
-const FOOTNOTE_RUN_ID = /^footnotes\/fn\[(\d+)\]\/p\[(\d+)\]\/r\[(\d+)\]$/;
-const FOOTNOTE_TABLE_ID = /^footnotes\/fn\[(\d+)\]\/tbl\[(\d+)\]$/;
-const FOOTNOTE_CELL_ID = /^footnotes\/fn\[(\d+)\]\/tbl\[(\d+)\]\/tr\[(\d+)\]\/tc\[(\d+)\]$/;
-
-const ENDNOTE_PARAGRAPH_ID = /^endnotes\/en\[(\d+)\]\/p\[(\d+)\]$/;
-const ENDNOTE_RUN_ID = /^endnotes\/en\[(\d+)\]\/p\[(\d+)\]\/r\[(\d+)\]$/;
-const ENDNOTE_TABLE_ID = /^endnotes\/en\[(\d+)\]\/tbl\[(\d+)\]$/;
-const ENDNOTE_CELL_ID = /^endnotes\/en\[(\d+)\]\/tbl\[(\d+)\]\/tr\[(\d+)\]\/tc\[(\d+)\]$/;
+const SUFFIX_RULES: SuffixRule[] = [
+	{
+		pattern: /^p\[(\d+)\]$/,
+		kind: 'paragraph',
+		getIndices: (m) => ({
+			paragraphIndex: Number(m[1]),
+			runIndex: null,
+			tableIndex: null,
+			rowIndex: null,
+			colIndex: null,
+		}),
+	},
+	{
+		pattern: /^p\[(\d+)\]\/r\[(\d+)\]$/,
+		kind: 'run',
+		getIndices: (m) => ({
+			paragraphIndex: Number(m[1]),
+			runIndex: Number(m[2]),
+			tableIndex: null,
+			rowIndex: null,
+			colIndex: null,
+		}),
+	},
+	{
+		pattern: /^tbl\[(\d+)\]$/,
+		kind: 'table',
+		getIndices: (m) => ({
+			paragraphIndex: 0,
+			runIndex: null,
+			tableIndex: Number(m[1]),
+			rowIndex: null,
+			colIndex: null,
+		}),
+	},
+	{
+		pattern: /^tbl\[(\d+)\]\/tr\[(\d+)\]\/tc\[(\d+)\]$/,
+		kind: 'cell',
+		getIndices: (m) => ({
+			paragraphIndex: 0,
+			runIndex: null,
+			tableIndex: Number(m[1]),
+			rowIndex: Number(m[2]),
+			colIndex: Number(m[3]),
+		}),
+	},
+];
 
 export function docxIdPrefix(part: DocxPartKind, partNumber: number | null): string {
 	switch (part) {
@@ -54,284 +122,27 @@ export function docxIdPrefix(part: DocxPartKind, partNumber: number | null): str
 }
 
 export function parseStableLocation(id: string): DocxStableLocation | null {
-	const bodyParagraph = BODY_PARAGRAPH_ID.exec(id);
-	if (bodyParagraph) {
-		return {
-			part: 'body',
-			partNumber: null,
-			kind: 'paragraph',
-			paragraphIndex: Number(bodyParagraph[1]),
-			runIndex: null,
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
+	for (const partRule of PART_RULES) {
+		const partMatch = partRule.pattern.exec(id);
+		if (!partMatch) {
+			continue;
+		}
 
-	const bodyRun = BODY_RUN_ID.exec(id);
-	if (bodyRun) {
-		return {
-			part: 'body',
-			partNumber: null,
-			kind: 'run',
-			paragraphIndex: Number(bodyRun[1]),
-			runIndex: Number(bodyRun[2]),
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
+		const rest = partMatch[partMatch.length - 1] ?? '';
+		for (const suffixRule of SUFFIX_RULES) {
+			const suffixMatch = suffixRule.pattern.exec(rest);
+			if (!suffixMatch) {
+				continue;
+			}
 
-	const bodyTable = BODY_TABLE_ID.exec(id);
-	if (bodyTable) {
-		return {
-			part: 'body',
-			partNumber: null,
-			kind: 'table',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(bodyTable[1]),
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const bodyCell = BODY_CELL_ID.exec(id);
-	if (bodyCell) {
-		return {
-			part: 'body',
-			partNumber: null,
-			kind: 'cell',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(bodyCell[1]),
-			rowIndex: Number(bodyCell[2]),
-			colIndex: Number(bodyCell[3]),
-		};
-	}
-
-	const headerParagraph = HEADER_PARAGRAPH_ID.exec(id);
-	if (headerParagraph) {
-		return {
-			part: 'header',
-			partNumber: Number(headerParagraph[1]),
-			kind: 'paragraph',
-			paragraphIndex: Number(headerParagraph[2]),
-			runIndex: null,
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const headerRun = HEADER_RUN_ID.exec(id);
-	if (headerRun) {
-		return {
-			part: 'header',
-			partNumber: Number(headerRun[1]),
-			kind: 'run',
-			paragraphIndex: Number(headerRun[2]),
-			runIndex: Number(headerRun[3]),
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const headerTable = HEADER_TABLE_ID.exec(id);
-	if (headerTable) {
-		return {
-			part: 'header',
-			partNumber: Number(headerTable[1]),
-			kind: 'table',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(headerTable[2]),
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const headerCell = HEADER_CELL_ID.exec(id);
-	if (headerCell) {
-		return {
-			part: 'header',
-			partNumber: Number(headerCell[1]),
-			kind: 'cell',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(headerCell[2]),
-			rowIndex: Number(headerCell[3]),
-			colIndex: Number(headerCell[4]),
-		};
-	}
-
-	const footerParagraph = FOOTER_PARAGRAPH_ID.exec(id);
-	if (footerParagraph) {
-		return {
-			part: 'footer',
-			partNumber: Number(footerParagraph[1]),
-			kind: 'paragraph',
-			paragraphIndex: Number(footerParagraph[2]),
-			runIndex: null,
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const footerRun = FOOTER_RUN_ID.exec(id);
-	if (footerRun) {
-		return {
-			part: 'footer',
-			partNumber: Number(footerRun[1]),
-			kind: 'run',
-			paragraphIndex: Number(footerRun[2]),
-			runIndex: Number(footerRun[3]),
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const footerTable = FOOTER_TABLE_ID.exec(id);
-	if (footerTable) {
-		return {
-			part: 'footer',
-			partNumber: Number(footerTable[1]),
-			kind: 'table',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(footerTable[2]),
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const footerCell = FOOTER_CELL_ID.exec(id);
-	if (footerCell) {
-		return {
-			part: 'footer',
-			partNumber: Number(footerCell[1]),
-			kind: 'cell',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(footerCell[2]),
-			rowIndex: Number(footerCell[3]),
-			colIndex: Number(footerCell[4]),
-		};
-	}
-
-	const footnoteParagraph = FOOTNOTE_PARAGRAPH_ID.exec(id);
-	if (footnoteParagraph) {
-		return {
-			part: 'footnotes',
-			partNumber: Number(footnoteParagraph[1]),
-			kind: 'paragraph',
-			paragraphIndex: Number(footnoteParagraph[2]),
-			runIndex: null,
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const footnoteRun = FOOTNOTE_RUN_ID.exec(id);
-	if (footnoteRun) {
-		return {
-			part: 'footnotes',
-			partNumber: Number(footnoteRun[1]),
-			kind: 'run',
-			paragraphIndex: Number(footnoteRun[2]),
-			runIndex: Number(footnoteRun[3]),
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const footnoteTable = FOOTNOTE_TABLE_ID.exec(id);
-	if (footnoteTable) {
-		return {
-			part: 'footnotes',
-			partNumber: Number(footnoteTable[1]),
-			kind: 'table',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(footnoteTable[2]),
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const footnoteCell = FOOTNOTE_CELL_ID.exec(id);
-	if (footnoteCell) {
-		return {
-			part: 'footnotes',
-			partNumber: Number(footnoteCell[1]),
-			kind: 'cell',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(footnoteCell[2]),
-			rowIndex: Number(footnoteCell[3]),
-			colIndex: Number(footnoteCell[4]),
-		};
-	}
-
-	const endnoteParagraph = ENDNOTE_PARAGRAPH_ID.exec(id);
-	if (endnoteParagraph) {
-		return {
-			part: 'endnotes',
-			partNumber: Number(endnoteParagraph[1]),
-			kind: 'paragraph',
-			paragraphIndex: Number(endnoteParagraph[2]),
-			runIndex: null,
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const endnoteRun = ENDNOTE_RUN_ID.exec(id);
-	if (endnoteRun) {
-		return {
-			part: 'endnotes',
-			partNumber: Number(endnoteRun[1]),
-			kind: 'run',
-			paragraphIndex: Number(endnoteRun[2]),
-			runIndex: Number(endnoteRun[3]),
-			tableIndex: null,
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const endnoteTable = ENDNOTE_TABLE_ID.exec(id);
-	if (endnoteTable) {
-		return {
-			part: 'endnotes',
-			partNumber: Number(endnoteTable[1]),
-			kind: 'table',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(endnoteTable[2]),
-			rowIndex: null,
-			colIndex: null,
-		};
-	}
-
-	const endnoteCell = ENDNOTE_CELL_ID.exec(id);
-	if (endnoteCell) {
-		return {
-			part: 'endnotes',
-			partNumber: Number(endnoteCell[1]),
-			kind: 'cell',
-			paragraphIndex: 0,
-			runIndex: null,
-			tableIndex: Number(endnoteCell[2]),
-			rowIndex: Number(endnoteCell[3]),
-			colIndex: Number(endnoteCell[4]),
-		};
+			return {
+				part: partRule.part,
+				partNumber: partRule.getPartNumber(partMatch),
+				kind: suffixRule.kind,
+				...suffixRule.getIndices(suffixMatch),
+			};
+		}
+		return null;
 	}
 
 	return null;
