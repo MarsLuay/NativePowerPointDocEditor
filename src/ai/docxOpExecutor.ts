@@ -68,6 +68,14 @@ export interface DocxOpExecutionContext {
 	dryRun: boolean;
 }
 
+interface DocxOpAccumulator {
+	documentXml: string;
+	changedIds: string[];
+	createdIds: string[];
+	preview: ApplyPreviewChange[];
+	warnings: string[];
+}
+
 function asRecord(op: DocumentOp): Record<string, unknown> {
 	return op;
 }
@@ -320,25 +328,19 @@ function setPartXmlForLocation(
 	session.setPartXml(resolvePartPath(location), partXml);
 }
 
-export async function executeDocxOp(
+async function executeCommentsAndMetadataOp(
 	context: DocxOpExecutionContext,
-	op: DocumentOp,
-): Promise<DocxOpExecutionResult> {
-	const record = asRecord(op);
-	const opId = String(op.op);
-	let documentXml = context.session.getDocumentXml();
-	const changedIds: string[] = [];
-	const createdIds: string[] = [];
-	const preview: ApplyPreviewChange[] = [];
-	const warnings: string[] = [];
-
+	opId: string,
+	record: Record<string, unknown>,
+	acc: DocxOpAccumulator,
+): Promise<void> {
 	switch (opId) {
 		case 'docx.removeComments': {
 			const removal = await removeAllDocxComments(context.session);
-			documentXml = removal.documentXml;
-			changedIds.push(...removal.changedPartPaths);
+			acc.documentXml = removal.documentXml;
+			acc.changedIds.push(...removal.changedPartPaths);
 			if (removal.changedPartPaths.length > 0) {
-				preview.push({
+				acc.preview.push({
 					id: 'comments',
 					field: 'removeAll',
 					before: removal.commentCount,
@@ -367,13 +369,344 @@ export async function executeDocxOp(
 				DOCX_CORE_PROPERTIES_PATH,
 				patchDocxCoreProperties(existingCoreXml, { creator, lastModifiedBy }),
 			);
-			changedIds.push(DOCX_CORE_PROPERTIES_PATH);
-			preview.push(
+			acc.changedIds.push(DOCX_CORE_PROPERTIES_PATH);
+			acc.preview.push(
 				{ id: DOCX_CORE_PROPERTIES_PATH, field: 'creator', before: beforeCreator, after: creator },
 				{ id: DOCX_CORE_PROPERTIES_PATH, field: 'lastModifiedBy', before: beforeLastModifiedBy, after: lastModifiedBy },
 			);
 			break;
 		}
+	}
+}
+
+function executeFormattingOp(
+	context: DocxOpExecutionContext,
+	opId: string,
+	record: Record<string, unknown>,
+	acc: DocxOpAccumulator,
+): void {
+	switch (opId) {
+		case 'docx.setRunStyle': {
+			const runId = requireString(record.runId, 'runId');
+			const style = asRunStylePatch(record.style);
+			rejectWriteOnlyExcludedId(runId, 'runId');
+			const parsedRun = parseStableLocation(runId);
+			if (!parsedRun || parsedRun.kind !== 'run') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid runId: ${runId}.`, { field: 'runId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsedRun);
+			const paragraphXml = getParagraphXml(partXml, parsedRun);
+			const nextParagraphXml = patchRunStyle(paragraphXml, parsedRun.runIndex ?? 0, style);
+			partXml = replaceParagraphXml(partXml, parsedRun, nextParagraphXml);
+			setPartXmlForLocation(context.session, parsedRun, partXml);
+			if (parsedRun.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(runId);
+			acc.preview.push({ id: runId, field: 'style', before: null, after: style });
+			break;
+		}
+		case 'docx.setParagraphStyle': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const style = record.style;
+			if (!style || typeof style !== 'object') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'style must be an object.', { field: 'style' });
+			}
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const parsed = parseStableLocation(blockId);
+			if (!parsed || parsed.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			const paragraphXml = getParagraphXml(partXml, parsed);
+			const nextParagraphXml = patchParagraphStyle(paragraphXml, style);
+			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'style', before: null, after: style });
+			break;
+		}
+		case 'docx.setParagraphDefaultRunStyle': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const style = asRunStylePatch(record.style);
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const parsed = parseStableLocation(blockId);
+			if (!parsed || parsed.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			const paragraphXml = getParagraphXml(partXml, parsed);
+			const before = parseParagraph(paragraphXml).defaultRunStyle;
+			const nextParagraphXml = patchParagraphDefaultRunStyle(paragraphXml, style);
+			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'defaultRunStyle', before, after: style });
+			break;
+		}
+		case 'docx.setParagraphLayout': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const layout = asParagraphLayoutPatch(record.layout);
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const parsed = parseStableLocation(blockId);
+			if (!parsed || parsed.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			const nextParagraphXml = patchParagraphLayout(getParagraphXml(partXml, parsed), layout);
+			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'layout', before: null, after: layout });
+			break;
+		}
+		case 'docx.setSectionLayout': {
+			const sectionIndex = requireInteger(record.sectionIndex, 'sectionIndex');
+			const layout = asSectionLayoutPatch(record.layout);
+			acc.documentXml = patchDocumentSectionLayout(acc.documentXml, sectionIndex, layout);
+			acc.changedIds.push(`body/sectPr[${sectionIndex}]`);
+			acc.preview.push({ id: `body/sectPr[${sectionIndex}]`, field: 'layout', before: null, after: layout });
+			break;
+		}
+		case 'docx.setParagraphBottomBorder': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const border = asParagraphBottomBorderPatch(record.border);
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const location = parseStableLocation(blockId);
+			if (!location || location.kind !== 'paragraph') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph blockId: ${blockId}.`, { field: 'blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, location);
+			partXml = replaceParagraphXml(
+				partXml,
+				location,
+				patchParagraphBottomBorder(getParagraphXml(partXml, location), border),
+			);
+			setPartXmlForLocation(context.session, location, partXml);
+			if (location.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'bottomBorder', before: null, after: border });
+			break;
+		}
+	}
+}
+
+function executeTableOp(
+	context: DocxOpExecutionContext,
+	opId: string,
+	record: Record<string, unknown>,
+	acc: DocxOpAccumulator,
+): void {
+	switch (opId) {
+		case 'docx.insertTable': {
+			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
+			const rows = requireNumber(record.rows, 'rows');
+			const cols = requireNumber(record.cols, 'cols');
+			if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'rows and cols must be positive integers.', { field: 'rows' });
+			}
+			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
+			const anchor = parseStableLocation(afterBlockId);
+			if (!anchor) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid afterBlockId: ${afterBlockId}.`, { field: 'afterBlockId' });
+			}
+			const tableXml = buildEmptyTableXml(rows, cols);
+			let partXml = getPartXmlForLocation(context.session, anchor);
+			partXml = insertBlockAfterInPart(partXml, afterBlockId, tableXml);
+			setPartXmlForLocation(context.session, anchor, partXml);
+			if (anchor.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(afterBlockId);
+			acc.preview.push({ id: afterBlockId, field: 'insertTable', before: null, after: { rows, cols } });
+			break;
+		}
+		case 'docx.setCellText': {
+			const cellId = requireString(record.cellId, 'cellId');
+			const text = requireString(record.text, 'text');
+			rejectWriteOnlyExcludedId(cellId, 'cellId');
+			const parsed = parseStableLocation(cellId);
+			if (!parsed || parsed.kind !== 'cell') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid cellId: ${cellId}.`, { field: 'cellId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			const cellXml = getTableCellXmlFromPart(partXml, parsed);
+			const nextCellXml = patchCellText(cellXml, text);
+			partXml = replaceTableCellXmlInPart(partXml, parsed, nextCellXml);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(cellId);
+			acc.preview.push({ id: cellId, field: 'text', before: null, after: text });
+			break;
+		}
+		case 'docx.setCellStyle': {
+			const cellId = requireString(record.cellId, 'cellId');
+			const style = record.style;
+			if (!style || typeof style !== 'object') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'style must be an object.', { field: 'style' });
+			}
+			rejectWriteOnlyExcludedId(cellId, 'cellId');
+			const parsed = parseStableLocation(cellId);
+			if (!parsed || parsed.kind !== 'cell') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid cellId: ${cellId}.`, { field: 'cellId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			const cellXml = getTableCellXmlFromPart(partXml, parsed);
+			const nextCellXml = patchCellStyle(cellXml, style as Record<string, unknown>);
+			partXml = replaceTableCellXmlInPart(partXml, parsed, nextCellXml);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(cellId);
+			acc.preview.push({ id: cellId, field: 'style', before: null, after: style });
+			break;
+		}
+		case 'docx.deleteTable': {
+			const tableId = requireString(record.tableId, 'tableId');
+			rejectWriteOnlyExcludedId(tableId, 'tableId');
+			const parsed = parseStableLocation(tableId);
+			if (!parsed || parsed.kind !== 'table') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid tableId: ${tableId}.`, { field: 'tableId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, parsed);
+			partXml = deleteTableInPart(partXml, parsed);
+			setPartXmlForLocation(context.session, parsed, partXml);
+			if (parsed.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(tableId);
+			acc.preview.push({ id: tableId, field: 'deleteTable', before: 'table', after: null });
+			break;
+		}
+	}
+}
+
+async function executeMediaOp(
+	context: DocxOpExecutionContext,
+	opId: string,
+	record: Record<string, unknown>,
+	acc: DocxOpAccumulator,
+): Promise<void> {
+	switch (opId) {
+		case 'docx.insertImage': {
+			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
+			const vaultImagePath = requireString(record.vaultImagePath, 'vaultImagePath');
+			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
+			const anchor = parseStableLocation(afterBlockId);
+			if (!anchor || anchor.part !== 'body') {
+				throw createAiError(
+					AI_ERROR_CODES.VALIDATION_FAILED,
+					'insertImage is only supported on body blocks in the main DOCX part.',
+					{ field: 'afterBlockId' },
+				);
+			}
+			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
+			void getImageMimeType(image.extension);
+			acc.documentXml = await addInlineImage(
+				context.session.getZip(),
+				acc.documentXml,
+				afterBlockId,
+				image.bytes,
+				image.extension,
+			);
+			acc.changedIds.push(afterBlockId);
+			acc.preview.push({ id: afterBlockId, field: 'insertImage', before: null, after: vaultImagePath });
+			break;
+		}
+		case 'docx.replaceImage': {
+			const blockId = requireString(record.blockId, 'blockId');
+			const vaultImagePath = requireString(record.vaultImagePath, 'vaultImagePath');
+			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			const parsed = parseStableLocation(blockId);
+			if (!parsed || parsed.part !== 'body') {
+				throw createAiError(
+					AI_ERROR_CODES.VALIDATION_FAILED,
+					'replaceImage is only supported on body blocks in the main DOCX part.',
+					{ field: 'blockId' },
+				);
+			}
+			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
+			acc.documentXml = await replaceInlineImage(
+				context.session.getZip(),
+				acc.documentXml,
+				blockId,
+				image.bytes,
+				image.extension,
+			);
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'replaceImage', before: null, after: vaultImagePath });
+			break;
+		}
+	}
+}
+
+async function executeHyperlinkOp(
+	context: DocxOpExecutionContext,
+	opId: string,
+	record: Record<string, unknown>,
+	acc: DocxOpAccumulator,
+): Promise<void> {
+	switch (opId) {
+		case 'docx.insertHyperlink': {
+			const range = parseTextRange(record.range, 'range');
+			const url = requireString(record.url, 'url');
+			const displayText = typeof record.displayText === 'string' ? record.displayText : undefined;
+			const tooltip = typeof record.tooltip === 'string' ? record.tooltip : undefined;
+			const startLocation = parseStableLocation(range.start.blockId);
+			if (!startLocation) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
+			}
+			const relationshipId = await registerExternalHyperlink(context.session.getZip(), startLocation, url);
+			let partXml = getPartXmlForLocation(context.session, startLocation);
+			partXml = applyInsertHyperlinkInPart(partXml, range, relationshipId, displayText, tooltip);
+			setPartXmlForLocation(context.session, startLocation, partXml);
+			if (startLocation.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(range.start.blockId);
+			acc.preview.push({ id: range.start.blockId, field: 'insertHyperlink', before: null, after: { url, relationshipId } });
+			break;
+		}
+		case 'docx.removeHyperlink': {
+			const range = parseTextRange(record.range, 'range');
+			const startLocation = parseStableLocation(range.start.blockId);
+			if (!startLocation) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
+			}
+			let partXml = getPartXmlForLocation(context.session, startLocation);
+			partXml = applyRemoveHyperlinkInPart(partXml, range);
+			setPartXmlForLocation(context.session, startLocation, partXml);
+			if (startLocation.part === 'body') {
+				acc.documentXml = partXml;
+			}
+			acc.changedIds.push(range.start.blockId);
+			acc.preview.push({ id: range.start.blockId, field: 'removeHyperlink', before: range, after: null });
+			break;
+		}
+	}
+}
+
+function executeTextEditOp(
+	context: DocxOpExecutionContext,
+	opId: string,
+	record: Record<string, unknown>,
+	acc: DocxOpAccumulator,
+): void {
+	switch (opId) {
 		case 'docx.setRunText': {
 			const blockId = requireString(record.blockId, 'blockId');
 			const runId = requireString(record.runId, 'runId');
@@ -408,146 +741,10 @@ export async function executeDocxOp(
 			partXml = replaceParagraphXml(partXml, parsedRun, nextParagraphXml);
 			setPartXmlForLocation(context.session, parsedRun, partXml);
 			if (parsedRun.part === 'body') {
-				documentXml = partXml;
+				acc.documentXml = partXml;
 			}
-			changedIds.push(runId);
-			preview.push({ id: runId, field: 'text', before: null, after: text });
-			break;
-		}
-		case 'docx.setRunStyle': {
-			const runId = requireString(record.runId, 'runId');
-			const style = asRunStylePatch(record.style);
-			rejectWriteOnlyExcludedId(runId, 'runId');
-			const parsedRun = parseStableLocation(runId);
-			if (!parsedRun || parsedRun.kind !== 'run') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid runId: ${runId}.`, { field: 'runId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsedRun);
-			const paragraphXml = getParagraphXml(partXml, parsedRun);
-			const nextParagraphXml = patchRunStyle(paragraphXml, parsedRun.runIndex ?? 0, style);
-			partXml = replaceParagraphXml(partXml, parsedRun, nextParagraphXml);
-			setPartXmlForLocation(context.session, parsedRun, partXml);
-			if (parsedRun.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(runId);
-			preview.push({ id: runId, field: 'style', before: null, after: style });
-			break;
-		}
-		case 'docx.setParagraphStyle': {
-			const blockId = requireString(record.blockId, 'blockId');
-			const style = record.style;
-			if (!style || typeof style !== 'object') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'style must be an object.', { field: 'style' });
-			}
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const parsed = parseStableLocation(blockId);
-			if (!parsed || parsed.kind !== 'paragraph') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsed);
-			const paragraphXml = getParagraphXml(partXml, parsed);
-			const nextParagraphXml = patchParagraphStyle(paragraphXml, style);
-			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
-			setPartXmlForLocation(context.session, parsed, partXml);
-			if (parsed.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'style', before: null, after: style });
-			break;
-		}
-		case 'docx.setParagraphDefaultRunStyle': {
-			const blockId = requireString(record.blockId, 'blockId');
-			const style = asRunStylePatch(record.style);
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const parsed = parseStableLocation(blockId);
-			if (!parsed || parsed.kind !== 'paragraph') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsed);
-			const paragraphXml = getParagraphXml(partXml, parsed);
-			const before = parseParagraph(paragraphXml).defaultRunStyle;
-			const nextParagraphXml = patchParagraphDefaultRunStyle(paragraphXml, style);
-			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
-			setPartXmlForLocation(context.session, parsed, partXml);
-			if (parsed.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'defaultRunStyle', before, after: style });
-			break;
-		}
-		case 'docx.setParagraphLayout': {
-			const blockId = requireString(record.blockId, 'blockId');
-			const layout = asParagraphLayoutPatch(record.layout);
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const parsed = parseStableLocation(blockId);
-			if (!parsed || parsed.kind !== 'paragraph') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsed);
-			const nextParagraphXml = patchParagraphLayout(getParagraphXml(partXml, parsed), layout);
-			partXml = replaceParagraphXml(partXml, parsed, nextParagraphXml);
-			setPartXmlForLocation(context.session, parsed, partXml);
-			if (parsed.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'layout', before: null, after: layout });
-			break;
-		}
-		case 'docx.setSectionLayout': {
-			const sectionIndex = requireInteger(record.sectionIndex, 'sectionIndex');
-			const layout = asSectionLayoutPatch(record.layout);
-			documentXml = patchDocumentSectionLayout(documentXml, sectionIndex, layout);
-			changedIds.push(`body/sectPr[${sectionIndex}]`);
-			preview.push({ id: `body/sectPr[${sectionIndex}]`, field: 'layout', before: null, after: layout });
-			break;
-		}
-		case 'docx.setParagraphBottomBorder': {
-			const blockId = requireString(record.blockId, 'blockId');
-			const border = asParagraphBottomBorderPatch(record.border);
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const location = parseStableLocation(blockId);
-			if (!location || location.kind !== 'paragraph') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph blockId: ${blockId}.`, { field: 'blockId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, location);
-			partXml = replaceParagraphXml(
-				partXml,
-				location,
-				patchParagraphBottomBorder(getParagraphXml(partXml, location), border),
-			);
-			setPartXmlForLocation(context.session, location, partXml);
-			if (location.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'bottomBorder', before: null, after: border });
-			break;
-		}
-		case 'docx.insertTable': {
-			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
-			const rows = requireNumber(record.rows, 'rows');
-			const cols = requireNumber(record.cols, 'cols');
-			if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'rows and cols must be positive integers.', { field: 'rows' });
-			}
-			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
-			const anchor = parseStableLocation(afterBlockId);
-			if (!anchor) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid afterBlockId: ${afterBlockId}.`, { field: 'afterBlockId' });
-			}
-			const tableXml = buildEmptyTableXml(rows, cols);
-			let partXml = getPartXmlForLocation(context.session, anchor);
-			partXml = insertBlockAfterInPart(partXml, afterBlockId, tableXml);
-			setPartXmlForLocation(context.session, anchor, partXml);
-			if (anchor.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(afterBlockId);
-			preview.push({ id: afterBlockId, field: 'insertTable', before: null, after: { rows, cols } });
+			acc.changedIds.push(runId);
+			acc.preview.push({ id: runId, field: 'text', before: null, after: text });
 			break;
 		}
 		case 'docx.insertParagraphsAfter': {
@@ -580,11 +777,11 @@ export async function executeDocxOp(
 			partXml = result.partXml;
 			setPartXmlForLocation(context.session, anchor, partXml);
 			if (anchor.part === 'body') {
-				documentXml = partXml;
+				acc.documentXml = partXml;
 			}
-			changedIds.push(afterBlockId, ...result.createdBlockIds);
-			createdIds.push(...result.createdBlockIds);
-			preview.push({
+			acc.changedIds.push(afterBlockId, ...result.createdBlockIds);
+			acc.createdIds.push(...result.createdBlockIds);
+			acc.preview.push({
 				id: afterBlockId,
 				field: 'insertParagraphsAfter',
 				before: null,
@@ -594,115 +791,6 @@ export async function executeDocxOp(
 					inheritedListProperties: result.inheritedListProperties,
 				},
 			});
-			break;
-		}
-		case 'docx.setCellText': {
-			const cellId = requireString(record.cellId, 'cellId');
-			const text = requireString(record.text, 'text');
-			rejectWriteOnlyExcludedId(cellId, 'cellId');
-			const parsed = parseStableLocation(cellId);
-			if (!parsed || parsed.kind !== 'cell') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid cellId: ${cellId}.`, { field: 'cellId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsed);
-			const cellXml = getTableCellXmlFromPart(partXml, parsed);
-			const nextCellXml = patchCellText(cellXml, text);
-			partXml = replaceTableCellXmlInPart(partXml, parsed, nextCellXml);
-			setPartXmlForLocation(context.session, parsed, partXml);
-			if (parsed.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(cellId);
-			preview.push({ id: cellId, field: 'text', before: null, after: text });
-			break;
-		}
-		case 'docx.setCellStyle': {
-			const cellId = requireString(record.cellId, 'cellId');
-			const style = record.style;
-			if (!style || typeof style !== 'object') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'style must be an object.', { field: 'style' });
-			}
-			rejectWriteOnlyExcludedId(cellId, 'cellId');
-			const parsed = parseStableLocation(cellId);
-			if (!parsed || parsed.kind !== 'cell') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid cellId: ${cellId}.`, { field: 'cellId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsed);
-			const cellXml = getTableCellXmlFromPart(partXml, parsed);
-			const nextCellXml = patchCellStyle(cellXml, style as Record<string, unknown>);
-			partXml = replaceTableCellXmlInPart(partXml, parsed, nextCellXml);
-			setPartXmlForLocation(context.session, parsed, partXml);
-			if (parsed.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(cellId);
-			preview.push({ id: cellId, field: 'style', before: null, after: style });
-			break;
-		}
-		case 'docx.deleteTable': {
-			const tableId = requireString(record.tableId, 'tableId');
-			rejectWriteOnlyExcludedId(tableId, 'tableId');
-			const parsed = parseStableLocation(tableId);
-			if (!parsed || parsed.kind !== 'table') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid tableId: ${tableId}.`, { field: 'tableId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, parsed);
-			partXml = deleteTableInPart(partXml, parsed);
-			setPartXmlForLocation(context.session, parsed, partXml);
-			if (parsed.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(tableId);
-			preview.push({ id: tableId, field: 'deleteTable', before: 'table', after: null });
-			break;
-		}
-		case 'docx.insertImage': {
-			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
-			const vaultImagePath = requireString(record.vaultImagePath, 'vaultImagePath');
-			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
-			const anchor = parseStableLocation(afterBlockId);
-			if (!anchor || anchor.part !== 'body') {
-				throw createAiError(
-					AI_ERROR_CODES.VALIDATION_FAILED,
-					'insertImage is only supported on body blocks in the main DOCX part.',
-					{ field: 'afterBlockId' },
-				);
-			}
-			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
-			void getImageMimeType(image.extension);
-			documentXml = await addInlineImage(
-				context.session.getZip(),
-				documentXml,
-				afterBlockId,
-				image.bytes,
-				image.extension,
-			);
-			changedIds.push(afterBlockId);
-			preview.push({ id: afterBlockId, field: 'insertImage', before: null, after: vaultImagePath });
-			break;
-		}
-		case 'docx.replaceImage': {
-			const blockId = requireString(record.blockId, 'blockId');
-			const vaultImagePath = requireString(record.vaultImagePath, 'vaultImagePath');
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const parsed = parseStableLocation(blockId);
-			if (!parsed || parsed.part !== 'body') {
-				throw createAiError(
-					AI_ERROR_CODES.VALIDATION_FAILED,
-					'replaceImage is only supported on body blocks in the main DOCX part.',
-					{ field: 'blockId' },
-				);
-			}
-			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
-			documentXml = await replaceInlineImage(
-				context.session.getZip(),
-				documentXml,
-				blockId,
-				image.bytes,
-				image.extension,
-			);
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'replaceImage', before: null, after: vaultImagePath });
 			break;
 		}
 		case 'docx.replaceText': {
@@ -723,15 +811,15 @@ export async function executeDocxOp(
 					context.session.setPartXml(partPath, result.partXml);
 					replacementCount += result.replacementCount;
 					if (partPath === resolvePartPath({ part: 'body', partNumber: null })) {
-						documentXml = result.partXml;
+						acc.documentXml = result.partXml;
 					}
 				}
 			}
 			if (replacementCount === 0) {
-				warnings.push(`No matches found for query "${query}".`);
+				acc.warnings.push(`No matches found for query "${query}".`);
 			} else {
-				changedIds.push('document');
-				preview.push({
+				acc.changedIds.push('document');
+				acc.preview.push({
 					id: 'document',
 					field: 'replaceText',
 					before: query,
@@ -755,10 +843,10 @@ export async function executeDocxOp(
 			partXml = applyInsertTextInPart(partXml, { blockId, offset, ...(runId ? { runId } : {}) }, text);
 			setPartXmlForLocation(context.session, location, partXml);
 			if (location.part === 'body') {
-				documentXml = partXml;
+				acc.documentXml = partXml;
 			}
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'insertText', before: null, after: { offset, text } });
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'insertText', before: null, after: { offset, text } });
 			break;
 		}
 		case 'docx.deleteRange': {
@@ -771,10 +859,10 @@ export async function executeDocxOp(
 			partXml = applyDeleteRangeInPart(partXml, range);
 			setPartXmlForLocation(context.session, startLocation, partXml);
 			if (startLocation.part === 'body') {
-				documentXml = partXml;
+				acc.documentXml = partXml;
 			}
-			changedIds.push(range.start.blockId, range.end.blockId);
-			preview.push({ id: range.start.blockId, field: 'deleteRange', before: range, after: null });
+			acc.changedIds.push(range.start.blockId, range.end.blockId);
+			acc.preview.push({ id: range.start.blockId, field: 'deleteRange', before: range, after: null });
 			break;
 		}
 		case 'docx.deleteBlock': {
@@ -788,46 +876,10 @@ export async function executeDocxOp(
 			partXml = applyDeleteParagraphInPart(partXml, blockId);
 			setPartXmlForLocation(context.session, location, partXml);
 			if (location.part === 'body') {
-				documentXml = partXml;
+				acc.documentXml = partXml;
 			}
-			changedIds.push(blockId);
-			preview.push({ id: blockId, field: 'deleteBlock', before: 'paragraph', after: null });
-			break;
-		}
-		case 'docx.insertHyperlink': {
-			const range = parseTextRange(record.range, 'range');
-			const url = requireString(record.url, 'url');
-			const displayText = typeof record.displayText === 'string' ? record.displayText : undefined;
-			const tooltip = typeof record.tooltip === 'string' ? record.tooltip : undefined;
-			const startLocation = parseStableLocation(range.start.blockId);
-			if (!startLocation) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
-			}
-			const relationshipId = await registerExternalHyperlink(context.session.getZip(), startLocation, url);
-			let partXml = getPartXmlForLocation(context.session, startLocation);
-			partXml = applyInsertHyperlinkInPart(partXml, range, relationshipId, displayText, tooltip);
-			setPartXmlForLocation(context.session, startLocation, partXml);
-			if (startLocation.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(range.start.blockId);
-			preview.push({ id: range.start.blockId, field: 'insertHyperlink', before: null, after: { url, relationshipId } });
-			break;
-		}
-		case 'docx.removeHyperlink': {
-			const range = parseTextRange(record.range, 'range');
-			const startLocation = parseStableLocation(range.start.blockId);
-			if (!startLocation) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
-			}
-			let partXml = getPartXmlForLocation(context.session, startLocation);
-			partXml = applyRemoveHyperlinkInPart(partXml, range);
-			setPartXmlForLocation(context.session, startLocation, partXml);
-			if (startLocation.part === 'body') {
-				documentXml = partXml;
-			}
-			changedIds.push(range.start.blockId);
-			preview.push({ id: range.start.blockId, field: 'removeHyperlink', before: range, after: null });
+			acc.changedIds.push(blockId);
+			acc.preview.push({ id: blockId, field: 'deleteBlock', before: 'paragraph', after: null });
 			break;
 		}
 		case 'docx.insertParagraphBreak': {
@@ -845,11 +897,11 @@ export async function executeDocxOp(
 			partXml = result.partXml;
 			setPartXmlForLocation(context.session, location, partXml);
 			if (location.part === 'body') {
-				documentXml = partXml;
+				acc.documentXml = partXml;
 			}
-			changedIds.push(blockId, ...result.createdBlockIds);
-			createdIds.push(...result.createdBlockIds);
-			preview.push({
+			acc.changedIds.push(blockId, ...result.createdBlockIds);
+			acc.createdIds.push(...result.createdBlockIds);
+			acc.preview.push({
 				id: blockId,
 				field: 'insertParagraphBreak',
 				before: null,
@@ -874,9 +926,9 @@ export async function executeDocxOp(
 				}
 				return entry;
 			});
-			documentXml = applyReplaceBodyParagraphs(documentXml, paragraphs);
-			changedIds.push('body');
-			preview.push({
+			acc.documentXml = applyReplaceBodyParagraphs(acc.documentXml, paragraphs);
+			acc.changedIds.push('body');
+			acc.preview.push({
 				id: 'body',
 				field: 'replaceBodyParagraphs',
 				before: null,
@@ -884,11 +936,65 @@ export async function executeDocxOp(
 			});
 			break;
 		}
+	}
+}
+
+export async function executeDocxOp(
+	context: DocxOpExecutionContext,
+	op: DocumentOp,
+): Promise<DocxOpExecutionResult> {
+	const record = asRecord(op);
+	const opId = String(op.op);
+	const acc: DocxOpAccumulator = {
+		documentXml: context.session.getDocumentXml(),
+		changedIds: [],
+		createdIds: [],
+		preview: [],
+		warnings: [],
+	};
+
+	switch (opId) {
+		case 'docx.removeComments':
+		case 'docx.setCoreProperties':
+			await executeCommentsAndMetadataOp(context, opId, record, acc);
+			break;
+		case 'docx.setRunStyle':
+		case 'docx.setParagraphStyle':
+		case 'docx.setParagraphDefaultRunStyle':
+		case 'docx.setParagraphLayout':
+		case 'docx.setSectionLayout':
+		case 'docx.setParagraphBottomBorder':
+			executeFormattingOp(context, opId, record, acc);
+			break;
+		case 'docx.insertTable':
+		case 'docx.setCellText':
+		case 'docx.setCellStyle':
+		case 'docx.deleteTable':
+			executeTableOp(context, opId, record, acc);
+			break;
+		case 'docx.insertImage':
+		case 'docx.replaceImage':
+			await executeMediaOp(context, opId, record, acc);
+			break;
+		case 'docx.insertHyperlink':
+		case 'docx.removeHyperlink':
+			await executeHyperlinkOp(context, opId, record, acc);
+			break;
+		case 'docx.setRunText':
+		case 'docx.insertParagraphsAfter':
+		case 'docx.replaceText':
+		case 'docx.insertText':
+		case 'docx.deleteRange':
+		case 'docx.deleteBlock':
+		case 'docx.insertParagraphBreak':
+		case 'docx.replaceBodyParagraphs':
+			executeTextEditOp(context, opId, record, acc);
+			break;
 		default:
 			throw createAiError(AI_ERROR_CODES.UNKNOWN_OP, `Unknown DOCX operation: ${opId}.`, { op: opId });
 	}
 
-	context.session.setDocumentXml(documentXml);
+	context.session.setDocumentXml(acc.documentXml);
 
-	return { changedIds, createdIds, preview, warnings, documentXml };
+	return acc;
 }
