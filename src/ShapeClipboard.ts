@@ -242,29 +242,66 @@ async function copyShapeRelationships(
     : createRelationshipsDocument();
 
   for (const attribute of relationshipAttributes) {
-    const sourceRelationship = findRelationship(sourceRelationships, attribute.value);
-    if (!sourceRelationship) continue;
-
-    const clonedRelationship = destinationRelationships.importNode(sourceRelationship, true);
-    const relationshipId = nextRelationshipId(destinationRelationships);
-    clonedRelationship.setAttribute('Id', relationshipId);
-    attribute.value = relationshipId;
-
-    const target = clonedRelationship.getAttribute('Target');
-    if (target && clonedRelationship.getAttribute('TargetMode') !== 'External') {
-      const sourceTargetPath = resolvePartPath(sourceSlidePath, target);
-      const destinationTargetPath = await ensureRelatedPart(
-        sourceTargetPath,
-        context,
-        isChartRelationship(clonedRelationship)
-      );
-      clonedRelationship.setAttribute('Target', getRelativePartPath(destinationSlidePath, destinationTargetPath));
-    }
-
-    destinationRelationships.documentElement.appendChild(clonedRelationship);
+    await copySingleShapeRelationship(
+      attribute,
+      sourceRelationships,
+      destinationRelationships,
+      sourceSlidePath,
+      destinationSlidePath,
+      context
+    );
   }
 
   context.textModifications.set(destinationRelationshipsPath, serializeXml(destinationRelationships));
+}
+
+async function copySingleShapeRelationship(
+  attribute: Attr,
+  sourceRelationships: XMLDocument,
+  destinationRelationships: XMLDocument,
+  sourceSlidePath: string,
+  destinationSlidePath: string,
+  context: PasteContext
+): Promise<void> {
+  const sourceRelationship = findRelationship(sourceRelationships, attribute.value);
+  if (!sourceRelationship) return;
+
+  const clonedRelationship = destinationRelationships.importNode(sourceRelationship, true);
+  const relationshipId = nextRelationshipId(destinationRelationships);
+  clonedRelationship.setAttribute('Id', relationshipId);
+  attribute.value = relationshipId;
+
+  await updateRelationshipTarget(
+    clonedRelationship,
+    sourceSlidePath,
+    destinationSlidePath,
+    context
+  );
+
+  destinationRelationships.documentElement.appendChild(clonedRelationship);
+}
+
+async function updateRelationshipTarget(
+  clonedRelationship: Element,
+  sourceSlidePath: string,
+  destinationSlidePath: string,
+  context: PasteContext
+): Promise<void> {
+  const target = clonedRelationship.getAttribute('Target');
+  if (!target || clonedRelationship.getAttribute('TargetMode') === 'External') {
+    return;
+  }
+
+  const sourceTargetPath = resolvePartPath(sourceSlidePath, target);
+  const destinationTargetPath = await ensureRelatedPart(
+    sourceTargetPath,
+    context,
+    isChartRelationship(clonedRelationship)
+  );
+  clonedRelationship.setAttribute(
+    'Target',
+    getRelativePartPath(destinationSlidePath, destinationTargetPath)
+  );
 }
 
 function getRelationshipAttributes(element: Element): Attr[] {
