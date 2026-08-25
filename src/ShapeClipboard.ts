@@ -267,20 +267,18 @@ async function copyShapeRelationships(
   context.textModifications.set(destinationRelationshipsPath, serializeXml(destinationRelationships));
 }
 
+function isRelationshipAttribute(attribute: Attr): boolean {
+  return (
+    attribute.namespaceURI === DRAWING_RELATIONSHIP_NAMESPACE
+    || attribute.prefix === 'r'
+  );
+}
+
 function getRelationshipAttributes(element: Element): Attr[] {
-  const attributes: Attr[] = [];
   const elements = [element, ...Array.from(element.getElementsByTagName('*'))];
-  for (const descendant of elements) {
-    for (const attribute of Array.from(descendant.attributes)) {
-      if (
-        attribute.namespaceURI === DRAWING_RELATIONSHIP_NAMESPACE
-        || attribute.prefix === 'r'
-      ) {
-        attributes.push(attribute);
-      }
-    }
-  }
-  return attributes;
+  return elements.flatMap((descendant) =>
+    Array.from(descendant.attributes).filter(isRelationshipAttribute)
+  );
 }
 
 function createRelationshipsDocument(): XMLDocument {
