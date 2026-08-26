@@ -1,0 +1,198 @@
+{
+  "schema": 2,
+  "status": "review",
+  "mode": "check",
+  "root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor",
+  "docs_root": null,
+  "source_root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor",
+  "changed_files": [
+    "PROJECT-CONTRACT.json",
+    "context/routes/project-memory.json",
+    "project-memory/architecture.md",
+    "project-memory/candidates.jsonl",
+    "project-memory/decisions.md",
+    "project-memory/known-failures.md",
+    "project-memory/quirks.md",
+    "project-memory/verified.jsonl"
+  ],
+  "changed_files_truncated": false,
+  "changed": [],
+  "changed_truncated": false,
+  "baseline": {
+    "ok": true,
+    "strict": false,
+    "pages": 0,
+    "errors": [],
+    "warnings": [
+      "memory bank is canonical project documentation; Serena is the current-code authority; legacy docs/source-of-truth navigation is not applicable"
+    ],
+    "affected_pages": []
+  },
+  "final": {
+    "ok": true,
+    "strict": true,
+    "pages": 0,
+    "errors": [],
+    "warnings": [
+      "memory bank is canonical project documentation; Serena is the current-code authority; legacy docs/source-of-truth navigation is not applicable"
+    ],
+    "affected_pages": []
+  },
+  "source_references": {
+    "references": 0,
+    "search_roots": [
+      "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor"
+    ],
+    "missing": [],
+    "missing_truncated": false,
+    "outside_root": [],
+    "outside_root_truncated": false,
+    "dynamic": [],
+    "dynamic_truncated": false
+  },
+  "project_memory": {
+    "status": "passed",
+    "contract": {
+      "path": "PROJECT-CONTRACT.json",
+      "status": "valid",
+      "checker": "fallback-contract-validation",
+      "contract_id": "native-powerpoint-doc-editor-context-v1",
+      "contract_hash": null,
+      "schema_version": 1,
+      "route_count": 1,
+      "errors": []
+    },
+    "task_ledger": {
+      "json_path": "PROJECT-TASKS.json",
+      "markdown_path": "PROJECT-TASKS.md",
+      "task_count": 0,
+      "active_count": 0,
+      "statuses": {}
+    },
+    "managed_paths": [
+      "PROJECT-CONTRACT.json",
+      "PROJECT-TASKS.json",
+      "PROJECT-TASKS.md",
+      "docs/project-memory/architecture.md",
+      "docs/project-memory/candidates.jsonl",
+      "docs/project-memory/decisions.md",
+      "docs/project-memory/known-failures.md",
+      "docs/project-memory/quirks.md",
+      "docs/project-memory/verified.jsonl"
+    ],
+    "changed_paths": [
+      "PROJECT-CONTRACT.json"
+    ],
+    "unknown_paths": [],
+    "memory_files": [
+      {
+        "path": "PROJECT-TASKS.json",
+        "kind": "task_json",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "PROJECT-TASKS.md",
+        "kind": "task_markdown",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "docs/project-memory/architecture.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "docs/project-memory/decisions.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "docs/project-memory/quirks.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "docs/project-memory/known-failures.md",
+        "kind": "human_readable",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "docs/project-memory/candidates.jsonl",
+        "kind": "candidate",
+        "ok": true,
+        "errors": []
+      },
+      {
+        "path": "docs/project-memory/verified.jsonl",
+        "kind": "verified",
+        "ok": true,
+        "errors": []
+      }
+    ],
+    "route_selection": {
+      "status": "selected",
+      "route": "project-memory",
+      "scores": [
+        {
+          "id": "project-memory",
+          "score": 3,
+          "textMatches": [
+            "memory bank",
+            "memory-bank",
+            "project memory"
+          ],
+          "pathMatches": []
+        }
+      ]
+    },
+    "errors": [],
+    "errors_truncated": false
+  },
+  "context_contract": {
+    "path": "PROJECT-CONTRACT.json",
+    "status": "valid",
+    "checker": "fallback-contract-validation",
+    "contract_id": "native-powerpoint-doc-editor-context-v1",
+    "contract_hash": null,
+    "schema_version": 1,
+    "route_count": 1,
+    "errors": []
+  },
+  "task": "Move the project memory bank under docs/project-memory",
+  "strict_references": true,
+  "agent_markdown": {
+    "files": [
+      "AGENTS.md"
+    ],
+    "conflicts": [],
+    "conflicts_truncated": false,
+    "project_memory_bootstrap": {
+      "required": true,
+      "loader": "scripts/project-memory-context.py",
+      "files": [
+        "AGENTS.md"
+      ],
+      "errors": []
+    }
+  },
+  "errors": [],
+  "errors_truncated": false,
+  "affected_pages": [],
+  "unmapped_changed_files": [
+    "context/routes/project-memory.json",
+    "project-memory/architecture.md",
+    "project-memory/candidates.jsonl",
+    "project-memory/decisions.md",
+    "project-memory/known-failures.md",
+    "project-memory/quirks.md",
+    "project-memory/verified.jsonl"
+  ],
+  "unmapped_changed_files_truncated": false,
+  "review_required": true,
+  "report_path": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/.agent-state/diagnostics/update-docs-11122.json"
+}

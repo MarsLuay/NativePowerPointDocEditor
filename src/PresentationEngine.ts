@@ -209,6 +209,7 @@ function shiftShapeAdjacent(
     shapeTree.insertBefore(element, target);
   }
   return true;
+}
 
 function getRunFontSizePt(run: Element): number | null {
   const runProperties = getElementChildren(run)

@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "operation": "repro",
+  "status": "failed",
+  "root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor",
+  "command": [
+    "npm",
+    "run",
+    "typecheck"
+  ],
+  "exit_code": 2,
+  "timed_out": false,
+  "duration_ms": 900.3,
+  "stdout": "\n> native-powerpoint-doc-editor@1.1.15 typecheck\n> npm run emit:pptx-runtime-artifacts && tsc --noEmit\n\n\n> native-powerpoint-doc-editor@1.1.15 emit:pptx-runtime-artifacts\n> node scripts/emit-pptx-runtime-artifacts.mjs --minify\n\n[emit:pptx-runtime-artifacts] pptx-js-engine.mjs, pptx-wasm-renderer.mjs, heic-decode.mjs\nsrc/PresentationEngine.ts(3960,1): error TS1005: '}' expected.\n",
+  "stderr": "",
+  "report_path": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/.agent-state/diagnostics/repro-typecheck.json"
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "contractId": "native-powerpoint-doc-editor-context-v1",
-  "sourceOfTruth": "project-memory/architecture.md",
+  "sourceOfTruth": "docs/project-memory/architecture.md",
   "routes": [
     {
       "id": "project-memory",
@@ -10,13 +10,13 @@
   ],
   "projectMemory": {
     "taskPath": "PROJECT-TASKS.json",
-    "candidatePath": "project-memory/candidates.jsonl",
-    "verifiedPath": "project-memory/verified.jsonl",
+    "candidatePath": "docs/project-memory/candidates.jsonl",
+    "verifiedPath": "docs/project-memory/verified.jsonl",
     "humanReadablePaths": [
-      "project-memory/architecture.md",
-      "project-memory/decisions.md",
-      "project-memory/quirks.md",
-      "project-memory/known-failures.md"
+      "docs/project-memory/architecture.md",
+      "docs/project-memory/decisions.md",
+      "docs/project-memory/quirks.md",
+      "docs/project-memory/known-failures.md"
     ]
   },
   "taskLedger": {

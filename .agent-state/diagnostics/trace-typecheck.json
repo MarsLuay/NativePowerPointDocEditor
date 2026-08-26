@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "operation": "trace-error",
+  "status": "not_found",
+  "root": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor",
+  "pattern": "src/PresentationEngine.ts(3960,1): error TS1005: '}' expected.",
+  "regex": false,
+  "ignore_case": false,
+  "scan": {
+    "files_requested": 1,
+    "files_scanned": 1,
+    "max_files": 400,
+    "max_matches": 120,
+    "max_bytes": 2000000
+  },
+  "matches": [],
+  "matches_truncated": false,
+  "stack_frames": [],
+  "stack_frames_truncated": false,
+  "skipped": [],
+  "skipped_truncated": false,
+  "read_errors": [],
+  "read_errors_truncated": false,
+  "report_path": "/Users/mars/ObsidianNotes/.Projects/Native PowerPoint Doc Editor/.agent-state/diagnostics/trace-typecheck.json"
+}
