@@ -1,7 +1,12 @@
 # Obsidian community plugin
 
+## Documentation and memory authority
+
+- Serena is the only current-code documentation authority: use it for symbols, references, implementations, and diagnostics.
+- The contract-listed memory bank is the only durable agent documentation and memory authority. Do not create parallel inventories or duplicate agent documentation.
+
 <!-- project-memory-bootstrap:v1 -->
-## Project memory bootstrap
+## Memory bank bootstrap (technical name: project-memory)
 
 From this project root, before any task, run:
 

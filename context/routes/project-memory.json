@@ -1,8 +1,10 @@
 {
   "schemaVersion": 1,
   "id": "project-memory",
-  "summary": "Load verified, bounded project context without leaking chat or runtime state.",
+  "summary": "Load verified, bounded memory-bank context without leaking chat or runtime state.",
   "taskTerms": [
+    "memory bank",
+    "memory-bank",
     "project memory",
     "project context",
     "memory contract",
@@ -30,11 +32,10 @@
     "project-memory/decisions.md",
     "project-memory/quirks.md",
     "project-memory/known-failures.md",
-    "AGENTS.md",
-    "README.md"
+    "AGENTS.md"
   ],
   "invariants": [
-    "Only verified project memory is eligible for model context.",
+    "Only verified memory-bank pages are eligible for model context.",
     "Current user instructions, current code, tests, and the project contract outrank memory.",
     "Credentials, absolute private paths, runtime/provider state, raw chat content, and generated output never enter stable project context."
   ],

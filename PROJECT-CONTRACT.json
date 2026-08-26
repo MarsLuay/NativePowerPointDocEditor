@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contractId": "native-powerpoint-doc-editor-context-v1",
+  "sourceOfTruth": "project-memory/architecture.md",
   "routes": [
     {
       "id": "project-memory",
