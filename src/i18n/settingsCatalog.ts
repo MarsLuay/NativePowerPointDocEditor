@@ -42,9 +42,9 @@ export function getNativePowerPointDocEditorSettingSectionLabels(
 	};
 }
 
-export function getNativePowerPointDocEditorSettingDescriptors(
+function getIdentitySettingDescriptors(
 	i18n: I18nService,
-): Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor> {
+): Pick<Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>, 'authorName'> {
 	return {
 		authorName: {
 			sectionId: 'identity',
@@ -54,6 +54,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			placeholder: DEFAULT_SETTINGS.authorName,
 			resetLabel: i18n.t('common:actions.reset'),
 		},
+	};
+}
+
+function getFileHandoffSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'disableDocxFiles' | 'disablePowerPointFiles'
+> {
+	return {
 		disableDocxFiles: {
 			sectionId: 'fileHandoff',
 			name: i18n.t('settings:docx.disableDocxFiles.name'),
@@ -66,6 +76,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:fileHandoff.disablePptx.description'),
 			defaultValue: DEFAULT_SETTINGS.disablePowerPointFiles,
 		},
+	};
+}
+
+function getEditorDefaultsSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'editorTheme' | 'showRuler' | 'defaultZoom'
+> {
+	return {
 		editorTheme: {
 			sectionId: 'editorDefaults',
 			name: i18n.t('settings:docx.editorTheme.name'),
@@ -85,6 +105,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			defaultValue: DEFAULT_SETTINGS.defaultZoom,
 			resetLabel: i18n.t('common:actions.reset'),
 		},
+	};
+}
+
+function getSavingSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'autosave' | 'createBackupsBeforeSave' | 'powerPointAutosaveEnabled'
+> {
+	return {
 		autosave: {
 			sectionId: 'saving',
 			name: i18n.t('settings:docx.autosave.name'),
@@ -103,6 +133,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:powerpoint.autosave.description'),
 			defaultValue: DEFAULT_SETTINGS.powerPointAutosaveEnabled,
 		},
+	};
+}
+
+function getPowerPointSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'powerPointShowInspector' | 'powerPointHideUnsupportedSvgContent' | 'powerPointOpenWithYoloMode'
+> {
+	return {
 		powerPointShowInspector: {
 			sectionId: 'powerpoint',
 			name: i18n.t('settings:powerpoint.showInspector.name'),
@@ -121,6 +161,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:powerpoint.yoloMode.description'),
 			defaultValue: DEFAULT_SETTINGS.powerPointOpenWithYoloMode,
 		},
+	};
+}
+
+function getSearchSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'enableDocxSearchIndex' | 'autoIndexDocxSearch' | 'rebuildDocxSearchIndex'
+> {
+	return {
 		enableDocxSearchIndex: {
 			sectionId: 'search',
 			name: i18n.t('settings:docx.enableDocxSearchIndex.name'),
@@ -139,6 +189,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:docx.rebuildDocxSearchIndex.description'),
 			actionLabel: i18n.t('common:actions.rebuild'),
 		},
+	};
+}
+
+function getAiSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'enableAiInterfacing' | 'addAiSkill'
+> {
+	return {
 		enableAiInterfacing: {
 			sectionId: 'ai',
 			name: i18n.t('settings:ai.enableInterfacing.name'),
@@ -151,6 +211,16 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:ai.addAiSkill.description'),
 			defaultValue: DEFAULT_SETTINGS.addAiSkill,
 		},
+	};
+}
+
+function getDiagnosticsSettingDescriptors(
+	i18n: I18nService,
+): Pick<
+	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
+	'debugLogging' | 'copyDocxLog' | 'copyPptxLog' | 'copyFullLog'
+> {
+	return {
 		debugLogging: {
 			sectionId: 'diagnostics',
 			name: i18n.t('settings:docx.debugLogging.name'),
@@ -175,6 +245,21 @@ export function getNativePowerPointDocEditorSettingDescriptors(
 			description: i18n.t('settings:debug.copyFullLog.description'),
 			actionLabel: i18n.t('settings:debug.copyFullLog.actionLabel'),
 		},
+	};
+}
+
+export function getNativePowerPointDocEditorSettingDescriptors(
+	i18n: I18nService,
+): Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor> {
+	return {
+		...getIdentitySettingDescriptors(i18n),
+		...getFileHandoffSettingDescriptors(i18n),
+		...getEditorDefaultsSettingDescriptors(i18n),
+		...getSavingSettingDescriptors(i18n),
+		...getPowerPointSettingDescriptors(i18n),
+		...getSearchSettingDescriptors(i18n),
+		...getAiSettingDescriptors(i18n),
+		...getDiagnosticsSettingDescriptors(i18n),
 	};
 }
 

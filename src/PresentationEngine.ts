@@ -191,6 +191,59 @@ const RESETTABLE_IMAGE_EFFECTS = new Set([
   'tint',
 ]);
 
+function shiftShapeAdjacent(
+  shapeTree: Element,
+  element: Element,
+  selected: Set<Element>,
+  direction: 1 | -1,
+  intersectingOnly: boolean
+): boolean {
+  const target = intersectingOnly
+    ? adjacentIntersectingUnselectedShape(element, selected, direction)
+    : adjacentUnselectedShape(element, selected, direction);
+  if (!target) return false;
+
+  if (direction === 1) {
+    shapeTree.insertBefore(element, target.nextSibling);
+  } else {
+    shapeTree.insertBefore(element, target);
+  }
+  return true;
+
+function getRunFontSizePt(run: Element): number | null {
+  const runProperties = getElementChildren(run)
+    .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE) ?? null;
+  const fontSize = runProperties?.getAttribute('sz');
+  const size = fontSize ? Number(fontSize) : Number.NaN;
+  return Number.isFinite(size) ? size / 100 : null;
+}
+
+function resolveParagraphRangeFontSizePt(
+  paragraph: Element,
+  range: ParagraphTextRange,
+  currentResolved: number | null
+): { valid: boolean; fontSizePt: number | null } {
+  let offset = 0;
+  let matched = false;
+  let resolved = currentResolved;
+
+  for (const run of getDrawingRuns(paragraph)) {
+    const text = getDrawingRunText(run);
+    const end = offset + text.length;
+    const overlaps = text.length > 0 && range.start < end && range.end > offset;
+    if (overlaps) {
+      matched = true;
+      const fontSizePt = getRunFontSizePt(run);
+      if (fontSizePt === null) return { valid: false, fontSizePt: null };
+      if (resolved !== null && resolved !== fontSizePt) return { valid: false, fontSizePt: null };
+      resolved = fontSizePt;
+    }
+    offset = end;
+  }
+
+  return { valid: matched, fontSizePt: resolved };
+}
+
 function getImageResetDetails(shape: Element): {
   state: ImageResetState;
   srcRects: Element[];
@@ -1312,33 +1365,17 @@ export class PresentationEngine {
     let total = 0;
 
     for (let slideIndex = slideStart; slideIndex < slideEnd; slideIndex++) {
-      const slidePath = getSlidePath(slideIndex);
-      const slideXml = zip.textFiles.get(slidePath);
-      if (!slideXml) continue;
-
-      const slideDoc = parseXml(slideXml, slidePath);
-      let scope: Element | XMLDocument = slideDoc;
-      if (scoped) {
-        try {
-          scope = getShapeElement(slideDoc, options.shapeIndex as number);
-        } catch {
-          continue;
-        }
-      }
-
-      const paragraphs = getDescendants(scope, 'p')
-        .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
-      let slideChanged = false;
-      for (const paragraph of paragraphs) {
-        const count = replaceTextInParagraph(paragraph, query, replacement, matchCase);
-        if (count > 0) {
-          total += count;
-          slideChanged = true;
-        }
-      }
-
-      if (slideChanged) {
-        updatedFiles.set(slidePath, serializeXml(slideDoc));
+      const result = this.replaceSlideText(
+        zip,
+        slideIndex,
+        query,
+        replacement,
+        matchCase,
+        scoped ? options.shapeIndex : undefined
+      );
+      if (result) {
+        total += result.count;
+        updatedFiles.set(result.slidePath, result.serializedXml);
       }
     }
 
@@ -1348,6 +1385,47 @@ export class PresentationEngine {
     }
 
     return total;
+  }
+
+  private replaceSlideText(
+    zip: ZipContents,
+    slideIndex: number,
+    query: string,
+    replacement: string,
+    matchCase: boolean,
+    shapeIndex?: number
+  ): { slidePath: string; serializedXml: string; count: number } | null {
+    const slidePath = getSlidePath(slideIndex);
+    const slideXml = zip.textFiles.get(slidePath);
+    if (!slideXml) return null;
+
+    const slideDoc = parseXml(slideXml, slidePath);
+    let scope: Element | XMLDocument = slideDoc;
+    if (shapeIndex !== undefined) {
+      try {
+        scope = getShapeElement(slideDoc, shapeIndex);
+      } catch {
+        return null;
+      }
+    }
+
+    const paragraphs = getDescendants(scope, 'p')
+      .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+    let count = 0;
+    for (const paragraph of paragraphs) {
+      const replaced = replaceTextInParagraph(paragraph, query, replacement, matchCase);
+      if (replaced > 0) {
+        count += replaced;
+      }
+    }
+
+    if (count === 0) return null;
+
+    return {
+      slidePath,
+      serializedXml: serializeXml(slideDoc),
+      count,
+    };
   }
 
   /**
@@ -1424,26 +1502,36 @@ export class PresentationEngine {
    * model when the slide tree has gaps (graphic frames, groups). Re-resolve each
    * cached highlight against the paragraph text that still exists in the model.
    */
+  private findBestCandidateShapeIndex(slideIndex: number, highlight: RunHighlightInfo): number {
+    if (highlight.end <= highlight.start) return highlight.shapeIndex;
+
+    let bestIndex = highlight.shapeIndex;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    const targetLength = highlight.end - highlight.start;
+
+    for (let candidate = 0; candidate < 64; candidate++) {
+      const text = this.getParagraphRunText(slideIndex, candidate, highlight.paragraphIndex);
+      if (!text || highlight.end > text.length) continue;
+      if (text.slice(highlight.start, highlight.end).length !== targetLength) continue;
+
+      const distance = Math.abs(candidate - highlight.shapeIndex);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = candidate;
+      }
+    }
+
+    return bestIndex;
+  }
+
   private realignSlideRunCacheShapeIndices(slideIndex: number): void {
     const cached = this.slideRunCache.get(slideIndex);
     if (!cached || cached.highlights.length === 0) return;
 
-    const highlights = cached.highlights.map((highlight) => {
-      if (highlight.end <= highlight.start) return highlight;
-      let bestIndex = highlight.shapeIndex;
-      let bestDistance = Number.POSITIVE_INFINITY;
-      for (let candidate = 0; candidate < 64; candidate++) {
-        const text = this.getParagraphRunText(slideIndex, candidate, highlight.paragraphIndex);
-        if (!text || highlight.end > text.length) continue;
-        if (text.slice(highlight.start, highlight.end).length !== highlight.end - highlight.start) continue;
-        const distance = Math.abs(candidate - highlight.shapeIndex);
-        if (distance < bestDistance) {
-          bestDistance = distance;
-          bestIndex = candidate;
-        }
-      }
-      return { ...highlight, shapeIndex: bestIndex };
-    });
+    const highlights = cached.highlights.map((highlight) => ({
+      ...highlight,
+      shapeIndex: this.findBestCandidateShapeIndex(slideIndex, highlight),
+    }));
 
     this.slideRunCache.set(slideIndex, { ...cached, highlights });
   }
@@ -1659,26 +1747,9 @@ export class PresentationEngine {
         const paragraph = paragraphs[range.paragraphIndex];
         if (!paragraph) return null;
 
-        let offset = 0;
-        let matched = false;
-        for (const run of getDrawingRuns(paragraph)) {
-          const text = getDrawingRunText(run);
-          const end = offset + text.length;
-          const overlaps = text.length > 0 && range.start < end && range.end > offset;
-          if (overlaps) {
-            matched = true;
-            const runProperties = getElementChildren(run)
-              .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE) ?? null;
-            const fontSize = runProperties?.getAttribute('sz');
-            const size = fontSize ? Number(fontSize) : Number.NaN;
-            if (!Number.isFinite(size)) return null;
-            const fontSizePt = size / 100;
-            if (resolved !== null && resolved !== fontSizePt) return null;
-            resolved = fontSizePt;
-          }
-          offset = end;
-        }
-        if (!matched) return null;
+        const result = resolveParagraphRangeFontSizePt(paragraph, range, resolved);
+        if (!result.valid) return null;
+        resolved = result.fontSizePt;
       }
 
       return resolved;
@@ -2694,19 +2765,15 @@ export class PresentationEngine {
         for (let index = ordered.length - 1; index >= 0; index--) {
           const element = ordered[index];
           if (!element) continue;
-          const next = options.intersectingOnly
-            ? adjacentIntersectingUnselectedShape(element, selected, 1)
-            : adjacentUnselectedShape(element, selected, 1);
-          if (options.intersectingOnly && next) intersectionTargetCount += 1;
-          if (next) shapeTree.insertBefore(element, next.nextSibling);
+          if (shiftShapeAdjacent(shapeTree, element, selected, 1, Boolean(options.intersectingOnly)) && options.intersectingOnly) {
+            intersectionTargetCount += 1;
+          }
         }
       } else {
         for (const element of ordered) {
-          const previous = options.intersectingOnly
-            ? adjacentIntersectingUnselectedShape(element, selected, -1)
-            : adjacentUnselectedShape(element, selected, -1);
-          if (options.intersectingOnly && previous) intersectionTargetCount += 1;
-          if (previous) shapeTree.insertBefore(element, previous);
+          if (shiftShapeAdjacent(shapeTree, element, selected, -1, Boolean(options.intersectingOnly)) && options.intersectingOnly) {
+            intersectionTargetCount += 1;
+          }
         }
       }
 
