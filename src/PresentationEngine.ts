@@ -2930,7 +2930,12 @@ export class PresentationEngine {
       shapeTree.removeChild(group);
 
       const finalShapes = getSpTreeShapes(shapeTree);
-      return children.map((element) => finalShapes.indexOf(element));
+      const indexMap = new Map<Element, number>();
+      for (let i = 0; i < finalShapes.length; i++) {
+        const shape = finalShapes[i];
+        if (shape) indexMap.set(shape, i);
+      }
+      return children.map((element) => indexMap.get(element) ?? -1);
     });
   }
 
