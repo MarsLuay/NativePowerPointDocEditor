@@ -210,7 +210,7 @@ export function wrapTextForPreview(
 export interface PreviewTextMeasurementSegment {
   start: number;
   end: number;
-  measure: (value: string) => number;
+  measure: (value: string, start: number, end: number) => number;
 }
 
 /**
@@ -230,7 +230,7 @@ export function measureSegmentedPreviewText(
     const start = Math.max(valueStart, segment.start);
     const end = Math.min(valueEnd, segment.end);
     if (end <= start) continue;
-    width += segment.measure(value.slice(start - valueStart, end - valueStart));
+    width += segment.measure(value, start - valueStart, end - valueStart);
   }
   return width;
 }

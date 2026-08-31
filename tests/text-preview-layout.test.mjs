@@ -60,8 +60,8 @@ test("inline paragraph preview passes the source offset to mixed-run measurement
 test("mixed-run preview measurement uses the matching font segment", async () => {
   const { measureSegmentedPreviewText } = await loadTextUtilsModule();
   const segments = [
-    { start: 0, end: 2, measure: (value) => value.length },
-    { start: 2, end: 5, measure: (value) => value.length * 10 },
+    { start: 0, end: 2, measure: (value, start, end) => end - start },
+    { start: 2, end: 5, measure: (value, start, end) => (end - start) * 10 },
   ];
 
   assert.equal(measureSegmentedPreviewText("abcde", 0, segments), 32);
