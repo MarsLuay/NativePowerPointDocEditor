@@ -365,10 +365,13 @@ export class SlideFilmstripController {
     }
 
     if (!lazy) {
+      const promises: Promise<void>[] = [];
       for (let index = 0; index < slideCount; index += 1) {
-        if (generation !== this.thumbnailRenderGeneration) return;
-        await this.renderThumbnailAt(index);
+        if (generation !== this.thumbnailRenderGeneration) break;
+        promises.push(this.renderThumbnailAt(index));
       }
+      await Promise.all(promises);
+      if (generation !== this.thumbnailRenderGeneration) return;
     } else {
 		// Render only the active slide before returning control to the editor. The
 		// rest of the filmstrip fills through the observer/idle path below.
@@ -449,11 +452,13 @@ export class SlideFilmstripController {
 
   private async renderThumbnailBatch(indices: number[], generation: number): Promise<void> {
     const sorted = [...indices].sort((left, right) => left - right);
+    const promises: Promise<void>[] = [];
     for (const index of sorted) {
-      if (generation !== this.thumbnailRenderGeneration) return;
+      if (generation !== this.thumbnailRenderGeneration) break;
       if (this.renderedThumbnailIndices.has(index)) continue;
-      await this.renderThumbnailAt(index);
+      promises.push(this.renderThumbnailAt(index));
     }
+    await Promise.all(promises);
   }
 
   private markThumbnailRendered(index: number): void {
