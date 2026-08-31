@@ -61,3 +61,27 @@ test('unchanged empty paragraph defaults keep layout stable', async () => {
 		false,
 	);
 });
+
+test('stableParagraphLayoutValue returns predictable strings', async () => {
+	const { stableParagraphLayoutValue } = await loadModule();
+
+	// Null/undefined handling
+	assert.equal(stableParagraphLayoutValue(null), '');
+	assert.equal(stableParagraphLayoutValue(undefined), '');
+
+	// Primitive handling
+	assert.equal(stableParagraphLayoutValue('test'), 'test');
+	assert.equal(stableParagraphLayoutValue(123), '123');
+	assert.equal(stableParagraphLayoutValue(true), 'true');
+	assert.equal(stableParagraphLayoutValue(false), 'false');
+
+	// Object handling
+	assert.equal(stableParagraphLayoutValue({ a: 1 }), '{"a":1}');
+	assert.equal(stableParagraphLayoutValue([1, 2]), '[1,2]');
+
+	// Fallback/error handling
+	const circular = {};
+	circular.self = circular;
+	assert.equal(stableParagraphLayoutValue(circular), '');
+	assert.equal(stableParagraphLayoutValue(1n), ''); // BigInt throws in JSON.stringify
+});
