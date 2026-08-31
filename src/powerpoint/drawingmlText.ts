@@ -1092,8 +1092,16 @@ export function isParagraphRangeStyled(
     if (segment.text.length === 0) continue;
     matched = true;
 
-    const runProperties = getElementChildren(segment.run)
-      .find((element) => element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE);
+    let runProperties: Element | undefined;
+    for (let child = segment.run.firstChild; child !== null; child = child.nextSibling) {
+      if (child.nodeType === 1) {
+        const element = child as Element;
+        if (element.localName === 'rPr' && element.namespaceURI === DRAWINGML_NAMESPACE) {
+          runProperties = element;
+          break;
+        }
+      }
+    }
     if (!runProperties) return false;
 
     if (flag === 'bold') {
