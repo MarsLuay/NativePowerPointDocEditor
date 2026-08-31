@@ -5547,8 +5547,11 @@ export class NativePowerPointView extends FileView {
     indexDelta: number,
     yDelta: number,
   ): void {
-    for (const paragraph of Array.from(textElement.querySelectorAll('tspan[data-ooxml-para-idx]'))) {
+    const children = textElement.children;
+    for (let i = 0; i < children.length; i++) {
+      const paragraph = children[i];
       if (!isSVGTSpanElement(paragraph)) continue;
+      if (!paragraph.hasAttribute('data-ooxml-para-idx')) continue;
       const paragraphIndex = Number(paragraph.getAttribute('data-ooxml-para-idx'));
       if (!Number.isFinite(paragraphIndex) || paragraphIndex < firstParagraphIndex) continue;
       paragraph.setAttribute('data-ooxml-para-idx', String(paragraphIndex + indexDelta));
@@ -5904,8 +5907,11 @@ export class NativePowerPointView extends FileView {
 
     // Existing paragraphs after the insertion point retain their identities in
     // OOXML but their index and visible baseline advance by one paragraph.
-    for (const paragraph of Array.from(textElement.querySelectorAll('tspan[data-ooxml-para-idx]'))) {
+    const children = textElement.children;
+    for (let i = 0; i < children.length; i++) {
+      const paragraph = children[i];
       if (!isSVGTSpanElement(paragraph)) continue;
+      if (!paragraph.hasAttribute('data-ooxml-para-idx')) continue;
       const paragraphIndex = Number(paragraph.getAttribute('data-ooxml-para-idx'));
       if (!Number.isFinite(paragraphIndex) || paragraphIndex < insertedParagraphIndex) continue;
       paragraph.setAttribute('data-ooxml-para-idx', String(paragraphIndex + 1));
@@ -10016,7 +10022,14 @@ export class NativePowerPointView extends FileView {
     const result: (SVGTextElement | SVGTSpanElement)[] = [];
     for (const text of Array.from(shape.querySelectorAll('text'))) {
       if (text.closest(GENERATED_GRID_SELECTOR)) continue;
-      const paragraphs = Array.from(text.querySelectorAll('tspan[data-ooxml-para-idx]')).filter(isSVGTSpanElement);
+      const paragraphs: SVGTSpanElement[] = [];
+      const children = text.children;
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (isSVGTSpanElement(child) && child.hasAttribute('data-ooxml-para-idx')) {
+          paragraphs.push(child);
+        }
+      }
       if (paragraphs.length > 0) {
         result.push(...paragraphs);
       } else if (isSVGTextElement(text) && (text.textContent ?? '').length > 0) {
@@ -11737,11 +11750,21 @@ export class NativePowerPointView extends FileView {
     const shape = this.svgEl?.querySelector(`g[data-ooxml-shape-idx="${shapeIndex}"]`);
     if (!shape) return;
 
-    const containers = paragraphIndex === undefined
-      ? Array.from(shape.querySelectorAll('tspan[data-ooxml-para-idx]'))
-        .filter(isSVGTSpanElement)
-        .filter((container) => this.collectParagraphRuns(container).length === 0)
-      : this.getListMarkerLineContainers(shapeIndex, paragraphIndex);
+    let containers: SVGTSpanElement[];
+    if (paragraphIndex === undefined) {
+      containers = [];
+      const tspans = shape.getElementsByTagName('tspan');
+      for (let i = 0; i < tspans.length; i++) {
+        const container = tspans[i];
+        if (isSVGTSpanElement(container) && container.hasAttribute('data-ooxml-para-idx')) {
+          if (this.collectParagraphRuns(container).length === 0) {
+            containers.push(container);
+          }
+        }
+      }
+    } else {
+      containers = this.getListMarkerLineContainers(shapeIndex, paragraphIndex);
+    }
 
     for (const container of containers) {
       if (hidden) {
