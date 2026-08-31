@@ -2752,8 +2752,15 @@ export class PresentationEngine {
         throw new Error('Select an object to reorder.');
       }
 
-      const ordered = shapes.filter((element) => selected.has(element));
-      const sourceIndexes = ordered.map((element) => shapes.indexOf(element));
+      const ordered: Element[] = [];
+      const sourceIndexes: number[] = [];
+      for (let i = 0; i < shapes.length; i++) {
+        const element = shapes[i];
+        if (element && selected.has(element)) {
+          ordered.push(element);
+          sourceIndexes.push(i);
+        }
+      }
       let intersectionTargetCount = 0;
       if (mode === 'front') {
         for (const element of ordered) shapeTree.appendChild(element);
