@@ -22,6 +22,7 @@ let packageModulePromise;
 let presentationEngineModulePromise;
 let shapeClipboardModulePromise;
 let viewModulePromise;
+let docxXmlTextModulePromise;
 let docxTextExtractorModulePromise;
 let docxReviewMarkupModulePromise;
 let docxHiddenTextScannerModulePromise;
@@ -251,6 +252,13 @@ export function loadShapeClipboardModule() {
     return require(outfile);
   })();
   return shapeClipboardModulePromise;
+}
+
+export function loadDocxXmlTextModule() {
+  docxXmlTextModulePromise ??= bundleSource("src/docxXmlText.ts", "docx-xml-text.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxXmlTextModulePromise;
 }
 
 export function loadDocxTextExtractorModule() {
