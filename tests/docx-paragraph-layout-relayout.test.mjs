@@ -24,6 +24,14 @@ async function loadModule() {
 	return require(outfile);
 }
 
+function paragraphNode(attrs = {}) {
+	return {
+		type: { name: 'paragraph' },
+		attrs,
+		descendants() {},
+	};
+}
+
 function paragraph(defaultTextFormatting) {
 	return {
 		type: { name: 'paragraph' },
@@ -59,5 +67,60 @@ test('unchanged empty paragraph defaults keep layout stable', async () => {
 			doc(paragraph({ fontSize: 8, fontFamily: { ascii: 'Arial' } })),
 		),
 		false,
+	);
+});
+
+test('getParagraphListLayoutSignature returns empty string when no list attributes exist', async () => {
+	const { getParagraphListLayoutSignature } = await loadModule();
+	assert.equal(
+		getParagraphListLayoutSignature(paragraphNode({ indentLeft: 720, defaultTextFormatting: {} })),
+		'',
+	);
+});
+
+test('getParagraphListLayoutSignature correctly serializes all list layout attributes', async () => {
+	const { getParagraphListLayoutSignature } = await loadModule();
+	assert.equal(
+		getParagraphListLayoutSignature(paragraphNode({
+			numPr: { numId: 1, ilvl: 0 },
+			listMarker: '1.',
+			listMarkerHidden: false,
+			listMarkerFontFamily: { ascii: 'Calibri' },
+			listMarkerFontSize: 24,
+			indentLeft: 720,
+			indentFirstLine: 0,
+			hangingIndent: 360,
+		})),
+		[
+			JSON.stringify({ numId: 1, ilvl: 0 }),
+			'1.',
+			'false',
+			JSON.stringify({ ascii: 'Calibri' }),
+			'24',
+			'720',
+			'0',
+			'360',
+		].join('\u001f'),
+	);
+});
+
+test('getParagraphListLayoutSignature handles partial list attributes with empty strings', async () => {
+	const { getParagraphListLayoutSignature } = await loadModule();
+	assert.equal(
+		getParagraphListLayoutSignature(paragraphNode({
+			numPr: { numId: 2, ilvl: 1 },
+			indentLeft: 1440,
+			hangingIndent: 360,
+		})),
+		[
+			JSON.stringify({ numId: 2, ilvl: 1 }),
+			'',
+			'',
+			'',
+			'',
+			'1440',
+			'',
+			'360',
+		].join('\u001f'),
 	);
 });
