@@ -11648,9 +11648,12 @@ export class NativePowerPointView extends FileView {
       segments.push({
         start: offset,
         end,
-        measure: (value: string) => {
+        measure: (value: string, start: number, end: number) => {
           context.font = font;
-          return context.measureText(value).width;
+          if (start === 0 && end === value.length) {
+            return context.measureText(value).width;
+          }
+          return context.measureText(value.slice(start, end)).width;
         },
       });
       offset = end;
