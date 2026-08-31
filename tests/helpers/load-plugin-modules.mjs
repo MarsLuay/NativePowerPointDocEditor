@@ -22,6 +22,7 @@ let packageModulePromise;
 let presentationEngineModulePromise;
 let shapeClipboardModulePromise;
 let viewModulePromise;
+let docxXmlTextModulePromise;
 let docxTextExtractorModulePromise;
 let docxReviewMarkupModulePromise;
 let docxHiddenTextScannerModulePromise;
@@ -528,4 +529,11 @@ function createElementStub() {
     empty() {},
     removeClass() {},
   };
+}
+
+export function loadDocxXmlTextModule() {
+  docxXmlTextModulePromise ??= bundleSource("src/docxXmlText.ts", "docx-xml-text.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxXmlTextModulePromise;
 }
