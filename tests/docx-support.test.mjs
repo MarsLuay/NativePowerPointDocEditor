@@ -176,3 +176,22 @@ test("hasReviewMarkup ignores ordinary DOCX text parts", async () => {
 
   assert.equal(await hasReviewMarkup(buffer), false);
 });
+
+test("registerDocxFileEmbed logs error and returns false on exception during registration", async () => {
+  const { loadDocxEmbedLoaderModule } = await import("./helpers/load-plugin-modules.mjs");
+  const { registerDocxFileEmbed } = await loadDocxEmbedLoaderModule();
+
+  const plugin = {
+    app: {
+      embedRegistry: {
+        registerExtension: () => {
+          throw new Error("Simulated registration failure");
+        }
+      }
+    },
+    register: () => {},
+  };
+
+  const result = registerDocxFileEmbed(plugin, () => undefined);
+  assert.equal(result, false);
+});

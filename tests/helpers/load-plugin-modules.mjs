@@ -98,6 +98,13 @@ const stubObsidianPlugin = {
             for (const cleanup of this.cleanups.splice(0)) cleanup();
           }
         }
+        export class MarkdownRenderChild extends Component {
+          constructor(containerEl) {
+            super();
+            this.containerEl = containerEl;
+          }
+        }
+        export class TFile {}
       `,
       loader: "js",
     }));
@@ -388,6 +395,17 @@ export function loadRenderedPdfExportModule() {
     [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
   return renderedPdfExportModulePromise;
+}
+
+let docxEmbedLoaderModulePromise;
+export function loadDocxEmbedLoaderModule() {
+  docxEmbedLoaderModulePromise ??= bundleSource(
+    "src/DocxEmbedLoader.ts",
+    "docx-embed-loader.cjs",
+    ["obsidian"],
+    [stubObsidianPlugin],
+  ).then((outfile) => require(outfile));
+  return docxEmbedLoaderModulePromise;
 }
 
 export function loadNativePowerPointViewModule() {
