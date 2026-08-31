@@ -36,6 +36,7 @@ let fakeDocxEditorAdapterModulePromise;
 let docxToolbarTooltipModulePromise;
 let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
+let docxEmbedLoaderModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
 let loggerModulePromise;
 let renderedPdfExportModulePromise;
@@ -568,4 +569,95 @@ function createElementStub() {
     empty() {},
     removeClass() {},
   };
+}
+
+export function loadDocxEmbedLoaderModule() {
+  docxEmbedLoaderModulePromise ??= bundleSource(
+    "src/DocxEmbedLoader.ts",
+    "docx-embed-loader.cjs",
+    ["obsidian", "./docxEditorLoader"],
+    [{ name: 'mock-docx-editor-loader', setup(build) { build.onResolve({ filter: /docxEditorLoader/ }, args => ({ path: args.path, external: true })) } }]
+  ).then((outfile) => {
+    const originalLoad = Module._load;
+
+    class Component {
+      load() {}
+      unload() {}
+      onload() {}
+      onunload() {}
+      register() {
+        return () => {};
+      }
+      registerDomEvent() {
+        return () => {};
+      }
+      registerInterval() {
+        return () => {};
+      }
+      addChild() {
+        return this;
+      }
+      removeChild() {}
+    }
+
+    class MarkdownRenderChild extends Component {
+      constructor(containerEl) {
+        super();
+        this.containerEl = containerEl;
+      }
+    }
+
+    Module._load = function load(request, parent, isMain) {
+      if (request === "obsidian") {
+        return {
+          Component,
+          MarkdownRenderChild,
+          normalizePath: (value) => value.replace(/\\/g, "/").replace(/\/{2,}/g, "/"),
+          TFile: class TFile {
+            constructor() {
+              this.path = "test.docx";
+              this.name = "test.docx";
+              this.extension = "docx";
+            }
+          }
+        };
+      }
+
+      if (request === "./docxEditorLoader" || request.endsWith('docxEditorLoader')) {
+        return {
+          loadDocxEditorChunk: async () => {
+            throw new Error("Simulated chunk load error");
+          }
+        };
+      }
+
+      return originalLoad.call(this, request, parent, isMain);
+    };
+
+    try {
+      const module = require(outfile);
+      return {
+        ...module,
+        createElementStub: function createElementStub() {
+          return {
+            addClasses() {},
+            addClass() {},
+            empty() { this.children = []; },
+            removeClass() {},
+            children: [],
+            createDiv(options) {
+              const el = module.createElementStub ? module.createElementStub() : createElementStub();
+              el.className = options.cls || '';
+              el.innerText = options.text || '';
+              this.children.push(el);
+              return el;
+            }
+          };
+        }
+      };
+    } finally {
+      Module._load = originalLoad;
+    }
+  });
+  return docxEmbedLoaderModulePromise;
 }
