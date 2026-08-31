@@ -55,6 +55,27 @@ test("summarizeDocxComments includes replies with parentId", async () => {
   assert.equal(summary.comments[1].text, "add more polish");
 });
 
+test("truncateCommentText handles strings according to length limit", async () => {
+  const { truncateCommentText } = await loadCommentLoggingModule();
+
+  // Short string
+  assert.equal(truncateCommentText("short text"), "short text");
+
+  // String exactly max length (default 500)
+  const exactMax = "A".repeat(500);
+  assert.equal(truncateCommentText(exactMax), exactMax);
+
+  // String exceeding max length
+  const overMax = "A".repeat(501);
+  assert.equal(truncateCommentText(overMax), "A".repeat(500) + "…");
+
+  // Custom maxChars shorter
+  assert.equal(truncateCommentText("hello world", 5), "hello…");
+
+  // Custom maxChars edge case
+  assert.equal(truncateCommentText("hello", 5), "hello");
+});
+
 test("extractDocxCommentPlainText handles explicit text, nested runs, edge cases, and truncation", async () => {
   const { extractDocxCommentPlainText } = await loadCommentLoggingModule();
 

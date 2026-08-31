@@ -336,8 +336,24 @@ function writeBodyPlaceholderText(shape: Element, text: string): void {
   const paragraphs = getElementChildren(textBody)
     .filter((child) => child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'p');
   const template = paragraphs[0] ?? createEmptyParagraph(textBody.ownerDocument);
+
+  // Find template structure once rather than for every line
+  const templateChildren = getElementChildren(template);
+  const templateRun = templateChildren
+    .find((child) => child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'r') ?? null;
+
+  // Create a prepared template that has other elements removed
+  const preparedTemplate = template.cloneNode(true) as Element;
+  for (const child of getElementChildren(preparedTemplate)) {
+    if (child.namespaceURI === DRAWINGML_NAMESPACE && (child.localName === 'pPr' || child.localName === 'endParaRPr')) {
+      continue;
+    }
+    preparedTemplate.removeChild(child);
+  }
+
   const lines = text.replace(/\r\n?/g, '\n').split('\n');
-  const replacements = lines.map((line) => createNotesParagraph(template, line));
+  const replacements = lines.map((line) => createNotesParagraph(preparedTemplate, templateRun, line));
+
   const insertionPoint = paragraphs[0] ?? getDirectChild(textBody, 'extLst');
   for (const replacement of replacements) textBody.insertBefore(replacement, insertionPoint ?? null);
   for (const paragraph of paragraphs) textBody.removeChild(paragraph);
@@ -347,19 +363,10 @@ function createEmptyParagraph(ownerDocument: Document): Element {
   return ownerDocument.createElementNS(DRAWINGML_NAMESPACE, 'a:p');
 }
 
-function createNotesParagraph(template: Element, text: string): Element {
-  const paragraph = template.cloneNode(true) as Element;
-  const templateRun = getElementChildren(paragraph)
-    .find((child) => child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'r') ?? null;
+function createNotesParagraph(preparedTemplate: Element, templateRun: Element | null, text: string): Element {
+  const paragraph = preparedTemplate.cloneNode(true) as Element;
   const endParagraphProperties = getElementChildren(paragraph)
     .find((child) => child.namespaceURI === DRAWINGML_NAMESPACE && child.localName === 'endParaRPr') ?? null;
-
-  for (const child of getElementChildren(paragraph)) {
-    if (child.namespaceURI === DRAWINGML_NAMESPACE && (child.localName === 'pPr' || child === endParagraphProperties)) {
-      continue;
-    }
-    paragraph.removeChild(child);
-  }
 
   const run = templateRun
     ? templateRun.cloneNode(true) as Element

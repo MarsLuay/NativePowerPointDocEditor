@@ -1,0 +1,28 @@
+--- src/PresentationEngine.ts
++++ src/PresentationEngine.ts
+@@ -832,9 +832,23 @@
+         this.getChartDataGrid(slideIndex, shapeIndex)
+       );
+
++      const horizontalAxes = [];
++      const verticalAxes = [];
++      for (const format of formats) {
++        if (format.orientation === 'horizontal') horizontalAxes.push(format);
++        else if (format.orientation === 'vertical') verticalAxes.push(format);
++      }
++
++      const allRuns = getChartTickRuns(chartGroup);
++      const horizontalRuns = [];
++      const verticalRuns = [];
++      for (const run of allRuns) {
++        if (run.orientation === 'horizontal') horizontalRuns.push(run);
++        else if (run.orientation === 'vertical') verticalRuns.push(run);
++      }
++
+       for (const orientation of ['horizontal', 'vertical'] as const) {
+-        const axes = formats.filter((axis) => axis.orientation === orientation);
+-        const runs = getChartTickRuns(chartGroup).filter((run) => run.orientation === orientation);
++        const axes = orientation === 'horizontal' ? horizontalAxes : verticalAxes;
++        const runs = orientation === 'horizontal' ? horizontalRuns : verticalRuns;
+
+         if (axes.length === 0 || runs.length === 0) {

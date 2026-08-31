@@ -200,7 +200,7 @@ test("updateChartData applies edits to chart caches and the embedded workbook, a
   assert.equal(reloaded.grid.editable, true);
 
   // 2. The chart cache XML was rewritten (workbook-sync: cache + workbook move
-  // together, the bug class this group is most prone to).
+  // together).
   const reExtracted = await extractZip(output);
   const chartXml = reExtracted.textFiles.get(CHART_PATH);
   assert.match(chartXml, /<c:v>Q3<\/c:v>/);

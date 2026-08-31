@@ -92,6 +92,7 @@ import {
   getParagraphProperties,
   getRunProperties,
   getShapeRunPositions,
+  DrawingRunPosition,
   isParagraphRangeStyled,
   mergeDrawingParagraphWithPrevious,
   normalizeHexColor,
@@ -832,9 +833,24 @@ export class PresentationEngine {
         this.getChartDataGrid(slideIndex, shapeIndex)
       );
 
+      const horizontalAxes = [];
+      const verticalAxes = [];
+      for (const format of formats) {
+        if (format.orientation === 'horizontal') horizontalAxes.push(format);
+        else if (format.orientation === 'vertical') verticalAxes.push(format);
+      }
+
+      const allRuns = getChartTickRuns(chartGroup);
+      const horizontalRuns = [];
+      const verticalRuns = [];
+      for (const run of allRuns) {
+        if (run.orientation === 'horizontal') horizontalRuns.push(run);
+        else if (run.orientation === 'vertical') verticalRuns.push(run);
+      }
+
       for (const orientation of ['horizontal', 'vertical'] as const) {
-        const axes = formats.filter((axis) => axis.orientation === orientation);
-        const runs = getChartTickRuns(chartGroup).filter((run) => run.orientation === orientation);
+        const axes = orientation === 'horizontal' ? horizontalAxes : verticalAxes;
+        const runs = orientation === 'horizontal' ? horizontalRuns : verticalRuns;
 
         if (axes.length === 0 || runs.length === 0) {
           continue;
@@ -1898,12 +1914,14 @@ export class PresentationEngine {
     change: RunStyleChange
   ): Promise<boolean> {
     return this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
-      const positions = getShapeRunPositions(shape);
-      const targets = target
-        ? positions.filter(
-            (position) => position.paragraphIndex === target.paragraphIndex && position.runIndex === target.runIndex
-          )
-        : positions;
+      let targets: DrawingRunPosition[];
+      if (target) {
+        const paragraph = getDrawingParagraphs(shape)[target.paragraphIndex];
+        const run = paragraph ? getDrawingRuns(paragraph)[target.runIndex] : undefined;
+        targets = run ? [{ paragraphIndex: target.paragraphIndex, runIndex: target.runIndex, run }] : [];
+      } else {
+        targets = getShapeRunPositions(shape);
+      }
 
       let changed = false;
       for (const { run } of targets) {
@@ -2752,8 +2770,15 @@ export class PresentationEngine {
         throw new Error('Select an object to reorder.');
       }
 
-      const ordered = shapes.filter((element) => selected.has(element));
-      const sourceIndexes = ordered.map((element) => shapes.indexOf(element));
+      const ordered: Element[] = [];
+      const sourceIndexes: number[] = [];
+      for (let i = 0; i < shapes.length; i++) {
+        const element = shapes[i];
+        if (element && selected.has(element)) {
+          ordered.push(element);
+          sourceIndexes.push(i);
+        }
+      }
       let intersectionTargetCount = 0;
       if (mode === 'front') {
         for (const element of ordered) shapeTree.appendChild(element);
@@ -2905,7 +2930,12 @@ export class PresentationEngine {
       shapeTree.removeChild(group);
 
       const finalShapes = getSpTreeShapes(shapeTree);
-      return children.map((element) => finalShapes.indexOf(element));
+      const indexMap = new Map<Element, number>();
+      for (let i = 0; i < finalShapes.length; i++) {
+        const shape = finalShapes[i];
+        if (shape) indexMap.set(shape, i);
+      }
+      return children.map((element) => indexMap.get(element) ?? -1);
     });
   }
 

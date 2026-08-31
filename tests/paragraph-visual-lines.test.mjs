@@ -140,7 +140,7 @@ async function renderBulletedParagraphSvg() {
 }
 
 test("renderer keeps the bullet glyph in a run-less line container", async () => {
-  // The fix relies on bullets being rendered as their own data-ooxml-para-idx
+  // Offset math relies on bullets being rendered as their own data-ooxml-para-idx
   // tspan with no data-ooxml-run-idx child. If the renderer ever inlines the
   // bullet into a run-bearing container, the offset math must be revisited.
   const svg = await renderBulletedParagraphSvg();

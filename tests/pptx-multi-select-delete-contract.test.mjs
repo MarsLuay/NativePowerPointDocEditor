@@ -101,7 +101,7 @@ test('Delete key routes filmstrip focus to slide deletion', async () => {
     path.join(projectRoot, 'src/powerpoint/slideFilmstripController.ts'),
     'utf8',
   );
-  const handlerStart = viewSource.indexOf('private registerKeyboardHandlers(): void');
+  const handlerStart = viewSource.indexOf('private handleDeleteOrBackspace(event: KeyboardEvent): boolean {');
   const handlerEnd = viewSource.indexOf('\n  private ', handlerStart + 1);
   const handler = viewSource.slice(handlerStart, handlerEnd);
 

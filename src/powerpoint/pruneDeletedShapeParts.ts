@@ -111,8 +111,9 @@ export async function pruneAfterShapeDeletion(
   const removedRelationshipIds: string[] = [];
   const removedExternalTargets: string[] = [];
 
-  const uniqueDeletedIds = [...new Set(deletedRelationshipIds)];
-  if (uniqueDeletedIds.length > 0) {
+  const uniqueDeletedIdsSet = new Set(deletedRelationshipIds);
+  const uniqueDeletedIds = [...uniqueDeletedIdsSet];
+  if (uniqueDeletedIdsSet.size > 0) {
     const relationshipsXml = zip.textFiles.get(relationshipsPath);
     if (relationshipsXml) {
       const remainingSlideXml = textModifications.get(slidePath) ?? '';
@@ -126,7 +127,7 @@ export async function pruneAfterShapeDeletion(
       for (const relationship of Array.from(getDescendants(relationships, 'Relationship'))) {
         const relationshipId = relationship.getAttribute('Id');
         if (!relationshipId || stillNeeded.has(relationshipId)) continue;
-        if (!uniqueDeletedIds.includes(relationshipId)) continue;
+        if (!uniqueDeletedIdsSet.has(relationshipId)) continue;
 
         if (relationship.getAttribute('TargetMode') === 'External') {
           const target = relationship.getAttribute('Target');

@@ -365,9 +365,15 @@ export class SlideFilmstripController {
     }
 
     if (!lazy) {
-      for (let index = 0; index < slideCount; index += 1) {
+      const batchSize = 4;
+      for (let i = 0; i < slideCount; i += batchSize) {
+        const batch = [];
+        for (let j = 0; j < batchSize && (i + j) < slideCount; j++) {
+          const index = i + j;
+          batch.push(this.renderThumbnailAt(index));
+        }
+        await Promise.all(batch);
         if (generation !== this.thumbnailRenderGeneration) return;
-        await this.renderThumbnailAt(index);
       }
     } else {
 		// Render only the active slide before returning control to the editor. The
@@ -449,10 +455,17 @@ export class SlideFilmstripController {
 
   private async renderThumbnailBatch(indices: number[], generation: number): Promise<void> {
     const sorted = [...indices].sort((left, right) => left - right);
-    for (const index of sorted) {
+    const batchSize = 4;
+    for (let i = 0; i < sorted.length; i += batchSize) {
+      const batch = [];
+      for (let j = 0; j < batchSize && (i + j) < sorted.length; j++) {
+        const index = sorted[i + j];
+        if (index !== undefined && !this.renderedThumbnailIndices.has(index)) {
+          batch.push(this.renderThumbnailAt(index));
+        }
+      }
+      await Promise.all(batch);
       if (generation !== this.thumbnailRenderGeneration) return;
-      if (this.renderedThumbnailIndices.has(index)) continue;
-      await this.renderThumbnailAt(index);
     }
   }
 

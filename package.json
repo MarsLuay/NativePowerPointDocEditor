@@ -93,6 +93,7 @@
 		"dompurify": "3.4.13",
 		"heic-decode": "^2.1.0",
 		"html2canvas": "^1.4.1",
+		"jsdom": "^29.1.1",
 		"jszip": "^3.10.1",
 		"obsidian": "1.13.1",
 		"pizzip": "^3.2.0",
