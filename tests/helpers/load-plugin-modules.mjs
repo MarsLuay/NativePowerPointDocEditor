@@ -76,6 +76,17 @@ export async function bundleSource(entry, outputName, external = [], plugins = [
 }
 
 let textUtilsModulePromise;
+let docxEmbedModulePromise;
+
+export function loadDocxEmbedModule() {
+  docxEmbedModulePromise ??= bundleSource(
+    "src/DocxEmbedLoader.ts",
+    "docx-embed-loader.cjs",
+    [],
+    [stubObsidianPlugin]
+  ).then((outfile) => require(outfile));
+  return docxEmbedModulePromise;
+}
 
 const stubObsidianPlugin = {
   name: "stub-obsidian",
@@ -98,6 +109,14 @@ const stubObsidianPlugin = {
             for (const cleanup of this.cleanups.splice(0)) cleanup();
           }
         }
+        export class MarkdownRenderChild extends Component {
+          constructor(containerEl) {
+            super();
+            this.containerEl = containerEl;
+          }
+        }
+        export class TFile {}
+        export class Plugin {}
       `,
       loader: "js",
     }));
