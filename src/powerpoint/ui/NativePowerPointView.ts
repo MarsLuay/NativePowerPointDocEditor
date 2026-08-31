@@ -10014,15 +10014,33 @@ export class NativePowerPointView extends FileView {
 
   private getShapeTextParagraphs(shape: Element): (SVGTextElement | SVGTSpanElement)[] {
     const result: (SVGTextElement | SVGTSpanElement)[] = [];
-    for (const text of Array.from(shape.querySelectorAll('text'))) {
-      if (text.closest(GENERATED_GRID_SELECTOR)) continue;
-      const paragraphs = Array.from(text.querySelectorAll('tspan[data-ooxml-para-idx]')).filter(isSVGTSpanElement);
-      if (paragraphs.length > 0) {
-        result.push(...paragraphs);
-      } else if (isSVGTextElement(text) && (text.textContent ?? '').length > 0) {
-        result.push(text);
+    const nodes = shape.querySelectorAll('text, tspan[data-ooxml-para-idx]');
+
+    let currentText: SVGTextElement | null = null;
+    let currentTextHasTspans = false;
+    let currentTextIsGrid = false;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (isSVGTextElement(node)) {
+        if (currentText && !currentTextHasTspans && !currentTextIsGrid && (currentText.textContent ?? '').length > 0) {
+          result.push(currentText);
+        }
+        currentText = node;
+        currentTextHasTspans = false;
+        currentTextIsGrid = currentText.closest(GENERATED_GRID_SELECTOR) !== null;
+      } else {
+        currentTextHasTspans = true;
+        if (!currentTextIsGrid && isSVGTSpanElement(node)) {
+          result.push(node);
+        }
       }
     }
+
+    if (currentText && !currentTextHasTspans && !currentTextIsGrid && (currentText.textContent ?? '').length > 0) {
+      result.push(currentText);
+    }
+
     return result;
   }
 
