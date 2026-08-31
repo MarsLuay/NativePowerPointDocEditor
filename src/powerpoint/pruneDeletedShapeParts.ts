@@ -28,9 +28,17 @@ export interface ShapePartPruneResult {
 /** Collect `r:*` relationship ids from a shape subtree (blip embeds, hyperlinks, charts). */
 export function collectShapeRelationshipIds(shape: Element): string[] {
   const ids = new Set<string>();
-  const elements = [shape, ...Array.from(shape.getElementsByTagName('*'))];
-  for (const element of elements) {
-    for (const attribute of Array.from(element.attributes)) {
+  const elements = shape.getElementsByTagName('*');
+  const len = elements.length;
+
+  for (let i = -1; i < len; i++) {
+    const element = i === -1 ? shape : elements[i];
+    if (!element) continue;
+    const attributes = element.attributes;
+    const attrLen = attributes.length;
+    for (let j = 0; j < attrLen; j++) {
+      const attribute = attributes[j];
+      if (!attribute) continue;
       if (
         (attribute.namespaceURI === DRAWING_RELATIONSHIP_NAMESPACE || attribute.prefix === 'r')
         && attribute.value
@@ -39,6 +47,7 @@ export function collectShapeRelationshipIds(shape: Element): string[] {
       }
     }
   }
+
   return [...ids];
 }
 
