@@ -92,6 +92,7 @@ import {
   getParagraphProperties,
   getRunProperties,
   getShapeRunPositions,
+  DrawingRunPosition,
   isParagraphRangeStyled,
   mergeDrawingParagraphWithPrevious,
   normalizeHexColor,
@@ -1898,12 +1899,14 @@ export class PresentationEngine {
     change: RunStyleChange
   ): Promise<boolean> {
     return this.editSlideShape(slideIndex, shapeIndex, (shape, slideDoc) => {
-      const positions = getShapeRunPositions(shape);
-      const targets = target
-        ? positions.filter(
-            (position) => position.paragraphIndex === target.paragraphIndex && position.runIndex === target.runIndex
-          )
-        : positions;
+      let targets: DrawingRunPosition[];
+      if (target) {
+        const paragraph = getDrawingParagraphs(shape)[target.paragraphIndex];
+        const run = paragraph ? getDrawingRuns(paragraph)[target.runIndex] : undefined;
+        targets = run ? [{ paragraphIndex: target.paragraphIndex, runIndex: target.runIndex, run }] : [];
+      } else {
+        targets = getShapeRunPositions(shape);
+      }
 
       let changed = false;
       for (const { run } of targets) {
