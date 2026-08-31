@@ -126,6 +126,11 @@ function extractVisibleText(xml: string) {
 	return parts.join('');
 }
 
+const SIZE_TAG_REGEXES: Record<string, RegExp> = {
+	'w:sz': /<w:sz\b[^>]*\/>/,
+	'w:szCs': /<w:szCs\b[^>]*\/>/,
+};
+
 function getDirectRunSizeTags(runXml: string) {
 	const runProperties = runXml.match(/<w:rPr\b[^>]*>[\s\S]*?<\/w:rPr>/)?.[0] ?? '';
 	if (!runProperties) {
@@ -134,9 +139,12 @@ function getDirectRunSizeTags(runXml: string) {
 
 	const tags: string[] = [];
 	for (const tagName of ['w:sz', 'w:szCs']) {
-		const tag = runProperties.match(new RegExp(`<${tagName}\\b[^>]*/>`))?.[0];
-		if (tag) {
-			tags.push(tag);
+		const regex = SIZE_TAG_REGEXES[tagName];
+		if (regex) {
+			const tag = runProperties.match(regex)?.[0];
+			if (tag) {
+				tags.push(tag);
+			}
 		}
 	}
 
@@ -148,7 +156,8 @@ function tagNameFromSelfClosingTag(tag: string) {
 }
 
 function runHasDirectSizeTag(runXml: string, tagName: string) {
-	return new RegExp(`<${tagName}\\b[^>]*/>`).test(runXml);
+	const regex = SIZE_TAG_REGEXES[tagName] ?? new RegExp(`<${tagName}\\b[^>]*/>`);
+	return regex.test(runXml);
 }
 
 function addMissingSizeTagsToRun(runXml: string, sourceTags: string[]) {
