@@ -26,6 +26,7 @@ interface DocxSearchCacheEntry {
 	mtime: number;
 	size: number;
 	text: string;
+	lowerText?: string;
 	indexedAt: string;
 	error?: string;
 }
@@ -82,6 +83,7 @@ export class DocxSearchIndex {
 	private entries = new Map<string, DocxSearchCacheEntry>();
 	private loaded = false;
 	private writePromise: Promise<void> = Promise.resolve();
+	private pendingSavePromise: Promise<void> | null = null;
 
 	constructor(
 		private app: App,
@@ -116,6 +118,7 @@ export class DocxSearchIndex {
 					mtime: Number(entry.mtime) || 0,
 					size: Number(entry.size) || 0,
 					text: entry.text,
+					lowerText: entry.text.toLowerCase(),
 					indexedAt: typeof entry.indexedAt === 'string' ? entry.indexedAt : '',
 					error: typeof entry.error === 'string' ? entry.error : undefined,
 				});
@@ -134,24 +137,35 @@ export class DocxSearchIndex {
 	async save(): Promise<void> {
 		await this.load();
 
-		const entries: Record<string, DocxSearchCacheEntry> = {};
-		for (const [path, entry] of this.entries) {
-			entries[path] = entry;
+		if (this.pendingSavePromise) {
+			return this.pendingSavePromise;
 		}
 
-		const indexFile: DocxSearchCacheFile = {
-			version: 1,
-			generatedAt: new Date().toISOString(),
-			entries,
-		};
+		this.pendingSavePromise = (async () => {
+			const previousWrite = this.writePromise.catch(() => undefined);
 
-		const previousWrite = this.writePromise.catch(() => undefined);
-		this.writePromise = (async () => {
-			await previousWrite;
-			await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(indexFile, null, 2));
+			this.writePromise = (async () => {
+				await previousWrite;
+				this.pendingSavePromise = null;
+
+				const entries: Record<string, DocxSearchCacheEntry> = {};
+				for (const [path, entry] of this.entries) {
+					entries[path] = entry;
+				}
+
+				const indexFile: DocxSearchCacheFile = {
+					version: 1,
+					generatedAt: new Date().toISOString(),
+					entries,
+				};
+
+				await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(indexFile, null, 2));
+			})();
+
+			await this.writePromise;
 		})();
 
-		await this.writePromise;
+		return this.pendingSavePromise;
 	}
 
 	async rebuild(options: { force?: boolean } = {}): Promise<DocxSearchIndexStats> {
@@ -262,6 +276,7 @@ export class DocxSearchIndex {
 				mtime: file.stat.mtime,
 				size: file.stat.size,
 				text,
+				lowerText: text.toLowerCase(),
 				indexedAt: new Date().toISOString(),
 			});
 
@@ -317,7 +332,7 @@ export class DocxSearchIndex {
 				continue;
 			}
 
-			const lowerText = entry.text.toLowerCase();
+			const lowerText = entry.lowerText ?? entry.text.toLowerCase();
 			const firstMatchIndex = lowerText.indexOf(normalizedQuery);
 			if (firstMatchIndex === -1) {
 				continue;

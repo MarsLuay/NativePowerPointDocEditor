@@ -2683,250 +2683,273 @@ export class NativePowerPointView extends FileView {
     this.historyController.record(entry);
   }
 
-  private registerKeyboardHandlers(): void {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const historyAction = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z'
-        ? event.shiftKey ? 'redo' : 'undo'
-        : event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'y'
-          ? 'redo'
-          : null;
-      if (historyAction) {
-        debugLog('history', 'PowerPoint history shortcut observed', {
-          action: historyAction,
-          listener: event.currentTarget === window ? 'window' : 'document',
-          containerShown: this.containerEl.isShown(),
-          activeView: this.isActivePowerPointView(),
-          activeEditor: this.activeEditor !== null,
-          targetTag: isElement(event.target) ? event.target.tagName : null,
-        });
-      }
-      if (!this.containerEl.isShown()) return;
 
-      if (isPrimaryFindShortcut(event) && this.isActivePowerPointView()) {
-        const target = isElement(event.target) ? event.target : null;
-        if (!target?.closest('.modal')) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          this.findController.open();
-          return;
-        }
-      }
+  private handleHistoryShortcutLogging(event: KeyboardEvent): void {
+    const historyAction = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z'
+      ? event.shiftKey ? 'redo' : 'undo'
+      : event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'y'
+        ? 'redo'
+        : null;
+    if (historyAction) {
+      debugLog('history', 'PowerPoint history shortcut observed', {
+        action: historyAction,
+        listener: event.currentTarget === window ? 'window' : 'document',
+        containerShown: this.containerEl.isShown(),
+        activeView: this.isActivePowerPointView(),
+        activeEditor: this.activeEditor !== null,
+        targetTag: isElement(event.target) ? event.target.tagName : null,
+      });
+    }
+  }
 
-      if (!this.isActivePowerPointView()) return;
-      if (this.activeEditor && activeDocument.activeElement === this.activeEditor) {
-        // Route undo/redo to the in-place editor history (which restores the
-        // selection) and fall back to document history when the edit session is
-        // exhausted. Capture-phase + stopImmediatePropagation keeps Obsidian and
-        // the textarea's native undo from also firing. All other keys pass
-        // through to the textarea unchanged.
-        const lowerKey = event.key.toLowerCase();
-        if ((event.metaKey || event.ctrlKey) && lowerKey === 'z') {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          void (event.shiftKey ? this.handleInlineRedo() : this.handleInlineUndo());
-          return;
-        }
-        if (event.ctrlKey && !event.metaKey && lowerKey === 'y') {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          void this.handleInlineRedo();
-          return;
-        }
-        return;
-      }
-
+  private handleFindShortcut(event: KeyboardEvent): boolean {
+    if (isPrimaryFindShortcut(event) && this.isActivePowerPointView()) {
       const target = isElement(event.target) ? event.target : null;
-      if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
-        if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          void this.saveCurrentPresentation();
-        }
-        return;
+      if (!target?.closest('.modal')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        this.findController.open();
+        return true;
       }
+    }
+    return false;
+  }
 
+
+  private handleActiveEditorUndoRedo(event: KeyboardEvent): boolean {
+    if (this.activeEditor && activeDocument.activeElement === this.activeEditor) {
+      const lowerKey = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && lowerKey === 'z') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void (event.shiftKey ? this.handleInlineRedo() : this.handleInlineUndo());
+        return true;
+      }
+      if (event.ctrlKey && !event.metaKey && lowerKey === 'y') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void this.handleInlineRedo();
+        return true;
+      }
+      return true; // Editor handles all keys
+    }
+    return false;
+  }
+
+  private handleModifierShortcuts(event: KeyboardEvent): boolean {
+    const target = isElement(event.target) ? event.target : null;
+    if (target?.closest('input, textarea, select, [contenteditable="true"]')) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         event.stopImmediatePropagation();
         void this.saveCurrentPresentation();
-        return;
       }
+      return true; // Input handles keys
+    }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void this.saveCurrentPresentation();
+      return true;
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void this.requestHistoryAction(event.shiftKey ? 'redo' : 'undo', 'keyboard');
+      return true;
+    }
+
+    if (event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'y') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void this.requestHistoryAction('redo', 'keyboard');
+      return true;
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
+      if (this.getSelectedIndices().length > 0) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        void this.requestHistoryAction(event.shiftKey ? 'redo' : 'undo', 'keyboard');
-        return;
+        void this.copySelectedShape();
       }
+      return true;
+    }
 
-      if (event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'y') {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
+      this.powerpointPasteArmed = true;
+      if (this.powerpointPasteArmTimeout !== null) {
+        window.clearTimeout(this.powerpointPasteArmTimeout);
+      }
+      this.powerpointPasteArmTimeout = window.setTimeout(() => {
+        this.powerpointPasteArmTimeout = null;
+        if (!this.powerpointPasteArmed) return;
+        this.powerpointPasteArmed = false;
+        void this.pasteFromClipboardApiOrObjectClipboard();
+      }, 50);
+      return true;
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+      if (this.getSelectedIndices().length > 0) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        void this.requestHistoryAction('redo', 'keyboard');
-        return;
+        void this.duplicateSelectedShape();
       }
+      return true;
+    }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') {
-        if (this.getSelectedIndices().length > 0) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          void this.copySelectedShape();
-        }
-        return;
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (this.lastInteractionRegion === 'thumbnails') {
+        this.slideFilmstripController.selectAllSlides();
+      } else {
+        this.selectAllShapes();
       }
+      return true;
+    }
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') {
-        // Arm paste handling but do not preventDefault here — Finder HEIC
-        // files often arrive only on the subsequent paste event's DataTransfer.
-        this.powerpointPasteArmed = true;
-        if (this.powerpointPasteArmTimeout !== null) {
-          window.clearTimeout(this.powerpointPasteArmTimeout);
-        }
-        this.powerpointPasteArmTimeout = window.setTimeout(() => {
-          this.powerpointPasteArmTimeout = null;
-          if (!this.powerpointPasteArmed) return;
-          this.powerpointPasteArmed = false;
-          // Paste event never arrived (some hosts swallow it); fall back to
-          // async clipboard image read, then in-app shape clipboard.
-          void this.pasteFromClipboardApiOrObjectClipboard();
-        }, 50);
-        return;
+    return false;
+  }
+
+
+  private handleArrowKeys(event: KeyboardEvent): boolean {
+    const isArrowKey =
+      event.key === 'ArrowUp'
+      || event.key === 'ArrowDown'
+      || event.key === 'ArrowLeft'
+      || event.key === 'ArrowRight';
+
+    if (isArrowKey && this.activeEditor) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const editor = this.activeEditor;
+      this.focusEditorWithoutCanvasScroll(editor);
+      if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return true;
+      if (this.inlineRangeSelection !== null || this.inlineWholeShapeSelection !== null) {
+        if (!event.shiftKey) this.clearWholeShapeInlineSelection();
       }
-
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
-        if (this.getSelectedIndices().length > 0) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-          void this.duplicateSelectedShape();
-        }
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        if (this.lastInteractionRegion === 'thumbnails') {
-          this.slideFilmstripController.selectAllSlides();
-        } else {
-          this.selectAllShapes();
-        }
-        return;
-      }
-
-      const isArrowKey =
-        event.key === 'ArrowUp'
-        || event.key === 'ArrowDown'
-        || event.key === 'ArrowLeft'
-        || event.key === 'ArrowRight';
-      // An open inline editor owns arrow keys even if focus briefly left the
-      // textarea (toolbar / popover). Nudging the selected shape here made
-      // Up/Down look broken during text edit.
-      if (isArrowKey && this.activeEditor) {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const editor = this.activeEditor;
-        this.focusEditorWithoutCanvasScroll(editor);
-        if (event.metaKey || event.ctrlKey || event.altKey || event.isComposing) return;
-        if (this.inlineRangeSelection !== null || this.inlineWholeShapeSelection !== null) {
-          if (!event.shiftKey) this.clearWholeShapeInlineSelection();
-        }
-        if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-          if (!event.shiftKey) {
-            this.moveInlineCaretVertical(event.key === 'ArrowUp' ? 'up' : 'down');
-          }
-          return;
-        }
-        const length = editor.value.length;
-        const start = Math.max(0, Math.min(editor.selectionStart ?? length, length));
-        const end = Math.max(0, Math.min(editor.selectionEnd ?? length, length));
-        const collapsed = start === end;
-        let next = event.key === 'ArrowLeft'
-          ? (collapsed ? start - 1 : Math.min(start, end))
-          : (collapsed ? end + 1 : Math.max(start, end));
-        next = Math.max(0, Math.min(length, next));
+      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         if (!event.shiftKey) {
-          editor.setSelectionRange(next, next);
-          const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
-          if (element) {
-            this.rememberInlineCaretPlacement(editor, element, next);
-            this.updateInlineCaret(editor, element);
-          }
+          this.moveInlineCaretVertical(event.key === 'ArrowUp' ? 'up' : 'down');
         }
-        return;
+        return true;
       }
-      const hasShapeSelection = this.selectedShapeIndex !== null || this.selectedShapeIndices.size > 0;
-      if (isArrowKey && hasShapeSelection) {
+      const length = editor.value.length;
+      const start = Math.max(0, Math.min(editor.selectionStart ?? length, length));
+      const end = Math.max(0, Math.min(editor.selectionEnd ?? length, length));
+      const collapsed = start === end;
+      let next = event.key === 'ArrowLeft'
+        ? (collapsed ? start - 1 : Math.min(start, end))
+        : (collapsed ? end + 1 : Math.max(start, end));
+      next = Math.max(0, Math.min(length, next));
+      if (!event.shiftKey) {
+        editor.setSelectionRange(next, next);
+        const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
+        if (element) {
+          this.rememberInlineCaretPlacement(editor, element, next);
+          this.updateInlineCaret(editor, element);
+        }
+      }
+      return true;
+    }
+
+    const hasShapeSelection = this.selectedShapeIndex !== null || this.selectedShapeIndices.size > 0;
+    if (isArrowKey && hasShapeSelection) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void this.nudgeSelection(event.key, event.shiftKey);
+      return true;
+    }
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.slideFilmstripController.navigateToSlide(this.currentSlide - 1, 'keyboard-prev');
+      return true;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.slideFilmstripController.navigateToSlide(this.currentSlide + 1, 'keyboard-next');
+      return true;
+    }
+    return false;
+  }
+
+  private handleEscapeKey(event: KeyboardEvent): boolean {
+    if (event.key === 'Escape' && this.slideFilmstripController.selectedSlideIndices.size > 0) {
+      event.preventDefault();
+      this.slideFilmstripController.clearSlideSelection();
+      return true;
+    }
+    return false;
+  }
+
+  private handleDeleteOrBackspace(event: KeyboardEvent): boolean {
+    if (event.key !== 'Delete' && event.key !== 'Backspace') return false;
+
+    if (this.lastInteractionRegion === 'thumbnails') {
+      if (this.slideFilmstripController.selectedSlideIndices.size > 0) {
+        event.preventDefault();
+        void this.slideFilmstripController.deleteSelectedSlides();
+        return true;
+      }
+      event.preventDefault();
+      void this.slideFilmstripController.deleteSlide();
+      return true;
+    }
+
+    if (this.activeEditor) {
+      const editor = this.activeEditor;
+      const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
+      if (activeDocument.activeElement !== editor && element) {
         event.preventDefault();
         event.stopImmediatePropagation();
-        void this.nudgeSelection(event.key, event.shiftKey);
-        return;
+        this.focusEditorWithoutCanvasScroll(editor);
+        debugLog('text-edit', 'Routed deletion key into inline editor', {
+          slide: this.currentSlide,
+          key: event.key,
+          code: event.code,
+          shapeIndex: this.selectedShapeIndex,
+          backward: isBackwardDeleteKey(event),
+        });
+        this.handleInlineDeleteKey(event, editor, element);
+        return true;
       }
+      debugLog('text-edit', 'Ignored shape-delete shortcut during inline text edit', {
+        slide: this.currentSlide,
+        key: event.key,
+        code: event.code,
+        shapeIndex: this.selectedShapeIndex,
+      });
+      return true;
+    }
 
-      if (event.key === 'Escape' && this.slideFilmstripController.selectedSlideIndices.size > 0) {
-        event.preventDefault();
-        this.slideFilmstripController.clearSlideSelection();
-        return;
-      }
+    const hasShapeSelection = this.selectedShapeIndex !== null || this.selectedShapeIndices.size > 0;
+    if (hasShapeSelection) {
+      event.preventDefault();
+      void this.deleteSelectedShape();
+      return true;
+    }
 
-      if (
-        (event.key === 'Delete' || event.key === 'Backspace')
-        && this.lastInteractionRegion === 'thumbnails'
-      ) {
-        // Filmstrip focus deletes slides. Shape selection is cleared when the
-        // filmstrip is focused (thumbnail click / slide keyboard nav).
-        if (this.slideFilmstripController.selectedSlideIndices.size > 0) {
-          event.preventDefault();
-          void this.slideFilmstripController.deleteSelectedSlides();
-          return;
-        }
-        event.preventDefault();
-        void this.slideFilmstripController.deleteSlide();
-        return;
-      }
+    return false;
+  }
 
-      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
-        event.preventDefault();
-        this.slideFilmstripController.navigateToSlide(this.currentSlide - 1, 'keyboard-prev');
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
-        event.preventDefault();
-        this.slideFilmstripController.navigateToSlide(this.currentSlide + 1, 'keyboard-next');
-      } else if (event.key === 'Delete' || event.key === 'Backspace') {
-        // An open inline edit owns Backspace/Delete until blur/click-off.
-        // Empty-paragraph Backspace used to fall through after focus flicker and
-        // delete the selected shape mid-keystroke.
-        if (this.activeEditor) {
-          const editor = this.activeEditor;
-          const element = this.activeShapeTextTarget?.element ?? this.activeEditorTarget;
-          // Focus can leave the invisible textarea (toolbar / chrome) while the
-          // edit session stays open. Route the key into the editor — same idea as
-          // arrow keys — instead of only blocking shape-delete.
-          if (activeDocument.activeElement !== editor && element) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            this.focusEditorWithoutCanvasScroll(editor);
-            debugLog('text-edit', 'Routed deletion key into inline editor', {
-              slide: this.currentSlide,
-              key: event.key,
-              code: event.code,
-              shapeIndex: this.selectedShapeIndex,
-              backward: isBackwardDeleteKey(event),
-            });
-            this.handleInlineDeleteKey(event, editor, element);
-            return;
-          }
-          debugLog('text-edit', 'Ignored shape-delete shortcut during inline text edit', {
-            slide: this.currentSlide,
-            key: event.key,
-            code: event.code,
-            shapeIndex: this.selectedShapeIndex,
-          });
-          return;
-        }
-        if (hasShapeSelection) {
-          event.preventDefault();
-          void this.deleteSelectedShape();
-        }
-      }
+  private registerKeyboardHandlers(): void {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      this.handleHistoryShortcutLogging(event);
+      if (!this.containerEl.isShown()) return;
+
+      if (this.handleFindShortcut(event)) return;
+      if (!this.isActivePowerPointView()) return;
+
+      if (this.handleActiveEditorUndoRedo(event)) return;
+      if (this.handleModifierShortcuts(event)) return;
+      if (this.handleArrowKeys(event)) return;
+      if (this.handleEscapeKey(event)) return;
+      if (this.handleDeleteOrBackspace(event)) return;
     };
 
     this.registerDomEvent(window, 'keydown', handleKeyDown, true);
@@ -5720,7 +5743,7 @@ export class NativePowerPointView extends FileView {
       normalizedTextLength: normalizedText.length,
       ooxmlTextLength: ooxmlText.length,
       // Soft breaks (`<a:br/>`) live in the editor as `\n` but carry zero width
-      // in OOXML run text; before the offset-map fix each one preceding the
+      // in OOXML run text; before the offset-map correction each one preceding the
       // caret shifted the split target by +1. Log the counts (not the text) so a
       // wrong-split repro is unambiguous about whether soft breaks were present.
       editorSoftBreaks: (rawText.match(/\n/g) ?? []).length,
@@ -8087,7 +8110,7 @@ export class NativePowerPointView extends FileView {
     let detected: number | null = null;
     for (const run of runs) {
       if ((run.textContent || '').length === 0) continue;
-      const userUnits = Number.parseFloat(view.getComputedStyle(run).fontSize);
+      const userUnits = Number.parseFloat(run.style.fontSize || run.getAttribute('font-size') || view.getComputedStyle(run).fontSize);
       if (!Number.isFinite(userUnits) || userUnits <= 0) continue;
       const rounded = Math.round((userUnits * emuPerUnit) / EMU_PER_POINT);
       if (detected === null) {
@@ -8113,7 +8136,7 @@ export class NativePowerPointView extends FileView {
     let detected: string | null = null;
     for (const run of runs) {
       if ((run.textContent || '').length === 0) continue;
-      const family = parsePrimaryFontFamily(view.getComputedStyle(run).fontFamily);
+      const family = parsePrimaryFontFamily(run.style.fontFamily || run.getAttribute('font-family') || view.getComputedStyle(run).fontFamily);
       if (!family) continue;
       if (detected === null) {
         detected = family;
@@ -10014,15 +10037,33 @@ export class NativePowerPointView extends FileView {
 
   private getShapeTextParagraphs(shape: Element): (SVGTextElement | SVGTSpanElement)[] {
     const result: (SVGTextElement | SVGTSpanElement)[] = [];
-    for (const text of Array.from(shape.querySelectorAll('text'))) {
-      if (text.closest(GENERATED_GRID_SELECTOR)) continue;
-      const paragraphs = Array.from(text.querySelectorAll('tspan[data-ooxml-para-idx]')).filter(isSVGTSpanElement);
-      if (paragraphs.length > 0) {
-        result.push(...paragraphs);
-      } else if (isSVGTextElement(text) && (text.textContent ?? '').length > 0) {
-        result.push(text);
+    const nodes = shape.querySelectorAll('text, tspan[data-ooxml-para-idx]');
+
+    let currentText: SVGTextElement | null = null;
+    let currentTextHasTspans = false;
+    let currentTextIsGrid = false;
+
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (isSVGTextElement(node)) {
+        if (currentText && !currentTextHasTspans && !currentTextIsGrid && (currentText.textContent ?? '').length > 0) {
+          result.push(currentText);
+        }
+        currentText = node;
+        currentTextHasTspans = false;
+        currentTextIsGrid = currentText.closest(GENERATED_GRID_SELECTOR) !== null;
+      } else {
+        currentTextHasTspans = true;
+        if (!currentTextIsGrid && isSVGTSpanElement(node)) {
+          result.push(node);
+        }
       }
     }
+
+    if (currentText && !currentTextHasTspans && !currentTextIsGrid && (currentText.textContent ?? '').length > 0) {
+      result.push(currentText);
+    }
+
     return result;
   }
 
@@ -11648,9 +11689,12 @@ export class NativePowerPointView extends FileView {
       segments.push({
         start: offset,
         end,
-        measure: (value: string) => {
+        measure: (value: string, start: number, end: number) => {
           context.font = font;
-          return context.measureText(value).width;
+          if (start === 0 && end === value.length) {
+            return context.measureText(value).width;
+          }
+          return context.measureText(value.slice(start, end)).width;
         },
       });
       offset = end;
