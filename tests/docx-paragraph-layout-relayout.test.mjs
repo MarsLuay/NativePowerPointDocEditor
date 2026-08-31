@@ -28,14 +28,23 @@ function paragraph(defaultTextFormatting) {
 	return {
 		type: { name: 'paragraph' },
 		attrs: { defaultTextFormatting },
-		descendants() {},
+		descendants(callback) {
+			// A paragraph typically descends into text nodes, but we'll leave it empty for this mock.
+			return true;
+		},
 	};
 }
 
 function doc(...nodes) {
 	return {
 		descendants(callback) {
-			nodes.forEach((node, index) => callback(node, index));
+			for (let i = 0; i < nodes.length; i++) {
+				const node = nodes[i];
+				const shouldContinue = callback(node, i);
+				if (shouldContinue && node.descendants) {
+					node.descendants(callback);
+				}
+			}
 		},
 	};
 }
@@ -60,4 +69,18 @@ test('unchanged empty paragraph defaults keep layout stable', async () => {
 		),
 		false,
 	);
+});
+
+test('getDocumentParagraphLayoutSignatures extracts signatures for paragraph nodes only', async () => {
+	const { getDocumentParagraphLayoutSignatures } = await loadModule();
+	const mixedDoc = doc(
+		paragraph({ fontSize: 12 }),
+		{ type: { name: 'heading' }, descendants() {} },
+		paragraph({ fontSize: 14 }),
+	);
+	const signatures = getDocumentParagraphLayoutSignatures(mixedDoc);
+	assert.equal(signatures.length, 2);
+	assert.equal(typeof signatures[0], 'string');
+	assert.equal(typeof signatures[1], 'string');
+	assert.notEqual(signatures[0], signatures[1]);
 });
