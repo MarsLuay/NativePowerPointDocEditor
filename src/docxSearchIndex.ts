@@ -26,6 +26,7 @@ interface DocxSearchCacheEntry {
 	mtime: number;
 	size: number;
 	text: string;
+	lowerText?: string;
 	indexedAt: string;
 	error?: string;
 }
@@ -117,6 +118,7 @@ export class DocxSearchIndex {
 					mtime: Number(entry.mtime) || 0,
 					size: Number(entry.size) || 0,
 					text: entry.text,
+					lowerText: entry.text.toLowerCase(),
 					indexedAt: typeof entry.indexedAt === 'string' ? entry.indexedAt : '',
 					error: typeof entry.error === 'string' ? entry.error : undefined,
 				});
@@ -274,6 +276,7 @@ export class DocxSearchIndex {
 				mtime: file.stat.mtime,
 				size: file.stat.size,
 				text,
+				lowerText: text.toLowerCase(),
 				indexedAt: new Date().toISOString(),
 			});
 
@@ -329,7 +332,7 @@ export class DocxSearchIndex {
 				continue;
 			}
 
-			const lowerText = entry.text.toLowerCase();
+			const lowerText = entry.lowerText ?? entry.text.toLowerCase();
 			const firstMatchIndex = lowerText.indexOf(normalizedQuery);
 			if (firstMatchIndex === -1) {
 				continue;
