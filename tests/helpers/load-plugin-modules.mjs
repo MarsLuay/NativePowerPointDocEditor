@@ -253,6 +253,15 @@ export function loadShapeClipboardModule() {
   return shapeClipboardModulePromise;
 }
 
+let docxXmlTextModulePromise;
+
+export function loadDocxXmlTextModule() {
+  docxXmlTextModulePromise ??= bundleSource("src/docxXmlText.ts", "docx-xml-text.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return docxXmlTextModulePromise;
+}
+
 export function loadDocxTextExtractorModule() {
   docxTextExtractorModulePromise ??= bundleSource("src/docxTextExtractor.ts", "docx-text-extractor.cjs").then(
     (outfile) => require(outfile),
