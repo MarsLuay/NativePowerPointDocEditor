@@ -82,6 +82,7 @@ export class DocxSearchIndex {
 	private entries = new Map<string, DocxSearchCacheEntry>();
 	private loaded = false;
 	private writePromise: Promise<void> = Promise.resolve();
+	private pendingSavePromise: Promise<void> | null = null;
 
 	constructor(
 		private app: App,
@@ -134,24 +135,35 @@ export class DocxSearchIndex {
 	async save(): Promise<void> {
 		await this.load();
 
-		const entries: Record<string, DocxSearchCacheEntry> = {};
-		for (const [path, entry] of this.entries) {
-			entries[path] = entry;
+		if (this.pendingSavePromise) {
+			return this.pendingSavePromise;
 		}
 
-		const indexFile: DocxSearchCacheFile = {
-			version: 1,
-			generatedAt: new Date().toISOString(),
-			entries,
-		};
+		this.pendingSavePromise = (async () => {
+			const previousWrite = this.writePromise.catch(() => undefined);
 
-		const previousWrite = this.writePromise.catch(() => undefined);
-		this.writePromise = (async () => {
-			await previousWrite;
-			await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(indexFile, null, 2));
+			this.writePromise = (async () => {
+				await previousWrite;
+				this.pendingSavePromise = null;
+
+				const entries: Record<string, DocxSearchCacheEntry> = {};
+				for (const [path, entry] of this.entries) {
+					entries[path] = entry;
+				}
+
+				const indexFile: DocxSearchCacheFile = {
+					version: 1,
+					generatedAt: new Date().toISOString(),
+					entries,
+				};
+
+				await this.app.vault.adapter.write(this.getIndexPath(), JSON.stringify(indexFile, null, 2));
+			})();
+
+			await this.writePromise;
 		})();
 
-		await this.writePromise;
+		return this.pendingSavePromise;
 	}
 
 	async rebuild(options: { force?: boolean } = {}): Promise<DocxSearchIndexStats> {
