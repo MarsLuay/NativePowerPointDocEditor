@@ -39,7 +39,9 @@ export function isRunTspanElement(el: Element): boolean {
  */
 export function collectRunSpansByParagraph(shapeGroup: Element): Map<number, Element[]> {
   const runsByParagraph = new Map<number, Element[]>();
-  for (const span of Array.from(shapeGroup.querySelectorAll('tspan[data-ooxml-run-idx]'))) {
+  const spans = shapeGroup.querySelectorAll('tspan[data-ooxml-run-idx]');
+  for (let i = 0, len = spans.length; i < len; i++) {
+    const span = spans[i] as Element;
     if (!isRunTspanElement(span)) continue;
     const paraContainer = span.closest('tspan[data-ooxml-para-idx]');
     const paragraphIndex = Number(paraContainer?.getAttribute('data-ooxml-para-idx'));
@@ -108,7 +110,9 @@ export function annotateSlideTextOffsets(
   getParagraphRunText: (shapeIndex: number, paragraphIndex: number) => string | null,
 ): ShapeStampResult[] {
   const results: ShapeStampResult[] = [];
-  for (const shapeGroup of Array.from(svg.querySelectorAll('g[data-ooxml-shape-idx]'))) {
+  const shapeGroups = svg.querySelectorAll('g[data-ooxml-shape-idx]');
+  for (let i = 0, len = shapeGroups.length; i < len; i++) {
+    const shapeGroup = shapeGroups[i] as Element;
     const shapeIndex = Number(shapeGroup.getAttribute('data-ooxml-shape-idx'));
     if (!Number.isFinite(shapeIndex)) continue;
     const stamped = annotateShapeGroupTextOffsets(shapeGroup, (paragraphIndex) =>
