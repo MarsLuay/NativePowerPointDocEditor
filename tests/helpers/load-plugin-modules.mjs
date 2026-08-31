@@ -76,6 +76,7 @@ export async function bundleSource(entry, outputName, external = [], plugins = [
 }
 
 let textUtilsModulePromise;
+let idleScheduleModulePromise;
 
 const stubObsidianPlugin = {
   name: "stub-obsidian",
@@ -123,6 +124,14 @@ export function loadAnnotateTextOffsetsModule() {
     return require(outfile);
   })();
   return annotateTextOffsetsModulePromise;
+}
+
+export function loadIdleScheduleModule() {
+  idleScheduleModulePromise ??= bundleSource(
+    "src/idleSchedule.ts",
+    "idle-schedule.cjs",
+  ).then((outfile) => require(outfile));
+  return idleScheduleModulePromise;
 }
 
 export function loadTextUtilsModule() {
