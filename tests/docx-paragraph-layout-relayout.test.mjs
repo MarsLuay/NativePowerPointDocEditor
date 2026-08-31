@@ -32,6 +32,19 @@ function paragraph(defaultTextFormatting) {
 	};
 }
 
+function paragraphWithAttrs(attrs) {
+	const node = {
+		type: { name: 'paragraph' },
+		attrs,
+		descendants(callback) {
+			// child isText check needs descendants to just return nothing or child nodes.
+			// The original implementation had descendants() {} doing nothing for child.
+			// Let's just restore it doing nothing to represent it has no children.
+		},
+	};
+	return node;
+}
+
 function doc(...nodes) {
 	return {
 		descendants(callback) {
@@ -60,4 +73,19 @@ test('unchanged empty paragraph defaults keep layout stable', async () => {
 		),
 		false,
 	);
+});
+
+test('didParagraphLayoutChange returns true if either list layout or typography changed', async () => {
+	const { didParagraphLayoutChange } = await loadModule();
+
+	const base = doc(paragraphWithAttrs({ numPr: '1', styleId: 'Normal' }));
+	const listChanged = doc(paragraphWithAttrs({ numPr: '2', styleId: 'Normal' }));
+	const typographyChanged = doc(paragraphWithAttrs({ numPr: '1', styleId: 'Heading1' }));
+	const bothChanged = doc(paragraphWithAttrs({ numPr: '2', styleId: 'Heading1' }));
+	const unchanged = doc(paragraphWithAttrs({ numPr: '1', styleId: 'Normal' }));
+
+	assert.equal(didParagraphLayoutChange(base, unchanged), false);
+	assert.equal(didParagraphLayoutChange(base, listChanged), true);
+	assert.equal(didParagraphLayoutChange(base, typographyChanged), true);
+	assert.equal(didParagraphLayoutChange(base, bothChanged), true);
 });
