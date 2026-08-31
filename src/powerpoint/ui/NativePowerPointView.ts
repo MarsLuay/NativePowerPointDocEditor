@@ -5720,7 +5720,7 @@ export class NativePowerPointView extends FileView {
       normalizedTextLength: normalizedText.length,
       ooxmlTextLength: ooxmlText.length,
       // Soft breaks (`<a:br/>`) live in the editor as `\n` but carry zero width
-      // in OOXML run text; before the offset-map fix each one preceding the
+      // in OOXML run text; before the offset-map correction each one preceding the
       // caret shifted the split target by +1. Log the counts (not the text) so a
       // wrong-split repro is unambiguous about whether soft breaks were present.
       editorSoftBreaks: (rawText.match(/\n/g) ?? []).length,
