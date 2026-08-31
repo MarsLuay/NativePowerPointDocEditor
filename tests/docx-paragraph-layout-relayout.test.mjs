@@ -32,6 +32,14 @@ function paragraph(defaultTextFormatting) {
 	};
 }
 
+function listParagraph(listLayout) {
+	return {
+		type: { name: 'paragraph' },
+		attrs: { ...listLayout },
+		descendants() {},
+	};
+}
+
 function doc(...nodes) {
 	return {
 		descendants(callback) {
@@ -57,6 +65,28 @@ test('unchanged empty paragraph defaults keep layout stable', async () => {
 		didParagraphTypographyChange(
 			doc(paragraph({ fontSize: 8, fontFamily: { ascii: 'Arial' } })),
 			doc(paragraph({ fontSize: 8, fontFamily: { ascii: 'Arial' } })),
+		),
+		false,
+	);
+});
+
+test('changing paragraph list layout invalidates list layout', async () => {
+	const { didListLayoutChange } = await loadModule();
+	assert.equal(
+		didListLayoutChange(
+			doc(listParagraph({ numPr: { numId: '1', ilvl: '0' } })),
+			doc(listParagraph({ numPr: { numId: '2', ilvl: '0' } })),
+		),
+		true,
+	);
+});
+
+test('unchanged paragraph list layout keeps layout stable', async () => {
+	const { didListLayoutChange } = await loadModule();
+	assert.equal(
+		didListLayoutChange(
+			doc(listParagraph({ numPr: { numId: '1', ilvl: '0' } })),
+			doc(listParagraph({ numPr: { numId: '1', ilvl: '0' } })),
 		),
 		false,
 	);
