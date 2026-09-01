@@ -91,8 +91,6 @@ const stubObsidianPlugin = {
         export const setIcon = () => {};
         export class Notice { constructor() {} }
         export class Modal { constructor() {} open() {} close() {} }
-        export class MarkdownRenderChild { constructor(c) { this.containerEl = c; } }
-        export class TFile {}
         export class Component {
           constructor() { this.cleanups = []; }
           register(cleanup) { this.cleanups.push(cleanup); }
@@ -386,17 +384,6 @@ export function loadTooltipControllerModule() {
   return tooltipControllerModulePromise;
 }
 
-let docxEmbedLoaderModulePromise;
-export function loadDocxEmbedLoaderModule() {
-  docxEmbedLoaderModulePromise ??= bundleSource(
-    "src/DocxEmbedLoader.ts",
-    "docx-embed-loader.cjs",
-    ["obsidian"],
-    [stubObsidianPlugin],
-  ).then((outfile) => require(outfile));
-  return docxEmbedLoaderModulePromise;
-}
-
 export function loadPowerPointToolbarTooltipTargetModule() {
   powerPointToolbarTooltipTargetModulePromise ??= bundleSource(
     "src/powerpoint/toolbarTooltipTarget.ts",
@@ -418,17 +405,6 @@ export function loadRenderedPdfExportModule() {
     [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
   return renderedPdfExportModulePromise;
-}
-
-let docxEmbedLoaderModulePromise;
-export function loadDocxEmbedLoaderModule() {
-  docxEmbedLoaderModulePromise ??= bundleSource(
-    "src/DocxEmbedLoader.ts",
-    "docx-embed-loader.cjs",
-    ["obsidian"],
-    [stubObsidianPlugin],
-  ).then((outfile) => require(outfile));
-  return docxEmbedLoaderModulePromise;
 }
 
 export function loadNativePowerPointViewModule() {

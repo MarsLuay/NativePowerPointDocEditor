@@ -5,9 +5,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const viewSource = await readFile(
+const readSource = async (filePath) => (await readFile(filePath, 'utf8')).replace(/\r\n/g, '\n');
+const viewSource = await readSource(
   path.join(projectRoot, 'src/powerpoint/ui/NativePowerPointView.ts'),
-  'utf8',
 );
 
 function methodSource(start, end) {
@@ -34,9 +34,8 @@ test('group transforms mirror changed shape groups instead of scheduling a full 
 });
 
 test('active slide thumbnails clone the visible canvas instead of re-rendering the poster', async () => {
-  const controllerSource = await readFile(
+  const controllerSource = await readSource(
     path.join(projectRoot, 'src/powerpoint/slideFilmstripController.ts'),
-    'utf8',
   );
   const start = controllerSource.indexOf('  async renderThumbnailAt(index: number): Promise<void>');
   const end = controllerSource.indexOf('  /** Clone the current canvas SVG', start);
@@ -50,9 +49,8 @@ test('active slide thumbnails clone the visible canvas instead of re-rendering t
 });
 
 test('completed thumbnails are reusable slide renders and refreshes invalidate them first', async () => {
-  const controllerSource = await readFile(
+  const controllerSource = await readSource(
     path.join(projectRoot, 'src/powerpoint/slideFilmstripController.ts'),
-    'utf8',
   );
   const cacheStart = controllerSource.indexOf('  getCachedSlideRender(index: number): CachedSlideRender | null');
   const cacheEnd = controllerSource.indexOf('  /**\n   * Re-render one filmstrip thumbnail.', cacheStart);
@@ -70,9 +68,8 @@ test('completed thumbnails are reusable slide renders and refreshes invalidate t
 });
 
 test('Find-result slide changes use the normal queued navigation path', async () => {
-  const findSource = await readFile(
+  const findSource = await readSource(
     path.join(projectRoot, 'src/powerpoint/findReplaceController.ts'),
-    'utf8',
   );
   const start = findSource.indexOf('  private async revealCurrentFindMatch(): Promise<void>');
   const end = findSource.indexOf('  private clearFindHighlight(): void', start);
@@ -85,9 +82,8 @@ test('Find-result slide changes use the normal queued navigation path', async ()
 });
 
 test('closed Find never repaints matches on a newly rendered slide', async () => {
-  const findSource = await readFile(
+  const findSource = await readSource(
     path.join(projectRoot, 'src/powerpoint/findReplaceController.ts'),
-    'utf8',
   );
   const applyStart = findSource.indexOf('  private applyFindHighlight(): void');
   const applyEnd = findSource.indexOf('  private highlightFindOccurrencesInShape(', applyStart);
@@ -100,9 +96,8 @@ test('closed Find never repaints matches on a newly rendered slide', async () =>
 });
 
 test('structural inserts invalidate the filmstrip slide cache before canvas redraw', async () => {
-  const insertSource = await readFile(
+  const insertSource = await readSource(
     path.join(projectRoot, 'src/powerpoint/insertController.ts'),
-    'utf8',
   );
   const start = insertSource.indexOf('  private async commitInsertedShape(');
   const end = insertSource.indexOf('  registerMenus(): void', start);
@@ -116,9 +111,8 @@ test('structural inserts invalidate the filmstrip slide cache before canvas redr
 });
 
 test('legacy view insert helpers invalidate the filmstrip cache before redraw', async () => {
-  const insertControllerSource = await readFile(
+  const insertControllerSource = await readSource(
     path.join(projectRoot, 'src/powerpoint/insertController.ts'),
-    'utf8',
   );
 
   const cases = [

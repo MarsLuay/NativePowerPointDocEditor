@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 import { bundleSource } from './helpers/load-plugin-modules.mjs';
 
 let stylesModulePromise;
 
 async function loadStylesModule() {
 	stylesModulePromise ??= bundleSource('src/docxEditorStyles.ts', 'docx-editor-styles.cjs');
-	return import(await stylesModulePromise);
+	return import(pathToFileURL(await stylesModulePromise).href);
 }
 
 function createRealm(name) {
