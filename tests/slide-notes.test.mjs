@@ -135,6 +135,18 @@ test("speaker notes writes reject macro-enabled packages without executing macro
   const macro = toArrayBuffer(await readDeck("macro-view-only.pptm"));
   await assert.rejects(
     writeSlideNotesText(macro, 0, "Never execute macros"),
-    /PPTX and POTX packages only/,
+    /PPTX, PPSX, and POTX packages only/,
   );
+});
+
+test("speaker notes writes support ppsx", async () => {
+  const { writeSlideNotesText, readSlideNotesText } = await loadSlideNotesModule();
+  const input = toArrayBuffer(await createDeck({ format: "ppsx", slideCount: 1 }));
+  const written = await writeSlideNotesText(input, 0, "ppsx notes test");
+
+  assert.equal(written.createdNotesSlide, false);
+  assert.deepEqual(await readSlideNotesText(written.buffer, 0), {
+    text: "ppsx notes test",
+    notesSlidePath: "ppt/notesSlides/notesSlide1.xml",
+  });
 });

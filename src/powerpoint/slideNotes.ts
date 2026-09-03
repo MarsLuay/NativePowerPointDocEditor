@@ -33,6 +33,7 @@ const XML_NAMESPACE = 'http://www.w3.org/XML/1998/namespace';
 const EDITABLE_MAIN_CONTENT_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
   'application/vnd.openxmlformats-officedocument.presentationml.template.main+xml',
+  'application/vnd.openxmlformats-officedocument.presentationml.slideshow.main+xml',
 ]);
 
 export interface SlideNotesReadResult {
@@ -472,6 +473,6 @@ function assertEditableNotesPackage(zip: ZipContents): void {
     .find((override) => override.getAttribute('PartName') === '/ppt/presentation.xml');
   const contentType = presentationOverride?.getAttribute('ContentType');
   if (!contentType || !EDITABLE_MAIN_CONTENT_TYPES.has(contentType)) {
-    throw new Error('Speaker notes editing supports modern PPTX and POTX packages only.');
+    throw new Error('Speaker notes editing supports modern PPTX, PPSX, and POTX packages only.');
   }
 }
