@@ -130,11 +130,25 @@ test("speaker notes creation supplies a notes master when a modern deck has none
   assert.match(contentTypesAfter, /PartName="\/ppt\/notesMasters\/notesMaster1\.xml"/);
 });
 
+test("speaker notes creation works for ppsx packages", async () => {
+  const { writeSlideNotesText, readSlideNotesText } = await loadSlideNotesModule();
+  const input = toArrayBuffer(await createDeck({ format: "ppsx", slideCount: 2 }));
+
+  const written = await writeSlideNotesText(input, 1, "PPSX speaker note");
+  assert.equal(written.createdNotesSlide, true);
+
+  const read = await readSlideNotesText(written.buffer, 1);
+  assert.deepEqual(read, {
+    text: "PPSX speaker note",
+    notesSlidePath: "ppt/notesSlides/notesSlide2.xml",
+  });
+});
+
 test("speaker notes writes reject macro-enabled packages without executing macros", async () => {
   const { writeSlideNotesText } = await loadSlideNotesModule();
   const macro = toArrayBuffer(await readDeck("macro-view-only.pptm"));
   await assert.rejects(
     writeSlideNotesText(macro, 0, "Never execute macros"),
-    /PPTX and POTX packages only/,
+    /PPTX, POTX, and PPSX packages only/,
   );
 });
