@@ -1,0 +1,1 @@
+'use strict';var chunk52DHZAZU_js=require('./chunk-52DHZAZU.js');var t=new chunk52DHZAZU_js.r(chunk52DHZAZU_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;

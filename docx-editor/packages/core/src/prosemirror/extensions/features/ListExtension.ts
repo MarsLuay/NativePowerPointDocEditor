@@ -301,16 +301,10 @@ function exitListOnEmptyEnter(): Command {
         listMarker: null,
         borders: null,
       });
-      let tr = state.tr.setNodeMarkup($from.before(), undefined, clearedAttrs);
-      // Word's first Enter on an empty bullet only clears the marker. Users
-      // report that as "Enter didn't move the line" — also split so the caret
-      // advances onto a new body paragraph in one keypress.
-      const pos = tr.mapping.map($from.pos);
-      if (canSplit(tr.doc, pos)) {
-        tr = tr.split(pos, 1, [
-          { type: state.schema.nodes.paragraph, attrs: { ...clearedAttrs } },
-        ]);
-      }
+      // Word's first Enter on an empty item only clears the marker. Do not
+      // split a second paragraph; that leaves a blank body line under the
+      // former list item.
+      const tr = state.tr.setNodeMarkup($from.before(), undefined, clearedAttrs);
       dispatch(tr.scrollIntoView());
     }
     return true;
