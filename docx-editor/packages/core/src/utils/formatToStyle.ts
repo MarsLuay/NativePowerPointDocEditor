@@ -30,6 +30,7 @@ import {
   eighthsToPixels,
   formatPx,
   halfPointsToPoints,
+  pointsToPixels,
   AUTO_PARAGRAPH_SPACING_PX,
 } from './units';
 
@@ -474,6 +475,13 @@ export function borderToStyle(
   (style as Record<string, string | number>)[widthKey] = formatPx(Math.max(1, widthPx));
   (style as Record<string, string | number>)[styleKey] = cssStyle;
   (style as Record<string, string | number>)[colorKey] = color;
+
+  // OOXML w:space is the gap between text and the stroke (points). CSS padding
+  // is the equivalent; without it the rule sits on the glyph box.
+  if (border.space && border.space > 0) {
+    const paddingKey = `padding${side}` as keyof CSSProperties;
+    (style as Record<string, string | number>)[paddingKey] = formatPx(pointsToPixels(border.space));
+  }
 
   return style;
 }

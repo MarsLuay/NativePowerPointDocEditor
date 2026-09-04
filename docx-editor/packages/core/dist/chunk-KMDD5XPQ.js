@@ -1,1 +1,0 @@
-'use strict';var chunk3IWMGWWE_js=require('./chunk-3IWMGWWE.js');var t=new chunk3IWMGWWE_js.r(chunk3IWMGWWE_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;

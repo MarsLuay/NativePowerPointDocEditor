@@ -45,6 +45,7 @@ import {
   type TabContext,
 } from '../../prosemirror/utils/tabCalculator';
 import { getListMarkerInlineWidth } from './listMarkerWidth';
+import { paragraphBorderFlowInsets } from '../../layout-engine/paragraphBorders';
 
 // Default values - match OOXML spec defaults
 const DEFAULT_FONT_SIZE = 11; // 11pt (Word 2007+ default)
@@ -343,6 +344,11 @@ export function clampFloatingWrapMargins(
  * @param options - Optional measurement options (floating zones, Y offset)
  * @returns ParagraphMeasure with lines and total height
  */
+function heightWithUngroupedBorderFlow(block: ParagraphBlock, height: number): number {
+  const insets = paragraphBorderFlowInsets(block.attrs?.borders);
+  return height + insets.top + insets.bottom;
+}
+
 export function measureParagraph(
   block: ParagraphBlock,
   maxWidth: number,
@@ -463,7 +469,7 @@ export function measureParagraph(
     return {
       kind: 'paragraph',
       lines,
-      totalHeight: emptyTotal,
+      totalHeight: heightWithUngroupedBorderFlow(block, emptyTotal),
     };
   }
 
@@ -490,7 +496,7 @@ export function measureParagraph(
     return {
       kind: 'paragraph',
       lines,
-      totalHeight: emptyTotal,
+      totalHeight: heightWithUngroupedBorderFlow(block, emptyTotal),
     };
   }
 
@@ -971,7 +977,7 @@ export function measureParagraph(
   return {
     kind: 'paragraph',
     lines,
-    totalHeight: totalWithSpacing,
+    totalHeight: heightWithUngroupedBorderFlow(block, totalWithSpacing),
   };
 }
 

@@ -313,8 +313,8 @@ declare function renderLine(block: ParagraphBlock, line: MeasuredLine, alignment
  * Renders paragraph fragments with lines and text runs to DOM.
  * Handles text formatting, alignment, and positioning.
  *
- * This file owns `renderParagraphFragment` (the orchestrator), the
- * border-grouping helpers, and the list-marker renderer. Per-run rendering
+ * This file owns `renderParagraphFragment` (the orchestrator) and the
+ * list-marker renderer. Per-run rendering
  * (text/tab/image/break/field) lives in ./renderParagraph/runs.ts and the
  * line-level walker is in ./renderParagraph/line.ts. The shared class-name
  * constants and run-type guards are in ./renderParagraph/shared.ts.

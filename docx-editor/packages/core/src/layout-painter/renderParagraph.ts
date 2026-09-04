@@ -4,8 +4,8 @@
  * Renders paragraph fragments with lines and text runs to DOM.
  * Handles text formatting, alignment, and positioning.
  *
- * This file owns `renderParagraphFragment` (the orchestrator), the
- * border-grouping helpers, and the list-marker renderer. Per-run rendering
+ * This file owns `renderParagraphFragment` (the orchestrator) and the
+ * list-marker renderer. Per-run rendering
  * (text/tab/image/break/field) lives in ./renderParagraph/runs.ts and the
  * line-level walker is in ./renderParagraph/line.ts. The shared class-name
  * constants and run-type guards are in ./renderParagraph/shared.ts.
@@ -19,6 +19,10 @@ import type {
   BorderStyle,
   MeasuredLine,
 } from '../layout-engine/types';
+import {
+  borderFlowSize,
+  resolveRenderedParagraphBorders,
+} from '../layout-engine/paragraphBorders';
 import type { RenderContext } from './renderPage';
 import { resolveFontFamily } from '../utils/fontResolver';
 import { PARAGRAPH_CLASS_NAMES, isTextRun } from './renderParagraph/shared';
@@ -46,31 +50,6 @@ export interface RenderParagraphOptions {
   nextBorders?: ParagraphBorders;
   /** Inline image runs already rendered for this paragraph block */
   renderedInlineImageKeys?: Set<string>;
-}
-
-/**
- * Check if two individual border definitions are equal (same style, width, color).
- */
-function bordersEqual(a?: BorderStyle, b?: BorderStyle): boolean {
-  if (!a && !b) return true;
-  if (!a || !b) return false;
-  return a.style === b.style && a.width === b.width && a.color === b.color;
-}
-
-/**
- * Check if two ParagraphBorders form a group (ECMA-376 §17.3.1.24).
- * Adjacent paragraphs with identical border definitions belong to the same group.
- */
-function bordersFormGroup(a?: ParagraphBorders, b?: ParagraphBorders): boolean {
-  if (!a && !b) return false; // no borders = no group
-  if (!a || !b) return false;
-  return (
-    bordersEqual(a.top, b.top) &&
-    bordersEqual(a.bottom, b.bottom) &&
-    bordersEqual(a.left, b.left) &&
-    bordersEqual(a.right, b.right) &&
-    bordersEqual(a.between, b.between)
-  );
 }
 
 // First strong-directional character classes (subset of the Unicode Bidi
@@ -268,17 +247,20 @@ export function renderParagraphFragment(
 
     const borderToCss = (b: BorderStyle) => `${b.width}px ${borderStyleToCss(b.style)} ${b.color}`;
 
-    // Word-style border grouping (ECMA-376 §17.3.1.24):
-    // Adjacent paragraphs with identical pBdr form a group.
-    // - top border → only on the first paragraph of the group
-    // - bottom border → only on the last paragraph of the group
-    // - between border → rendered as borderTop on interior paragraphs
-    // - left/right → on every paragraph in the group
-    const groupedWithPrev = bordersFormGroup(options.prevBorders, borders);
-    const groupedWithNext = bordersFormGroup(borders, options.nextBorders);
-
-    const renderedTopBorder = groupedWithPrev ? borders.between : borders.top;
-    const renderedBottomBorder = !groupedWithNext ? borders.bottom : undefined;
+    // Word-style border grouping (ECMA-376 §17.3.1.24). Vertical `w:space`
+    // is padding inside the fragment (paginator already reserved it) so the
+    // overlay must not paint into the next paragraph.
+    const rendered = resolveRenderedParagraphBorders(
+      borders,
+      options.prevBorders,
+      options.nextBorders
+    );
+    const renderedTopBorder = rendered.top;
+    const renderedBottomBorder = rendered.bottom;
+    const topPad = borderFlowSize(renderedTopBorder);
+    const bottomPad = borderFlowSize(renderedBottomBorder);
+    if (topPad) fragmentEl.style.paddingTop = `${topPad}px`;
+    if (bottomPad) fragmentEl.style.paddingBottom = `${bottomPad}px`;
 
     const borderBox = doc.createElement('div');
     borderBox.className = 'layout-paragraph-border';
@@ -288,10 +270,11 @@ export function renderParagraphFragment(
     // Paragraph indentation controls the text lines, not the block's outer
     // border. Keeping this overlay anchored to the fragment gives section
     // dividers the same full content width as unindented paragraphs.
+    // Horizontal space still expands the overlay; vertical space is padding.
     borderBox.style.left = `${-(borders.left?.space ?? 0)}px`;
     borderBox.style.right = `${-(borders.right?.space ?? 0)}px`;
-    borderBox.style.top = `${-(renderedTopBorder?.space ?? 0)}px`;
-    borderBox.style.bottom = `${-(renderedBottomBorder?.space ?? 0)}px`;
+    borderBox.style.top = '0';
+    borderBox.style.bottom = '0';
 
     if (renderedTopBorder) {
       borderBox.style.borderTop = borderToCss(renderedTopBorder);

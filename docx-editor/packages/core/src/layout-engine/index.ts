@@ -20,6 +20,7 @@ import type {
   ParagraphBlock,
   ParagraphMeasure,
   ParagraphFragment,
+  ParagraphBorders,
   TableBlock,
   TableMeasure,
   TableFragment,
@@ -46,6 +47,10 @@ import { MIN_WRAP_SEGMENT_WIDTH } from '../layout-bridge/measuring/floatingZones
 import { getParagraphFragmentPmRange } from './paragraphFragmentRange';
 import { balanceTerminalContinuousTextColumns } from './columnBalancing';
 import { getSpacingAfter, getSpacingBefore } from './paragraphSpacing';
+import {
+  adjacentParagraphBorders,
+  paragraphBorderFlowInsets,
+} from './paragraphBorders';
 
 // Default page size (US Letter in pixels at 96 DPI)
 const DEFAULT_PAGE_SIZE = { w: 816, h: 1056 };
@@ -280,9 +285,18 @@ export function layoutDocument(
     }
 
     switch (block.kind) {
-      case 'paragraph':
-        layoutParagraph(block, measure as ParagraphMeasure, paginator, paginator.getContentWidth());
+      case 'paragraph': {
+        const neighbors = adjacentParagraphBorders(blocks, i);
+        layoutParagraph(
+          block,
+          measure as ParagraphMeasure,
+          paginator,
+          paginator.getContentWidth(),
+          neighbors.prev,
+          neighbors.next
+        );
         break;
+      }
 
       case 'table':
         if (block.floating) {
@@ -366,34 +380,37 @@ function layoutParagraph(
   block: ParagraphBlock,
   measure: ParagraphMeasure,
   paginator: ReturnType<typeof createPaginator>,
-  contentWidth: number
+  contentWidth: number,
+  prevBorders?: ParagraphBorders,
+  nextBorders?: ParagraphBorders
 ): void {
   if (measure.kind !== 'paragraph') {
     throw new Error(`layoutParagraph: expected paragraph measure`);
   }
 
+  const insets = paragraphBorderFlowInsets(block.attrs?.borders, prevBorders, nextBorders);
   const lines = measure.lines;
   if (lines.length === 0) {
-    // Empty paragraph - still takes up space based on spacing
+    // Empty paragraph - still takes up space based on spacing and any pBdr.
     const spaceBefore = getSpacingBefore(block);
     const spaceAfter = getSpacingAfter(block);
     const state = paginator.getCurrentState();
+    const height = insets.top + insets.bottom;
 
-    // Create minimal fragment
     const fragment: ParagraphFragment = {
       kind: 'paragraph',
       blockId: block.id,
       x: paginator.getColumnX(state.columnIndex),
       y: state.cursorY + spaceBefore,
       width: contentWidth,
-      height: 0,
+      height,
       fromLine: 0,
       toLine: 0,
       pmStart: block.pmStart,
       pmEnd: block.pmEnd,
     };
 
-    paginator.addFragment(fragment, 0, spaceBefore, spaceAfter);
+    paginator.addFragment(fragment, height, spaceBefore, spaceAfter);
     return;
   }
 
@@ -405,6 +422,8 @@ function layoutParagraph(
 
   while (currentLineIndex < lines.length) {
     const state = paginator.getCurrentState();
+    const isFirstFragment = currentLineIndex === 0;
+    const topInset = isFirstFragment ? insets.top : 0;
 
     // Reserve the space `addFragment` will consume before this fragment's first
     // line: `max(spaceBefore, trailingSpacing)` for the first fragment (the
@@ -415,9 +434,8 @@ function layoutParagraph(
     // don't fit once `addFragment` adds it, so `ensureFits` punts the WHOLE first
     // fragment to the next page (a long paragraph after a keepNext heading jumps
     // wholesale, stranding the heading above a near-full-page gap).
-    const reservedBefore =
-      currentLineIndex === 0 ? Math.max(spaceBefore, state.trailingSpacing) : 0;
-    const availableForLines = paginator.getAvailableHeight() - reservedBefore;
+    const reservedBefore = isFirstFragment ? Math.max(spaceBefore, state.trailingSpacing) : 0;
+    const availableForLines = paginator.getAvailableHeight() - reservedBefore - topInset;
 
     // Calculate how many lines fit in the space remaining after the reserve.
     let linesHeight = 0;
@@ -428,10 +446,11 @@ function layoutParagraph(
       // floats with no horizontal room — it counts toward the fragment height
       // so subsequent blocks flow below the float, not over it.
       const lineHeight = lines[j].lineHeight + (lines[j].floatSkipBefore ?? 0);
-      const totalWithLine = linesHeight + lineHeight;
+      const bottomIfLast = j === lines.length - 1 ? insets.bottom : 0;
+      const totalWithLine = linesHeight + lineHeight + bottomIfLast;
 
       if (totalWithLine <= availableForLines || fittingLines === 0) {
-        linesHeight = totalWithLine;
+        linesHeight += lineHeight;
         fittingLines++;
       } else {
         break;
@@ -439,8 +458,9 @@ function layoutParagraph(
     }
 
     // Create fragment for these lines
-    const isFirstFragment = currentLineIndex === 0;
     const isLastFragment = currentLineIndex + fittingLines >= lines.length;
+    const bottomInset = isLastFragment ? insets.bottom : 0;
+    const fragmentHeight = linesHeight + topInset + bottomInset;
     const effectiveSpaceBefore = isFirstFragment ? spaceBefore : 0;
     const effectiveSpaceAfter = isLastFragment ? spaceAfter : 0;
     const pmRange = getParagraphFragmentPmRange(
@@ -456,7 +476,7 @@ function layoutParagraph(
       x: paginator.getColumnX(state.columnIndex),
       y: 0, // Will be set by addFragment
       width: contentWidth,
-      height: linesHeight,
+      height: fragmentHeight,
       fromLine: currentLineIndex,
       toLine: currentLineIndex + fittingLines,
       pmStart: pmRange.pmStart,
@@ -467,7 +487,7 @@ function layoutParagraph(
 
     const result = paginator.addFragment(
       fragment,
-      linesHeight,
+      fragmentHeight,
       effectiveSpaceBefore,
       effectiveSpaceAfter
     );

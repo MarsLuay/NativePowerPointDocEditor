@@ -85,7 +85,7 @@ describe('border overlay layout', () => {
       x: 40,
       y: 40,
       width: 600,
-      height: 30,
+      height: 30 + 7 + 2 + 9 + 2,
       fromLine: 0,
       toLine: 1,
     };
@@ -103,8 +103,10 @@ describe('border overlay layout', () => {
     expect(border).toBeTruthy();
     expect(border!.style.left).toBe('-5px');
     expect(border!.style.right).toBe('-6px');
-    expect(border!.style.top).toBe('-7px');
-    expect(border!.style.bottom).toBe('-9px');
+    expect(border!.style.top).toBe('0px');
+    expect(border!.style.bottom).toBe('0px');
+    expect(el.style.paddingTop).toBe('9px');
+    expect(el.style.paddingBottom).toBe('11px');
     expect(el.style.borderTop).toBe('');
     expect(line?.style.paddingLeft).toBe('120px');
     expect(line?.style.paddingRight).toBe('90px');

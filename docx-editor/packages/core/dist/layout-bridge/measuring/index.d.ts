@@ -192,14 +192,6 @@ declare function clampFloatingWrapMargins(leftMargin: number, rightMargin: numbe
     leftMargin: number;
     rightMargin: number;
 };
-/**
- * Measure a paragraph block and compute line breaks
- *
- * @param block - The paragraph block to measure
- * @param maxWidth - Maximum available width for the paragraph
- * @param options - Optional measurement options (floating zones, Y offset)
- * @returns ParagraphMeasure with lines and total height
- */
 declare function measureParagraph(block: ParagraphBlock, maxWidth: number, options?: MeasureParagraphOptions): ParagraphMeasure;
 /**
  * Measure multiple paragraph blocks
