@@ -366,7 +366,7 @@ export function replacePartText(
 	const patternSource = options.wholeWord ? `\\b${escapedQuery}\\b` : escapedQuery;
 	const pattern = new RegExp(patternSource, flags);
 
-	const nextPartXml = partXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/g, (full, rawText: string) => {
+	const nextPartXml = partXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/g, (full, openTag: string, rawText: string, closeTag: string) => {
 		const decoded = decodeXmlText(rawText);
 		const replaced = decoded.replace(pattern, () => {
 			replacementCount++;
@@ -375,7 +375,7 @@ export function replacePartText(
 		if (replaced === decoded) {
 			return full;
 		}
-		return full.replace(rawText, encodeXmlText(replaced));
+		return openTag + encodeXmlText(replaced) + closeTag;
 	});
 
 	return { partXml: nextPartXml, replacementCount };

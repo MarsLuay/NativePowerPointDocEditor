@@ -756,3 +756,40 @@ test('DocxDocumentService sets a paragraph bottom border without replacing headi
 	assert.match(documentXml, /<w:t>TECHNICAL SKILLS<\/w:t>/);
 	assert.match(documentXml, /<w:spacing w:line="252" w:lineRule="auto"\/>/);
 });
+
+test('DocxDocumentService replaceText does not damage unrelated DOCX structural attributes', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+
+	const docPath = 'notes/replace-preserve.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t xml:space="preserve">w:t preserve</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{
+			op: 'docx.replaceText',
+			query: 'preserve',
+			replacement: 'kept',
+		},
+		{
+			op: 'docx.replaceText',
+			query: 'w:t',
+			replacement: 'v:t',
+		}
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedZip = await JSZip.loadAsync(vault.store.get(docPath).buffer);
+	const documentXml = await savedZip.file('word/document.xml').async('string');
+	assert.match(documentXml, /<w:t xml:space="preserve">v:t kept<\/w:t>/);
+});
