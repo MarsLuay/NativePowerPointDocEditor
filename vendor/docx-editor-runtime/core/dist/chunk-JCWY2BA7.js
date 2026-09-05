@@ -1,1 +1,0 @@
-'use strict';var chunk2C3DM2LE_js=require('./chunk-2C3DM2LE.js');var t=new chunk2C3DM2LE_js.r(chunk2C3DM2LE_js.q());t.buildSchema();t.initializeRuntime();var s=t,m=t.getSchema();exports.a=s;exports.b=m;
