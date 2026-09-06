@@ -34,6 +34,7 @@ let docxEditorChromeMarkersModulePromise;
 let docxSessionModulePromise;
 let fakeDocxEditorAdapterModulePromise;
 let docxToolbarTooltipModulePromise;
+let docxXmlTextModulePromise;
 let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
 let docxEmbedLoaderModulePromise;
@@ -346,6 +347,14 @@ export function loadDocxSessionModule() {
 		"docx-session.cjs",
 	).then((outfile) => require(outfile));
 	return docxSessionModulePromise;
+}
+
+export function loadDocxXmlTextModule() {
+  docxXmlTextModulePromise ??= bundleSource(
+    "src/docxXmlText.ts",
+    "docx-xml-text.cjs",
+  ).then((outfile) => require(outfile));
+  return docxXmlTextModulePromise;
 }
 
 export function loadFakeDocxEditorAdapterModule() {
