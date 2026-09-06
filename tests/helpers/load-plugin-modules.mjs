@@ -78,6 +78,7 @@ export async function bundleSource(entry, outputName, external = [], plugins = [
 
 let textUtilsModulePromise;
 let idleScheduleModulePromise;
+let textHaloModulePromise;
 
 const stubObsidianPlugin = {
   name: "stub-obsidian",
@@ -159,6 +160,13 @@ export function loadTextUtilsModule() {
     return require(outfile);
   })();
   return textUtilsModulePromise;
+}
+
+export function loadTextHaloModule() {
+  textHaloModulePromise ??= bundleSource("src/TextHalo.ts", "text-halo.cjs").then(
+    (outfile) => require(outfile)
+  );
+  return textHaloModulePromise;
 }
 
 export function loadTextToolbarControllerModule() {
