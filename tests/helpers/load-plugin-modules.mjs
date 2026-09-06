@@ -38,6 +38,7 @@ let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
 let docxEmbedLoaderModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
+let debugInstrumentationModulePromise;
 let loggerModulePromise;
 let renderedPdfExportModulePromise;
 let parseRenderedSlideSvgModulePromise;
@@ -390,6 +391,11 @@ export function loadPowerPointToolbarTooltipTargetModule() {
     "powerpoint-toolbar-tooltip-target.cjs",
   ).then((outfile) => require(outfile));
   return powerPointToolbarTooltipTargetModulePromise;
+}
+
+export function loadDebugInstrumentationModule() {
+  debugInstrumentationModulePromise ??= bundleSource("src/debugInstrumentation.ts", "debug-instrumentation.cjs").then((outfile) => require(outfile));
+  return debugInstrumentationModulePromise;
 }
 
 export function loadLoggerModule() {
