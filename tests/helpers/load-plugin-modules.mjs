@@ -45,6 +45,7 @@ let textToolbarControllerModulePromise;
 let insertControllerModulePromise;
 let arrangeControllerModulePromise;
 let slideExtensionPreserveModulePromise;
+let modalDomScopeModulePromise;
 
 globalThis.DOMParser ??= DOMParser;
 globalThis.XMLSerializer ??= XMLSerializer;
@@ -636,4 +637,43 @@ export function loadDocxEmbedLoaderModule() {
     }
   });
   return docxEmbedLoaderModulePromise;
+}
+
+export function loadModalDomScopeModule() {
+  modalDomScopeModulePromise ??= bundleSource(
+    "src/modalDomScope.ts",
+    "modal-dom-scope.cjs",
+    ["obsidian"],
+    [stubObsidianPlugin]
+  ).then((outfile) => {
+    const originalLoad = Module._load;
+
+    class Component {
+      load() {}
+      unload() {}
+      onload() {}
+      onunload() {}
+      register() { return () => {}; }
+      registerDomEvent() { return () => {}; }
+      registerInterval() { return () => {}; }
+      addChild() { return this; }
+      removeChild() {}
+    }
+
+    Module._load = function load(request, parent, isMain) {
+      if (request === "obsidian") {
+        return {
+          Component
+        };
+      }
+      return originalLoad.call(this, request, parent, isMain);
+    };
+
+    try {
+      return require(outfile);
+    } finally {
+      Module._load = originalLoad;
+    }
+  });
+  return modalDomScopeModulePromise;
 }
