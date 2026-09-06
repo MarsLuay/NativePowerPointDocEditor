@@ -4713,7 +4713,7 @@ export class NativePowerPointView extends FileView {
     this.selectedShapeIndex = shapeIndex;
     this.selectedShapeIndices = new Set([shapeIndex]);
     this.removeMultiSelectionBoxes();
-    this.svgEl.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
+    this.svgEl?.querySelectorAll('.native-powerpoint-shape-selected').forEach((shape) => {
       shape.removeClass('native-powerpoint-shape-selected');
     });
 
@@ -4748,7 +4748,7 @@ export class NativePowerPointView extends FileView {
     this.selectedShapeIndex = shapeIndex;
     this.selectedShapeIndices = new Set([shapeIndex]);
     this.removeMultiSelectionBoxes();
-    this.svgEl.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
+    this.svgEl?.querySelectorAll('.native-powerpoint-shape-selected').forEach((shape) => {
       shape.removeClass('native-powerpoint-shape-selected');
     });
 
@@ -4824,14 +4824,16 @@ export class NativePowerPointView extends FileView {
   }
 
   private applySelectionClasses(): void {
-    this.svgEl?.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
-      const index = getShapeIndex(shape);
-      if (index !== null && this.selectedShapeIndices.has(index)) {
-        shape.addClass('native-powerpoint-shape-selected');
-      } else {
-        shape.removeClass('native-powerpoint-shape-selected');
-      }
+    if (!this.svgEl) return;
+    this.svgEl.querySelectorAll('.native-powerpoint-shape-selected').forEach((shape) => {
+      shape.removeClass('native-powerpoint-shape-selected');
     });
+    for (const index of this.selectedShapeIndices) {
+      const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
+      if (shape) {
+        shape.addClass('native-powerpoint-shape-selected');
+      }
+    }
   }
 
   private clearSelection(options: { skipTextCommit?: boolean } = {}): void {
@@ -4849,7 +4851,7 @@ export class NativePowerPointView extends FileView {
     this.selectedShapeIndex = null;
     this.selectedShapeIndices.clear();
     this.selectedTransform = null;
-    this.svgEl?.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
+    this.svgEl?.querySelectorAll('.native-powerpoint-shape-selected').forEach((shape) => {
       shape.removeClass('native-powerpoint-shape-selected');
     });
     this.removeSelectionOverlay();
@@ -12288,14 +12290,16 @@ export class NativePowerPointView extends FileView {
   }
 
   private previewSelectionClasses(indices: Set<number>): void {
-    this.svgEl?.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
-      const index = getShapeIndex(shape);
-      if (index !== null && indices.has(index)) {
-        shape.addClass('native-powerpoint-shape-selected');
-      } else {
-        shape.removeClass('native-powerpoint-shape-selected');
-      }
+    if (!this.svgEl) return;
+    this.svgEl.querySelectorAll('.native-powerpoint-shape-selected').forEach((shape) => {
+      shape.removeClass('native-powerpoint-shape-selected');
     });
+    for (const index of indices) {
+      const shape = this.svgEl.querySelector(`g[data-ooxml-shape-idx="${index}"]`);
+      if (shape) {
+        shape.addClass('native-powerpoint-shape-selected');
+      }
+    }
   }
 
   private beginMarquee(event: PointerEvent, additive: boolean): void {
