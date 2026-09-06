@@ -772,158 +772,191 @@ async function executeSlideOp(
 	}
 }
 
+async function executeSetImageCrop(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult> {
+	const result = createExecutionResult();
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const crop = payload.crop as ImageCrop;
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	result.preview.push({ id: changedId, field: 'crop', before: null, after: crop });
+	if (!context.dryRun) {
+		await context.engine.setImageCrop(slideIndex, shapeIndex, crop);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeFitImageToFrame(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult> {
+	const result = createExecutionResult();
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	if (!context.engine.isImageShape(slideIndex, shapeIndex)) {
+		throw createAiError(
+			AI_ERROR_CODES.OBJECT_NOT_EDITABLE,
+			`Shape ${pptxShapeId(slideIndex, shapeIndex)} is not an image.`,
+		);
+	}
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	const before = context.engine.getImageCrop(slideIndex, shapeIndex);
+	const after = await context.engine.getImageFitCrop(slideIndex, shapeIndex);
+	result.preview.push({ id: changedId, field: 'crop', before, after });
+	if (!context.dryRun) {
+		await context.engine.fitImageToFrame(slideIndex, shapeIndex);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeResetImage(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult> {
+	const result = createExecutionResult();
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	if (!context.dryRun) {
+		const reset = await context.engine.resetImage(slideIndex, shapeIndex);
+		if (!reset.changed) {
+			result.warnings.push(`Image ${changedId} already has no crop or visual effects to reset.`);
+			return result;
+		}
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeReplaceImage(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult> {
+	const result = createExecutionResult();
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const vaultImagePath = requireString(payload.vaultImagePath, 'vaultImagePath');
+	const fit = parseImageFit(payload, 'cover', ['cover', 'stretch'] as const);
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+	const wasImage = context.engine.isImageShape(slideIndex, shapeIndex);
+	const image = await readVaultBinaryFile(context.vault, vaultImagePath);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	result.preview.push({
+		id: changedId,
+		field: wasImage ? 'image' : 'convertToImage',
+		before: wasImage ? null : before,
+		after: vaultImagePath,
+	});
+	if (!wasImage) {
+		result.warnings.push(
+			`Shape ${changedId} was not a picture; converted it into a picture filling the same transform box.`,
+		);
+	}
+	if (!context.dryRun) {
+		const resultIndex = await context.engine.replaceImage(
+			slideIndex,
+			shapeIndex,
+			image.bytes,
+			getImageMimeType(image.extension),
+			fit,
+		);
+		result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
+	} else {
+		result.changedIds.push(changedId);
+	}
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeReplaceImageFromShape(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+): Promise<PptxOpExecutionResult> {
+	const result = createExecutionResult();
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const sourceSlideIndex = requireNumber(payload.sourceSlideIndex, 'sourceSlideIndex');
+	const sourceShapeIndex = requireNumber(payload.sourceShapeIndex, 'sourceShapeIndex');
+	assertSlideInRange(context.engine, slideIndex);
+	assertSlideInRange(context.engine, sourceSlideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+	const wasImage = context.engine.isImageShape(slideIndex, shapeIndex);
+	const sourceImage = await context.engine.getShapeImageData(sourceSlideIndex, sourceShapeIndex);
+	if (!sourceImage) {
+		throw createAiError(
+			AI_ERROR_CODES.VALIDATION_FAILED,
+			`Source shape ${pptxShapeId(sourceSlideIndex, sourceShapeIndex)} is not an embedded picture.`,
+		);
+	}
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	result.preview.push({
+		id: changedId,
+		field: wasImage ? 'image' : 'convertToImage',
+		before: wasImage ? null : before,
+		after: { sourceShapeId: pptxShapeId(sourceSlideIndex, sourceShapeIndex) },
+	});
+	if (!wasImage) {
+		result.warnings.push(
+			`Shape ${changedId} was not a picture; converted it into a picture filling the same transform box.`,
+		);
+	}
+	if (!context.dryRun) {
+		const resultIndex = await context.engine.replaceImage(
+			slideIndex,
+			shapeIndex,
+			sourceImage.bytes,
+			sourceImage.mimeType,
+		);
+		if (!wasImage && before.transform?.cx && before.transform?.cy) {
+			const cover = computeCenteredCoverCrop(
+				readRasterImageDimensions(sourceImage.bytes),
+				before.transform.cx,
+				before.transform.cy,
+			);
+			if (cover) {
+				await context.engine.setImageCrop(slideIndex, resultIndex, cover);
+			}
+		}
+		result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
+	} else {
+		result.changedIds.push(changedId);
+	}
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
 async function executeMediaOp(
 	context: PptxOpExecutionContext,
 	opId: string,
 	payload: Record<string, unknown>,
 ): Promise<PptxOpExecutionResult | null> {
-	const result = createExecutionResult();
-
 	switch (opId) {
-		case 'pptx.setImageCrop': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const crop = payload.crop as ImageCrop;
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'crop', before: null, after: crop });
-			if (!context.dryRun) {
-				await context.engine.setImageCrop(slideIndex, shapeIndex, crop);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.fitImageToFrame': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			if (!context.engine.isImageShape(slideIndex, shapeIndex)) {
-				throw createAiError(
-					AI_ERROR_CODES.OBJECT_NOT_EDITABLE,
-					`Shape ${pptxShapeId(slideIndex, shapeIndex)} is not an image.`,
-				);
-			}
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			const before = context.engine.getImageCrop(slideIndex, shapeIndex);
-			const after = await context.engine.getImageFitCrop(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'crop', before, after });
-			if (!context.dryRun) {
-				await context.engine.fitImageToFrame(slideIndex, shapeIndex);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.resetImage': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			if (!context.dryRun) {
-				const reset = await context.engine.resetImage(slideIndex, shapeIndex);
-				if (!reset.changed) {
-					result.warnings.push(`Image ${changedId} already has no crop or visual effects to reset.`);
-					return result;
-				}
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.replaceImage': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const vaultImagePath = requireString(payload.vaultImagePath, 'vaultImagePath');
-			const fit = parseImageFit(payload, 'cover', ['cover', 'stretch'] as const);
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-			const wasImage = context.engine.isImageShape(slideIndex, shapeIndex);
-			const image = await readVaultBinaryFile(context.vault, vaultImagePath);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({
-				id: changedId,
-				field: wasImage ? 'image' : 'convertToImage',
-				before: wasImage ? null : before,
-				after: vaultImagePath,
-			});
-			if (!wasImage) {
-				result.warnings.push(
-					`Shape ${changedId} was not a picture; converted it into a picture filling the same transform box.`,
-				);
-			}
-			if (!context.dryRun) {
-				const resultIndex = await context.engine.replaceImage(
-					slideIndex,
-					shapeIndex,
-					image.bytes,
-					getImageMimeType(image.extension),
-					fit,
-				);
-				result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
-			} else {
-				result.changedIds.push(changedId);
-			}
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.replaceImageFromShape': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const sourceSlideIndex = requireNumber(payload.sourceSlideIndex, 'sourceSlideIndex');
-			const sourceShapeIndex = requireNumber(payload.sourceShapeIndex, 'sourceShapeIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			assertSlideInRange(context.engine, sourceSlideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-			const wasImage = context.engine.isImageShape(slideIndex, shapeIndex);
-			const sourceImage = await context.engine.getShapeImageData(sourceSlideIndex, sourceShapeIndex);
-			if (!sourceImage) {
-				throw createAiError(
-					AI_ERROR_CODES.VALIDATION_FAILED,
-					`Source shape ${pptxShapeId(sourceSlideIndex, sourceShapeIndex)} is not an embedded picture.`,
-				);
-			}
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({
-				id: changedId,
-				field: wasImage ? 'image' : 'convertToImage',
-				before: wasImage ? null : before,
-				after: { sourceShapeId: pptxShapeId(sourceSlideIndex, sourceShapeIndex) },
-			});
-			if (!wasImage) {
-				result.warnings.push(
-					`Shape ${changedId} was not a picture; converted it into a picture filling the same transform box.`,
-				);
-			}
-			if (!context.dryRun) {
-				const resultIndex = await context.engine.replaceImage(
-					slideIndex,
-					shapeIndex,
-					sourceImage.bytes,
-					sourceImage.mimeType,
-				);
-				if (!wasImage && before.transform?.cx && before.transform?.cy) {
-					const cover = computeCenteredCoverCrop(
-						readRasterImageDimensions(sourceImage.bytes),
-						before.transform.cx,
-						before.transform.cy,
-					);
-					if (cover) {
-						await context.engine.setImageCrop(slideIndex, resultIndex, cover);
-					}
-				}
-				result.changedIds.push(pptxShapeId(slideIndex, resultIndex));
-			} else {
-				result.changedIds.push(changedId);
-			}
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
+		case 'pptx.setImageCrop':
+			return executeSetImageCrop(context, payload);
+		case 'pptx.fitImageToFrame':
+			return executeFitImageToFrame(context, payload);
+		case 'pptx.resetImage':
+			return executeResetImage(context, payload);
+		case 'pptx.replaceImage':
+			return executeReplaceImage(context, payload);
+		case 'pptx.replaceImageFromShape':
+			return executeReplaceImageFromShape(context, payload);
 		default:
 			return null;
 	}
