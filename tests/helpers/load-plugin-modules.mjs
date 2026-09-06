@@ -17,6 +17,7 @@ const docxEditorAliases = await createDocxEditorAliases(
 );
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require("@xmldom/xmldom");
+let chartInsertTemplateModulePromise;
 let tempDirectoryPromise;
 let packageModulePromise;
 let presentationEngineModulePromise;
@@ -636,4 +637,11 @@ export function loadDocxEmbedLoaderModule() {
     }
   });
   return docxEmbedLoaderModulePromise;
+}
+
+export function loadChartInsertTemplateModule() {
+  chartInsertTemplateModulePromise ??= bundleSource("src/chartInsertTemplate.ts", "chart-insert-template.cjs").then(
+    (outfile) => require(outfile),
+  );
+  return chartInsertTemplateModulePromise;
 }
