@@ -38,6 +38,7 @@ let markdownToDocxModulePromise;
 let tooltipControllerModulePromise;
 let docxEmbedLoaderModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
+let documentWordCountModulePromise;
 let loggerModulePromise;
 let renderedPdfExportModulePromise;
 let parseRenderedSlideSvgModulePromise;
@@ -390,6 +391,14 @@ export function loadPowerPointToolbarTooltipTargetModule() {
     "powerpoint-toolbar-tooltip-target.cjs",
   ).then((outfile) => require(outfile));
   return powerPointToolbarTooltipTargetModulePromise;
+}
+
+export function loadDocumentWordCountModule() {
+  documentWordCountModulePromise ??= bundleSource(
+    "src/documentWordCount.ts",
+    "document-word-count.cjs",
+  ).then((outfile) => require(outfile));
+  return documentWordCountModulePromise;
 }
 
 export function loadLoggerModule() {
