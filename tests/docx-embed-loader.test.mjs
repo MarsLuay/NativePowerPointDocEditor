@@ -75,3 +75,27 @@ test('registerDocxFileEmbed catches and logs errors during registration', async 
     const result = registerDocxFileEmbed(plugin, () => undefined);
     assert.equal(result, false);
 });
+
+test('processDocxEmbeds adds DocxEmbedScanChild to context', async () => {
+    const { processDocxEmbeds } = await loadDocxEmbedLoaderModule();
+
+    let childAdded = null;
+    const ctx = {
+        addChild: (child) => {
+            childAdded = child;
+        }
+    };
+
+    const app = {};
+    const el = {
+        ownerDocument: {
+            defaultView: { setTimeout, clearTimeout }
+        }
+    };
+
+    processDocxEmbeds(app, el, ctx, () => undefined);
+
+    assert.ok(childAdded);
+    assert.equal(typeof childAdded.onload, 'function');
+    assert.equal(typeof childAdded.onunload, 'function');
+});
