@@ -4849,7 +4849,7 @@ export class NativePowerPointView extends FileView {
     this.selectedShapeIndex = null;
     this.selectedShapeIndices.clear();
     this.selectedTransform = null;
-    this.svgEl?.querySelectorAll('g[data-ooxml-shape-idx]').forEach((shape) => {
+    this.svgEl?.querySelectorAll('.native-powerpoint-shape-selected').forEach((shape) => {
       shape.removeClass('native-powerpoint-shape-selected');
     });
     this.removeSelectionOverlay();
