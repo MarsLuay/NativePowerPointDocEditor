@@ -76,6 +76,7 @@ export async function bundleSource(entry, outputName, external = [], plugins = [
   return outfile;
 }
 
+let slideInsertionsModulePromise;
 let textUtilsModulePromise;
 let idleScheduleModulePromise;
 
@@ -636,4 +637,12 @@ export function loadDocxEmbedLoaderModule() {
     }
   });
   return docxEmbedLoaderModulePromise;
+}
+
+export function loadSlideInsertionsModule() {
+  slideInsertionsModulePromise ??= bundleSource(
+    "src/SlideInsertions.ts",
+    "slide-insertions.cjs",
+  ).then((outfile) => require(outfile));
+  return slideInsertionsModulePromise;
 }
