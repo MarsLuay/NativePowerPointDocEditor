@@ -227,7 +227,37 @@ async function executeTextOp(
 	const result = createExecutionResult();
 
 	switch (opId) {
-		case 'pptx.updateShapeText': {
+		case 'pptx.updateShapeText':
+			await handleUpdateShapeText(context, opId, payload, result);
+			return result;
+		case 'pptx.replaceShapeParagraphs':
+			await handleReplaceShapeParagraphs(context, opId, payload, result);
+			return result;
+		case 'pptx.updateParagraphText':
+			await handleUpdateParagraphText(context, opId, payload, result);
+			return result;
+		case 'pptx.updateTextRun':
+			await handleUpdateTextRun(context, opId, payload, result);
+			return result;
+		case 'pptx.replaceText':
+			await handleReplaceText(context, opId, payload, result);
+			return result;
+		case 'pptx.setRunStyle':
+			await handleSetRunStyle(context, opId, payload, result);
+			return result;
+		case 'pptx.setParagraphAlignment':
+			await handleSetParagraphAlignment(context, opId, payload, result);
+			return result;
+		case 'pptx.applyListStyle':
+			await handleApplyListStyle(context, opId, payload, result);
+			return result;
+		default:
+			return null;
+	}
+}
+
+async function handleUpdateShapeText(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const text = requireString(payload.text, 'text');
@@ -248,9 +278,10 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.replaceShapeParagraphs': {
+}
+
+async function handleReplaceShapeParagraphs(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const paragraphs = requireReplacementParagraphs(payload.paragraphs);
@@ -269,9 +300,10 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.updateParagraphText': {
+}
+
+async function handleUpdateParagraphText(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const paragraphIndex = requireNumber(payload.paragraphIndex, 'paragraphIndex');
@@ -289,9 +321,10 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.updateTextRun': {
+}
+
+async function handleUpdateTextRun(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const paragraphIndex = requireNumber(payload.paragraphIndex, 'paragraphIndex');
@@ -306,9 +339,10 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.replaceText': {
+}
+
+async function handleReplaceText(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const query = requireString(payload.query, 'query');
 			const replacement = requireString(payload.replacement, 'replacement');
 			const matchCase = payload.matchCase === true;
@@ -334,9 +368,10 @@ async function executeTextOp(
 				}
 			}
 			result.changedIds.push(context.filePath);
-			return result;
-		}
-		case 'pptx.setRunStyle': {
+}
+
+async function handleSetRunStyle(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const paragraphIndex = requireNumber(payload.paragraphIndex, 'paragraphIndex');
@@ -356,9 +391,10 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.setParagraphAlignment': {
+}
+
+async function handleSetParagraphAlignment(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const paragraphIndex = requireNumber(payload.paragraphIndex, 'paragraphIndex');
@@ -372,9 +408,10 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.applyListStyle': {
+}
+
+async function handleApplyListStyle(context: PptxOpExecutionContext, opId: string, payload: Record<string, unknown>, result: PptxOpExecutionResult): Promise<void> {
+
 			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
 			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
 			const paragraphIndex = requireNumber(payload.paragraphIndex, 'paragraphIndex');
@@ -388,11 +425,6 @@ async function executeTextOp(
 			}
 			result.changedIds.push(changedId);
 			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		default:
-			return null;
-	}
 }
 
 async function executeShapeOp(
