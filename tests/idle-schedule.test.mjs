@@ -111,3 +111,87 @@ test("scheduleIdleWork falls back to setTimeout when requestIdleCallback is unav
 
 	assert.equal(timeoutMs, 100, "uses timeout when it is smaller than 250");
 });
+
+test("scheduleIdleWork handles undefined cancelIdleCallback gracefully", async () => {
+	const { scheduleIdleWork } = await loadIdleScheduleModule();
+
+	let callbackCalled = false;
+	let requestedTimeout = -1;
+	let callbackFn = null;
+
+	globalThis.window = {
+		requestIdleCallback: (cb, opts) => {
+			callbackFn = cb;
+			requestedTimeout = opts?.timeout;
+			return 123;
+		},
+		cancelIdleCallback: undefined
+	};
+
+	const cancel = scheduleIdleWork(() => {
+		callbackCalled = true;
+	});
+
+	assert.equal(requestedTimeout, 2000, "uses default timeout of 2000");
+	assert.equal(typeof callbackFn, "function", "passed a callback function");
+
+	callbackFn();
+	assert.equal(callbackCalled, true, "callback is invoked");
+
+	cancel();
+	// Should not throw when cancelIdleCallback is undefined
+});
+
+test("scheduleIdleWork falls back to setTimeout with timeout over 250", async () => {
+	const { scheduleIdleWork } = await loadIdleScheduleModule();
+
+	let timeoutMs = -1;
+	let clearedId = -1;
+	let callbackFn = null;
+
+	globalThis.window = {
+		requestIdleCallback: undefined,
+		setTimeout: (cb, timeout) => {
+			callbackFn = cb;
+			timeoutMs = timeout;
+			return 999;
+		},
+		clearTimeout: (id) => {
+			clearedId = id;
+		}
+	};
+
+	let callbackCalled = false;
+	const cancel = scheduleIdleWork(() => {
+		callbackCalled = true;
+	}, { timeout: 1000 });
+
+	assert.equal(timeoutMs, 250, "uses Math.min(timeout, 250) for fallback timeout");
+	assert.equal(typeof callbackFn, "function", "passed a callback function");
+
+	callbackFn();
+	assert.equal(callbackCalled, true, "callback is invoked");
+
+	cancel();
+	assert.equal(clearedId, 999, "cancel returns correctly via clearTimeout");
+});
+
+test("scheduleIdleWork falls back to setTimeout without passing options", async () => {
+	const { scheduleIdleWork } = await loadIdleScheduleModule();
+
+	let timeoutMs = -1;
+
+	globalThis.window = {
+		requestIdleCallback: undefined,
+		setTimeout: (cb, timeout) => {
+			timeoutMs = timeout;
+			return 555;
+		},
+		clearTimeout: () => {}
+	};
+
+	scheduleIdleWork(() => {});
+
+	// options.timeout defaults to 2000, Math.min(2000, 250) is 250
+	assert.equal(timeoutMs, 250, "uses default timeout and caps at 250");
+});
