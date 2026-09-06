@@ -78,6 +78,7 @@ export async function bundleSource(entry, outputName, external = [], plugins = [
 
 let textUtilsModulePromise;
 let idleScheduleModulePromise;
+let settingsModulePromise;
 
 const stubObsidianPlugin = {
   name: "stub-obsidian",
@@ -100,6 +101,8 @@ const stubObsidianPlugin = {
             for (const cleanup of this.cleanups.splice(0)) cleanup();
           }
         }
+        export class PluginSettingTab {}
+        export class Setting {}
         export class MarkdownRenderChild extends Component {
           constructor(containerEl) {
             super();
@@ -545,6 +548,16 @@ function createElementStub() {
     empty() {},
     removeClass() {},
   };
+}
+
+export function loadSettingsModule() {
+  settingsModulePromise ??= bundleSource(
+    "src/settings.ts",
+    "settings.cjs",
+    [],
+    [stubObsidianPlugin]
+  ).then((outfile) => require(outfile));
+  return settingsModulePromise;
 }
 
 export function loadDocxEmbedLoaderModule() {
