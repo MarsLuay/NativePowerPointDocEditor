@@ -395,6 +395,213 @@ async function executeTextOp(
 	}
 }
 
+async function executeDeleteShape(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	result.preview.push({ id: changedId, field: 'shape', before, after: null });
+	if (!context.dryRun) {
+		await context.engine.deleteShape(slideIndex, shapeIndex);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeDeleteShapes(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	// Internal batch op produced by coalescePptxOps — not a public catalog id.
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	assertSlideInRange(context.engine, slideIndex);
+	if (!Array.isArray(payload.shapeIndexes) || payload.shapeIndexes.length === 0) {
+		throw createAiError(
+			AI_ERROR_CODES.SCHEMA_INVALID,
+			'shapeIndexes must be a non-empty array of numbers.',
+			{ field: 'shapeIndexes' },
+		);
+	}
+	const shapeIndexes = payload.shapeIndexes.map((value, index) => {
+		if (typeof value !== 'number' || !Number.isFinite(value)) {
+			throw createAiError(
+				AI_ERROR_CODES.SCHEMA_INVALID,
+				`shapeIndexes[${index}] must be a number.`,
+				{ field: `shapeIndexes[${index}]` },
+			);
+		}
+		assertEditableShape(slideIndex, value);
+		return value;
+	});
+	for (const shapeIndex of shapeIndexes) {
+		const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+		const changedId = pptxShapeId(slideIndex, shapeIndex);
+		result.preview.push({ id: changedId, field: 'shape', before, after: null });
+		result.changedIds.push(changedId);
+	}
+	if (!context.dryRun) {
+		await context.engine.deleteShapes(slideIndex, shapeIndexes);
+	}
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeUpdateTransform(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const transform = requireTransform(payload.transform);
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const before = tryFindShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	for (const field of ['x', 'y', 'cx', 'cy', 'rot'] as const) {
+		const beforeValue = before?.transform[field] ?? null;
+		if (beforeValue !== transform[field]) {
+			result.preview.push({
+				id: changedId,
+				field: `transform.${field}`,
+				before: beforeValue,
+				after: transform[field],
+			});
+		}
+	}
+	if (!context.dryRun) {
+		await context.engine.updateShapeTransform(slideIndex, shapeIndex, transform);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeSetShapeFillColor(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const hex = requireString(payload.hex, 'hex').trim();
+	if (!/^#?[0-9A-Fa-f]{6}$/.test(hex)) {
+		throw createAiError(
+			AI_ERROR_CODES.SCHEMA_INVALID,
+			'hex must be a six-digit RGB color, with or without #.',
+			{ field: 'hex' },
+		);
+	}
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	const normalizedHex = hex.replace(/^#/, '').toUpperCase();
+	result.preview.push({
+		id: changedId,
+		field: 'fill',
+		before: context.engine.getShapeVisualStyle(slideIndex, shapeIndex)?.fill ?? null,
+		after: normalizedHex,
+	});
+	if (!context.dryRun) {
+		await context.engine.setShapeFillColor(slideIndex, shapeIndex, normalizedHex);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeReorderShapes(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const mode = requireString(payload.mode, 'mode') as 'front' | 'back' | 'forward' | 'backward';
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	result.preview.push({ id: changedId, field: 'zOrder', before: mode, after: mode });
+	if (!context.dryRun) {
+		await context.engine.reorderShapes(slideIndex, [shapeIndex], mode);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeGroupShapes(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndices = payload.shapeIndices;
+	if (!Array.isArray(shapeIndices) || shapeIndices.length < 2) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'shapeIndices must contain at least two integers.');
+	}
+	const indices = shapeIndices.map((value, index) => requireNumber(value, `shapeIndices[${index}]`));
+	assertSlideInRange(context.engine, slideIndex);
+	for (const shapeIndex of indices) assertEditableShape(slideIndex, shapeIndex);
+	if (!context.dryRun) {
+		const groupIndex = await context.engine.groupShapes(slideIndex, indices);
+		result.changedIds.push(pptxShapeId(slideIndex, groupIndex));
+	} else {
+		result.changedIds.push(pptxShapeId(slideIndex, indices[0] ?? 0));
+	}
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeUngroupShapes(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	if (!context.dryRun) {
+		const childIndices = await context.engine.ungroupShapes(slideIndex, shapeIndex);
+		for (const childIndex of childIndices) {
+			result.changedIds.push(pptxShapeId(slideIndex, childIndex));
+		}
+	} else {
+		result.changedIds.push(pptxShapeId(slideIndex, shapeIndex));
+	}
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
+async function executeFlipShape(
+	context: PptxOpExecutionContext,
+	payload: Record<string, unknown>,
+	result: PptxOpExecutionResult,
+) {
+	const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
+	const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
+	const axis = requireString(payload.axis, 'axis') as 'horizontal' | 'vertical';
+	assertSlideInRange(context.engine, slideIndex);
+	assertEditableShape(slideIndex, shapeIndex);
+	const changedId = pptxShapeId(slideIndex, shapeIndex);
+	result.preview.push({ id: changedId, field: 'flip', before: null, after: axis });
+	if (!context.dryRun) {
+		await context.engine.flipShape(slideIndex, shapeIndex, axis);
+	}
+	result.changedIds.push(changedId);
+	result.affectedSlideIndices.add(slideIndex);
+	return result;
+}
+
 async function executeShapeOp(
 	context: PptxOpExecutionContext,
 	opId: string,
@@ -403,173 +610,22 @@ async function executeShapeOp(
 	const result = createExecutionResult();
 
 	switch (opId) {
-		case 'pptx.deleteShape': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'shape', before, after: null });
-			if (!context.dryRun) {
-				await context.engine.deleteShape(slideIndex, shapeIndex);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.deleteShapes': {
-			// Internal batch op produced by coalescePptxOps — not a public catalog id.
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			if (!Array.isArray(payload.shapeIndexes) || payload.shapeIndexes.length === 0) {
-				throw createAiError(
-					AI_ERROR_CODES.SCHEMA_INVALID,
-					'shapeIndexes must be a non-empty array of numbers.',
-					{ field: 'shapeIndexes' },
-				);
-			}
-			const shapeIndexes = payload.shapeIndexes.map((value, index) => {
-				if (typeof value !== 'number' || !Number.isFinite(value)) {
-					throw createAiError(
-						AI_ERROR_CODES.SCHEMA_INVALID,
-						`shapeIndexes[${index}] must be a number.`,
-						{ field: `shapeIndexes[${index}]` },
-					);
-				}
-				assertEditableShape(slideIndex, value);
-				return value;
-			});
-			for (const shapeIndex of shapeIndexes) {
-				const before = findShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-				const changedId = pptxShapeId(slideIndex, shapeIndex);
-				result.preview.push({ id: changedId, field: 'shape', before, after: null });
-				result.changedIds.push(changedId);
-			}
-			if (!context.dryRun) {
-				await context.engine.deleteShapes(slideIndex, shapeIndexes);
-			}
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.updateTransform': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const transform = requireTransform(payload.transform);
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const before = tryFindShapeSnapshot(context.engine, context.filePath, slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			for (const field of ['x', 'y', 'cx', 'cy', 'rot'] as const) {
-				const beforeValue = before?.transform[field] ?? null;
-				if (beforeValue !== transform[field]) {
-					result.preview.push({
-						id: changedId,
-						field: `transform.${field}`,
-						before: beforeValue,
-						after: transform[field],
-					});
-				}
-			}
-			if (!context.dryRun) {
-				await context.engine.updateShapeTransform(slideIndex, shapeIndex, transform);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.setShapeFillColor': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const hex = requireString(payload.hex, 'hex').trim();
-			if (!/^#?[0-9A-Fa-f]{6}$/.test(hex)) {
-				throw createAiError(
-					AI_ERROR_CODES.SCHEMA_INVALID,
-					'hex must be a six-digit RGB color, with or without #.',
-					{ field: 'hex' },
-				);
-			}
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			const normalizedHex = hex.replace(/^#/, '').toUpperCase();
-			result.preview.push({
-				id: changedId,
-				field: 'fill',
-				before: context.engine.getShapeVisualStyle(slideIndex, shapeIndex)?.fill ?? null,
-				after: normalizedHex,
-			});
-			if (!context.dryRun) {
-				await context.engine.setShapeFillColor(slideIndex, shapeIndex, normalizedHex);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.reorderShapes': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const mode = requireString(payload.mode, 'mode') as 'front' | 'back' | 'forward' | 'backward';
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'zOrder', before: mode, after: mode });
-			if (!context.dryRun) {
-				await context.engine.reorderShapes(slideIndex, [shapeIndex], mode);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.groupShapes': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndices = payload.shapeIndices;
-			if (!Array.isArray(shapeIndices) || shapeIndices.length < 2) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'shapeIndices must contain at least two integers.');
-			}
-			const indices = shapeIndices.map((value, index) => requireNumber(value, `shapeIndices[${index}]`));
-			assertSlideInRange(context.engine, slideIndex);
-			for (const shapeIndex of indices) assertEditableShape(slideIndex, shapeIndex);
-			if (!context.dryRun) {
-				const groupIndex = await context.engine.groupShapes(slideIndex, indices);
-				result.changedIds.push(pptxShapeId(slideIndex, groupIndex));
-			} else {
-				result.changedIds.push(pptxShapeId(slideIndex, indices[0] ?? 0));
-			}
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.ungroupShapes': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			if (!context.dryRun) {
-				const childIndices = await context.engine.ungroupShapes(slideIndex, shapeIndex);
-				for (const childIndex of childIndices) {
-					result.changedIds.push(pptxShapeId(slideIndex, childIndex));
-				}
-			} else {
-				result.changedIds.push(pptxShapeId(slideIndex, shapeIndex));
-			}
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
-		case 'pptx.flipShape': {
-			const slideIndex = requireNumber(payload.slideIndex, 'slideIndex');
-			const shapeIndex = requireNumber(payload.shapeIndex, 'shapeIndex');
-			const axis = requireString(payload.axis, 'axis') as 'horizontal' | 'vertical';
-			assertSlideInRange(context.engine, slideIndex);
-			assertEditableShape(slideIndex, shapeIndex);
-			const changedId = pptxShapeId(slideIndex, shapeIndex);
-			result.preview.push({ id: changedId, field: 'flip', before: null, after: axis });
-			if (!context.dryRun) {
-				await context.engine.flipShape(slideIndex, shapeIndex, axis);
-			}
-			result.changedIds.push(changedId);
-			result.affectedSlideIndices.add(slideIndex);
-			return result;
-		}
+		case 'pptx.deleteShape':
+			return await executeDeleteShape(context, payload, result);
+		case 'pptx.deleteShapes':
+			return await executeDeleteShapes(context, payload, result);
+		case 'pptx.updateTransform':
+			return await executeUpdateTransform(context, payload, result);
+		case 'pptx.setShapeFillColor':
+			return await executeSetShapeFillColor(context, payload, result);
+		case 'pptx.reorderShapes':
+			return await executeReorderShapes(context, payload, result);
+		case 'pptx.groupShapes':
+			return await executeGroupShapes(context, payload, result);
+		case 'pptx.ungroupShapes':
+			return await executeUngroupShapes(context, payload, result);
+		case 'pptx.flipShape':
+			return await executeFlipShape(context, payload, result);
 		default:
 			return null;
 	}
