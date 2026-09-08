@@ -217,14 +217,30 @@ function generateOoxmlGuid(): string {
   // typeof so the headless test bundle (no DOM globals) falls back cleanly.
   const cryptoApi =
     (typeof activeWindow !== 'undefined' ? activeWindow.crypto : undefined)
-    ?? (typeof window !== 'undefined' ? window.crypto : undefined);
-  const uuid = cryptoApi?.randomUUID?.() ?? fallbackUuid();
+    ?? (typeof window !== 'undefined' ? window.crypto : undefined)
+    ?? (typeof crypto !== 'undefined' ? crypto : undefined);
+  const uuid = cryptoApi?.randomUUID?.() ?? fallbackUuid(cryptoApi);
   return `{${uuid.toUpperCase()}}`;
 }
 
-function fallbackUuid(): string {
+function fallbackUuid(cryptoApi?: Crypto): string {
+  let bytes: Uint8Array | undefined;
+  let byteIndex = 0;
+
+  if (cryptoApi?.getRandomValues) {
+    // 30 'x' and 1 'y' character = 31 hex digits to replace
+    bytes = new Uint8Array(31);
+    // TypeScript lib typings for `Crypto.getRandomValues` can be strict about `ArrayBuffer` vs `SharedArrayBuffer` depending on the version.
+    cryptoApi.getRandomValues(bytes as unknown as Uint8Array & { buffer: ArrayBuffer });
+  }
+
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-    const random = Math.floor(Math.random() * 16);
+    let random: number;
+    if (bytes) {
+      random = bytes[byteIndex++]! % 16;
+    } else {
+      random = Math.floor(Math.random() * 16);
+    }
     const value = character === 'x' ? random : (random & 0x3) | 0x8;
     return value.toString(16);
   });
