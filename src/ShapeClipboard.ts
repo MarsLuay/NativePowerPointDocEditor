@@ -233,7 +233,7 @@ function fallbackUuid(cryptoApi?: Crypto): string {
   let byteIndex = 0;
 
   // TypeScript lib typings for `Crypto.getRandomValues` can be strict about `ArrayBuffer` vs `SharedArrayBuffer` depending on the version.
-  cryptoApi.getRandomValues(bytes as unknown as Uint8Array & { buffer: ArrayBuffer });
+  cryptoApi.getRandomValues(bytes);
 
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
     const random = bytes[byteIndex++]! % 16;
