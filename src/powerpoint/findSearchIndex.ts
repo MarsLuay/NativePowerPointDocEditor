@@ -1,6 +1,5 @@
 import type { PowerPointFindMatch } from './types';
 import {
-  getDescendants,
   getElementChildren,
   getShapeChildren,
   getShapeTree,
@@ -33,9 +32,13 @@ export function createFindSearchIndexSlideFromOoxml(
   const shapeMatches: PowerPointFindMatch[] = [];
   const lowerShapeTexts: string[] = [];
   const addShape = (shape: Element, shapeIndex: number): void => {
-    const text = normalizeSearchText(
-      getDescendants(shape, 't').map((element) => element.textContent ?? '').join(''),
-    );
+    let rawText = '';
+    const textElements = shape.getElementsByTagNameNS('*', 't');
+    for (let i = 0; i < textElements.length; i++) {
+      const content = textElements[i]?.textContent;
+      if (content) rawText += content;
+    }
+    const text = normalizeSearchText(rawText);
     if (text) {
       shapeMatches.push({ slideIndex, shapeIndex, text });
       lowerShapeTexts.push(text.toLocaleLowerCase());
