@@ -13,3 +13,4 @@ obsidian: allow missing-release
 - `src/ai/registerAiCommands.ts` (`obsidian-semantic.dynamic-identifier-unresolved`): command ids come from `AI_COMMAND_IDS.*` constants; static Semgrep cannot resolve the indirection by design.
 - `scripts/smoke-selection-geometry.mjs` (`completeness-audit.todo-marker`): The "leaf-total fix" comment documents a past fix to `getNumberOfChars()` under-counting lines and capping the offset; it is a regression test rationale, not a pending action item.
 - `src/DocxReactView.tsx` (`code-health.long-function`): `getPlainTextFromInputEvent` is short (6 lines) and clear; do not introduce unnecessary switch statements.
+- `tests/paragraph-visual-lines.test.mjs` (`completeness-audit.todo-marker`): The "reported bug: a visual selection" comment documents the rationale for a regression test, not a pending action item.
