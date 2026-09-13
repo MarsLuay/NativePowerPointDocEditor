@@ -637,3 +637,37 @@ export function loadDocxEmbedLoaderModule() {
   });
   return docxEmbedLoaderModulePromise;
 }
+
+let notifyModulePromise;
+
+export function loadNotifyModule() {
+  notifyModulePromise ??= bundleSource(
+    "src/i18n/notify.ts",
+    "notify.cjs",
+    ["obsidian"],
+  ).then((outfile) => {
+    const originalLoad = Module._load;
+    const notices = [];
+
+    class Notice {
+      constructor(message, duration) {
+        notices.push({ message, duration });
+      }
+    }
+
+    Module._load = function load(request, parent, isMain) {
+      if (request === "obsidian") {
+        return { Notice };
+      }
+      return originalLoad.call(this, request, parent, isMain);
+    };
+
+    try {
+      return { ...require(outfile), notices };
+    } finally {
+      Module._load = originalLoad;
+    }
+  });
+
+  return notifyModulePromise;
+}
