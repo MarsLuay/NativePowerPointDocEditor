@@ -1,5 +1,6 @@
 import type { PowerPointFindMatch } from './types';
 import {
+  getDescendants,
   getElementChildren,
   getShapeChildren,
   getShapeTree,
