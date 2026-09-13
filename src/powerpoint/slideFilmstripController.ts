@@ -115,6 +115,7 @@ export class SlideFilmstripController {
   private cancelIdleThumbnailFill: (() => void) | null = null;
   private renderedThumbnailIndices = new Set<number>();
   private readonly thumbnailFontSubstitutions = new Map<number, FontSubstitution[]>();
+  private cachedThumbnailElements: HTMLElement[] | null = null;
   private thumbnailPointerDrag: {
     fromIndex: number;
     pointerId: number;
@@ -358,6 +359,7 @@ export class SlideFilmstripController {
     this.cancelIdleThumbnailFill = null;
     this.renderedThumbnailIndices.clear();
     this.thumbnailFontSubstitutions.clear();
+    this.cachedThumbnailElements = null;
     thumbnailContainer.empty();
 
     for (let index = 0; index < slideCount; index += 1) {
@@ -401,6 +403,7 @@ export class SlideFilmstripController {
   private appendThumbnailShell(index: number, renderImmediately: boolean): void {
     if (!this.host.thumbnailContainer) return;
 
+    this.cachedThumbnailElements = null;
     const item = this.host.thumbnailContainer.createDiv({ cls: 'native-powerpoint-thumbnail' });
     item.dataset.slideIndex = String(index);
     if (index === this.host.currentSlide) item.addClass('active');
@@ -719,10 +722,29 @@ export class SlideFilmstripController {
 	return this.slideNavigationPromise;
   }
 
+  private getThumbnailElements(): HTMLElement[] {
+    if (this.cachedThumbnailElements) {
+      return this.cachedThumbnailElements;
+    }
+    const container = this.host.thumbnailContainer;
+    if (!container) return [];
+
+    const nodes = container.querySelectorAll('.native-powerpoint-thumbnail');
+    const elements: HTMLElement[] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      if (node instanceof HTMLElement) {
+        elements.push(node);
+      }
+    }
+    this.cachedThumbnailElements = elements;
+    return elements;
+  }
+
   private updateThumbnailActiveState(): void {
     if (!this.host.thumbnailContainer) return;
 
-    const items = this.host.thumbnailContainer.querySelectorAll('.native-powerpoint-thumbnail');
+    const items = this.getThumbnailElements();
     items.forEach((item, index) => {
       item.toggleClass('active', index === this.host.currentSlide);
       item.toggleClass('is-selected', this.selectedSlideIndices.has(index));
@@ -1142,7 +1164,8 @@ export class SlideFilmstripController {
   }
 
   private applySlideSelectionClasses(): void {
-    this.host.thumbnailContainer?.querySelectorAll('.native-powerpoint-thumbnail').forEach((thumbnail, index) => {
+    const items = this.getThumbnailElements();
+    items.forEach((thumbnail, index) => {
       thumbnail.classList.toggle('is-selected', this.selectedSlideIndices.has(index));
     });
   }
