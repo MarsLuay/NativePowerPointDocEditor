@@ -640,11 +640,12 @@ export class SlideFilmstripController {
   private resolveThumbnailDropAtPoint(clientY: number): { targetIndex: number; after: boolean } | null {
     const container = this.host.thumbnailContainer;
     if (!container) return null;
-    const items = Array.from(container.querySelectorAll('.native-powerpoint-thumbnail'))
-      .filter(isHTMLElement);
+    const items = container.getElementsByClassName('native-powerpoint-thumbnail');
     if (items.length === 0) return null;
 
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!isHTMLElement(item)) continue;
       const rect = item.getBoundingClientRect();
       if (clientY < rect.top || clientY > rect.bottom) continue;
       const targetIndex = Number(item.dataset.slideIndex);
@@ -658,7 +659,9 @@ export class SlideFilmstripController {
     // Pointer is in a gap or past the list — snap to nearest edge.
     let nearest: HTMLElement | null = null;
     let nearestDist = Number.POSITIVE_INFINITY;
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!isHTMLElement(item)) continue;
       const rect = item.getBoundingClientRect();
       const mid = rect.top + rect.height / 2;
       const dist = Math.abs(clientY - mid);
