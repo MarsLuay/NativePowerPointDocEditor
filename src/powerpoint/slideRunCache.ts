@@ -5,6 +5,7 @@ import {
   getElementChildren,
 } from './ooxmlXml';
 import {
+  RUN_PROPERTY_CHILD_INDEX,
   RUN_PROPERTY_CHILD_ORDER,
   applyRunStyleToParagraphRange,
   getDrawingParagraphs,
@@ -56,15 +57,25 @@ const PRESERVED_RPR_ATTRS = new Set([
 ]);
 
 function rprChildOrderIndex(localName: string): number {
-  const index = RUN_PROPERTY_CHILD_ORDER.indexOf(localName);
-  return index === -1 ? RUN_PROPERTY_CHILD_ORDER.length : index;
+  const index = RUN_PROPERTY_CHILD_INDEX.get(localName);
+  return index === undefined ? RUN_PROPERTY_CHILD_ORDER.length : index;
 }
 
 /** Insert a child into an `<a:rPr>` at its schema-ordered position. */
 function insertRprChildInOrder(rPr: Element, child: Element): void {
   const order = rprChildOrderIndex(child.localName);
-  const successor = getElementChildren(rPr).find((existing) => rprChildOrderIndex(existing.localName) > order);
-  rPr.insertBefore(child, successor ?? null);
+  let successor: Element | null = null;
+
+  for (let current = rPr.firstChild; current; current = current.nextSibling) {
+    if (current.nodeType === 1) { // Node.ELEMENT_NODE
+      if (rprChildOrderIndex((current as Element).localName) > order) {
+        successor = current as Element;
+        break;
+      }
+    }
+  }
+
+  rPr.insertBefore(child, successor);
 }
 
 /**

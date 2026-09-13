@@ -1252,6 +1252,10 @@ export const RUN_PROPERTY_CHILD_ORDER = [
   'extLst'
 ];
 
+export const RUN_PROPERTY_CHILD_INDEX = new Map(
+  RUN_PROPERTY_CHILD_ORDER.map((name, index) => [name, index] as const)
+);
+
 export function getDrawingRuns(paragraph: Element): Element[] {
   return getElementChildren(paragraph)
     .filter((element) => element.localName === 'r' && element.namespaceURI === DRAWINGML_NAMESPACE);
@@ -1378,11 +1382,19 @@ export function getRunProperties(run: Element, doc: XMLDocument): Element {
 }
 
 function insertRunPropertyChild(rPr: Element, child: Element): void {
-  const order = RUN_PROPERTY_CHILD_ORDER.indexOf(child.localName);
-  const reference = getElementChildren(rPr).find((existing) => {
-    const existingOrder = RUN_PROPERTY_CHILD_ORDER.indexOf(existing.localName);
-    return existingOrder !== -1 && existingOrder > order;
-  }) ?? null;
+  const order = RUN_PROPERTY_CHILD_INDEX.get(child.localName) ?? -1;
+  let reference: Element | null = null;
+
+  for (let current = rPr.firstChild; current; current = current.nextSibling) {
+    if (current.nodeType === 1) { // Node.ELEMENT_NODE
+      const existingOrder = RUN_PROPERTY_CHILD_INDEX.get((current as Element).localName) ?? -1;
+      if (existingOrder !== -1 && existingOrder > order) {
+        reference = current as Element;
+        break;
+      }
+    }
+  }
+
   rPr.insertBefore(child, reference);
 }
 
