@@ -22,22 +22,27 @@ export const POWERPOINT_EXTENSIONS = [
   ...LEGACY_POWERPOINT_EXTENSIONS
 ];
 
+const POWERPOINT_EXTENSIONS_SET = new Set(POWERPOINT_EXTENSIONS);
 export function isPowerPointExtension(extension: string): boolean {
-  return POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
+  return POWERPOINT_EXTENSIONS_SET.has(extension.toLowerCase());
 }
 
+const MODERN_POWERPOINT_EXTENSIONS_SET = new Set(MODERN_POWERPOINT_EXTENSIONS);
 export function isModernPowerPointExtension(extension: string): boolean {
-  return MODERN_POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
+  return MODERN_POWERPOINT_EXTENSIONS_SET.has(extension.toLowerCase());
 }
 
+const EDITABLE_POWERPOINT_EXTENSIONS_SET = new Set(EDITABLE_POWERPOINT_EXTENSIONS);
 export function isEditablePowerPointExtension(extension: string): boolean {
-  return EDITABLE_POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
+  return EDITABLE_POWERPOINT_EXTENSIONS_SET.has(extension.toLowerCase());
 }
 
+const MACRO_ENABLED_POWERPOINT_EXTENSIONS_SET = new Set(MACRO_ENABLED_POWERPOINT_EXTENSIONS);
 export function isMacroEnabledPowerPointExtension(extension: string): boolean {
-  return MACRO_ENABLED_POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
+  return MACRO_ENABLED_POWERPOINT_EXTENSIONS_SET.has(extension.toLowerCase());
 }
 
+const LEGACY_POWERPOINT_EXTENSIONS_SET = new Set(LEGACY_POWERPOINT_EXTENSIONS);
 export function isLegacyPowerPointExtension(extension: string): boolean {
-  return LEGACY_POWERPOINT_EXTENSIONS.includes(extension.toLowerCase());
+  return LEGACY_POWERPOINT_EXTENSIONS_SET.has(extension.toLowerCase());
 }
