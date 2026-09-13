@@ -2359,7 +2359,7 @@ export class NativePowerPointView extends FileView {
     items: { label: string; onClick: () => void }[]
   ): void {
     if (!anchor.dataset.menuId) {
-      anchor.dataset.menuId = `insert-menu-${Math.random().toString(36).slice(2)}`;
+      anchor.dataset.menuId = `insert-menu-${crypto.randomUUID()}`;
     }
 
     // Only treat a repeat click as "toggle closed" when a menu is actually open
