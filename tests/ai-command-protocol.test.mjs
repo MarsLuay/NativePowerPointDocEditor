@@ -60,3 +60,17 @@ test('command protocol resolves active path fallback', async () => {
 	const redo = parseRedoRequest({});
 	assert.equal(redo.path, undefined);
 });
+
+test('command protocol parseClipboardJson handles various inputs', async () => {
+	const { parseClipboardJson } = await loadCommandProtocolModule();
+
+	// Happy paths
+	assert.deepEqual(parseClipboardJson('{"a": 1}'), { a: 1 });
+	assert.deepEqual(parseClipboardJson('[1, 2]'), [1, 2]);
+	assert.deepEqual(parseClipboardJson(' \n {"x": true} \t '), { x: true });
+
+	// Error conditions
+	assert.throws(() => parseClipboardJson(''), /Clipboard is empty\./);
+	assert.throws(() => parseClipboardJson('   \n\t  '), /Clipboard is empty\./);
+	assert.throws(() => parseClipboardJson('invalid json'), SyntaxError);
+});
