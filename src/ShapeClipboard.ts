@@ -224,23 +224,19 @@ function generateOoxmlGuid(): string {
 }
 
 function fallbackUuid(cryptoApi?: Crypto): string {
-  let bytes: Uint8Array | undefined;
-  let byteIndex = 0;
-
-  if (cryptoApi?.getRandomValues) {
-    // 30 'x' and 1 'y' character = 31 hex digits to replace
-    bytes = new Uint8Array(31);
-    // TypeScript lib typings for `Crypto.getRandomValues` can be strict about `ArrayBuffer` vs `SharedArrayBuffer` depending on the version.
-    cryptoApi.getRandomValues(bytes as unknown as Uint8Array & { buffer: ArrayBuffer });
+  if (!cryptoApi?.getRandomValues) {
+    throw new Error('A secure crypto environment is required to generate UUIDs.');
   }
 
+  // 30 'x' and 1 'y' character = 31 hex digits to replace
+  const bytes = new Uint8Array(31);
+  let byteIndex = 0;
+
+  // TypeScript lib typings for `Crypto.getRandomValues` can be strict about `ArrayBuffer` vs `SharedArrayBuffer` depending on the version.
+  cryptoApi.getRandomValues(bytes as unknown as Uint8Array & { buffer: ArrayBuffer });
+
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
-    let random: number;
-    if (bytes) {
-      random = bytes[byteIndex++]! % 16;
-    } else {
-      random = Math.floor(Math.random() * 16);
-    }
+    const random = bytes[byteIndex++]! % 16;
     const value = character === 'x' ? random : (random & 0x3) | 0x8;
     return value.toString(16);
   });
