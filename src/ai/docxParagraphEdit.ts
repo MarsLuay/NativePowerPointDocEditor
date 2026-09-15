@@ -52,7 +52,7 @@ export interface DocxParagraphMutationResult {
 	inheritedListProperties: boolean;
 }
 
-let nextGeneratedParagraphId = (Date.now() ^ Math.floor(Math.random() * 0x1_0000_0000)) >>> 0;
+let nextGeneratedParagraphId = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
 
 function encodeXmlText(value: string): string {
 	return value
