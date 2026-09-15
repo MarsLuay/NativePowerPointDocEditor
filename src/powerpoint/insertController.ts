@@ -188,7 +188,7 @@ export class InsertController {
     items: { label: string; icon?: string; onClick: () => void }[]
   ): void {
     if (!anchor.dataset.menuId) {
-      anchor.dataset.menuId = `insert-menu-${Math.random().toString(36).slice(2)}`;
+      anchor.dataset.menuId = `insert-menu-${crypto.randomUUID()}`;
     }
 
     // Only treat a repeat click as "toggle closed" when a menu is actually open
@@ -229,7 +229,7 @@ export class InsertController {
     if (!chartAnchor) return;
 
     if (!chartAnchor.dataset.menuId) {
-      chartAnchor.dataset.menuId = `insert-menu-${Math.random().toString(36).slice(2)}`;
+      chartAnchor.dataset.menuId = `insert-menu-${crypto.randomUUID()}`;
     }
     if (this.activeInsertMenu && this.activeInsertMenu.dataset.anchorId === chartAnchor.dataset.menuId) {
       this.closeInsertMenus();
