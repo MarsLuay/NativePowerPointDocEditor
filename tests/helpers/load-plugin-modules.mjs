@@ -192,6 +192,7 @@ export function loadArrangeControllerModule() {
 }
 
 let inlineTextGeometryModulePromise;
+let loadTraceModulePromise;
 
 export function loadInlineTextGeometryModule() {
   inlineTextGeometryModulePromise ??= bundleSource(
@@ -636,4 +637,9 @@ export function loadDocxEmbedLoaderModule() {
     }
   });
   return docxEmbedLoaderModulePromise;
+}
+
+export function loadLoadTraceModule() {
+  loadTraceModulePromise ??= bundleSource("src/loadTrace.ts", "load-trace.cjs").then((outfile) => require(outfile));
+  return loadTraceModulePromise;
 }
