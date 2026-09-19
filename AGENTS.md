@@ -18,9 +18,9 @@ Read every path listed under `Required source reads` before editing. A non-zero 
 <!-- /project-memory-bootstrap:v1 -->
 
 
-> **Public GitHub branches:** `docx-editor-source` (edit DOCX monorepo) → `nightly-releases` (latest plugin + `vendor:docx`) → `main` (promote when satisfied). Release branches are vendor-only — no in-repo `docx-editor/`. See section **Branch workflow** below.
+> **Public GitHub branches:** `docx-editor-source` (edit DOCX monorepo) → `main` (promote when satisfied). Release branches are vendor-only — no in-repo `docx-editor/`. See section **Branch workflow** below.
 >
-> **This vault tree** may still keep a local `docx-editor/` for analysis/dev; do not push that monorepo onto `nightly-releases` / `main`.
+> **This vault tree** may still keep a local `docx-editor/` for analysis/dev; do not push that monorepo onto `main`.
 
 
 ## Project overview
@@ -39,23 +39,6 @@ Read every path listed under `Required source reads` before editing. A non-zero 
 - Do not use CSS `:has()`, stylesheet `text-indent`, `break-before`/`page-break-*`, or `@tailwind` in scanned source. Stamp class hooks / indent in JS; inject Tailwind at build time; page breaks stay in the layout engine.
 - Prefer CSS2 single-keyword `text-decoration` only. Tint deletes with `box-shadow` / `background` / `color`.
 - After theme/menu/settings changes, run guards: `npm run check:theme-architecture`, `npm run check:theme-css`, `npm run check:shared-ui-patterns`.
-
-### Branch workflow (`docx-editor-source` → `nightly-releases` → `main`)
-
-Release branches (`nightly-releases`, then `main`) must **not** contain an in-repo `docx-editor/` monorepo. Latest plugin work lands on **`nightly-releases`**; when that branch is good, promote it to **`main`**.
-
-| Branch | Role |
-|--------|------|
-| `docx-editor-source` | Editable DOCX editor monorepo only (Bun build/test). Not the Obsidian plugin release surface. |
-| `nightly-releases` | Latest plugin updates. Builds against `vendor/docx-editor-runtime` refreshed from `docx-editor-source` via `npm run vendor:docx`. |
-| `main` | Stable promote target. Same vendor-only layout as nightly once promoted. Catalog / default-branch review uses this shape. |
-
-Flow:
-
-1. Edit DOCX runtime on `docx-editor-source` (worktree e.g. `/Users/mars/NPDE-docx-editor-source` or `DOCX_EDITOR_SOURCE_DIR`). Build/test there with Bun.
-2. On `nightly-releases`, run `npm run vendor:docx` to refresh `vendor/docx-editor-runtime/` + `provenance.json` from that source commit.
-3. Implement plugin changes on `nightly-releases`; verify with `npm run verify:review` (no Bun / no in-repo monorepo).
-4. When satisfied with nightly, merge or fast-forward **`nightly-releases` → `main`** (keep vendor-only; never reintroduce `docx-editor/`).
 
 ### DOCX runtime snapshot (vendor-only on release branches)
 
@@ -250,6 +233,4 @@ Follow Obsidian's **Developer Policies** and **Plugin Guidelines**. Key rules:
 - Plugin guidelines: https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines
 - Style guide: https://help.obsidian.md/style-guide
 
-## Code analysis — wont-fix
 
-> Detailed rules: [AGENTS.details/code-analysis-wont-fix.md](AGENTS.details/code-analysis-wont-fix.md). Read them before working in this area.
