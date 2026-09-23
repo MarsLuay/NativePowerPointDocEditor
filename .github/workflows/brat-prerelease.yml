@@ -33,10 +33,6 @@ jobs:
       - name: Build plugin
         run: npm run build
 
-      - name: Run tests
-        continue-on-error: true
-        run: npm test
-
       - name: Calculate BRAT prerelease version
         id: version
         shell: bash
@@ -87,3 +83,8 @@ jobs:
             main.js
             manifest.json
             styles.css
+
+
+      - name: Run tests
+        continue-on-error: true
+        run: npm test
