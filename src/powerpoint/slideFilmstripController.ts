@@ -712,6 +712,7 @@ export class SlideFilmstripController {
 
   /** Queue navigation for callers, such as Find, that must await the new slide. */
   navigateToSlideAndWait(index: number, reason: string): Promise<void> {
+    debugLog('slide', 'PowerPoint slide navigation awaiting completion', { index, reason });
     const run = () => this.goToSlide(index, reason);
 	this.slideNavigationPromise = this.slideNavigationPromise
 		.then(run, run)
