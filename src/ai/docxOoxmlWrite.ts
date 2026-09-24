@@ -50,7 +50,7 @@ function extractRuns(paragraphXml: string): Array<{ full: string; inner: string 
 function setRunTextContent(runXml: string, text: string): string {
 	const encoded = encodeXmlText(text);
 	if (/<w:t\b/.test(runXml)) {
-		return runXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/, `<w:t>${encoded}</w:t>`);
+		return runXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/, `$1${encoded}$3`);
 	}
 	if (runXml.trim().endsWith('/>')) {
 		return runXml.replace(/\/>$/, `><w:t>${encoded}</w:t></w:r>`);
