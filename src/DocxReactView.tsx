@@ -1723,12 +1723,46 @@ function centerEditorViewport(root: HTMLElement) {
 	return true;
 }
 
+const DOCX_TOUCH_ONLY_SCROLLBAR_CLASS = 'native-powerpoint-doc-editor-touch-only-scrollbar';
+
 function shouldEnableTouchPinchZoom() {
 	if (typeof window === 'undefined' || typeof navigator === 'undefined') {
 		return false;
 	}
 
 	return Platform.isMobile || Platform.isMobileApp || (navigator.maxTouchPoints >= 2 && window.matchMedia('(hover: none)').matches);
+}
+
+function shouldHideTouchOnlyDocxScrollbarTrack(
+	view: Window | null,
+	hoverQuery: MediaQueryList,
+	pointerQuery: MediaQueryList,
+) {
+	if (!view || (!Platform.isMobile && !Platform.isMobileApp)) {
+		return false;
+	}
+
+	return view.navigator.maxTouchPoints >= 1 && pointerQuery.matches && hoverQuery.matches;
+}
+
+type LegacyMediaQueryList = {
+	addListener: (listener: () => void) => void;
+	removeListener: (listener: () => void) => void;
+};
+
+function subscribeToMediaQuery(query: MediaQueryList, listener: () => void) {
+	if (typeof query.addEventListener === 'function') {
+		query.addEventListener('change', listener);
+		return () => query.removeEventListener('change', listener);
+	}
+
+	const legacyQuery = query as unknown as Partial<LegacyMediaQueryList>;
+	if (typeof legacyQuery.addListener !== 'function' || typeof legacyQuery.removeListener !== 'function') {
+		return () => {};
+	}
+
+	legacyQuery.addListener(listener);
+	return () => legacyQuery.removeListener?.(listener);
 }
 
 function getEditorModeFromButton(button: HTMLButtonElement): EditorMode | null {
@@ -3236,6 +3270,37 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		scheduleInitialDocumentCenter();
 		return clearInitialDocumentCenter;
 	}, [buffer, clearInitialDocumentCenter, documentKey, error, file, isLoading, scheduleInitialDocumentCenter]);
+
+	useEffect(() => {
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (!editorRoot) {
+			return;
+		}
+
+		const hostRoot = editorRoot.closest<HTMLElement>('.native-powerpoint-doc-editor-host') ?? editorRoot;
+		const view = activeDocument.defaultView;
+		if (!view) {
+			return;
+		}
+
+		const hoverQuery = view.matchMedia('(hover: none)');
+		const pointerQuery = view.matchMedia('(pointer: coarse)');
+		const syncTouchOnlyScrollbarClass = () => {
+			const shouldHide = shouldHideTouchOnlyDocxScrollbarTrack(view, hoverQuery, pointerQuery);
+			editorRoot.classList.toggle(DOCX_TOUCH_ONLY_SCROLLBAR_CLASS, shouldHide);
+			hostRoot.classList.toggle(DOCX_TOUCH_ONLY_SCROLLBAR_CLASS, shouldHide);
+		};
+		syncTouchOnlyScrollbarClass();
+		const unsubscribeHover = subscribeToMediaQuery(hoverQuery, syncTouchOnlyScrollbarClass);
+		const unsubscribePointer = subscribeToMediaQuery(pointerQuery, syncTouchOnlyScrollbarClass);
+
+		return () => {
+			unsubscribeHover();
+			unsubscribePointer();
+			editorRoot.classList.remove(DOCX_TOUCH_ONLY_SCROLLBAR_CLASS);
+			hostRoot.classList.remove(DOCX_TOUCH_ONLY_SCROLLBAR_CLASS);
+		};
+	}, [buffer, filePath, isLoading]);
 
 	useEffect(() => {
 		if (!shouldEnableTouchPinchZoom()) {
