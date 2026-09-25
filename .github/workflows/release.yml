@@ -23,9 +23,7 @@ jobs:
           node-version: '24'
 
       - name: Install dependencies
-        # TypeScript 7 is intentionally pinned, while typescript-eslint's published peer range still stops below TS 7.
-        # Preserve the lockfile exactly and bypass npm's peer-resolution failure until upstream declares TS 7 support.
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Regenerate PPTX JS fallback when dependency changed
         shell: bash
