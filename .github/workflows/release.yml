@@ -23,7 +23,9 @@ jobs:
           node-version: '24'
 
       - name: Install dependencies
-        run: npm ci
+        # TypeScript 7 is intentionally pinned, while typescript-eslint's published peer range still stops below TS 7.
+        # Preserve the lockfile exactly and bypass npm's peer-resolution failure until upstream declares TS 7 support.
+        run: npm ci --legacy-peer-deps
 
       - name: Validate vendored DOCX runtime
         run: npm run check:docx-runtime
