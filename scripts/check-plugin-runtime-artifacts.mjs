@@ -19,7 +19,16 @@ const sizes = await Promise.all(artifactPaths.map(async (artifactPath) => ({
   size: (await stat(artifactPath)).size,
 })));
 
+const allowOversizeMain = process.env.NPDE_ALLOW_OVERSIZE_MAIN === '1';
+
 for (const { artifactPath, size } of sizes) {
+  const artifact = path.basename(artifactPath);
+  if (artifact === 'main.js' && allowOversizeMain && size > syncStandardLimitBytes) {
+    console.warn(
+      `[check:plugin-runtime-artifacts] BRAT-only override: ${artifact}=${size} bytes exceeds the ${syncStandardLimitBytes}-byte Sync Standard budget.`,
+    );
+    continue;
+  }
   assert.ok(
     size <= syncStandardLimitBytes,
     `${artifactPath} is ${size} bytes, above Obsidian Sync Standard's 5 MB per-file limit.`,
