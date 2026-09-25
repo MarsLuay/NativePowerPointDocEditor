@@ -124,12 +124,19 @@ function readRuntimeVersion(name: 'electron' | 'chrome' | 'node'): string | null
 function getCopiedLogDiagnostics(app: unknown): CopiedLogDiagnostics {
 	const appRecord = app as { appVersion?: unknown; apiVersion?: unknown };
 	const browserNavigator = typeof navigator === 'undefined' ? null : navigator;
+	const userAgentData = (browserNavigator as unknown as { userAgentData?: unknown } | null)?.userAgentData;
+	const userAgentDataRecord = userAgentData && typeof userAgentData === 'object'
+		? userAgentData as { platform?: unknown }
+		: null;
+	const platform = typeof userAgentDataRecord?.platform === 'string'
+		? userAgentDataRecord.platform
+		: null;
 	const browserWindow = typeof window === 'undefined' ? null : window;
 	const pixelRatio = browserWindow?.devicePixelRatio;
 	return {
 		obsidianVersion: typeof appRecord.appVersion === 'string' ? appRecord.appVersion : null,
 		obsidianApiVersion: typeof appRecord.apiVersion === 'string' ? appRecord.apiVersion : null,
-		platform: browserNavigator?.platform ?? null,
+		platform,
 		appMode: Platform.isMobileApp || Platform.isMobile ? 'mobile' : 'desktop',
 		runtime: {
 			electron: readRuntimeVersion('electron'),

@@ -97,6 +97,12 @@ const MAX_TARGET_CHARACTERS = 128;
 const MAX_TRANSACTION_ITEMS = 32;
 const MAX_TRANSACTION_ITEM_CHARACTERS = 160;
 const MAX_ACTIVE_KEYS = 16;
+
+function firstIteratorValue<T>(iterator: Iterator<T>): T | undefined {
+	const result = iterator.next();
+	return result.done ? undefined : result.value;
+}
+
 const RELEVANT_INPUT_TYPES = new Set([
 	'insertParagraph',
 	'insertLineBreak',
@@ -340,7 +346,7 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 			const repeatIndex = active && isRepeat ? active.repeatIndex + 1 : 0;
 			activeKeys.delete(token);
 			if (activeKeys.size >= MAX_ACTIVE_KEYS) {
-				const oldest = activeKeys.keys().next().value;
+				const oldest = firstIteratorValue(activeKeys.keys());
 				if (typeof oldest === 'string') {
 					activeKeys.delete(oldest);
 				}
@@ -370,7 +376,7 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 			if (!inputTypeIsRelevant(event)) {
 				return;
 			}
-			const activeKey = activeKeys.values().next().value;
+			const activeKey = firstIteratorValue(activeKeys.values());
 			const active = activeKey ?? (currentEvent?.eventType === 'keydown' || currentEvent?.eventType === 'beforeinput'
 				? currentEvent
 				: null);
