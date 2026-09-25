@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "sourceOfTruth": "docs/project-memory/architecture.md",
+  "projectMemory": {
+    "taskPath": "docs/project-memory/PROJECT-TASKS.json",
+    "candidatePath": "docs/project-memory/candidates.jsonl",
+    "verifiedPath": "docs/project-memory/verified.jsonl",
+    "humanReadablePaths": [
+      "docs/project-memory/architecture.md",
+      "docs/project-memory/decisions.md",
+      "docs/project-memory/quirks.md",
+      "docs/project-memory/known-failures.md"
+    ]
+  },
+  "taskLedger": {
+    "path": "docs/project-memory/PROJECT-TASKS.md",
+    "section": "Durable tasks"
+  },
+  "project": {
+    "key": "npde-pborder-src"
+  },
+  "contractId": "npde-pborder-src-context-v1",
+  "contextBudget": {
+    "maxTokens": 1800,
+    "charsPerToken": 4
+  },
+  "routes": [
+    {
+      "id": "project-memory",
+      "path": "context/routes/project-memory.json"
+    }
+  ]
+}

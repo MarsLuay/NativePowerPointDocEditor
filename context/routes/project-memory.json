@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "id": "project-memory",
+  "summary": "Load verified, bounded memory-bank context without leaking chat or runtime state.",
+  "taskTerms": [
+    "memory bank",
+    "memory-bank",
+    "project memory",
+    "project context",
+    "memory contract",
+    "durable task",
+    "architecture decision",
+    "quirk",
+    "known failure",
+    "npde-pborder-src"
+  ],
+  "taskPaths": [
+    "docs/project-memory/PROJECT-CONTRACT.json",
+    "docs/project-memory/PROJECT-TASKS.json",
+    "docs/project-memory/PROJECT-TASKS.md",
+    "context/routes/project-memory.json",
+    "docs/project-memory/architecture.md",
+    "docs/project-memory/decisions.md",
+    "docs/project-memory/quirks.md",
+    "docs/project-memory/known-failures.md"
+  ],
+  "requiredReads": [
+    "docs/project-memory/PROJECT-CONTRACT.json",
+    "docs/project-memory/PROJECT-TASKS.json",
+    "docs/project-memory/architecture.md",
+    "docs/project-memory/decisions.md",
+    "docs/project-memory/quirks.md",
+    "docs/project-memory/known-failures.md",
+    "AGENTS.md"
+  ],
+  "invariants": [
+    "Only verified memory-bank pages are eligible for model context.",
+    "Current user instructions, current code, tests, and the project contract outrank memory.",
+    "Credentials, absolute private paths, runtime/provider state, raw chat content, and generated output never enter stable project context."
+  ],
+  "tests": []
+}
