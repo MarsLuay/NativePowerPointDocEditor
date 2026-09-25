@@ -108,8 +108,17 @@ export class DocxDocumentService {
 			};
 		}
 
+		let revisionBefore: string | undefined;
 		try {
 			const lease = await this.sessions.acquire(path);
+			revisionBefore = lease.patch.getRevision();
+			if (options.expectedRevision !== undefined && options.expectedRevision !== revisionBefore) {
+				throw createAiError(
+					AI_ERROR_CODES.STALE_DOCUMENT_REVISION,
+					`DOCX revision is stale; expected ${options.expectedRevision}, current ${revisionBefore}.`,
+					{ field: 'expectedRevision', path },
+				);
+			}
 			const beforeBuffer = lease.sourceBuffer.slice(0);
 			const patch = dryRun ? await lease.patch.clone() : lease.patch;
 			const originalXml = patch.getDocumentXml();
@@ -150,6 +159,7 @@ export class DocxDocumentService {
 					await lease.view.reloadFromAgentBuffer(output);
 				}
 			}
+			const revisionAfter = patch.getRevision();
 
 			debugLog('agent', 'AI DOCX apply completed', {
 				path: lease.file.path,
@@ -170,6 +180,8 @@ export class DocxDocumentService {
 				undoLabel: dryRun ? undefined : AI_EDIT_UNDO_LABEL,
 				canUndo: !dryRun && aiUndoStore.canUndo(lease.file.path),
 				preview: preview.length > 0 ? preview : undefined,
+				revisionBefore,
+				revisionAfter,
 				warnings,
 				errors: [],
 			};

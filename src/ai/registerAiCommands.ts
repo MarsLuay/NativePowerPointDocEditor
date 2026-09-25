@@ -100,7 +100,10 @@ function registerApplyCommand(options: RegisterAiCommandsOptions, id: string, na
 				const payload = parseApplyRequest(await readClipboardJson());
 				const path = resolvePathFromClipboard(plugin, getI18n, payload.path);
 				if (!path || !payload.ops) return;
-				const result = await ai.apply(path, payload.ops, { dryRun: payload.dryRun === true });
+				const result = await ai.apply(path, payload.ops, {
+					dryRun: payload.dryRun === true,
+					expectedRevision: payload.expectedRevision,
+				});
 				await copyJsonToClipboard(result);
 				showI18nNotice(getI18n(), 'settings:ai.applyCopied');
 			} catch {

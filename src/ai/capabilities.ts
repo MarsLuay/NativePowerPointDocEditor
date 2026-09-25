@@ -45,7 +45,7 @@ const STABLE_ID_RULES: StableIdRules = {
 	pptxRun: 'slide:<slideIndex>/shape:<shapeIndex>/p:<paragraphIndex>/r:<runIndex>',
 	docxBlock: 'Positional body/p[<index>] | body/tbl[<index>]/tr[<row>]/tc[<col>]; paragraph blocks also expose persistent w14:paraId anchors.',
 	docxRun: 'body/p[<index>]/r[<runIndex>] (compatibility location; resolve paragraph mutations by the described persistent anchor when available)',
-	docxTextPosition: '{ blockId: paragraph id, offset: 0-based char offset in paragraph plain text, runId?: optional anchor run }',
+	docxTextPosition: '{ blockId: positional paragraph id, offset: 0-based char offset in paragraph plain text, runId?: optional anchor run }',
 	docxTextRange: '{ start: docxTextPosition, end: docxTextPosition } — same part; end block/run must not precede start',
 	editableRule: 'PPTX shape indices must be integers >= 0. Negative indices are inherited placeholders.',
 };
@@ -62,7 +62,7 @@ const CLIPBOARD_COMMANDS: Record<string, ClipboardCommandSpec> = {
 		notes: 'Omit path to use the active PPTX/DOCX file.',
 	},
 	'npde-ai-apply': {
-		input: '{ "path"?: "vault/file.pptx", "ops": DocumentOp[], "dryRun"?: boolean }',
+		input: '{ "path"?: "vault/file.pptx", "ops": DocumentOp[], "dryRun"?: boolean, "expectedRevision"?: string }',
 		output: 'ApplyResult',
 		notes: 'Omit path to use the active PPTX/DOCX file.',
 	},

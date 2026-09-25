@@ -33,6 +33,8 @@ export type DocumentOp = { op: string } & Record<string, unknown>;
 
 export interface ApplyOptions {
 	dryRun?: boolean;
+	/** Reject the request when the current DOCX session is no longer this revision. */
+	expectedRevision?: string;
 }
 
 export interface ApplyPreviewChange {
@@ -51,6 +53,8 @@ export interface ApplyResult {
 	canUndo?: boolean;
 	canRedo?: boolean;
 	preview?: ApplyPreviewChange[];
+	revisionBefore?: string;
+	revisionAfter?: string;
 	warnings: string[];
 	errors: AiErrorDetail[];
 }

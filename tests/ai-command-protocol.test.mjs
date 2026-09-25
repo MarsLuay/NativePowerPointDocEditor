@@ -47,9 +47,11 @@ test('command protocol resolves active path fallback', async () => {
 	const apply = parseApplyRequest({
 		ops: [{ op: 'pptx.updateShapeText', slideIndex: 0, shapeIndex: 0, text: 'Hi' }],
 		dryRun: true,
+		expectedRevision: 'docx-12345678',
 	});
 	assert.equal(apply.path, undefined);
 	assert.equal(apply.dryRun, true);
+	assert.equal(apply.expectedRevision, 'docx-12345678');
 	assert.equal(apply.ops.length, 1);
 
 	const validate = parseValidateRequest({ ops: [{ op: 'pptx.updateShapeText', slideIndex: 0, shapeIndex: 0, text: 'x' }] });

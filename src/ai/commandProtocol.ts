@@ -9,6 +9,7 @@ export interface ApplyClipboardRequest {
 	path?: string;
 	ops?: DocumentOp[];
 	dryRun?: boolean;
+	expectedRevision?: string;
 }
 
 export interface SaveClipboardRequest {
@@ -74,6 +75,7 @@ export function parseApplyRequest(value: unknown): ApplyClipboardRequest {
 		path: typeof value.path === 'string' ? value.path : undefined,
 		ops: value.ops as DocumentOp[],
 		dryRun: value.dryRun === true,
+		expectedRevision: typeof value.expectedRevision === 'string' ? value.expectedRevision : undefined,
 	};
 }
 

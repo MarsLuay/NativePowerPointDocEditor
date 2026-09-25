@@ -5,3 +5,4 @@
 - DOCX and PowerPoint functionality are separated behind `src/docx/` and `src/powerpoint/` modules. The supported PowerPoint extensions are `.pptx`, `.pptm`, `.ppsx`, `.ppsm`, `.potx`, and `.potm`.
 - `esbuild.config.mjs` bundles the source and, when the vault plugin directory exists, deploys `main.js`, runtime artifacts, `styles.css`, `manifest.json`, and `locales/`/`ai/` outputs there. `tsconfig.json` includes `src/**/*.ts`, `src/**/*.tsx`, and `src/**/*.json`.
 - Release branches vendor the DOCX runtime under `vendor/docx-editor-runtime/`; generated runtime CSS is not edited in this plugin root. PPTX/HEIC runtime artifacts are materialized as sibling `.mjs` files at load and are not GitHub release attachments.
+- DOCX AI describe snapshots expose a deterministic revision token, and apply requests can require `expectedRevision`; the service rejects stale edits before mutation and returns before/after revisions for callers to refresh safely.
