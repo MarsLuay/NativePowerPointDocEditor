@@ -50,6 +50,7 @@ import {
 	summarizeTransactionSteps,
 } from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
+import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
 import {
 	resolveDocxFormattingTarget,
 	resolveDocxFontSizeStepBase,
@@ -1317,18 +1318,24 @@ function getPlainTextFromInputEvent(event: InputEvent) {
 	return event.data;
 }
 
-const preserveTypedSpacePlugin = new Plugin({
+function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTracker) {
+	return new Plugin({
 	key: preserveTypedSpacePluginKey,
 	props: {
 		handleDOMEvents: {
 			beforeinput(view, event) {
+				const inputHandler = inputDiagnostics.beginHandler(event, 'DocxReactView.preserveTypedSpacePlugin.handleDOMEvents.beforeinput');
+				const finishInputHandler = (handled: boolean) => {
+					inputDiagnostics.finishHandler(inputHandler, handled, event.defaultPrevented);
+					return handled;
+				};
 				if (!isInputEvent(event)) {
 					return false;
 				}
 
 				const text = getPlainTextFromInputEvent(event);
 				if (!text) {
-					return false;
+					return finishInputHandler(false);
 				}
 
 				const defaultPreventedBefore = event.defaultPrevented;
@@ -1345,7 +1352,7 @@ const preserveTypedSpacePlugin = new Plugin({
 						defaultPreventedAfter: event.defaultPrevented,
 					});
 				}
-				return handled;
+				return finishInputHandler(handled);
 			},
 			paste(view, event) {
 				if (!isClipboardEvent(event)) {
@@ -1448,6 +1455,11 @@ const preserveTypedSpacePlugin = new Plugin({
 			return true;
 		},
 		handleKeyDown(view, event) {
+			const inputHandler = inputDiagnostics.beginHandler(event, 'DocxReactView.preserveTypedSpacePlugin.handleKeyDown');
+			const finishInputHandler = (handled: boolean) => {
+				inputDiagnostics.finishHandler(inputHandler, handled, event.defaultPrevented);
+				return handled;
+			};
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
 				const { from, to } = view.state.selection;
 				debugLog('history', 'DOCX keyboard history shortcut received', {
@@ -1457,7 +1469,7 @@ const preserveTypedSpacePlugin = new Plugin({
 					defaultPrevented: event.defaultPrevented,
 				});
 				// Let the core HistoryExtension consume the shortcut.
-				return false;
+				return finishInputHandler(false);
 			}
 
 			if (event.key === 'Backspace' || event.key === 'Delete') {
@@ -1478,8 +1490,9 @@ const preserveTypedSpacePlugin = new Plugin({
 					isList: Boolean(listProperties),
 					listLevel: listProperties?.ilvl ?? null,
 					suggestionMode: isSuggestionModeActive(view.state),
+					...inputDiagnostics.getEventContext(event),
 				});
-				return false;
+				return finishInputHandler(false);
 			}
 
 			if (event.key === 'Enter' || event.code === 'NumpadEnter') {
@@ -1498,13 +1511,14 @@ const preserveTypedSpacePlugin = new Plugin({
 					listLevel: listProperties?.ilvl ?? null,
 					defaultPrevented: event.defaultPrevented,
 					suggestionMode: isSuggestionModeActive(view.state),
+					...inputDiagnostics.getEventContext(event),
 				});
-				return false;
+				return finishInputHandler(false);
 			}
 
 			const text = getPlainTextFromKeyboardEvent(event);
 			if (!text) {
-				return false;
+				return finishInputHandler(false);
 			}
 
 			const defaultPreventedBefore = event.defaultPrevented;
@@ -1522,7 +1536,7 @@ const preserveTypedSpacePlugin = new Plugin({
 					defaultPreventedAfter: event.defaultPrevented,
 				});
 			}
-			return handled;
+			return finishInputHandler(handled);
 		},
 		handleTextInput(view, from, to, text) {
 			if (!text || /[\r\n]/.test(text)) {
@@ -1540,7 +1554,68 @@ const preserveTypedSpacePlugin = new Plugin({
 			return handled;
 		},
 	},
-});
+	});
+}
+
+function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticTracker) {
+	return new Plugin({
+		props: {
+			handleDOMEvents: {
+				keydown(_view, event) {
+					inputDiagnostics.observeKeyDown(event);
+					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.keydown');
+					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
+					return false;
+				},
+				keyup(_view, event) {
+					inputDiagnostics.observeKeyUp(event);
+					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.keyup');
+					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
+					return false;
+				},
+				beforeinput(_view, event) {
+					inputDiagnostics.observeBeforeInput(event);
+					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.beforeinput');
+					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
+					return false;
+				},
+			},
+		},
+		view() {
+			inputDiagnostics.mount();
+			return {
+				destroy() {
+					inputDiagnostics.unmount();
+				},
+			};
+		},
+		appendTransaction(transactions, oldState, newState) {
+			if (!transactions.some((transaction) => transaction.docChanged)) {
+				return null;
+			}
+
+			inputDiagnostics.recordTransaction({
+				paragraphsBefore: countDocTextblocks(oldState.doc),
+				paragraphsAfter: countDocTextblocks(newState.doc),
+				selectionBefore: {
+					from: oldState.selection.from,
+					to: oldState.selection.to,
+					empty: oldState.selection.empty,
+				},
+				selectionAfter: {
+					from: newState.selection.from,
+					to: newState.selection.to,
+					empty: newState.selection.empty,
+				},
+				transactionCount: transactions.length,
+				docChangedCount: transactions.filter((transaction) => transaction.docChanged).length,
+				steps: transactions.flatMap((transaction) => transaction.steps.map((step) => step.constructor?.name ?? 'Step')),
+				meta: transactions.flatMap((transaction) => summarizeTransactionMeta(transaction)),
+			});
+			return null;
+		},
+	});
+}
 
 const contentShrinkDiagnosticsPlugin = new Plugin({
 	key: contentShrinkDiagnosticsPluginKey,
@@ -2264,6 +2339,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const imageInputRef = useRef<HTMLInputElement>(null);
 	const fontInputRef = useRef<HTMLInputElement>(null);
 	const editorClassNameRef = useRef(`native-powerpoint-doc-editor-editor-${++editorInstanceCounter}`);
+	const inputDiagnosticsRef = useRef<DocxInputDiagnosticTracker | null>(null);
+	if (inputDiagnosticsRef.current === null) {
+		inputDiagnosticsRef.current = createDocxInputDiagnostics({
+			viewId: editorClassNameRef.current,
+			emit: (message, data) => debugLog('text-input', message, data),
+		});
+	}
+	const inputDiagnostics = inputDiagnosticsRef.current;
 	useEffect(() => {
 		debugLog('settings', 'DOCX React colorMode', {
 			file: file?.path,
@@ -2434,9 +2517,17 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		() => createParagraphLayoutRelayoutPlugin(scheduleParagraphLayoutRelayout),
 		[scheduleParagraphLayoutRelayout],
 	);
+	const inputDiagnosticsPlugin = useMemo(
+		() => createDocxInputDiagnosticsPlugin(inputDiagnostics),
+		[inputDiagnostics],
+	);
+	const preserveTypedSpacePlugin = useMemo(
+		() => createPreserveTypedSpacePlugin(inputDiagnostics),
+		[inputDiagnostics],
+	);
 	const externalPlugins = useMemo(
-		() => [preserveTypedSpacePlugin, contentShrinkDiagnosticsPlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
-		[findHighlightPlugin, paragraphLayoutRelayoutPlugin],
+		() => [inputDiagnosticsPlugin, preserveTypedSpacePlugin, contentShrinkDiagnosticsPlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
+		[inputDiagnosticsPlugin, preserveTypedSpacePlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
 	);
 	const pluginSidebarItems = useMemo<NonNullable<ComponentProps<typeof DocxEditor>['pluginSidebarItems']>>(() => {
 		if (!reserveReviewSidebar) {
