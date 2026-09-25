@@ -4182,6 +4182,42 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 	background: var(--npde-presentation-button-bg-hover);
 }
 
+/* Keep DOCX vertical navigation while exposing only the horizontal scrollbar chrome.
+   Chromium/Electron and iOS WebKit support axis-specific scrollbar pseudo-elements;
+   do not use overflow-y:hidden because selection-follow and programmatic scrolling
+   still need the document viewport to move vertically. */
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar {
+	background-color: var(--npde-docx-document-scrollbar-track);
+	width: 0;
+	height: 6px;
+}
+
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar:vertical {
+	width: 0;
+}
+
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar:horizontal {
+	height: 6px;
+}
+
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar-track:vertical,
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar-thumb:vertical {
+	background-color: transparent;
+}
+
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar-track:horizontal {
+	background-color: var(--npde-docx-document-scrollbar-track);
+}
+
+[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar-thumb:horizontal {
+	background-color: var(--npde-docx-document-scrollbar-thumb);
+	border-radius: 4px;
+}
+
+[data-native-powerpoint-doc-editor-scroll-container]:hover::-webkit-scrollbar-thumb:horizontal {
+	background-color: var(--npde-docx-document-scrollbar-thumb-hover);
+}
+
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root,
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface.native-powerpoint-light-surface {
 	--background-primary: var(--npde-editor-bg);

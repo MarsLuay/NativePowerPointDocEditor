@@ -84,6 +84,11 @@ const requiredDocxScrollbarFragments = [
 	"[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-thumb",
 	"[data-native-powerpoint-doc-editor-formatting-bar]::-webkit-scrollbar-corner",
 	'[data-native-powerpoint-doc-editor-scroll-container] {',
+	'[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar {',
+	'[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar:vertical {',
+	'[data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar:horizontal {',
+	'width: 0;',
+	'height: 6px;',
 	'--doc-scrollbar-track: var(--npde-docx-document-scrollbar-track);',
 ];
 
