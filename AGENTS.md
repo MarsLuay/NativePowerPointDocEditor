@@ -281,3 +281,15 @@ this.registerInterval(window.setInterval(() => { /* ... */ }, 1000));
 ## Code analysis — wont-fix
 
 - `src/powerpoint/backend/pptxJsEngine.mjs` (`repo/large-file`): generated pure-JS fallback of `pptx-svg` MoonBit JS backend (`npm run regen:pptx-js`). Must stay Git-tracked for offline Obsidian installs without WASM GC; size is inherent to the engine, not compressible without losing the fallback. External source of truth is the pptx-svg package + regen script.
+
+<!-- project-memory-bootstrap:v1 -->
+## Memory bank bootstrap (technical name: project-memory)
+
+From this project root, before any task, run:
+
+```bash
+python3 ../../scripts/project-memory-context.py --root . --task "<current task>"
+```
+
+Read every path listed under Required source reads before editing. A non-zero result blocks the task; repair the project contract or route before continuing. Edit durable tasks and memory only at contract-listed paths.
+<!-- /project-memory-bootstrap:v1 -->
