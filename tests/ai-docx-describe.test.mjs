@@ -145,12 +145,12 @@ function wrapFootnotes(...inner) {
 test('describeDocxFromBuffer includes headers, footers, footnotes, and comments', async () => {
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
 	const buffer = await createDocxBuffer({
-		'word/document.xml': wrapBody('<w:p><w:r><w:t>Body</w:t></w:r></w:p>'),
-		'word/headers/header1.xml': wrapHeader('<w:p><w:r><w:t>Header text</w:t></w:r></w:p>'),
-		'word/footers/footer1.xml': wrapFooter('<w:p><w:r><w:t>Footer text</w:t></w:r></w:p>'),
+		'word/document.xml': wrapBody('<w:p w14:paraId="B0D00001"><w:r><w:t>Body</w:t></w:r></w:p>'),
+		'word/headers/header1.xml': wrapHeader('<w:p w14:paraId="1EAD0001"><w:r><w:t>Header text</w:t></w:r></w:p>'),
+		'word/footers/footer1.xml': wrapFooter('<w:p w14:paraId="F0070001"><w:r><w:t>Footer text</w:t></w:r></w:p>'),
 		'word/footnotes.xml': wrapFootnotes(
 			'<w:footnote w:type="separator"><w:p/></w:footnote>',
-			'<w:footnote w:id="1"><w:p><w:r><w:t>Footnote one</w:t></w:r></w:p></w:footnote>',
+			'<w:footnote w:id="1"><w:p w14:paraId="A07E0001"><w:r><w:t>Footnote one</w:t></w:r></w:p></w:footnote>',
 		),
 		'word/comments.xml': [
 			'<w:comments xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">',
@@ -167,14 +167,19 @@ test('describeDocxFromBuffer includes headers, footers, footnotes, and comments'
 	assert.ok(snapshot.scope.sources.includes('word/footnotes.xml'));
 	assert.ok(snapshot.scope.sources.includes('word/comments.xml'));
 
+	const body = snapshot.blocks.find((block) => block.id === 'body/p[0]');
 	const header = snapshot.blocks.find((block) => block.id === 'header/1/p[0]');
 	const footer = snapshot.blocks.find((block) => block.id === 'footer/1/p[0]');
 	const footnote = snapshot.blocks.find((block) => block.id === 'footnotes/fn[1]/p[0]');
 	const comment = snapshot.blocks.find((block) => block.id === 'comments/c[0]');
 
+	assert.equal(body?.anchor, 'B0D00001');
 	assert.equal(header?.kind, 'paragraph');
+	assert.equal(header?.anchor, '1EAD0001');
 	assert.equal(header?.text, 'Header text');
+	assert.equal(footer?.anchor, 'F0070001');
 	assert.equal(footer?.text, 'Footer text');
+	assert.equal(footnote?.anchor, 'A07E0001');
 	assert.equal(footnote?.text, 'Footnote one');
 	assert.equal(comment?.kind, 'comment');
 	assert.equal(comment?.author, 'Reviewer');

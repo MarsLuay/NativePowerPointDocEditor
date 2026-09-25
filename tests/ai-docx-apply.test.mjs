@@ -658,6 +658,8 @@ test('DocxDocumentService inserts stable list paragraphs and reports created ids
 	assert.equal(afterBreak.ok, true, JSON.stringify(afterBreak.errors));
 	assert.equal(afterBreak.snapshot.blocks[0]?.text, '');
 	assert.equal(afterBreak.snapshot.blocks[1]?.text, 'Existing bullet');
+	const existingAnchor = afterBreak.snapshot.blocks[1]?.anchor;
+	assert.match(existingAnchor ?? '', /^[0-9A-F]{8}$/);
 	assert.equal(afterBreak.snapshot.blockCount, 3);
 
 	const insertResult = await service.apply(docPath, [{
@@ -671,7 +673,9 @@ test('DocxDocumentService inserts stable list paragraphs and reports created ids
 
 	const described = await service.describe(docPath);
 	assert.equal(described.ok, true, JSON.stringify(described.errors));
+	assert.equal(described.snapshot.blocks[1]?.anchor, existingAnchor);
 	assert.equal(described.snapshot.blocks[2]?.text, 'Added bullet');
+	assert.match(described.snapshot.blocks[2]?.anchor ?? '', /^[0-9A-F]{8}$/);
 	assert.equal(described.snapshot.blocks[2]?.runs?.[0]?.bold, true);
 
 	await service.save(docPath);
@@ -679,7 +683,7 @@ test('DocxDocumentService inserts stable list paragraphs and reports created ids
 	const savedXml = await (await JSZip.loadAsync(savedBytes.buffer)).file('word/document.xml').async('string');
 	assert.equal((savedXml.match(/<w:numPr\b/g) ?? []).length, 3);
 	assert.equal((savedXml.match(/w14:paraId="AAAAAAA1"/g) ?? []).length, 1);
-	assert.equal((savedXml.match(/w14:paraId="[0-9A-F]+"/g) ?? []).length, 3);
+	assert.equal((savedXml.match(/w14:paraId="[0-9A-F]+"/g) ?? []).length, 4);
 });
 
 test('DocxDocumentService deletes a blank paragraph without merging the next heading', async () => {
@@ -719,7 +723,7 @@ test('DocxDocumentService deletes a blank paragraph without merging the next hea
 
 	const savedZip = await JSZip.loadAsync(savedBytes.buffer);
 	const documentXml = await savedZip.file('word/document.xml').async('string');
-	assert.match(documentXml, /<w:p><w:r><w:rPr><w:b\/><\/w:rPr><w:t>TECHNICAL SKILLS<\/w:t><\/w:r><\/w:p>/);
+	assert.match(documentXml, /<w:p\b[^>]*><w:r><w:rPr><w:b\/><\/w:rPr><w:t>TECHNICAL SKILLS<\/w:t><\/w:r><\/w:p>/);
 });
 
 test('DocxDocumentService sets a paragraph bottom border without replacing heading content', async () => {

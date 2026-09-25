@@ -16,6 +16,8 @@ export interface ParsedDocxRun extends ParsedDocxRunStyle {
 }
 
 export interface ParsedDocxParagraph {
+	/** Persistent OOXML paragraph identity from w14:paraId, when present. */
+	anchor: string | null;
 	style: string | null;
 	layout: DocxParagraphLayout;
 	defaultRunStyle: ParsedDocxRunStyle | null;
@@ -139,6 +141,42 @@ function parseRun(runXml: string, runInnerXml: string): ParsedDocxRun {
 	};
 }
 
+export function getParagraphAnchor(paragraphXml: string): string | null {
+	return /<w:p\b[^>]*\bw14:paraId="([^"]+)"/.exec(paragraphXml)?.[1] ?? null;
+}
+
+let nextGeneratedParagraphId = (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) >>> 0;
+
+function nextParagraphAnchor(used: Set<string>): string {
+	do {
+		nextGeneratedParagraphId = (nextGeneratedParagraphId + 0x0101_0101) >>> 0;
+	} while (used.has(nextGeneratedParagraphId.toString(16).padStart(8, '0').toUpperCase()));
+	const anchor = nextGeneratedParagraphId.toString(16).padStart(8, '0').toUpperCase();
+	used.add(anchor);
+	return anchor;
+}
+
+function ensureW14Namespace(xml: string): string {
+	if (/xmlns:w14=/.test(xml)) return xml;
+	return xml.replace(/(<w:\w+\b)/, '$1 xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"');
+}
+
+/** Persist a valid w14:paraId on every paragraph in a writable DOCX part. */
+export function ensureParagraphAnchors(xml: string): string {
+	const used = new Set<string>([...xml.matchAll(/w14:paraId="([^"]+)"/g)].map((match) => match[1]!));
+	let changed = false;
+	const nextXml = xml.replace(/<w:p\b[^>]*?(?:\/>|>)/g, (openTag) => {
+		if (/\bw14:paraId="[^"]+"/.test(openTag)) return openTag;
+		changed = true;
+		const anchor = nextParagraphAnchor(used);
+		if (openTag.endsWith('/>')) {
+			return openTag.replace(/\/>$/, ` w14:paraId="${anchor}"/>`);
+		}
+		return openTag.replace(/>$/, ` w14:paraId="${anchor}">`);
+	});
+	return changed ? ensureW14Namespace(nextXml) : xml;
+}
+
 export function parseParagraph(paragraphXml: string): ParsedDocxParagraph {
 	const propertiesXml = getParagraphProperties(paragraphXml);
 	const styleMatch = /<w:pStyle\b[^>]*w:val="([^"]*)"/.exec(propertiesXml);
@@ -156,6 +194,7 @@ export function parseParagraph(paragraphXml: string): ParsedDocxParagraph {
 	const inlineImage = parseInlineImageInfo(paragraphXml);
 	const defaultRunProperties = getParagraphDefaultRunProperties(propertiesXml);
 	return {
+		anchor: getParagraphAnchor(paragraphXml),
 		style: styleMatch?.[1] ?? null,
 		layout: parseParagraphLayout(paragraphXml),
 		defaultRunStyle: defaultRunProperties === null ? null : parseRunStyle(defaultRunProperties),

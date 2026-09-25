@@ -11,6 +11,7 @@ import {
 	getFootnoteInner,
 	getWrapperInner,
 	parseFootnotesContainer,
+	getParagraphAnchor,
 	replaceFootnoteInner,
 	replaceWrapperInner,
 	splitTopLevelBodyBlocks,
@@ -158,6 +159,35 @@ export function findTopLevelBlock(bodyInner: string, blockId: string): TopLevelB
 		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Block ${blockId} was not found.`, { field: 'blockId' });
 	}
 	return block;
+}
+
+/** Resolve a paragraph by its persistent w14:paraId without consulting mutable indexes. */
+export function findParagraphByAnchor(bodyInner: string, anchor: string, idPrefix = 'body'): TopLevelBlockPosition {
+	const normalizedAnchor = anchor.trim().toUpperCase();
+	if (!/^[A-Z0-9_-]+$/.test(normalizedAnchor)) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph anchor: ${anchor}.`, { field: 'anchor' });
+	}
+	const matches = enumerateTopLevelBlockPositions(bodyInner, idPrefix)
+		.filter((entry) => entry.kind === 'paragraph' && getParagraphAnchor(entry.xml)?.toUpperCase() === normalizedAnchor);
+	if (matches.length !== 1) {
+		throw createAiError(
+			AI_ERROR_CODES.BLOCK_NOT_FOUND,
+			matches.length === 0
+				? `Paragraph anchor ${normalizedAnchor} was not found.`
+				: `Paragraph anchor ${normalizedAnchor} is not unique.`,
+			{ field: 'anchor' },
+		);
+	}
+	return matches[0]!;
+}
+
+export function findParagraphByAnchorInPart(
+	partXml: string,
+	location: Pick<DocxStableLocation, 'part' | 'partNumber'>,
+	anchor: string,
+): TopLevelBlockPosition {
+	const inner = getEditableInner(partXml, location);
+	return findParagraphByAnchor(inner, anchor, idPrefixForLocation(location));
 }
 
 export function getParagraphXml(partXml: string, location: DocxStableLocation): string {

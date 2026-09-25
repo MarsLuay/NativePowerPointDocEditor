@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { listDocxDescribeParts, scanDocxReviewState } from './docxParts';
 import {
+	ensureParagraphAnchors,
 	parseCommentsXml,
 	parseDocumentBody,
 	parseFootnotesContainer,
@@ -43,6 +44,8 @@ export interface DocxDescribeScope {
 
 export interface DocxDescribedBlock {
 	id: string;
+	/** Persistent OOXML w14:paraId for paragraph-backed blocks. */
+	anchor?: string;
 	kind: 'paragraph' | 'image' | 'table' | 'tableCell' | 'comment';
 	part?: string;
 	style?: string | null;
@@ -99,6 +102,7 @@ function mapParagraphBlock(
 ): DocxDescribedBlock {
 	return {
 		id: `${idPrefix}/p[${paragraphIndex}]`,
+		...(paragraph.anchor ? { anchor: paragraph.anchor } : {}),
 		kind: 'paragraph',
 		part: partLabel,
 		style: paragraph.style,
@@ -123,6 +127,7 @@ function mapImageBlock(
 
 	return {
 		id: `${idPrefix}/p[${paragraphIndex}]`,
+		...(paragraph.anchor ? { anchor: paragraph.anchor } : {}),
 		kind: 'image',
 		part: partLabel,
 		style: paragraph.style,
@@ -151,6 +156,7 @@ function mapTableBlock(
 			const cellId = `${idPrefix}/tbl[${tableIndex}]/tr[${rowIndex}]/tc[${colIndex}]`;
 			cells.push({
 				id: cellId,
+				...(primaryParagraph?.anchor ? { anchor: primaryParagraph.anchor } : {}),
 				kind: 'tableCell',
 				part: partLabel,
 				row: rowIndex,
@@ -232,13 +238,16 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 	for (const listed of listDocxDescribeParts(zip)) {
 		const partXml = await zip.file(listed.path)?.async('string');
 		if (!partXml) continue;
+		// Describe exposes an anchor even for legacy paragraphs that do not yet
+		// carry w14:paraId; the first editable mutation persists these IDs.
+		const anchoredPartXml = ensureParagraphAnchors(partXml);
 
 		sources.push(listed.path);
 		const label = describePartLabel(listed.part, listed.partNumber);
 
 		if (listed.part === 'footnotes' || listed.part === 'endnotes') {
 			const containerTag = listed.part === 'footnotes' ? 'footnotes' : 'endnotes';
-			const footnotes = parseFootnotesContainer(partXml, containerTag);
+			const footnotes = parseFootnotesContainer(anchoredPartXml, containerTag);
 			for (const footnote of footnotes) {
 				if (footnote.type === 'separator' || footnote.type === 'continuationSeparator') {
 					continue;
@@ -250,7 +259,7 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 		}
 
 		const wrapperTag = listed.part === 'body' ? 'body' : listed.part === 'header' ? 'hdr' : 'ftr';
-		const inner = getWrapperInner(partXml, wrapperTag);
+		const inner = getWrapperInner(anchoredPartXml, wrapperTag);
 		if (!inner) continue;
 		const idPrefix = docxIdPrefix(listed.part, listed.partNumber);
 		appendParsedBlocks(parseTopLevelBlocks(inner), blocks, idPrefix, label, relsXml);
