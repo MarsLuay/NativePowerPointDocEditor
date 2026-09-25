@@ -90,6 +90,9 @@ const requiredDocxScrollbarFragments = [
 	'width: 0;',
 	'height: 6px;',
 	'--doc-scrollbar-track: var(--npde-docx-document-scrollbar-track);',
+	'.native-powerpoint-doc-editor-touch-only-scrollbar [data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar:horizontal,',
+	'.native-powerpoint-doc-editor-touch-only-scrollbar [data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar-track:horizontal',
+	'background-color: transparent;',
 ];
 
 const requiredDocxDropdownFragments = [

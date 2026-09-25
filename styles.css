@@ -4218,6 +4218,13 @@ body .native-powerpoint-light-surface.native-powerpoint-light-surface .native-po
 	background-color: var(--npde-docx-document-scrollbar-thumb-hover);
 }
 
+/* Touch-only mobile WebKit may paint the horizontal track as a persistent line.
+   Keep the scrollbar and thumb available, but remove only that track chrome. */
+.native-powerpoint-doc-editor-touch-only-scrollbar [data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar:horizontal,
+.native-powerpoint-doc-editor-touch-only-scrollbar [data-native-powerpoint-doc-editor-scroll-container]::-webkit-scrollbar-track:horizontal {
+	background-color: transparent;
+}
+
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.native-powerpoint-root,
 body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-surface.native-powerpoint-light-surface {
 	--background-primary: var(--npde-editor-bg);
