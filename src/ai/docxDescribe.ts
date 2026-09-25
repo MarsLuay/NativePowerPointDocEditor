@@ -13,6 +13,7 @@ import {
 	type ParsedDocxTable,
 } from './docxOoxml';
 import { docxIdPrefix } from './docxStableIds';
+import { computeDocxRevision, type DocxRevisionEntry } from './docxRevision';
 import {
 	parseDocumentSectionLayouts,
 	type DocxParagraphLayout,
@@ -69,6 +70,7 @@ export interface DocxDescribedBlock {
 export interface DocxDescribeSnapshot {
 	format: 'docx';
 	file: string;
+	revision: string;
 	blockCount: number;
 	scope: DocxDescribeScope;
 	blocks: DocxDescribedBlock[];
@@ -234,10 +236,12 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 	const relsXml = (await zip.file('word/_rels/document.xml.rels')?.async('string')) ?? null;
 	const blocks: DocxDescribedBlock[] = [];
 	const sources: string[] = [];
+	const revisionEntries: DocxRevisionEntry[] = [];
 
 	for (const listed of listDocxDescribeParts(zip)) {
 		const partXml = await zip.file(listed.path)?.async('string');
 		if (!partXml) continue;
+		revisionEntries.push({ path: listed.path, xml: partXml });
 		// Describe exposes an anchor even for legacy paragraphs that do not yet
 		// carry w14:paraId; the first editable mutation persists these IDs.
 		const anchoredPartXml = ensureParagraphAnchors(partXml);
@@ -285,11 +289,16 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 		}
 	}
 
+	const corePropertiesXml = await zip.file('docProps/core.xml')?.async('string');
+	if (corePropertiesXml) {
+		revisionEntries.push({ path: 'docProps/core.xml', xml: corePropertiesXml });
+	}
 	const review = await scanDocxReviewState(zip);
 
 	return {
 		format: 'docx',
 		file: filePath,
+		revision: computeDocxRevision(revisionEntries),
 		blockCount: blocks.length,
 		scope: {
 			sources,

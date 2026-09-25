@@ -149,6 +149,39 @@ test('DocxDocumentService applies setRunText and replaceText headlessly', async 
 	assert.equal(snapshot.blocks[1]?.text, 'Second paragraph');
 });
 
+test('DOCX apply enforces describe revisions and returns the new revision', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const docPath = 'notes/revision.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody('<w:p><w:r><w:t>Before</w:t></w:r></w:p>'),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+	const described = await describeDocxFromBuffer(initialBuffer, docPath);
+	const applied = await service.apply(
+		docPath,
+		[{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'After' }],
+		{ expectedRevision: described.revision },
+	);
+	assert.equal(applied.ok, true);
+	assert.equal(applied.revisionBefore, described.revision);
+	assert.notEqual(applied.revisionAfter, described.revision);
+
+	const stale = await service.apply(
+		docPath,
+		[{ op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Rejected' }],
+		{ expectedRevision: described.revision },
+	);
+	assert.equal(stale.ok, false);
+	assert.equal(stale.errors[0]?.code, 'STALE_DOCUMENT_REVISION');
+});
+
 test('DocxDocumentService dryRun does not persist edits', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();

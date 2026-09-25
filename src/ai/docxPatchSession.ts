@@ -1,6 +1,7 @@
 import JSZip from 'jszip';
 import { DOCX_CORE_PROPERTIES_PATH, DOCX_DOCUMENT_PATH, listDocxDescribeParts } from './docxParts';
 import { AI_ERROR_CODES, createAiError } from './errors';
+import { computeDocxRevision } from './docxRevision';
 
 export class DocxPatchSession {
 	private readonly partXml = new Map<string, string>();
@@ -65,6 +66,13 @@ export class DocxPatchSession {
 
 	listLoadedPartPaths(): string[] {
 		return [...this.partXml.keys()].sort();
+	}
+
+	getRevision(): string {
+		return computeDocxRevision(this.listLoadedPartPaths().map((path) => ({
+			path,
+			xml: this.getPartXml(path),
+		})));
 	}
 
 	getZip(): JSZip {

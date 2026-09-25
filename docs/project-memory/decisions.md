@@ -5,3 +5,4 @@
 - Resolve the editor theme at the plugin level and pass the resolved value to DOCX/PPTX consumers. Theme colors use `--npde-*` tokens; component rules do not introduce hardcoded color literals.
 - Keep DOCX and PowerPoint handling independently disableable through plugin settings, so another plugin can own either extension.
 - Keep normal operation local/offline. Network access is limited to explicit external-link use or DOCX exports whose images reference remote URLs; there is no telemetry or self-updating code.
+- Use a deterministic, content-derived DOCX revision token for optimistic concurrency. AI apply must reject a caller-supplied stale revision before changing the document.
