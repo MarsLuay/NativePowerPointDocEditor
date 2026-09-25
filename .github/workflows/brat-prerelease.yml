@@ -28,7 +28,9 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        # TypeScript 7 is intentionally pinned, while typescript-eslint's published peer range still stops below TS 7.
+        # BRAT builds do not run ESLint; keep the lockfile deterministic and ignore only peer-resolution enforcement.
+        run: npm ci --legacy-peer-deps
 
       - name: Build plugin
         run: npm run build
