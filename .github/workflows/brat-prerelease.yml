@@ -40,6 +40,9 @@ jobs:
           fi
 
       - name: Build plugin
+        env:
+          # BRAT is the rapid test channel; production releases still enforce the 5 MB Sync Standard limit.
+          NPDE_ALLOW_OVERSIZE_MAIN: "1"
         run: npm run build
 
       - name: Calculate BRAT prerelease version
