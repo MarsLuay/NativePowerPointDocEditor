@@ -1,7 +1,6 @@
 import obsidianmd from 'eslint-plugin-obsidianmd';
 import noUnsanitizedPlugin from 'eslint-plugin-no-unsanitized';
 import globals from 'globals';
-import tsParser from '@typescript-eslint/parser';
 import tseslint from 'typescript-eslint';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import { obsidianLogicEslintRules } from './scripts/lib/obsidian-logic-eslint-rules.mjs';
@@ -24,7 +23,7 @@ export default defineConfig([
 	{
 		files: ['src/**/*.ts', 'src/**/*.tsx'],
 		languageOptions: {
-			parser: tsParser,
+			parser: tseslint.parser,
 			parserOptions: {
 				project: './tsconfig.json',
 				tsconfigRootDir: import.meta.dirname,

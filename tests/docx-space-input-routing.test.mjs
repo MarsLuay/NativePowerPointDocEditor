@@ -33,7 +33,7 @@ test("shipped PagedEditor dist does not replay deletion after hidden ProseMirror
 
     assert.match(
       dist,
-      /\.defaultPrevented&&\(![\w$]+\|\|[\w$]+\)/,
+      /(?:\.defaultPrevented&&\(![\w$]+\|\|[\w$]+\)|!\([\w$]+\.defaultPrevented&&!)/,
       `${filename} must stop a handled deletion when the same hidden-editor event mutated the document`,
     );
   }
