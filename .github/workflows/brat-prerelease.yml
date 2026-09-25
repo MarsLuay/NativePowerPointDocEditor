@@ -32,6 +32,13 @@ jobs:
         # BRAT builds do not run ESLint; keep the lockfile deterministic and ignore only peer-resolution enforcement.
         run: npm ci --legacy-peer-deps
 
+      - name: Regenerate PPTX JS fallback when dependency changed
+        shell: bash
+        run: |
+          if ! node scripts/check-pptx-js-engine-version.mjs; then
+            INSTALL_MOONBIT=1 npm run regen:pptx-js
+          fi
+
       - name: Build plugin
         run: npm run build
 
