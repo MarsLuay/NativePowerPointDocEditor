@@ -27,6 +27,13 @@ jobs:
         # Preserve the lockfile exactly and bypass npm's peer-resolution failure until upstream declares TS 7 support.
         run: npm ci --legacy-peer-deps
 
+      - name: Regenerate PPTX JS fallback when dependency changed
+        shell: bash
+        run: |
+          if ! node scripts/check-pptx-js-engine-version.mjs; then
+            INSTALL_MOONBIT=1 npm run regen:pptx-js
+          fi
+
       - name: Validate vendored DOCX runtime
         run: npm run check:docx-runtime
 
