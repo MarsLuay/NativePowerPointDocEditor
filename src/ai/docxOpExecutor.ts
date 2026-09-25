@@ -12,7 +12,7 @@ import { DOCX_CORE_PROPERTIES_PATH, listReplaceTextPartPaths, resolvePartPath } 
 import { removeAllDocxComments } from './docxComments';
 import { patchDocxCoreProperties } from './docxCoreProperties';
 import { addInlineImage, replaceInlineImage } from './docxMedia';
-import { parseParagraph } from './docxOoxml';
+import { ensureParagraphAnchors, parseParagraph } from './docxOoxml';
 import type { DocxPatchSession } from './docxPatchSession';
 import {
 	buildEmptyTableXml,
@@ -945,6 +945,15 @@ export async function executeDocxOp(
 ): Promise<DocxOpExecutionResult> {
 	const record = asRecord(op);
 	const opId = String(op.op);
+	// Structural mutations need persistent identities before positional resolution.
+	// Dry runs operate on a cloned session, so this remains side-effect free there.
+	for (const partPath of context.session.listLoadedPartPaths()) {
+		const partXml = context.session.getPartXml(partPath);
+		const anchoredXml = ensureParagraphAnchors(partXml);
+		if (anchoredXml !== partXml) {
+			context.session.setPartXml(partPath, anchoredXml);
+		}
+	}
 	const acc: DocxOpAccumulator = {
 		documentXml: context.session.getDocumentXml(),
 		changedIds: [],
