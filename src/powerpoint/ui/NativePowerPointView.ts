@@ -51,6 +51,12 @@ import { isElement, isNode, isSVGGElement, isSVGTextElement, isSVGTSpanElement }
 import { PowerPointPresentController } from '../../PowerPointPresent';
 import { exportSlideToPng } from '../../PowerPointExport';
 import { InlineTextGeometry } from '../inlineTextGeometry';
+import {
+  getSelectionOverlayBoundsAnomaly,
+  summarizeSelectionOverlayContributors,
+  type SelectionOverlayContributorCandidate,
+  type SelectionOverlayRect,
+} from '../selectionOverlayDiagnostics';
 import { createDetachedMeasureCanvas } from '../measureCanvas';
 import {
   EMPTY_PARAGRAPH_RENDER_ANCHOR,
@@ -224,7 +230,17 @@ interface InlineWholeShapeReplacement {
   baselineText: string;
 }
 
+interface SelectionOverlayInteractionDiagnostics {
+  id: string;
+  eventType: 'pointerdown' | 'click' | 'dblclick';
+  detail: number | null;
+  pointerType: string | null;
+  target: string | null;
+  currentTarget: string | null;
+}
+
 const INLINE_EDIT_HISTORY_LIMIT = 200;
+const MAX_SELECTION_OVERLAY_DIAGNOSTIC_DESCENDANTS = 256;
 const ROTATION_SNAP_THRESHOLD_DEGREES = 3;
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const EMU_PER_POINT = 12700;
@@ -338,6 +354,9 @@ export class NativePowerPointView extends FileView {
   private lastInlineHistoryRestoreFailed = false;
   private lastSelectionOverlayDragLogAt = 0;
   private skippedSelectionOverlayDragLogs = 0;
+  private selectionOverlayInteractionCounter = 0;
+  private lastSelectionOverlayPointerType: string | null = null;
+  private lastSelectionOverlayInteraction: SelectionOverlayInteractionDiagnostics | null = null;
   private lastInlineSelectionRenderedLogAt = 0;
   private lastInlineSelectionRenderedLogKey: string | null = null;
   private skippedInlineSelectionRenderedLogs = 0;
@@ -2094,6 +2113,151 @@ export class NativePowerPointView extends FileView {
     return this.getPictureImageElement(shape) ?? shape;
   }
 
+  private selectionOverlayTargetIdentity(target: EventTarget | null): string | null {
+    const element = isElement(target)
+      ? target
+      : isNode(target) && isElement(target.parentElement)
+        ? target.parentElement
+        : null;
+    if (!element) return null;
+
+    const safeAttributes = [
+      'data-ooxml-shape-idx',
+      'data-ooxml-paragraph-idx',
+      'data-ooxml-run-idx',
+      'data-native-powerpoint-doc-editor-inline-editor',
+    ]
+      .map((name) => {
+        const value = element.getAttribute(name);
+        return value ? `${name}=${value.slice(0, 32)}` : null;
+      })
+      .filter((value): value is string => value !== null);
+    const className = (element.getAttribute('class') ?? '').split(/\s+/).filter(Boolean).slice(0, 4).join('.');
+    const identity = [element.tagName.toLowerCase(), className ? `.${className}` : '', ...safeAttributes].join('');
+    return identity.slice(0, 160) || null;
+  }
+
+  private rememberSelectionOverlayInteraction(
+    event: MouseEvent | PointerEvent,
+    eventType: SelectionOverlayInteractionDiagnostics['eventType'],
+  ): void {
+    const eventPointerType = 'pointerType' in event && typeof event.pointerType === 'string'
+      ? event.pointerType.slice(0, 24)
+      : null;
+    if (eventPointerType) this.lastSelectionOverlayPointerType = eventPointerType;
+    this.lastSelectionOverlayInteraction = {
+      id: `selection-interaction-${++this.selectionOverlayInteractionCounter}`,
+      eventType,
+      detail: Number.isFinite(event.detail) ? event.detail : null,
+      pointerType: eventPointerType ?? this.lastSelectionOverlayPointerType,
+      target: this.selectionOverlayTargetIdentity(event.target),
+      currentTarget: this.selectionOverlayTargetIdentity(event.currentTarget),
+    };
+  }
+
+  private getSelectionOverlayInteractionContext(): Record<string, unknown> {
+    const ranges = this.inlineRangeSelection?.ranges ?? [];
+    const selectedRangeCount = this.inlineWholeShapeSelected
+      ? 1
+      : ranges.length > 0 ? ranges.length : this.activeInlineSelectionRects.length;
+    const selectedRangeLength = ranges.reduce((total, range) => total + Math.max(0, range.end - range.start), 0);
+    return {
+      interaction: this.lastSelectionOverlayInteraction,
+      activeInlineEditor: this.activeEditor !== null,
+      inlineEditorShapeIndex: this.activeShapeTextTarget?.shapeIndex ?? null,
+      selectedRangeCount,
+      selectedRangeLength: selectedRangeLength > 0
+        ? selectedRangeLength
+        : this.activeEditor
+          ? Math.max(0, (this.activeEditor.selectionEnd ?? 0) - (this.activeEditor.selectionStart ?? 0))
+          : 0,
+    };
+  }
+
+  private readSvgGroupBox(shape: SVGGElement): SelectionOverlayRect | null {
+    try {
+      const box = shape.getBBox();
+      if (![box.x, box.y, box.width, box.height].every(Number.isFinite)) return null;
+      return { left: box.x, top: box.y, width: box.width, height: box.height };
+    } catch {
+      return null;
+    }
+  }
+
+  private getSelectionOverlayContributorSummary(
+    shape: SVGGElement,
+    frameBox: SelectionOverlayRect | null,
+  ) {
+    const pane = this.canvasPane;
+    if (!frameBox || !pane) return null;
+    const paneRect = pane.getBoundingClientRect();
+    const descendants = Array.from(shape.querySelectorAll('*'));
+    const candidates: SelectionOverlayContributorCandidate[] = [];
+    descendants.slice(0, MAX_SELECTION_OVERLAY_DIAGNOSTIC_DESCENDANTS).forEach((element) => {
+      let rect: DOMRect;
+      try {
+        rect = element.getBoundingClientRect();
+      } catch {
+        return;
+      }
+      const clientRect: SelectionOverlayRect = {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+      const localRect: SelectionOverlayRect = {
+        left: rect.left - paneRect.left + pane.scrollLeft,
+        top: rect.top - paneRect.top + pane.scrollTop,
+        width: rect.width,
+        height: rect.height,
+      };
+      const className = (element.getAttribute('class') ?? '').toLowerCase();
+      const tagName = element.tagName.toLowerCase();
+      const identity = this.selectionOverlayTargetIdentity(element) ?? tagName;
+      const view = element.ownerDocument.defaultView;
+      const computed = view?.getComputedStyle(element);
+      const uiKind = className.includes('caret') || tagName === 'line'
+        ? 'caret'
+        : className.includes('selection') || tagName === 'rect'
+          ? 'selection'
+          : className.includes('editor') || className.includes('inline') || tagName === 'textarea'
+            ? 'editor'
+            : className.includes('overlay') || className.includes('handle')
+              ? 'overlay'
+              : 'other';
+      candidates.push({
+        tagName,
+        identity,
+        clientRect,
+        localRect,
+        transform: element.getAttribute('transform'),
+        visibility: computed?.visibility ?? null,
+        display: computed?.display ?? null,
+        uiKind,
+      });
+    });
+    return {
+      ...summarizeSelectionOverlayContributors(candidates, frameBox),
+      descendantTotal: descendants.length,
+      descendantScanTruncated: descendants.length > MAX_SELECTION_OVERLAY_DIAGNOSTIC_DESCENDANTS,
+    };
+  }
+
+  private getSelectionOverlayAnomalyDiagnostics(
+    shape: SVGGElement,
+    groupBox: SelectionOverlayRect | null,
+    ooxmlBox: SelectionOverlayRect | null,
+  ) {
+    const anomaly = getSelectionOverlayBoundsAnomaly(groupBox, ooxmlBox);
+    if (!anomaly?.materiallyDifferent) return null;
+    return {
+      anomaly,
+      svgGroupBox: this.readSvgGroupBox(shape),
+      contributors: this.getSelectionOverlayContributorSummary(shape, ooxmlBox),
+    };
+  }
+
   private logSelectionOverlayLayout(
     reason: string,
     shape: SVGGElement | null,
@@ -2115,11 +2279,21 @@ export class NativePowerPointView extends FileView {
     }
 
     const groupBox = this.getElementBox(shape);
+    const groupClientRect = shape.getBoundingClientRect();
+    const groupClientBox = {
+      left: groupClientRect.left,
+      top: groupClientRect.top,
+      width: groupClientRect.width,
+      height: groupClientRect.height,
+    };
     const image = this.getPictureImageElement(shape);
     const imageBox = image ? this.getElementBox(image) : null;
     const ooxmlBox = transform ? this.getTransformSelectionBox(transform) : null;
     const clipRect = this.getPictureClipRectElement(shape);
     const clipAttrs = this.readSvgBoxAttrs(clipRect);
+    const boundsAnomaly = strategy === 'shape-bounds'
+      ? this.getSelectionOverlayAnomalyDiagnostics(shape, groupBox, ooxmlBox)
+      : null;
     debugLog('selection', 'PowerPoint selection overlay layout', {
       reason,
       slide: this.currentSlide,
@@ -2128,12 +2302,15 @@ export class NativePowerPointView extends FileView {
       rotation: transform?.rot ?? 0,
       hasCrop: this.pictureHasCrop(shape),
       groupBox,
+      groupClientBox,
       imageBox,
       imageAttrs: this.readSvgBoxAttrs(image),
       clipAttrs,
       ooxmlBox,
       box,
       imageTransform: image?.getAttribute('transform') ?? null,
+      interactionContext: this.getSelectionOverlayInteractionContext(),
+      boundsAnomaly,
       skippedDragLogs,
     });
   }
@@ -3713,6 +3890,7 @@ export class NativePowerPointView extends FileView {
     if (!this.svgEl) return;
 
     this.svgEl.addEventListener('click', (event) => {
+      this.rememberSelectionOverlayInteraction(event, 'click');
       if (this.suppressNextClick) {
         this.suppressNextClick = false;
         event.preventDefault();
@@ -3763,6 +3941,7 @@ export class NativePowerPointView extends FileView {
     });
 
     this.svgEl.addEventListener('dblclick', (event) => {
+      this.rememberSelectionOverlayInteraction(event, 'dblclick');
       const target = isElement(event.target) ? event.target : null;
       const shape = target?.closest('g[data-ooxml-shape-idx]') ?? null;
       const shapeIndex = getShapeIndex(shape);
@@ -3796,6 +3975,7 @@ export class NativePowerPointView extends FileView {
 
     this.svgEl.addEventListener('pointerdown', (event) => {
       if (event.button !== 0) return;
+      this.rememberSelectionOverlayInteraction(event, 'pointerdown');
 
       const target = isElement(event.target) ? event.target : null;
       if (target?.closest('text')) {
