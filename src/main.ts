@@ -40,6 +40,7 @@ import {
 	writeCapabilitiesManifest,
 	type NpdeAiApi,
 } from './ai';
+import { buildCopiedLogPayload, type CopiedLogDiagnostics } from './debugLogCopy';
 
 type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
@@ -110,6 +111,34 @@ function loadPptxSupportModule(): Promise<PptxSupportModule> {
 		return module;
 	});
 	return pptxSupportModulePromise;
+}
+
+function readRuntimeVersion(name: 'electron' | 'chrome' | 'node'): string | null {
+	const runtimeWindow = typeof window === 'undefined' ? null : window as Window & {
+		process?: { versions?: Partial<Record<'electron' | 'chrome' | 'node', string>> };
+	};
+	const value = runtimeWindow?.process?.versions?.[name];
+	return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function getCopiedLogDiagnostics(app: unknown): CopiedLogDiagnostics {
+	const appRecord = app as { appVersion?: unknown; apiVersion?: unknown };
+	const browserNavigator = typeof navigator === 'undefined' ? null : navigator;
+	const browserWindow = typeof window === 'undefined' ? null : window;
+	const pixelRatio = browserWindow?.devicePixelRatio;
+	return {
+		obsidianVersion: typeof appRecord.appVersion === 'string' ? appRecord.appVersion : null,
+		obsidianApiVersion: typeof appRecord.apiVersion === 'string' ? appRecord.apiVersion : null,
+		platform: browserNavigator?.platform ?? null,
+		appMode: Platform.isMobileApp || Platform.isMobile ? 'mobile' : 'desktop',
+		runtime: {
+			electron: readRuntimeVersion('electron'),
+			chromium: readRuntimeVersion('chrome'),
+			node: readRuntimeVersion('node'),
+		},
+		userAgent: browserNavigator?.userAgent ?? null,
+		devicePixelRatio: typeof pixelRatio === 'number' && Number.isFinite(pixelRatio) ? pixelRatio : null,
+	};
 }
 
 export default class NativePowerPointDocEditorPlugin extends Plugin {
@@ -706,7 +735,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	async copyDebugLog(scope: DebugLogScope = 'all', activeDocxPath?: string) {
 		const logs = this.getDebugLogEntries(scope);
-		const payload = {
+		const payload = buildCopiedLogPayload({
 			generatedAt: new Date().toISOString(),
 			scope,
 			activeDocxPath,
@@ -734,11 +763,13 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			},
 			docxEditorBundle: 'main.js',
 			logStats: getNativePowerPointDocEditorLogStats(),
+			diagnostics: getCopiedLogDiagnostics(this.app),
 			logs,
-		};
+		});
+		const serializedPayload = JSON.stringify(payload, null, 2);
 
 		try {
-			await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+			await navigator.clipboard.writeText(serializedPayload);
 			const label = scope === 'docx' ? 'DOCX' : scope === 'pptx' ? 'PPTX' : 'Native PowerPoint Doc Editor';
 			showI18nNotice(this.getI18n(), 'settings:debug.logCopied', { count: payload.logs.length, label });
 		} catch (error) {
