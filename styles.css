@@ -3003,6 +3003,10 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	position: relative;
 }
 
+.native-powerpoint-geometry-measure-suspended {
+	display: none;
+}
+
 .native-powerpoint-slide-surface {
 	background: var(--npde-document-bg);
 	box-shadow: var(--npde-document-shadow);

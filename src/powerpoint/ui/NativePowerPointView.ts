@@ -7804,6 +7804,7 @@ export class NativePowerPointView extends FileView {
 
     const caret = svg.ownerDocument.createElementNS(SVG_NAMESPACE, 'line');
     caret.classList.add('native-powerpoint-svg-caret');
+    caret.setAttribute('data-npde-geometry-overlay', 'true');
     caret.setAttribute('aria-hidden', 'true');
     svg.appendChild(caret);
     debugLog('text-edit', 'Created PowerPoint inline caret', {
@@ -10206,6 +10207,7 @@ export class NativePowerPointView extends FileView {
     for (const box of boxes) {
       const rect = textElement.ownerDocument.createElementNS(SVG_NAMESPACE, 'rect');
       rect.classList.add('native-powerpoint-svg-selection');
+      rect.setAttribute('data-npde-geometry-overlay', 'true');
       rect.setAttribute('x', this.formatSvgNumber(box.x));
       rect.setAttribute('y', this.formatSvgNumber(box.y));
       rect.setAttribute('width', this.formatSvgNumber(box.width));
@@ -10769,6 +10771,7 @@ export class NativePowerPointView extends FileView {
         for (const box of this.getSvgInlineSelectionBoxes(span, 0, total)) {
           const rect = textElement.ownerDocument.createElementNS(SVG_NAMESPACE, 'rect');
           rect.classList.add('native-powerpoint-run-highlight');
+          rect.setAttribute('data-npde-geometry-overlay', 'true');
           rect.setAttribute('x', this.formatSvgNumber(box.x));
           rect.setAttribute('y', this.formatSvgNumber(box.y));
           rect.setAttribute('width', this.formatSvgNumber(box.width));
