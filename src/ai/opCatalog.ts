@@ -502,6 +502,46 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 	}),
 
 	// DOCX — table
+	docxOp('insertParagraphs', 'font', 'Atomically insert one or more native paragraphs before or after a persistent paragraph anchor, inheriting only the requested template properties.', {
+		type: 'object',
+		required: ['placement', 'anchor', 'paragraphs'],
+		properties: {
+			placement: { type: 'string', enum: ['before', 'after'], description: 'Insert relative to the persistent anchor.' },
+			anchor: { type: 'string', description: 'Persistent w14:paraId of the placement paragraph.' },
+			templateAnchor: { type: 'string', description: 'Optional persistent anchor whose properties are copied. Defaults to anchor.' },
+			inherit: {
+				type: 'object',
+				description: 'When omitted, paragraph, run, layout, border, and list are all inherited. When present, omitted keys are not inherited.',
+				properties: {
+					paragraph: { type: 'boolean' },
+					run: { type: 'boolean' },
+					layout: { type: 'boolean' },
+					border: { type: 'boolean' },
+					list: { type: 'boolean' },
+				},
+				additionalProperties: false,
+			},
+			paragraphs: {
+				type: 'array',
+				minimum: 1,
+				items: {
+					type: 'object',
+					required: ['text'],
+					properties: {
+						text: { type: 'string', description: 'One paragraph of text. Do not include line breaks or literal bullet characters.' },
+						listStyle: {
+							type: 'string',
+							enum: ['none', 'bullet', 'number'],
+							description: 'none drops inherited numbering. bullet and number keep the template numPr and do not insert a bullet character.',
+						},
+						bold: { type: 'boolean' },
+					},
+					additionalProperties: false,
+				},
+			},
+		},
+		additionalProperties: false,
+	}),
 	docxOp('insertParagraphsAfter', 'font', 'Insert one or more native DOCX paragraphs after a paragraph anchor and return their new block ids. Inherits the anchor paragraph properties, including native list formatting.', {
 		type: 'object',
 		required: ['afterBlockId', 'paragraphs'],

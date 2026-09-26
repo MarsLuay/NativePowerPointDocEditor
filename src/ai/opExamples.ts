@@ -80,6 +80,17 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		afterBlockId: 'body/p[0]',
 		paragraphs: [{ text: 'Added item', listStyle: 'bullet', bold: false }],
 	},
+	'docx.insertParagraphs': {
+		op: 'docx.insertParagraphs',
+		placement: 'after',
+		anchor: '01234567',
+		templateAnchor: '89ABCDEF',
+		inherit: { paragraph: true, run: true, layout: true, border: true, list: true },
+		paragraphs: [
+			{ text: 'First inserted paragraph', listStyle: 'bullet' },
+			{ text: 'Second inserted paragraph' },
+		],
+	},
 	'docx.setCellText': { op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Cell' },
 	'docx.setCellStyle': { op: 'docx.setCellStyle', cellId: 'body/tbl[0]/tr[0]/tc[0]', style: { name: 'Normal' } },
 	'docx.deleteTable': { op: 'docx.deleteTable', tableId: 'body/tbl[0]' },

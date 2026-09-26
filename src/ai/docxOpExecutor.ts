@@ -2,13 +2,14 @@ import type { Vault } from 'obsidian';
 import { getImageMimeType } from '../PowerPointInsertModals';
 import {
 	deleteTableInPart,
+	findParagraphByAnchorInPart,
 	getParagraphXml,
 	getTableCellXmlFromPart,
 	insertBlockAfterInPart,
 	replaceParagraphXml,
 	replaceTableCellXmlInPart,
 } from './docxBlockResolver';
-import { DOCX_CORE_PROPERTIES_PATH, listReplaceTextPartPaths, resolvePartPath } from './docxParts';
+import { DOCX_CORE_PROPERTIES_PATH, listDocxDescribeParts, listReplaceTextPartPaths, resolvePartPath } from './docxParts';
 import { removeAllDocxComments } from './docxComments';
 import { patchDocxCoreProperties } from './docxCoreProperties';
 import { addInlineImage, replaceInlineImage } from './docxMedia';
@@ -42,14 +43,17 @@ import {
 	applyDeleteRangeInPart,
 	applyInsertHyperlinkInPart,
 	applyInsertParagraphsAfterInPart,
+	applyInsertParagraphsInPart,
 	applyInsertParagraphBreakInPart,
+	FULL_PARAGRAPH_INHERITANCE,
+	type DocxParagraphInheritance,
 	applyInsertTextInPart,
 	applyRemoveHyperlinkInPart,
 	type DocxTextPosition,
 	type DocxTextRange,
 } from './docxParagraphEdit';
 import { parseStableLocation } from './docxStableIds';
-import { AI_ERROR_CODES, createAiError } from './errors';
+import { AI_ERROR_CODES, createAiError, isAiErrorDetail } from './errors';
 import type { ApplyPreviewChange, DocumentOp } from './types';
 import { readVaultBinaryFile } from './vaultBinary';
 
@@ -326,6 +330,61 @@ function setPartXmlForLocation(
 	partXml: string,
 ): void {
 	session.setPartXml(resolvePartPath(location), partXml);
+}
+
+function findParagraphAnchor(
+	session: DocxPatchSession,
+	anchor: string,
+	field: string,
+): { location: NonNullable<ReturnType<typeof parseStableLocation>>; blockId: string; partXml: string; paragraphXml: string } {
+	const matches = [];
+	for (const part of listDocxDescribeParts(session.getZip())) {
+		if (!session.hasPart(part.path)) continue;
+		const partXml = session.getPartXml(part.path);
+		try {
+			const block = findParagraphByAnchorInPart(partXml, part, anchor);
+			const location = parseStableLocation(block.id);
+			if (!location || location.kind !== 'paragraph') continue;
+			matches.push({ location, blockId: block.id, partXml, paragraphXml: block.xml });
+		} catch (error) {
+			if (!isAiErrorDetail(error) || error.code !== AI_ERROR_CODES.BLOCK_NOT_FOUND) {
+				throw error;
+			}
+		}
+	}
+	if (matches.length !== 1) {
+		throw createAiError(
+			AI_ERROR_CODES.BLOCK_NOT_FOUND,
+			matches.length === 0
+				? `Paragraph anchor ${anchor} was not found.`
+				: `Paragraph anchor ${anchor} is not unique.`,
+			{ field },
+		);
+	}
+	return matches[0]!;
+}
+
+function parseParagraphInheritance(value: unknown): DocxParagraphInheritance {
+	if (value === undefined) return { ...FULL_PARAGRAPH_INHERITANCE };
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'inherit must be an object.', { field: 'inherit' });
+	}
+	const record = value as Record<string, unknown>;
+	const inheritance: DocxParagraphInheritance = {
+		paragraph: false,
+		run: false,
+		layout: false,
+		border: false,
+		list: false,
+	};
+	for (const key of ['paragraph', 'run', 'layout', 'border', 'list'] as const) {
+		if (record[key] === undefined) continue;
+		if (typeof record[key] !== 'boolean') {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `inherit.${key} must be boolean.`, { field: `inherit.${key}` });
+		}
+		inheritance[key] = record[key];
+	}
+	return inheritance;
 }
 
 async function executeCommentsAndMetadataOp(
@@ -793,6 +852,73 @@ function executeTextEditOp(
 			});
 			break;
 		}
+		case 'docx.insertParagraphs': {
+			const placement = record.placement;
+			if (placement !== 'before' && placement !== 'after') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'placement must be before or after.', { field: 'placement' });
+			}
+			const anchor = requireString(record.anchor, 'anchor');
+			const paragraphsValue = record.paragraphs;
+			if (!Array.isArray(paragraphsValue) || paragraphsValue.length === 0) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must be a non-empty array.', { field: 'paragraphs' });
+			}
+			const paragraphs = paragraphsValue.map((entry, index) => {
+				if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+					throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}] must be an object.`, { field: 'paragraphs' });
+				}
+				const paragraph = entry as Record<string, unknown>;
+				if (typeof paragraph.text !== 'string') {
+					throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must be a string.`, { field: 'paragraphs' });
+				}
+				return {
+					text: paragraph.text,
+					...(typeof paragraph.listStyle === 'string' ? { listStyle: paragraph.listStyle as 'none' | 'bullet' | 'number' } : {}),
+					...(typeof paragraph.bold === 'boolean' ? { bold: paragraph.bold } : {}),
+				};
+			});
+			const inheritance = parseParagraphInheritance(record.inherit);
+			const resolvedAnchor = findParagraphAnchor(context.session, anchor, 'anchor');
+			const templateAnchor = typeof record.templateAnchor === 'string' ? record.templateAnchor : anchor;
+			const resolvedTemplate = templateAnchor === anchor
+				? resolvedAnchor
+				: findParagraphAnchor(context.session, templateAnchor, 'templateAnchor');
+			const result = applyInsertParagraphsInPart(resolvedAnchor.partXml, {
+				anchorBlockId: resolvedAnchor.blockId,
+				templateParagraphXml: resolvedTemplate.paragraphXml,
+				paragraphs,
+				placement,
+				inherit: inheritance,
+				anchor,
+				templateAnchor,
+			});
+			setPartXmlForLocation(context.session, resolvedAnchor.location, result.partXml);
+			if (resolvedAnchor.location.part === 'body') {
+				acc.documentXml = result.partXml;
+			}
+			acc.changedIds.push(resolvedAnchor.blockId, ...result.createdAnchors);
+			acc.createdIds.push(...result.createdAnchors);
+			acc.preview.push({
+				id: anchor,
+				field: 'insertParagraphs',
+				before: null,
+				after: {
+					placement: result.placement,
+					anchor: result.anchor,
+					templateAnchor: result.templateAnchor,
+					relationship: {
+						placement: result.placement,
+						anchor: result.anchor,
+						templateAnchor: result.templateAnchor,
+					},
+					inheritance: result.inheritance,
+					inheritedListProperties: result.inheritedListProperties,
+					createdAnchors: result.createdAnchors,
+					createdBlockIds: result.createdBlockIds,
+					paragraphCount: paragraphs.length,
+				},
+			});
+			break;
+		}
 		case 'docx.replaceText': {
 			const query = requireString(record.query, 'query');
 			const replacement = requireString(record.replacement, 'replacement');
@@ -991,6 +1117,7 @@ export async function executeDocxOp(
 			break;
 		case 'docx.setRunText':
 		case 'docx.insertParagraphsAfter':
+		case 'docx.insertParagraphs':
 		case 'docx.replaceText':
 		case 'docx.insertText':
 		case 'docx.deleteRange':

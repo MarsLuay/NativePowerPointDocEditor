@@ -770,6 +770,126 @@ test('DocxDocumentService inserts stable list paragraphs and reports created ids
 	assert.equal((savedXml.match(/w14:paraId="[0-9A-F]+"/g) ?? []).length, 4);
 });
 
+test('DocxDocumentService inserts paragraphs atomically around a persistent anchor', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/atomic-insert.docx';
+	const template = [
+		'<w:p w14:paraId="TEMPL001">',
+		'<w:pPr>',
+		'<w:pStyle w:val="ListParagraph"/>',
+		'<w:numPr><w:ilvl w:val="0"/><w:numId w:val="7"/></w:numPr>',
+		'<w:spacing w:before="120" w:after="80"/>',
+		'<w:ind w:left="720"/>',
+		'<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="1" w:color="112233"/></w:pBdr>',
+		'</w:pPr>',
+		'<w:r><w:rPr><w:rFonts w:ascii="Calibri"/><w:sz w:val="24"/></w:rPr><w:t>Template</w:t></w:r>',
+		'</w:p>',
+	].join('');
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p w14:paraId="PLACE001"><w:r><w:t>Before</w:t></w:r></w:p>',
+			template,
+			'<w:p w14:paraId="AFTER001"><w:r><w:t>After</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+	const described = await service.describe(docPath);
+	assert.equal(described.ok, true, JSON.stringify(described.errors));
+	const originalRevision = described.snapshot.revision;
+
+	const rejected = await service.apply(docPath, [{
+		op: 'docx.insertParagraphs',
+		placement: 'after',
+		anchor: 'PLACE001',
+		templateAnchor: 'TEMPL001',
+		inherit: { border: true, list: false },
+		paragraphs: [
+			{ text: 'Keep' },
+			{ text: 'Nope', listStyle: 'number' },
+		],
+	}], { expectedRevision: originalRevision });
+	assert.equal(rejected.ok, false);
+	assert.equal(rejected.errors[0]?.code, 'VALIDATION_FAILED');
+	const unchanged = await service.describe(docPath);
+	assert.equal(unchanged.snapshot.revision, originalRevision);
+	assert.deepEqual(unchanged.snapshot.blocks.map((block) => block.text), ['Before', 'Template', 'After']);
+
+	const inserted = await service.apply(docPath, [{
+		op: 'docx.insertParagraphs',
+		placement: 'after',
+		anchor: 'PLACE001',
+		templateAnchor: 'TEMPL001',
+		inherit: { paragraph: true, run: true, layout: true, border: true, list: true },
+		paragraphs: [
+			{ text: 'One', listStyle: 'bullet' },
+			{ text: 'Two' },
+		],
+	}], { expectedRevision: originalRevision });
+	assert.equal(inserted.ok, true, JSON.stringify(inserted.errors));
+	assert.equal(inserted.revisionBefore, originalRevision);
+	assert.notEqual(inserted.revisionAfter, originalRevision);
+	assert.equal(inserted.preview?.[0]?.after?.placement, 'after');
+	assert.equal(inserted.preview?.[0]?.after?.relationship?.templateAnchor, 'TEMPL001');
+	assert.equal(inserted.preview?.[0]?.after?.inheritance?.list, true);
+	assert.equal(inserted.preview?.[0]?.after?.inheritedListProperties, true);
+	assert.equal(inserted.created?.length, 2);
+	assert.deepEqual(inserted.created, inserted.preview?.[0]?.after?.createdAnchors);
+
+	const afterInsert = await service.describe(docPath);
+	assert.deepEqual(afterInsert.snapshot.blocks.map((block) => block.text), ['Before', 'One', 'Two', 'Template', 'After']);
+	assert.equal(afterInsert.snapshot.blocks[1]?.runs?.[0]?.fontFamily, 'Calibri');
+	assert.equal(afterInsert.snapshot.blocks[1]?.layout?.spacing?.before, 120);
+	assert.equal(afterInsert.snapshot.blocks[1]?.layout?.indent?.left, 720);
+	assert.doesNotMatch(afterInsert.snapshot.blocks[1]?.text ?? '', /[•\u2022*-]/);
+
+	const followed = await service.apply(docPath, [{
+		op: 'docx.insertParagraphs',
+		placement: 'before',
+		anchor: inserted.created[0],
+		paragraphs: [{ text: 'Nested' }],
+	}], { expectedRevision: inserted.revisionAfter });
+	assert.equal(followed.ok, true, JSON.stringify(followed.errors));
+	const afterFollow = await service.describe(docPath);
+	assert.deepEqual(afterFollow.snapshot.blocks.map((block) => block.text), ['Before', 'Nested', 'One', 'Two', 'Template', 'After']);
+
+	const borderOnly = await service.apply(docPath, [{
+		op: 'docx.insertParagraphs',
+		placement: 'before',
+		anchor: 'AFTER001',
+		templateAnchor: 'TEMPL001',
+		inherit: { border: true },
+		paragraphs: [{ text: 'Ruled' }],
+	}]);
+	assert.equal(borderOnly.ok, true, JSON.stringify(borderOnly.errors));
+
+	await service.save(docPath);
+	const savedBytes = vault.store.get(docPath);
+	const savedXml = await (await JSZip.loadAsync(savedBytes.buffer)).file('word/document.xml').async('string');
+	const paragraphXml = (text) => {
+		const marker = `>${text}<`;
+		const at = savedXml.indexOf(marker);
+		const start = savedXml.lastIndexOf('<w:p ', at);
+		return savedXml.slice(start, savedXml.indexOf('</w:p>', at) + '</w:p>'.length);
+	};
+	const oneXml = paragraphXml('One');
+	assert.match(oneXml, /<w:numPr\b[\s\S]*<w:numId w:val="7"\/>/);
+	assert.match(oneXml, /<w:spacing w:before="120" w:after="80"\/>/);
+	assert.match(oneXml, /<w:ind w:left="720"\/>/);
+	assert.match(oneXml, /<w:pBdr><w:bottom w:val="single" w:sz="8" w:space="1" w:color="112233"\/><\/w:pBdr>/);
+	assert.match(oneXml, /<w:rFonts w:ascii="Calibri"\/>/);
+	const ruledXml = paragraphXml('Ruled');
+	assert.match(ruledXml, /<w:pBdr><w:bottom /);
+	assert.doesNotMatch(ruledXml, /<w:numPr\b|<w:spacing\b|<w:ind\b|<w:rFonts\b|<w:pStyle\b/);
+	assert.equal((savedXml.match(/w14:paraId="TEMPL001"/g) ?? []).length, 1);
+	assert.equal((savedXml.match(/w14:paraId="PLACE001"/g) ?? []).length, 1);
+});
+
 test('DocxDocumentService deletes a blank paragraph without merging the next heading', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
