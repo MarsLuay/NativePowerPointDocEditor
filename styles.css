@@ -291,8 +291,11 @@ body.native-powerpoint-doc-editor-theme-resolved-dark,
 	--doc-text: var(--npde-editor-text);
 	--doc-text-muted: var(--npde-editor-text-muted);
 	/* Page stays Word-white (no canvas invert). Vendor .dark sets a light
-	   --doc-caret for inverted canvas — keep document caret on page ink. */
+	   --doc-caret for inverted canvas — keep document caret on page ink.
+	   The dark runtime page token is only meaningful under its invert filter.
+	   NPDE disables that filter, so keep the token on the blank-slide white. */
 	--doc-caret: var(--npde-document-text);
+	--doc-page-bg: var(--npde-document-bg);
 }
 
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button,
@@ -4517,6 +4520,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	--doc-text-muted: var(--npde-editor-text-muted);
 	--doc-text-subtle: var(--npde-editor-text-faint);
 	--doc-text-placeholder: var(--npde-editor-text-faint);
+	/* Outranks the vendor dark page token so a blank page stays the slide
+	   white after the invert filter is disabled. */
+	--doc-page-bg: var(--npde-document-bg);
 	--doc-primary: var(--npde-editor-accent);
 	--doc-primary-hover: var(--npde-editor-accent-hover);
 	--doc-primary-light: color-mix(in srgb, var(--npde-editor-accent) 18%, transparent);
