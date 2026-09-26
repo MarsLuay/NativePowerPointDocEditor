@@ -166,20 +166,24 @@ function minimalPayload(metadata: Omit<CopiedLogPayload, 'logs'>): CopiedLogPayl
 	};
 }
 
-/**
- * Build a valid JSON payload while reserving space for copy-time diagnostics and
- * metadata. Logs are retained as the newest suffix, never the oldest prefix.
- */
-export function buildCopiedLogPayload(input: CopiedLogPayloadInput): CopiedLogPayload {
-	const metadata = normalizeMetadata(input);
-	const logs = input.logs;
+function isReservedDocxInputLog(entry: NativePowerPointDocEditorLogEntry): boolean {
+	return entry.area === 'text-input'
+		|| entry.message.startsWith('DOCX input ')
+		|| entry.message.startsWith('DOCX duplicate input');
+}
+
+function newestSuffixThatFits(
+	metadata: Omit<CopiedLogPayload, 'logs'>,
+	logs: NativePowerPointDocEditorLogEntry[],
+	sourceLogCount: number,
+): CopiedLogPayload {
 	let low = 0;
 	let high = logs.length;
-	let best = withLogs(metadata, [], logs.length);
+	let best = withLogs(metadata, [], sourceLogCount);
 
 	while (low <= high) {
 		const count = Math.floor((low + high) / 2);
-		const candidate = withLogs(metadata, count === 0 ? [] : logs.slice(-count), logs.length);
+		const candidate = withLogs(metadata, count === 0 ? [] : logs.slice(-count), sourceLogCount);
 		if (serialize(candidate).length <= MAX_COPIED_LOG_CHARACTERS) {
 			best = candidate;
 			low = count + 1;
@@ -190,9 +194,68 @@ export function buildCopiedLogPayload(input: CopiedLogPayloadInput): CopiedLogPa
 
 	if (serialize(best).length <= MAX_COPIED_LOG_CHARACTERS) {
 		if (logs.length > 0 && best.logs.length === 0) {
-			return fitNewestLogEntry(metadata, logs[logs.length - 1]!, logs.length) ?? best;
+			return fitNewestLogEntry(metadata, logs[logs.length - 1]!, sourceLogCount) ?? best;
 		}
 		return best;
+	}
+
+	return best;
+}
+
+function mergeKeptLogs(
+	source: readonly NativePowerPointDocEditorLogEntry[],
+	reservedKept: readonly NativePowerPointDocEditorLogEntry[],
+	ordinaryKept: readonly NativePowerPointDocEditorLogEntry[],
+): NativePowerPointDocEditorLogEntry[] {
+	const kept = new Set<NativePowerPointDocEditorLogEntry>([...reservedKept, ...ordinaryKept]);
+	return source.filter((entry) => kept.has(entry));
+}
+
+/**
+ * Build a valid JSON payload while reserving space for copy-time diagnostics and
+ * metadata. Ordinary logs stay the newest suffix. DOCX input traces are reserved
+ * first so unrelated debug spam cannot evict a reproduction.
+ */
+export function buildCopiedLogPayload(input: CopiedLogPayloadInput): CopiedLogPayload {
+	const metadata = normalizeMetadata(input);
+	const logs = input.logs;
+	const reserved = logs.filter((entry) => isReservedDocxInputLog(entry));
+	if (reserved.length === 0) {
+		const ordinary = newestSuffixThatFits(metadata, logs, logs.length);
+		if (serialize(ordinary).length <= MAX_COPIED_LOG_CHARACTERS) {
+			return ordinary;
+		}
+	} else {
+		const reservedFit = newestSuffixThatFits(metadata, reserved, logs.length);
+		const reservedKept = reservedFit.logs;
+		const reservedCompacted = reservedKept.length === 1
+			&& reserved[reserved.length - 1] !== undefined
+			&& reservedKept[0] !== reserved[reserved.length - 1];
+		if (reservedCompacted || reservedKept.length === 0) {
+			if (serialize(reservedFit).length <= MAX_COPIED_LOG_CHARACTERS) {
+				return reservedFit;
+			}
+		} else {
+			const ordinary = logs.filter((entry) => !isReservedDocxInputLog(entry));
+			let low = 0;
+			let high = ordinary.length;
+			let bestCount = 0;
+			while (low <= high) {
+				const count = Math.floor((low + high) / 2);
+				const selected = mergeKeptLogs(logs, reservedKept, count === 0 ? [] : ordinary.slice(-count));
+				if (serialize(withLogs(metadata, selected, logs.length)).length <= MAX_COPIED_LOG_CHARACTERS) {
+					bestCount = count;
+					low = count + 1;
+				} else {
+					high = count - 1;
+				}
+			}
+			const selected = mergeKeptLogs(logs, reservedKept, bestCount === 0 ? [] : ordinary.slice(-bestCount));
+			const payload = withLogs(metadata, selected, logs.length);
+			if (serialize(payload).length <= MAX_COPIED_LOG_CHARACTERS) {
+				return payload;
+			}
+		}
 	}
 
 	// Plugin-controlled metadata should fit comfortably. Keep the contract

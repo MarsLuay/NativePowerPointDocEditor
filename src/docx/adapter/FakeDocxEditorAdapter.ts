@@ -2,7 +2,7 @@ import type { EditorMode } from '../runtime/contract';
 import type { EditorView } from 'prosemirror-view';
 import type {
 	ChromeListener,
-	Disposable,
+	ChromeObservation,
 	DocxEditorAdapter,
 	DocxFindMatch,
 	DocxFindOptions,
@@ -23,6 +23,7 @@ export interface FakeDocxEditorAdapterOptions {
 export class FakeDocxEditorAdapter implements DocxEditorAdapter {
 	readonly modes: EditorMode[] = [];
 	private readonly chromeListeners = new Set<ChromeListener>();
+	private readonly suspendedChromeListeners = new Set<ChromeListener>();
 
 	constructor(private readonly options: FakeDocxEditorAdapterOptions = {}) {}
 
@@ -30,13 +31,29 @@ export class FakeDocxEditorAdapter implements DocxEditorAdapter {
 		return this.options.serialize?.() ?? Promise.resolve(null);
 	}
 
-	observeChrome(listener: ChromeListener): Disposable {
+	observeChrome(listener: ChromeListener): ChromeObservation {
 		this.chromeListeners.add(listener);
-		return { dispose: () => this.chromeListeners.delete(listener) };
+		return {
+			suspend: () => {
+				this.suspendedChromeListeners.add(listener);
+			},
+			resume: () => {
+				this.suspendedChromeListeners.delete(listener);
+			},
+			dispose: () => {
+				this.chromeListeners.delete(listener);
+				this.suspendedChromeListeners.delete(listener);
+			},
+		};
 	}
 
 	emitChrome(records: MutationRecord[] = []): void {
-		for (const listener of this.chromeListeners) listener(records);
+		for (const listener of this.chromeListeners) {
+			if (this.suspendedChromeListeners.has(listener)) {
+				continue;
+			}
+			listener(records);
+		}
 	}
 
 	setMode(mode: EditorMode): void {

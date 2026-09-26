@@ -34,6 +34,42 @@ export interface LeafCharInfo {
  * state) so `scripts/smoke-selection-geometry.mjs` exercises the real shipped
  * code rather than a copy.
  */
+const GEOMETRY_OVERLAY_SELECTOR = [
+  '.native-powerpoint-svg-selection',
+  '.native-powerpoint-svg-caret',
+  '.native-powerpoint-run-highlight',
+  '[data-npde-geometry-overlay]',
+].join(', ');
+
+const GEOMETRY_MEASURE_SUSPENDED_CLASS = 'native-powerpoint-geometry-measure-suspended';
+
+function collectGeometryOverlays(root: Element, found: Element[]): void {
+  for (const child of Array.from(root.children)) {
+    if (typeof child.matches === 'function' && child.matches(GEOMETRY_OVERLAY_SELECTOR)) {
+      found.push(child);
+    }
+    collectGeometryOverlays(child, found);
+  }
+}
+
+function suspendGeometryOverlays(root: Element): Element[] {
+  const overlays: Element[] = [];
+  collectGeometryOverlays(root, overlays);
+  const suspended: Element[] = [];
+  for (const element of overlays) {
+    if (!element.classList || element.classList.contains(GEOMETRY_MEASURE_SUSPENDED_CLASS)) continue;
+    element.classList.add(GEOMETRY_MEASURE_SUSPENDED_CLASS);
+    suspended.push(element);
+  }
+  return suspended;
+}
+
+function restoreGeometryOverlays(suspended: Element[]): void {
+  for (const element of suspended) {
+    element.classList.remove(GEOMETRY_MEASURE_SUSPENDED_CLASS);
+  }
+}
+
 export class InlineTextGeometry {
   constructor(private readonly getCanvasPane: () => HTMLElement | null) {}
 
@@ -45,14 +81,19 @@ export class InlineTextGeometry {
     const pane = this.pane;
     if (!pane) return null;
 
-    const paneRect = pane.getBoundingClientRect();
-    const shapeRect = element.getBoundingClientRect();
-    return {
-      left: shapeRect.left - paneRect.left + pane.scrollLeft,
-      top: shapeRect.top - paneRect.top + pane.scrollTop,
-      width: shapeRect.width,
-      height: shapeRect.height
-    };
+    const suspended = suspendGeometryOverlays(element);
+    try {
+      const paneRect = pane.getBoundingClientRect();
+      const shapeRect = element.getBoundingClientRect();
+      return {
+        left: shapeRect.left - paneRect.left + pane.scrollLeft,
+        top: shapeRect.top - paneRect.top + pane.scrollTop,
+        width: shapeRect.width,
+        height: shapeRect.height
+      };
+    } finally {
+      restoreGeometryOverlays(suspended);
+    }
   }
 
   getScreenFontSize(element: SVGTextElement | SVGTSpanElement): number {

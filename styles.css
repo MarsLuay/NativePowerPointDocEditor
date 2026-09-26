@@ -291,8 +291,11 @@ body.native-powerpoint-doc-editor-theme-resolved-dark,
 	--doc-text: var(--npde-editor-text);
 	--doc-text-muted: var(--npde-editor-text-muted);
 	/* Page stays Word-white (no canvas invert). Vendor .dark sets a light
-	   --doc-caret for inverted canvas — keep document caret on page ink. */
+	   --doc-caret for inverted canvas — keep document caret on page ink.
+	   The dark runtime page token is only meaningful under its invert filter.
+	   NPDE disables that filter, so keep the token on the blank-slide white. */
 	--doc-caret: var(--npde-document-text);
+	--doc-page-bg: var(--npde-document-bg);
 }
 
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] button,
@@ -3000,6 +3003,41 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	position: relative;
 }
 
+.native-powerpoint-geometry-measure-suspended {
+	display: none;
+}
+
+.native-powerpoint-doc-editor-grammar-review {
+	background: var(--npde-editor-bg);
+	border-top: 1px solid var(--npde-editor-border);
+	color: var(--npde-editor-text);
+	font-size: 13px;
+	padding: 8px 12px;
+}
+
+.native-powerpoint-doc-editor-grammar-review-item {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+	justify-content: space-between;
+}
+
+.native-powerpoint-doc-editor-grammar-mark {
+	text-decoration: underline;
+}
+
+.native-powerpoint-grammar-review {
+	background: var(--npde-editor-bg);
+	border: 1px solid var(--npde-editor-border);
+	color: var(--npde-editor-text);
+	font-size: 13px;
+	padding: 8px 12px;
+	position: absolute;
+	right: 16px;
+	top: 16px;
+	z-index: 5;
+}
+
 .native-powerpoint-slide-surface {
 	background: var(--npde-document-bg);
 	box-shadow: var(--npde-document-shadow);
@@ -4517,6 +4555,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 	--doc-text-muted: var(--npde-editor-text-muted);
 	--doc-text-subtle: var(--npde-editor-text-faint);
 	--doc-text-placeholder: var(--npde-editor-text-faint);
+	/* Outranks the vendor dark page token so a blank page stays the slide
+	   white after the invert filter is disabled. */
+	--doc-page-bg: var(--npde-document-bg);
 	--doc-primary: var(--npde-editor-accent);
 	--doc-primary-hover: var(--npde-editor-accent-hover);
 	--doc-primary-light: color-mix(in srgb, var(--npde-editor-accent) 18%, transparent);

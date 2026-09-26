@@ -19,6 +19,8 @@ import {
 	infoLog,
 	setNativePowerPointDocEditorLogSink,
 } from './logger';
+import { createGrammarCheckingCoordinator, type GrammarCheckingCoordinator } from './harper/grammarCheckingCoordinator';
+import { createHarperGrammarService } from './harper/harperGrammarService';
 import { configureObsidianRuntime, configureChromiumVersionReader } from './obsidianRuntime';
 import { loadDocxEditorLocale, preloadDocxEditorLocale, resolveAutomaticDocxEditorLanguage, type NativePowerPointDocEditorLanguage } from './locales';
 import { initPluginI18n, resolvePluginLocale } from './i18n/pluginI18n';
@@ -150,6 +152,7 @@ function getCopiedLogDiagnostics(app: unknown): CopiedLogDiagnostics {
 
 export default class NativePowerPointDocEditorPlugin extends Plugin {
 	pluginSettings!: NativePowerPointDocEditorSettings;
+	private grammarChecking: GrammarCheckingCoordinator | null = null;
 	i18n: PluginI18nService | null = null;
 	private docxSearchIndex: DocxSearchIndex | null = null;
 	private forceJsBackendDevOverride = false;
@@ -191,6 +194,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.setupGrammarChecking();
 		this.initializeDocumentWordCountStatus();
 		await initPluginI18n(this, await resolvePluginLocale(this));
 		const docxLanguage = this.getResolvedDocxEditorLanguage();
@@ -365,6 +369,38 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-resolved-theme');
 		setNativePowerPointDocEditorLogSink(null);
+		void this.grammarChecking?.dispose();
+		this.grammarChecking = null;
+	}
+
+	applyGrammarChecking(): void {
+		this.grammarChecking?.setEnabled(this.pluginSettings.enableGrammarChecking);
+	}
+
+	requestGrammarLint(text: string) {
+		return this.grammarChecking?.requestLint(text) ?? Promise.resolve(null);
+	}
+
+	private setupGrammarChecking(): void {
+		const service = createHarperGrammarService({
+			createLinter: () => {
+				throw new Error('Harper runtime exceeds the 5 MB artifact budget.');
+			},
+			log: (entry) => {
+				if (entry.level === 'error') {
+					errorLog('harper', entry.message, entry.data);
+					return;
+				}
+				debugLog('harper', entry.message, entry.data);
+			},
+		});
+		this.grammarChecking = createGrammarCheckingCoordinator({
+			service,
+			clearDiagnostics: () => {
+				debugLog('harper', 'Cleared grammar diagnostics', {});
+			},
+		});
+		this.grammarChecking.setEnabled(this.pluginSettings.enableGrammarChecking);
 	}
 
 	private initializeDocumentWordCountStatus() {

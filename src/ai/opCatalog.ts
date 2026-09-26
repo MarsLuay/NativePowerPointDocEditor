@@ -56,19 +56,30 @@ function pptxOp(
 	};
 }
 
+const PERSISTENT_PARAGRAPH_ANCHOR: JsonSchema = {
+	type: 'string',
+	description: 'Persistent w14:paraId from describe(). Authoritative paragraph identity when present. Positional ids remain accepted, but a stale positional id must not retarget this anchor.',
+};
+
 function docxOp(
 	id: string,
 	featureArea: string,
 	description: string,
 	parameters: JsonSchema,
 ): OpDefinition {
+	const properties = parameters.properties;
+	const targetsParagraph = Boolean(
+		properties && !properties.anchor && (properties.blockId || properties.afterBlockId || properties.runId),
+	);
 	return {
 		id: `docx.${id}`,
 		namespace: 'docx',
 		featureArea,
 		description,
 		status: 'implemented',
-		parameters,
+		parameters: targetsParagraph && properties
+			? { ...parameters, properties: { ...properties, anchor: PERSISTENT_PARAGRAPH_ANCHOR } }
+			: parameters,
 	};
 }
 
@@ -82,9 +93,9 @@ const DOCX_TEXT_POSITION: JsonSchema = {
 	type: 'object',
 	required: ['blockId', 'offset'],
 	properties: {
-		blockId: { type: 'string', description: 'Positional paragraph id retained for compatibility, e.g. body/p[0].' },
-		anchor: { type: 'string', description: 'Persistent w14:paraId paragraph anchor; resolves blockId after structural edits.' },
-		runId: { type: 'string', description: 'Optional anchor run id; must belong to blockId when provided.' },
+		blockId: { type: 'string', description: 'Positional compatibility paragraph id from describe(), e.g. body/p[0].' },
+		anchor: PERSISTENT_PARAGRAPH_ANCHOR,
+		runId: { type: 'string', description: 'Optional positional run id; must belong to the resolved paragraph when provided.' },
 		offset: DOCX_PARAGRAPH_OFFSET,
 	},
 	additionalProperties: false,
@@ -351,19 +362,17 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		type: 'object',
 		required: ['blockId', 'runId', 'text'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional compatibility id, e.g. body/p[12], header/1/p[0]' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'e.g. body/p[12], header/1/p[0], footnotes/fn[1]/p[0]' },
 			runId: { type: 'string', description: 'e.g. body/p[12]/r[0]' },
 			text: { type: 'string' },
 		},
 		additionalProperties: false,
 	}),
-	docxOp('setRunStyle', 'font', 'Apply run style by a run id and optional persistent paragraph anchor.', {
+	docxOp('setRunStyle', 'font', 'Apply run style by stable id.', {
 		type: 'object',
 		required: ['runId', 'style'],
 		properties: {
 			runId: { type: 'string' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
 			style: { type: 'object', additionalProperties: true },
 		},
 		additionalProperties: false,
@@ -373,7 +382,6 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		required: ['blockId', 'style'],
 		properties: {
 			blockId: { type: 'string' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
 			style: { type: 'object', additionalProperties: true },
 		},
 		additionalProperties: false,
@@ -382,8 +390,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		type: 'object',
 		required: ['blockId', 'style'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional compatibility id from describe(), e.g. body/p[22].' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[22].' },
 			style: {
 				type: 'object',
 				properties: {
@@ -403,8 +410,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		type: 'object',
 		required: ['blockId', 'layout'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional compatibility id from describe(), e.g. body/p[12].' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[12].' },
 			layout: {
 				type: 'object',
 				properties: {
@@ -491,8 +497,7 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		type: 'object',
 		required: ['blockId', 'border'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional compatibility id from describe(), e.g. body/p[0].' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[0].' },
 			border: {
 				type: 'object',
 				required: ['style'],
@@ -508,15 +513,52 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		additionalProperties: false,
 	}),
 
-	// DOCX — table / structural paragraph insertion
-	docxOp('insertParagraphsAfter', 'font', 'Atomically insert native paragraphs after a persistent or positional paragraph anchor.', {
+	// DOCX — table
+	docxOp('insertParagraphs', 'font', 'Atomically insert one or more native paragraphs before or after a persistent paragraph anchor, inheriting only the requested template properties.', {
+		type: 'object',
+		required: ['placement', 'anchor', 'paragraphs'],
+		properties: {
+			placement: { type: 'string', enum: ['before', 'after'], description: 'Insert relative to the persistent anchor.' },
+			anchor: { type: 'string', description: 'Persistent w14:paraId of the placement paragraph.' },
+			templateAnchor: { type: 'string', description: 'Optional persistent anchor whose properties are copied. Defaults to anchor.' },
+			inherit: {
+				type: 'object',
+				description: 'When omitted, paragraph, run, layout, border, and list are all inherited. When present, omitted keys are not inherited.',
+				properties: {
+					paragraph: { type: 'boolean' },
+					run: { type: 'boolean' },
+					layout: { type: 'boolean' },
+					border: { type: 'boolean' },
+					list: { type: 'boolean' },
+				},
+				additionalProperties: false,
+			},
+			paragraphs: {
+				type: 'array',
+				minimum: 1,
+				items: {
+					type: 'object',
+					required: ['text'],
+					properties: {
+						text: { type: 'string', description: 'One paragraph of text. Do not include line breaks or literal bullet characters.' },
+						listStyle: {
+							type: 'string',
+							enum: ['none', 'bullet', 'number'],
+							description: 'none drops inherited numbering. bullet and number keep the template numPr and do not insert a bullet character.',
+						},
+						bold: { type: 'boolean' },
+					},
+					additionalProperties: false,
+				},
+			},
+		},
+		additionalProperties: false,
+	}),
+	docxOp('insertParagraphsAfter', 'font', 'Insert one or more native DOCX paragraphs after a paragraph anchor and return their new block ids. Inherits the anchor paragraph properties, including native list formatting.', {
 		type: 'object',
 		required: ['afterBlockId', 'paragraphs'],
 		properties: {
-			afterBlockId: { type: 'string', description: 'Positional compatibility paragraph id.' },
-			anchor: { type: 'string', description: 'Persistent w14:paraId of the placement paragraph.' },
-			templateBlockId: { type: 'string', description: 'Optional positional paragraph whose properties are inherited.' },
-			templateAnchor: { type: 'string', description: 'Optional persistent anchor whose properties are inherited.' },
+			afterBlockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[3].' },
 			paragraphs: {
 				type: 'array',
 				minimum: 1,
@@ -525,12 +567,13 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 					required: ['text'],
 					properties: {
 						text: { type: 'string', description: 'One paragraph of text; do not include line breaks.' },
-						listStyle: { type: 'string', enum: ['none', 'bullet', 'number'] },
-						bold: { type: 'boolean' },
-						runStyle: { type: 'object', additionalProperties: false, properties: {
-							bold: { type: 'boolean' }, italic: { type: 'boolean' }, underline: { type: 'boolean' },
-							fontFamily: { type: 'string', minLength: 1 }, fontSizePt: { type: 'number', minimum: 0.5 }, color: { type: 'string' },
-						} },
+						listStyle: {
+							type: 'string',
+							enum: ['none', 'bullet', 'number'],
+							description: 'Optional. none removes inherited numbering; bullet/number preserve the anchor paragraph’s native numbering properties.',
+						},
+						bold: { type: 'boolean', description: 'Optional bold state for the inserted paragraph text.' },
+						runStyle: { type: 'object', additionalProperties: true },
 						layout: { type: 'object', additionalProperties: true },
 						border: { type: 'object', required: ['style'], additionalProperties: true },
 						listLevel: { type: 'integer', minimum: 0 },
@@ -542,19 +585,31 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
-	docxOp('insertParagraphsBefore', 'font', 'Atomically insert native paragraphs before a persistent or positional paragraph anchor.', {
+	docxOp('insertParagraphsBefore', 'font', 'Insert one or more native DOCX paragraphs before a paragraph anchor.', {
 		type: 'object',
 		required: ['beforeBlockId', 'paragraphs'],
 		properties: {
 			beforeBlockId: { type: 'string' },
 			anchor: { type: 'string' },
-			templateBlockId: { type: 'string' },
-			templateAnchor: { type: 'string' },
-			paragraphs: { type: 'array', minimum: 1, items: { type: 'object', required: ['text'], properties: {
-				text: { type: 'string' }, listStyle: { type: 'string', enum: ['none', 'bullet', 'number'] }, bold: { type: 'boolean' },
-				runStyle: { type: 'object', additionalProperties: true }, layout: { type: 'object', additionalProperties: true },
-				border: { type: 'object', additionalProperties: true }, listLevel: { type: 'integer', minimum: 0 }, numId: { type: 'integer', minimum: 0 },
-			}, additionalProperties: false } },
+			paragraphs: {
+				type: 'array',
+				minimum: 1,
+				items: {
+					type: 'object',
+					required: ['text'],
+					properties: {
+						text: { type: 'string' },
+						listStyle: { type: 'string', enum: ['none', 'bullet', 'number'] },
+						bold: { type: 'boolean' },
+						runStyle: { type: 'object', additionalProperties: true },
+						layout: { type: 'object', additionalProperties: true },
+						border: { type: 'object', additionalProperties: true },
+						listLevel: { type: 'integer', minimum: 0 },
+						numId: { type: 'integer', minimum: 0 },
+					},
+					additionalProperties: false,
+				},
+			},
 		},
 		additionalProperties: false,
 	}),
@@ -563,7 +618,6 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		required: ['afterBlockId', 'rows', 'cols'],
 		properties: {
 			afterBlockId: { type: 'string' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor when afterBlockId is a paragraph.' },
 			rows: { type: 'integer', minimum: 1 },
 			cols: { type: 'integer', minimum: 1 },
 		},
@@ -616,12 +670,11 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		additionalProperties: false,
 	}),
 
-	docxOp('insertText', 'font', 'Insert text at a paragraph offset identified by a persistent anchor or positional compatibility id.', {
+	docxOp('insertText', 'font', 'Insert text at a paragraph offset identified by describe() block/run ids.', {
 		type: 'object',
 		required: ['blockId', 'offset', 'text'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional paragraph compatibility id, e.g. body/p[0].' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'Paragraph block id, e.g. body/p[0].' },
 			runId: { type: 'string', description: 'Optional anchor run id, e.g. body/p[0]/r[0].' },
 			offset: DOCX_PARAGRAPH_OFFSET,
 			text: { type: 'string' },
@@ -636,12 +689,11 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
-	docxOp('deleteBlock', 'font', 'Delete one complete paragraph block by persistent anchor or positional compatibility id.', {
+	docxOp('deleteBlock', 'font', 'Delete one complete paragraph block without merging it into adjacent paragraphs.', {
 		type: 'object',
 		required: ['blockId'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional paragraph compatibility id.' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[0].' },
 		},
 		additionalProperties: false,
 	}),
@@ -664,12 +716,11 @@ export const OP_CATALOG: readonly OpDefinition[] = [
 		},
 		additionalProperties: false,
 	}),
-	docxOp('insertParagraphBreak', 'font', 'Split a paragraph at an offset without rewriting the whole part.', {
+	docxOp('insertParagraphBreak', 'font', 'Split a paragraph at an offset without rewriting the whole part. Prefer docx.replaceBodyParagraphs when writing a full multi-paragraph letter from scratch.', {
 		type: 'object',
 		required: ['blockId', 'offset'],
 		properties: {
-			blockId: { type: 'string', description: 'Positional paragraph compatibility id.' },
-			anchor: { type: 'string', description: 'Persistent paragraph anchor from describe().' },
+			blockId: { type: 'string', description: 'Paragraph block id, e.g. body/p[0].' },
 			runId: { type: 'string', description: 'Optional anchor run id, e.g. body/p[0]/r[0].' },
 			offset: DOCX_PARAGRAPH_OFFSET,
 		},

@@ -1,6 +1,7 @@
 import { FileView, Menu, Platform, TFile, WorkspaceLeaf, normalizePath, setIcon } from 'obsidian';
 
 import { pptNotice, pptT } from '../../i18n/powerpointNotify';
+import { createPptxTextGrammarSession, type PptxGrammarDiagnostic, type PptxTextGrammarSession } from '../../harper/pptxGrammarEditing';
 import type { TranslateFn, TranslateValues } from '../../i18n/translate';
 
 import {
@@ -252,6 +253,12 @@ export class NativePowerPointView extends FileView {
   }
 
   private readonly getSettings: () => NativePowerPointSettings;
+  private readonly getGrammar: () => {
+    enabled: () => boolean;
+    requestLint: (text: string) => Promise<import('../../harper/harperGrammarService').HarperGrammarLint[] | null>;
+  };
+  private pptxGrammar: PptxTextGrammarSession | null = null;
+  private pptxGrammarReviewEl: HTMLElement | null = null;
 
   private engine: PresentationEngine | null = null;
   private loadedFile: TFile | null = null;
@@ -443,9 +450,17 @@ export class NativePowerPointView extends FileView {
     getSettings: () => NativePowerPointSettings,
     private onWordCountChange: (wordCount: DocumentWordCount) => void = () => {},
     private onWordCountClear: () => void = () => {},
+    getGrammar: () => {
+      enabled: () => boolean;
+      requestLint: (text: string) => Promise<import('../../harper/harperGrammarService').HarperGrammarLint[] | null>;
+    } = () => ({
+      enabled: () => false,
+      requestLint: async () => null,
+    }),
   ) {
     super(leaf);
     this.getSettings = getSettings;
+    this.getGrammar = getGrammar;
     this.historyController = new HistoryController(this.createHistoryHost());
     this.session = new PresentationSession(this.createSaveHost(), {
       history: {
@@ -1223,6 +1238,7 @@ export class NativePowerPointView extends FileView {
   refreshSettings(): void {
     this.applyThemeClass();
     this.applyInspectorVisibility();
+    this.pptxGrammar?.setEnabled(this.getGrammar().enabled());
     if (this.getSettings().showInspector) {
       this.renderInspector();
     }
@@ -7414,6 +7430,7 @@ export class NativePowerPointView extends FileView {
       this.resetInlineEditorScroll(editor);
       updateCaret();
     });
+    this.attachPptxGrammar(editor);
     editor.addEventListener('input', () => {
       if (this.activeEditor === editor) {
         // Structural edits lock the textarea and rewrite value; ignore spurious
@@ -7804,6 +7821,7 @@ export class NativePowerPointView extends FileView {
 
     const caret = svg.ownerDocument.createElementNS(SVG_NAMESPACE, 'line');
     caret.classList.add('native-powerpoint-svg-caret');
+    caret.setAttribute('data-npde-geometry-overlay', 'true');
     caret.setAttribute('aria-hidden', 'true');
     svg.appendChild(caret);
     debugLog('text-edit', 'Created PowerPoint inline caret', {
@@ -7843,6 +7861,66 @@ export class NativePowerPointView extends FileView {
     }
   }
 
+  private attachPptxGrammar(editor: HTMLTextAreaElement): void {
+    const grammar = this.getGrammar();
+    this.pptxGrammar = createPptxTextGrammarSession({
+      getEnabled: () => grammar.enabled(),
+      requestLint: (text) => grammar.requestLint(text),
+      onReview: (diagnostics) => this.renderPptxGrammarReview(diagnostics),
+      log: (data) => debugLog('harper', 'PowerPoint grammar diagnostics', data),
+    });
+    const note = () => {
+      if (this.activeEditor !== editor) return;
+      this.pptxGrammar?.noteText(editor.value);
+    };
+    editor.addEventListener('compositionstart', () => this.pptxGrammar?.setComposing(true));
+    editor.addEventListener('compositionend', () => {
+      this.pptxGrammar?.setComposing(false);
+      note();
+    });
+    editor.addEventListener('input', () => {
+      if (editor.readOnly) return;
+      this.pptxGrammar?.setComposing(false);
+      note();
+    });
+  }
+
+  private renderPptxGrammarReview(diagnostics: readonly PptxGrammarDiagnostic[]): void {
+    this.pptxGrammarReviewEl?.remove();
+    this.pptxGrammarReviewEl = null;
+    if (!this.canvasPane || diagnostics.length === 0) return;
+    const review = this.canvasPane.createDiv({ cls: 'native-powerpoint-grammar-review' });
+    review.setAttr('role', 'region');
+    review.setAttr('aria-label', 'Grammar');
+    for (const diagnostic of diagnostics) {
+      const row = review.createDiv({ cls: 'native-powerpoint-grammar-review-item' });
+      row.createEl('p', { text: diagnostic.message });
+      diagnostic.suggestions.forEach((suggestion, index) => {
+        const label = suggestion.kind === 'remove' ? 'Remove' : suggestion.replacement || 'Apply';
+        row.createEl('button', { text: label }).addEventListener('click', () => {
+          void this.applyPptxGrammarSuggestion(diagnostic.id, index);
+        });
+      });
+    }
+    this.pptxGrammarReviewEl = review;
+  }
+
+  private async applyPptxGrammarSuggestion(id: string, suggestionIndex: number): Promise<void> {
+    const editor = this.activeEditor;
+    const next = this.pptxGrammar?.apply(id, suggestionIndex);
+    if (!editor || next == null) return;
+    this.recordInlineEditSnapshot(editor);
+    this.setInlineEditorValue(editor, next);
+    await this.applyTextValue(next, this.activeShapeTextTarget);
+  }
+
+  private clearPptxGrammar(): void {
+    this.pptxGrammar?.clear();
+    this.pptxGrammar = null;
+    this.pptxGrammarReviewEl?.remove();
+    this.pptxGrammarReviewEl = null;
+  }
+
   private removeActiveEditor(editor = this.activeEditor): void {
     if (editor && this.activeEditor && editor !== this.activeEditor) return;
 
@@ -7880,6 +7958,7 @@ export class NativePowerPointView extends FileView {
       this.updateTextToolbar();
     }
     this.historyController.updateAvailability();
+    this.clearPptxGrammar();
     if (this.presentationWordCountNeedsRefresh) {
       this.schedulePresentationWordCountRefresh('inline-editor-closed');
     }
@@ -10206,6 +10285,7 @@ export class NativePowerPointView extends FileView {
     for (const box of boxes) {
       const rect = textElement.ownerDocument.createElementNS(SVG_NAMESPACE, 'rect');
       rect.classList.add('native-powerpoint-svg-selection');
+      rect.setAttribute('data-npde-geometry-overlay', 'true');
       rect.setAttribute('x', this.formatSvgNumber(box.x));
       rect.setAttribute('y', this.formatSvgNumber(box.y));
       rect.setAttribute('width', this.formatSvgNumber(box.width));
@@ -10769,6 +10849,7 @@ export class NativePowerPointView extends FileView {
         for (const box of this.getSvgInlineSelectionBoxes(span, 0, total)) {
           const rect = textElement.ownerDocument.createElementNS(SVG_NAMESPACE, 'rect');
           rect.classList.add('native-powerpoint-run-highlight');
+          rect.setAttribute('data-npde-geometry-overlay', 'true');
           rect.setAttribute('x', this.formatSvgNumber(box.x));
           rect.setAttribute('y', this.formatSvgNumber(box.y));
           rect.setAttribute('width', this.formatSvgNumber(box.width));

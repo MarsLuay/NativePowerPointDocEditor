@@ -43,9 +43,9 @@ const STABLE_ID_RULES: StableIdRules = {
 	pptxShape: 'slide:<slideIndex>/shape:<shapeIndex>',
 	pptxParagraph: 'slide:<slideIndex>/shape:<shapeIndex>/p:<paragraphIndex>',
 	pptxRun: 'slide:<slideIndex>/shape:<shapeIndex>/p:<paragraphIndex>/r:<runIndex>',
-	docxBlock: 'Positional body/p[<index>] | body/tbl[<index>]/tr[<row>]/tc[<col>] compatibility ids; paragraph blocks expose persistent w14:paraId anchors for mutation.',
-	docxRun: 'body/p[<index>]/r[<runIndex>] compatibility run id; supply the paragraph anchor when structure may have shifted.',
-	docxTextPosition: '{ blockId: positional paragraph id, anchor?: persistent w14:paraId, offset: 0-based char offset, runId?: optional run id }',
+	docxBlock: 'Authoritative paragraph identity is the persistent w14:paraId on block.anchor. Positional body/p[<index>] remains a compatibility path and is not authoritative after insert, delete, or split. Tables stay body/tbl[<index>]/tr[<row>]/tc[<col>].',
+	docxRun: 'body/p[<index>]/r[<runIndex>] is a compatibility location. Pass the paragraph anchor so a stale positional run does not retarget a different paragraph.',
+	docxTextPosition: '{ blockId: positional compatibility id, offset: 0-based char offset, runId?: positional run, anchor?: persistent w14:paraId }',
 	docxTextRange: '{ start: docxTextPosition, end: docxTextPosition } — same part; end block/run must not precede start',
 	editableRule: 'PPTX shape indices must be integers >= 0. Negative indices are inherited placeholders.',
 };
@@ -64,7 +64,7 @@ const CLIPBOARD_COMMANDS: Record<string, ClipboardCommandSpec> = {
 	'npde-ai-apply': {
 		input: '{ "path"?: "vault/file.pptx", "ops": DocumentOp[], "dryRun"?: boolean, "expectedRevision"?: string }',
 		output: 'ApplyResult',
-		notes: 'Omit path to use the active PPTX/DOCX file.',
+		notes: 'DOCX rejects a stale expectedRevision before mutation. Successful edits return revisionBefore and revisionAfter. Paragraph operations may include anchor; when present it overrides a stale positional id.',
 	},
 	'npde-ai-validate': {
 		input: '{ "ops": DocumentOp[] }',

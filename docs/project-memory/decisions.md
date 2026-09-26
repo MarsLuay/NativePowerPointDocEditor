@@ -6,3 +6,5 @@
 - Keep DOCX and PowerPoint handling independently disableable through plugin settings, so another plugin can own either extension.
 - Keep normal operation local/offline. Network access is limited to explicit external-link use or DOCX exports whose images reference remote URLs; there is no telemetry or self-updating code.
 - Use a deterministic, content-derived DOCX revision token for optimistic concurrency. AI apply must reject a caller-supplied stale revision before changing the document.
+- Keep positional `docx.insertParagraphsAfter`. Multi-paragraph before/after insertion with selective template inheritance is `docx.insertParagraphs` and addresses paragraphs by persistent anchor.
+- Treat `w14:paraId` as the authoritative DOCX paragraph identity on structural and follow-up edits. Positional block ids stay accepted only as a compatibility path.

@@ -109,6 +109,7 @@ const requiredDocxDarkDocumentFragments = [
 	'--doc-caret: var(--npde-document-text);',
 	'[data-native-powerpoint-doc-editor-page] {',
 	'background: var(--npde-document-bg);',
+	'--doc-page-bg: var(--npde-document-bg);',
 	'color: var(--npde-document-text);',
 	'color-scheme: light;',
 	'filter: none;',
@@ -167,6 +168,13 @@ for (const fragment of requiredDocxDarkDocumentFragments) {
 			`${path.relative(process.cwd(), stylePath)} must keep DOCX dark mode chrome separate from the white document page: ${fragment}`,
 		);
 	}
+}
+
+const docPageBgOverrides = css.split('--doc-page-bg: var(--npde-document-bg);').length - 1;
+if (docPageBgOverrides < 2) {
+	failures.push(
+		`${path.relative(process.cwd(), stylePath)} must remap --doc-page-bg to --npde-document-bg on both the always-on DOCX root and the resolved-dark root so the vendor dark page token cannot tint an unfiltered page.`,
+	);
 }
 
 for (const fragment of requiredDocxCaretOnWhitePageFragments) {

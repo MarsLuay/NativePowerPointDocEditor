@@ -2,13 +2,15 @@ import type { Vault } from 'obsidian';
 import { getImageMimeType } from '../PowerPointInsertModals';
 import {
 	deleteTableInPart,
+	findParagraphByAnchorInPart,
 	getParagraphXml,
+	resolveParagraphReferenceInPart,
 	getTableCellXmlFromPart,
 	insertBlockAfterInPart,
 	replaceParagraphXml,
 	replaceTableCellXmlInPart,
 } from './docxBlockResolver';
-import { DOCX_CORE_PROPERTIES_PATH, listReplaceTextPartPaths, resolvePartPath } from './docxParts';
+import { DOCX_CORE_PROPERTIES_PATH, listDocxDescribeParts, listReplaceTextPartPaths, resolvePartPath } from './docxParts';
 import { removeAllDocxComments } from './docxComments';
 import { patchDocxCoreProperties } from './docxCoreProperties';
 import { addInlineImage, replaceInlineImage } from './docxMedia';
@@ -25,6 +27,7 @@ import {
 	patchRunText,
 	getRunText,
 	replacePartText,
+	type DocxParagraphBottomBorderPatch,
 	type DocxRunStylePatch,
 } from './docxOoxmlWrite';
 import {
@@ -42,17 +45,17 @@ import {
 	applyDeleteRangeInPart,
 	applyInsertHyperlinkInPart,
 	applyInsertParagraphsAfterInPart,
-	applyInsertParagraphsBeforeInPart,
+	applyInsertParagraphsInPart,
 	applyInsertParagraphBreakInPart,
+	FULL_PARAGRAPH_INHERITANCE,
+	type DocxParagraphInheritance,
 	applyInsertTextInPart,
 	applyRemoveHyperlinkInPart,
-	resolveTextPositionInPart,
-	resolveTextRangeInPart,
 	type DocxTextPosition,
 	type DocxTextRange,
 } from './docxParagraphEdit';
 import { parseStableLocation } from './docxStableIds';
-import { AI_ERROR_CODES, createAiError } from './errors';
+import { AI_ERROR_CODES, createAiError, isAiErrorDetail } from './errors';
 import type { ApplyPreviewChange, ApplyResult, DocumentOp } from './types';
 import { readVaultBinaryFile } from './vaultBinary';
 
@@ -336,10 +339,18 @@ function setPartXmlForLocation(
 	session.setPartXml(resolvePartPath(location), partXml);
 }
 
-function resolveParagraphReference(
+function remapRunId(blockId: string, runId: string): string {
+	const parsed = parseStableLocation(runId);
+	if (!parsed || parsed.kind !== 'run') {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid runId: ${runId}.`, { field: 'runId' });
+	}
+	return `${blockId}/r[${parsed.runIndex ?? 0}]`;
+}
+
+function resolveParagraphTarget(
 	session: DocxPatchSession,
 	blockId: string,
-	anchor: string | undefined,
+	anchor: unknown,
 	field: string,
 ): { location: NonNullable<ReturnType<typeof parseStableLocation>>; blockId: string; partXml: string; anchor: string } {
 	const requested = parseStableLocation(blockId);
@@ -347,29 +358,86 @@ function resolveParagraphReference(
 		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid ${field}: ${blockId}.`, { field });
 	}
 	const partXml = getPartXmlForLocation(session, requested);
-	const resolved = resolveTextPositionInPart(partXml, { blockId, offset: 0, ...(anchor ? { anchor } : {}) });
-	const location = parseStableLocation(resolved.blockId);
-	if (!location || location.kind !== 'paragraph') {
-		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Paragraph ${blockId} was not found.`, { field });
-	}
-	return { location, blockId: resolved.blockId, partXml, anchor: resolved.anchor ?? anchor ?? '' };
+	const resolved = resolveParagraphReferenceInPart(
+		partXml,
+		blockId,
+		typeof anchor === 'string' ? anchor : undefined,
+	);
+	return { location: resolved.location, blockId: resolved.blockId, partXml, anchor: resolved.anchor };
 }
 
-function resolveRangeInPart(
+function resolveTextTarget(
 	session: DocxPatchSession,
-	range: DocxTextRange,
-): { range: DocxTextRange; partXml: string; location: NonNullable<ReturnType<typeof parseStableLocation>> } {
-	const requested = parseStableLocation(range.start.blockId);
-	if (!requested || requested.kind !== 'paragraph') {
-		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid range.start.blockId: ${range.start.blockId}.`, { field: 'range.start.blockId' });
+	position: DocxTextPosition,
+	field: string,
+): { position: DocxTextPosition; location: NonNullable<ReturnType<typeof parseStableLocation>>; partXml: string } {
+	const resolved = resolveParagraphTarget(session, position.blockId, position.anchor, field);
+	const runId = position.runId ? remapRunId(resolved.blockId, position.runId) : undefined;
+	return {
+		position: {
+			...position,
+			blockId: resolved.blockId,
+			...(runId ? { runId } : {}),
+			...(resolved.anchor ? { anchor: resolved.anchor } : {}),
+		},
+		location: resolved.location,
+		partXml: resolved.partXml,
+	};
+}
+
+function findParagraphAnchor(
+	session: DocxPatchSession,
+	anchor: string,
+	field: string,
+): { location: NonNullable<ReturnType<typeof parseStableLocation>>; blockId: string; partXml: string; paragraphXml: string } {
+	const matches = [];
+	for (const part of listDocxDescribeParts(session.getZip())) {
+		if (!session.hasPart(part.path)) continue;
+		const partXml = session.getPartXml(part.path);
+		try {
+			const block = findParagraphByAnchorInPart(partXml, part, anchor);
+			const location = parseStableLocation(block.id);
+			if (!location || location.kind !== 'paragraph') continue;
+			matches.push({ location, blockId: block.id, partXml, paragraphXml: block.xml });
+		} catch (error) {
+			if (!isAiErrorDetail(error) || error.code !== AI_ERROR_CODES.BLOCK_NOT_FOUND) {
+				throw error;
+			}
+		}
 	}
-	const partXml = getPartXmlForLocation(session, requested);
-	const resolvedRange = resolveTextRangeInPart(partXml, range);
-	const location = parseStableLocation(resolvedRange.start.blockId);
-	if (!location || location.kind !== 'paragraph') {
-		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, 'Range block anchors were not found.', { field: 'range' });
+	if (matches.length !== 1) {
+		throw createAiError(
+			AI_ERROR_CODES.BLOCK_NOT_FOUND,
+			matches.length === 0
+				? `Paragraph anchor ${anchor} was not found.`
+				: `Paragraph anchor ${anchor} is not unique.`,
+			{ field },
+		);
 	}
-	return { range: resolvedRange, partXml, location };
+	return matches[0]!;
+}
+
+function parseParagraphInheritance(value: unknown): DocxParagraphInheritance {
+	if (value === undefined) return { ...FULL_PARAGRAPH_INHERITANCE };
+	if (!value || typeof value !== 'object' || Array.isArray(value)) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'inherit must be an object.', { field: 'inherit' });
+	}
+	const record = value as Record<string, unknown>;
+	const inheritance: DocxParagraphInheritance = {
+		paragraph: false,
+		run: false,
+		layout: false,
+		border: false,
+		list: false,
+	};
+	for (const key of ['paragraph', 'run', 'layout', 'border', 'list'] as const) {
+		if (record[key] === undefined) continue;
+		if (typeof record[key] !== 'boolean') {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `inherit.${key} must be boolean.`, { field: `inherit.${key}` });
+		}
+		inheritance[key] = record[key];
+	}
+	return inheritance;
 }
 
 async function executeCommentsAndMetadataOp(
@@ -431,28 +499,21 @@ function executeFormattingOp(
 ): void {
 	switch (opId) {
 		case 'docx.setRunStyle': {
-			let runId = requireString(record.runId, 'runId');
+			const requestedRunId = requireString(record.runId, 'runId');
 			const style = asRunStylePatch(record.style);
-			rejectWriteOnlyExcludedId(runId, 'runId');
-			let parsedRun = parseStableLocation(runId);
+			rejectWriteOnlyExcludedId(requestedRunId, 'runId');
+			const resolved = resolveParagraphTarget(
+				context.session,
+				requestedRunId.replace(/\/r\[\d+\]$/, ''),
+				record.anchor,
+				'runId',
+			);
+			const runId = remapRunId(resolved.blockId, requestedRunId);
+			const parsedRun = parseStableLocation(runId);
 			if (!parsedRun || parsedRun.kind !== 'run') {
 				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid runId: ${runId}.`, { field: 'runId' });
 			}
-			let partXml = getPartXmlForLocation(context.session, parsedRun);
-			if (typeof record.anchor === 'string') {
-				const resolved = resolveTextPositionInPart(partXml, {
-					blockId: runId.replace(/\/r\[\d+\]$/, ''),
-					offset: 0,
-					runId,
-					anchor: record.anchor,
-				});
-				runId = resolved.runId!;
-				parsedRun = parseStableLocation(runId);
-				if (!parsedRun || parsedRun.kind !== 'run') {
-					throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Run ${runId} was not found.`, { field: 'runId' });
-				}
-				partXml = getPartXmlForLocation(context.session, parsedRun);
-			}
+			let partXml = resolved.partXml;
 			const paragraphXml = getParagraphXml(partXml, parsedRun);
 			const nextParagraphXml = patchRunStyle(paragraphXml, parsedRun.runIndex ?? 0, style);
 			partXml = replaceParagraphXml(partXml, parsedRun, nextParagraphXml);
@@ -465,14 +526,14 @@ function executeFormattingOp(
 			break;
 		}
 		case 'docx.setParagraphStyle': {
-			let blockId = requireString(record.blockId, 'blockId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
 			const style = record.style;
 			if (!style || typeof style !== 'object') {
 				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'style must be an object.', { field: 'style' });
 			}
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const resolved = resolveParagraphReference(context.session, blockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
-			blockId = resolved.blockId;
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
+			const blockId = resolved.blockId;
 			const parsed = resolved.location;
 			let partXml = resolved.partXml;
 			const paragraphXml = getParagraphXml(partXml, parsed);
@@ -487,11 +548,11 @@ function executeFormattingOp(
 			break;
 		}
 		case 'docx.setParagraphDefaultRunStyle': {
-			let blockId = requireString(record.blockId, 'blockId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
 			const style = asRunStylePatch(record.style);
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const resolved = resolveParagraphReference(context.session, blockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
-			blockId = resolved.blockId;
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
+			const blockId = resolved.blockId;
 			const parsed = resolved.location;
 			let partXml = resolved.partXml;
 			const paragraphXml = getParagraphXml(partXml, parsed);
@@ -507,11 +568,11 @@ function executeFormattingOp(
 			break;
 		}
 		case 'docx.setParagraphLayout': {
-			let blockId = requireString(record.blockId, 'blockId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
 			const layout = asParagraphLayoutPatch(record.layout);
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const resolved = resolveParagraphReference(context.session, blockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
-			blockId = resolved.blockId;
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
+			const blockId = resolved.blockId;
 			const parsed = resolved.location;
 			let partXml = resolved.partXml;
 			const nextParagraphXml = patchParagraphLayout(getParagraphXml(partXml, parsed), layout);
@@ -533,11 +594,11 @@ function executeFormattingOp(
 			break;
 		}
 		case 'docx.setParagraphBottomBorder': {
-			let blockId = requireString(record.blockId, 'blockId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
 			const border = asParagraphBottomBorderPatch(record.border);
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const resolved = resolveParagraphReference(context.session, blockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
-			blockId = resolved.blockId;
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
+			const blockId = resolved.blockId;
 			const location = resolved.location;
 			let partXml = resolved.partXml;
 			partXml = replaceParagraphXml(
@@ -564,33 +625,24 @@ function executeTableOp(
 ): void {
 	switch (opId) {
 		case 'docx.insertTable': {
-			let afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
+			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
 			const rows = requireNumber(record.rows, 'rows');
 			const cols = requireNumber(record.cols, 'cols');
 			if (!Number.isInteger(rows) || rows < 1 || !Number.isInteger(cols) || cols < 1) {
 				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'rows and cols must be positive integers.', { field: 'rows' });
 			}
 			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
-			const requestedLocation = parseStableLocation(afterBlockId);
-			if (!requestedLocation) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid afterBlockId: ${afterBlockId}.`, { field: 'afterBlockId' });
-			}
-			let anchor = requestedLocation;
-			let partXml = getPartXmlForLocation(context.session, anchor);
-			if (typeof record.anchor === 'string') {
-				const resolved = resolveParagraphReference(context.session, afterBlockId, record.anchor, 'afterBlockId');
-				afterBlockId = resolved.blockId;
-				anchor = resolved.location;
-				partXml = resolved.partXml;
-			}
+			const resolved = resolveParagraphTarget(context.session, afterBlockId, record.anchor, 'afterBlockId');
+			const anchor = resolved.location;
 			const tableXml = buildEmptyTableXml(rows, cols);
-			partXml = insertBlockAfterInPart(partXml, afterBlockId, tableXml);
+			let partXml = resolved.partXml;
+			partXml = insertBlockAfterInPart(partXml, resolved.blockId, tableXml);
 			setPartXmlForLocation(context.session, anchor, partXml);
 			if (anchor.part === 'body') {
 				acc.documentXml = partXml;
 			}
-			acc.changedIds.push(afterBlockId);
-			acc.preview.push({ id: afterBlockId, field: 'insertTable', before: null, after: { rows, cols } });
+			acc.changedIds.push(resolved.blockId);
+			acc.preview.push({ id: resolved.anchor || resolved.blockId, field: 'insertTable', before: null, after: { rows, cols } });
 			break;
 		}
 		case 'docx.setCellText': {
@@ -667,8 +719,8 @@ async function executeMediaOp(
 			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
 			const vaultImagePath = requireString(record.vaultImagePath, 'vaultImagePath');
 			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
-			const anchor = parseStableLocation(afterBlockId);
-			if (!anchor || anchor.part !== 'body') {
+			const resolved = resolveParagraphTarget(context.session, afterBlockId, record.anchor, 'afterBlockId');
+			if (resolved.location.part !== 'body') {
 				throw createAiError(
 					AI_ERROR_CODES.VALIDATION_FAILED,
 					'insertImage is only supported on body blocks in the main DOCX part.',
@@ -680,20 +732,21 @@ async function executeMediaOp(
 			acc.documentXml = await addInlineImage(
 				context.session.getZip(),
 				acc.documentXml,
-				afterBlockId,
+				resolved.blockId,
 				image.bytes,
 				image.extension,
 			);
-			acc.changedIds.push(afterBlockId);
-			acc.preview.push({ id: afterBlockId, field: 'insertImage', before: null, after: vaultImagePath });
+			acc.changedIds.push(resolved.blockId);
+			acc.preview.push({ id: resolved.anchor || resolved.blockId, field: 'insertImage', before: null, after: vaultImagePath });
 			break;
 		}
 		case 'docx.replaceImage': {
-			const blockId = requireString(record.blockId, 'blockId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
 			const vaultImagePath = requireString(record.vaultImagePath, 'vaultImagePath');
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
-			const parsed = parseStableLocation(blockId);
-			if (!parsed || parsed.part !== 'body') {
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
+			const blockId = resolved.blockId;
+			if (resolved.location.part !== 'body') {
 				throw createAiError(
 					AI_ERROR_CODES.VALIDATION_FAILED,
 					'replaceImage is only supported on body blocks in the main DOCX part.',
@@ -723,15 +776,16 @@ async function executeHyperlinkOp(
 ): Promise<void> {
 	switch (opId) {
 		case 'docx.insertHyperlink': {
-			const requestedRange = parseTextRange(record.range, 'range');
+			const parsedRange = parseTextRange(record.range, 'range');
+			const start = resolveTextTarget(context.session, parsedRange.start, 'range.start.blockId');
+			const end = resolveTextTarget(context.session, parsedRange.end, 'range.end.blockId');
+			const range = { start: start.position, end: end.position };
 			const url = requireString(record.url, 'url');
 			const displayText = typeof record.displayText === 'string' ? record.displayText : undefined;
 			const tooltip = typeof record.tooltip === 'string' ? record.tooltip : undefined;
-			const resolvedRange = resolveRangeInPart(context.session, requestedRange);
-			const range = resolvedRange.range;
-			const startLocation = resolvedRange.location;
+			const startLocation = start.location;
 			const relationshipId = await registerExternalHyperlink(context.session.getZip(), startLocation, url);
-			let partXml = resolvedRange.partXml;
+			let partXml = start.partXml;
 			partXml = applyInsertHyperlinkInPart(partXml, range, relationshipId, displayText, tooltip);
 			setPartXmlForLocation(context.session, startLocation, partXml);
 			if (startLocation.part === 'body') {
@@ -742,10 +796,12 @@ async function executeHyperlinkOp(
 			break;
 		}
 		case 'docx.removeHyperlink': {
-			const resolvedRange = resolveRangeInPart(context.session, parseTextRange(record.range, 'range'));
-			const range = resolvedRange.range;
-			const startLocation = resolvedRange.location;
-			let partXml = resolvedRange.partXml;
+			const parsedRange = parseTextRange(record.range, 'range');
+			const start = resolveTextTarget(context.session, parsedRange.start, 'range.start.blockId');
+			const end = resolveTextTarget(context.session, parsedRange.end, 'range.end.blockId');
+			const range = { start: start.position, end: end.position };
+			const startLocation = start.location;
+			let partXml = start.partXml;
 			partXml = applyRemoveHyperlinkInPart(partXml, range);
 			setPartXmlForLocation(context.session, startLocation, partXml);
 			if (startLocation.part === 'body') {
@@ -766,40 +822,19 @@ function executeTextEditOp(
 ): void {
 	switch (opId) {
 		case 'docx.setRunText': {
-			let blockId = requireString(record.blockId, 'blockId');
-			let runId = requireString(record.runId, 'runId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
+			const requestedRunId = requireString(record.runId, 'runId');
 			const text = requireString(record.text, 'text');
-			rejectWriteOnlyExcludedId(runId, 'runId');
-			const requestedBlock = parseStableLocation(blockId);
-			if (!requestedBlock || requestedBlock.kind !== 'paragraph') {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid blockId: ${blockId}.`, { field: 'blockId' });
-			}
-			const requestedPartXml = getPartXmlForLocation(context.session, requestedBlock);
-			const resolvedPosition = resolveTextPositionInPart(requestedPartXml, {
-				blockId,
-				offset: 0,
-				runId,
-				...(typeof record.anchor === 'string' ? { anchor: record.anchor } : {}),
-			});
-			blockId = resolvedPosition.blockId;
-			runId = resolvedPosition.runId!;
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
+			rejectWriteOnlyExcludedId(requestedRunId, 'runId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
+			const blockId = resolved.blockId;
+			const runId = remapRunId(blockId, requestedRunId);
 			const parsedRun = parseStableLocation(runId);
 			if (!parsedRun || parsedRun.kind !== 'run') {
 				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid runId: ${runId}.`, { field: 'runId' });
 			}
-			const parsedBlock = parseStableLocation(blockId);
-			if (
-				!parsedBlock
-				|| parsedBlock.kind !== 'paragraph'
-				|| parsedBlock.part !== parsedRun.part
-				|| parsedBlock.partNumber !== parsedRun.partNumber
-				|| parsedBlock.paragraphIndex !== parsedRun.paragraphIndex
-			) {
-				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `blockId ${blockId} does not match runId ${runId}.`, {
-					field: 'blockId',
-				});
-			}
-			let partXml = getPartXmlForLocation(context.session, parsedRun);
+			let partXml = resolved.partXml;
 			const paragraphXml = getParagraphXml(partXml, parsedRun);
 			if (getRunText(paragraphXml, parsedRun.runIndex ?? 0).length === 0) {
 				throw createAiError(
@@ -818,11 +853,8 @@ function executeTextEditOp(
 			acc.preview.push({ id: runId, field: 'text', before: null, after: text });
 			break;
 		}
-		case 'docx.insertParagraphsAfter':
-		case 'docx.insertParagraphsBefore': {
-			const placement = opId.endsWith('Before') ? 'before' : 'after';
-			const anchorField = placement === 'before' ? 'beforeBlockId' : 'afterBlockId';
-			let anchorBlockId = requireString(record[anchorField], anchorField);
+		case 'docx.insertParagraphsAfter': {
+			const afterBlockId = requireString(record.afterBlockId, 'afterBlockId');
 			const paragraphsValue = record.paragraphs;
 			if (!Array.isArray(paragraphsValue)) {
 				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must be an array.', { field: 'paragraphs' });
@@ -839,56 +871,116 @@ function executeTextEditOp(
 					text: paragraph.text,
 					...(typeof paragraph.listStyle === 'string' ? { listStyle: paragraph.listStyle as 'none' | 'bullet' | 'number' } : {}),
 					...(typeof paragraph.bold === 'boolean' ? { bold: paragraph.bold } : {}),
-					...(paragraph.runStyle && typeof paragraph.runStyle === 'object' ? { runStyle: asRunStylePatch(paragraph.runStyle) } : {}),
-					...(paragraph.layout && typeof paragraph.layout === 'object' ? { layout: asParagraphLayoutPatch(paragraph.layout) } : {}),
-					...(paragraph.border && typeof paragraph.border === 'object' ? { border: asParagraphBottomBorderPatch(paragraph.border) } : {}),
-					...(paragraph.listLevel !== undefined ? { listLevel: requireInteger(paragraph.listLevel, `paragraphs[${index}].listLevel`) } : {}),
-					...(paragraph.numId !== undefined ? { numId: requireInteger(paragraph.numId, `paragraphs[${index}].numId`) } : {}),
+					...(paragraph.runStyle && typeof paragraph.runStyle === 'object' && !Array.isArray(paragraph.runStyle) ? { runStyle: paragraph.runStyle } : {}),
+					...(paragraph.layout && typeof paragraph.layout === 'object' && !Array.isArray(paragraph.layout) ? { layout: paragraph.layout } : {}),
+					...(paragraph.border && typeof paragraph.border === 'object' && !Array.isArray(paragraph.border) ? { border: paragraph.border as DocxParagraphBottomBorderPatch } : {}),
+					...(Number.isInteger(paragraph.listLevel) ? { listLevel: paragraph.listLevel as number } : {}),
+					...(Number.isInteger(paragraph.numId) ? { numId: paragraph.numId as number } : {}),
 				};
 			});
-			rejectWriteOnlyExcludedId(anchorBlockId, anchorField);
-			const resolvedAnchor = resolveParagraphReference(
-				context.session,
-				anchorBlockId,
-				typeof record.anchor === 'string' ? record.anchor : undefined,
-				anchorField,
-			);
-			anchorBlockId = resolvedAnchor.blockId;
-			let templateBlockId = typeof record.templateBlockId === 'string' ? record.templateBlockId : anchorBlockId;
-			if (typeof record.templateAnchor === 'string') {
-				templateBlockId = resolveParagraphReference(context.session, anchorBlockId, record.templateAnchor, 'templateAnchor').blockId;
+			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
+			const resolved = resolveParagraphTarget(context.session, afterBlockId, record.anchor, 'afterBlockId');
+			const anchor = resolved.location;
+			let partXml = resolved.partXml;
+			const result = applyInsertParagraphsAfterInPart(partXml, resolved.blockId, paragraphs);
+			partXml = result.partXml;
+			setPartXmlForLocation(context.session, anchor, partXml);
+			if (anchor.part === 'body') {
+				acc.documentXml = partXml;
 			}
-			const partXml = resolvedAnchor.partXml;
-			const result = placement === 'before'
-				? applyInsertParagraphsBeforeInPart(partXml, anchorBlockId, paragraphs, templateBlockId)
-				: applyInsertParagraphsAfterInPart(partXml, anchorBlockId, paragraphs, templateBlockId);
+			acc.changedIds.push(afterBlockId, ...result.createdBlockIds);
+			acc.createdIds.push(...result.createdBlockIds);
+			acc.createdAnchors.push(...(result.createdAnchors ?? []));
+			acc.preview.push({
+				id: afterBlockId,
+				field: 'insertParagraphsAfter',
+				before: null,
+				after: {
+					createdBlockIds: result.createdBlockIds,
+					paragraphCount: paragraphs.length,
+					inheritedListProperties: result.inheritedListProperties,
+				},
+			});
+			break;
+		}
+		case 'docx.insertParagraphs': {
+			const placement = record.placement;
+			if (placement !== 'before' && placement !== 'after') {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'placement must be before or after.', { field: 'placement' });
+			}
+			const anchor = requireString(record.anchor, 'anchor');
+			const paragraphsValue = record.paragraphs;
+			if (!Array.isArray(paragraphsValue) || paragraphsValue.length === 0) {
+				throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must be a non-empty array.', { field: 'paragraphs' });
+			}
+			const paragraphs = paragraphsValue.map((entry, index) => {
+				if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+					throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}] must be an object.`, { field: 'paragraphs' });
+				}
+				const paragraph = entry as Record<string, unknown>;
+				if (typeof paragraph.text !== 'string') {
+					throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must be a string.`, { field: 'paragraphs' });
+				}
+				return {
+					text: paragraph.text,
+					...(typeof paragraph.listStyle === 'string' ? { listStyle: paragraph.listStyle as 'none' | 'bullet' | 'number' } : {}),
+					...(typeof paragraph.bold === 'boolean' ? { bold: paragraph.bold } : {}),
+					...(paragraph.runStyle && typeof paragraph.runStyle === 'object' && !Array.isArray(paragraph.runStyle) ? { runStyle: paragraph.runStyle } : {}),
+					...(paragraph.layout && typeof paragraph.layout === 'object' && !Array.isArray(paragraph.layout) ? { layout: paragraph.layout } : {}),
+					...(paragraph.border && typeof paragraph.border === 'object' && !Array.isArray(paragraph.border) ? { border: paragraph.border as DocxParagraphBottomBorderPatch } : {}),
+					...(Number.isInteger(paragraph.listLevel) ? { listLevel: paragraph.listLevel as number } : {}),
+					...(Number.isInteger(paragraph.numId) ? { numId: paragraph.numId as number } : {}),
+				};
+			});
+			const inheritance = parseParagraphInheritance(record.inherit);
+			const resolvedAnchor = findParagraphAnchor(context.session, anchor, 'anchor');
+			const templateAnchor = typeof record.templateAnchor === 'string' ? record.templateAnchor : anchor;
+			const resolvedTemplate = templateAnchor === anchor
+				? resolvedAnchor
+				: findParagraphAnchor(context.session, templateAnchor, 'templateAnchor');
+			const result = applyInsertParagraphsInPart(resolvedAnchor.partXml, {
+				anchorBlockId: resolvedAnchor.blockId,
+				templateParagraphXml: resolvedTemplate.paragraphXml,
+				paragraphs,
+				placement,
+				inherit: inheritance,
+				anchor,
+				templateAnchor,
+			});
 			setPartXmlForLocation(context.session, resolvedAnchor.location, result.partXml);
 			if (resolvedAnchor.location.part === 'body') {
 				acc.documentXml = result.partXml;
 			}
-			acc.changedIds.push(anchorBlockId, ...result.createdBlockIds);
-			acc.createdIds.push(...result.createdBlockIds);
+			acc.changedIds.push(resolvedAnchor.blockId, ...result.createdAnchors);
+			acc.createdIds.push(...result.createdAnchors);
 			acc.createdAnchors.push(...result.createdAnchors);
 			acc.structuralMutations.push({
 				op: opId,
-				anchor: resolvedAnchor.anchor,
-				placement,
-				templateBlockId: result.templateBlockId,
+				anchor: result.anchor,
+				placement: result.placement,
+				templateBlockId: resolvedTemplate.blockId,
 				createdBlockIds: result.createdBlockIds,
 				createdAnchors: result.createdAnchors,
 				inheritedListProperties: result.inheritedListProperties,
 			});
 			acc.preview.push({
-				id: anchorBlockId,
-				field: opId,
+				id: anchor,
+				field: 'insertParagraphs',
 				before: null,
 				after: {
-					createdBlockIds: result.createdBlockIds,
-					createdAnchors: result.createdAnchors,
-					paragraphCount: paragraphs.length,
-					placement,
-					templateBlockId: result.templateBlockId,
+					placement: result.placement,
+					anchor: result.anchor,
+					templateAnchor: result.templateAnchor,
+					relationship: {
+						placement: result.placement,
+						anchor: result.anchor,
+						templateAnchor: result.templateAnchor,
+					},
+					inheritance: result.inheritance,
 					inheritedListProperties: result.inheritedListProperties,
+					createdAnchors: result.createdAnchors,
+					createdBlockIds: result.createdBlockIds,
+					paragraphCount: paragraphs.length,
 				},
 			});
 			break;
@@ -935,15 +1027,16 @@ function executeTextEditOp(
 			const runId = typeof record.runId === 'string' ? record.runId : undefined;
 			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
 			if (runId) rejectWriteOnlyExcludedId(runId, 'runId');
-			const resolved = resolveParagraphReference(context.session, requestedBlockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
-			const position = resolveTextPositionInPart(resolved.partXml, {
-				blockId: resolved.blockId,
+			const resolved = resolveTextTarget(context.session, {
+				blockId: requestedBlockId,
 				offset,
 				...(runId ? { runId } : {}),
-			});
+				...(typeof record.anchor === 'string' ? { anchor: record.anchor } : {}),
+			}, 'blockId');
+			const blockId = resolved.position.blockId;
 			const location = resolved.location;
-			const blockId = resolved.blockId;
-			const partXml = applyInsertTextInPart(resolved.partXml, position, text);
+			let partXml = resolved.partXml;
+			partXml = applyInsertTextInPart(partXml, resolved.position, text);
 			setPartXmlForLocation(context.session, location, partXml);
 			if (location.part === 'body') {
 				acc.documentXml = partXml;
@@ -953,10 +1046,13 @@ function executeTextEditOp(
 			break;
 		}
 		case 'docx.deleteRange': {
-			const resolved = resolveRangeInPart(context.session, parseTextRange(record.range, 'range'));
-			const range = resolved.range;
-			const startLocation = resolved.location;
-			const partXml = applyDeleteRangeInPart(resolved.partXml, range);
+			const parsedRange = parseTextRange(record.range, 'range');
+			const start = resolveTextTarget(context.session, parsedRange.start, 'range.start.blockId');
+			const end = resolveTextTarget(context.session, parsedRange.end, 'range.end.blockId');
+			const range = { start: start.position, end: end.position };
+			const startLocation = start.location;
+			let partXml = start.partXml;
+			partXml = applyDeleteRangeInPart(partXml, range);
 			setPartXmlForLocation(context.session, startLocation, partXml);
 			if (startLocation.part === 'body') {
 				acc.documentXml = partXml;
@@ -968,10 +1064,11 @@ function executeTextEditOp(
 		case 'docx.deleteBlock': {
 			const requestedBlockId = requireString(record.blockId, 'blockId');
 			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
-			const resolved = resolveParagraphReference(context.session, requestedBlockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
+			const resolved = resolveParagraphTarget(context.session, requestedBlockId, record.anchor, 'blockId');
 			const blockId = resolved.blockId;
 			const location = resolved.location;
-			const partXml = applyDeleteParagraphInPart(resolved.partXml, blockId);
+			let partXml = resolved.partXml;
+			partXml = applyDeleteParagraphInPart(partXml, blockId);
 			setPartXmlForLocation(context.session, location, partXml);
 			if (location.part === 'body') {
 				acc.documentXml = partXml;
@@ -981,17 +1078,21 @@ function executeTextEditOp(
 			break;
 		}
 		case 'docx.insertParagraphBreak': {
-			let blockId = requireString(record.blockId, 'blockId');
+			const requestedBlockId = requireString(record.blockId, 'blockId');
 			const offset = requireInteger(record.offset, 'offset');
 			const runId = typeof record.runId === 'string' ? record.runId : undefined;
-			rejectWriteOnlyExcludedId(blockId, 'blockId');
+			rejectWriteOnlyExcludedId(requestedBlockId, 'blockId');
 			if (runId) rejectWriteOnlyExcludedId(runId, 'runId');
-			const resolved = resolveParagraphReference(context.session, blockId, typeof record.anchor === 'string' ? record.anchor : undefined, 'blockId');
-			blockId = resolved.blockId;
+			const resolved = resolveTextTarget(context.session, {
+				blockId: requestedBlockId,
+				offset,
+				...(runId ? { runId } : {}),
+				...(typeof record.anchor === 'string' ? { anchor: record.anchor } : {}),
+			}, 'blockId');
+			const blockId = resolved.position.blockId;
 			const location = resolved.location;
-			const position = resolveTextPositionInPart(resolved.partXml, { blockId, offset, ...(runId ? { runId } : {}) });
 			let partXml = resolved.partXml;
-			const result = applyInsertParagraphBreakInPart(partXml, position);
+			const result = applyInsertParagraphBreakInPart(partXml, resolved.position);
 			partXml = result.partXml;
 			setPartXmlForLocation(context.session, location, partXml);
 			if (location.part === 'body') {
@@ -999,21 +1100,11 @@ function executeTextEditOp(
 			}
 			acc.changedIds.push(blockId, ...result.createdBlockIds);
 			acc.createdIds.push(...result.createdBlockIds);
-			acc.createdAnchors.push(...result.createdAnchors);
-			acc.structuralMutations.push({
-				op: opId,
-				anchor: resolved.anchor,
-				placement: result.placement,
-				templateBlockId: result.templateBlockId,
-				createdBlockIds: result.createdBlockIds,
-				createdAnchors: result.createdAnchors,
-				inheritedListProperties: result.inheritedListProperties,
-			});
 			acc.preview.push({
 				id: blockId,
 				field: 'insertParagraphBreak',
 				before: null,
-				after: { offset, createdBlockIds: result.createdBlockIds, createdAnchors: result.createdAnchors, inheritedListProperties: result.inheritedListProperties },
+				after: { offset, createdBlockIds: result.createdBlockIds, inheritedListProperties: result.inheritedListProperties },
 			});
 			break;
 		}
@@ -1099,9 +1190,12 @@ export async function executeDocxOp(
 		case 'docx.removeHyperlink':
 			await executeHyperlinkOp(context, opId, record, acc);
 			break;
+		case 'docx.insertParagraphsBefore':
+			executeTextEditOp(context, 'docx.insertParagraphs', { ...record, placement: 'before' }, acc);
+			break;
 		case 'docx.setRunText':
 		case 'docx.insertParagraphsAfter':
-		case 'docx.insertParagraphsBefore':
+		case 'docx.insertParagraphs':
 		case 'docx.replaceText':
 		case 'docx.insertText':
 		case 'docx.deleteRange':
@@ -1115,14 +1209,6 @@ export async function executeDocxOp(
 	}
 
 	context.session.setDocumentXml(acc.documentXml);
-	// New paragraphs created by replacement/table operations also receive the
-	// same persistent identity guarantee before the revision is returned.
-	for (const partPath of context.session.listLoadedPartPaths()) {
-		const partXml = context.session.getPartXml(partPath);
-		const anchoredXml = ensureParagraphAnchors(partXml);
-		if (anchoredXml !== partXml) context.session.setPartXml(partPath, anchoredXml);
-	}
-	acc.documentXml = context.session.getDocumentXml();
 
 	return acc;
 }

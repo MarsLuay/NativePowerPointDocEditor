@@ -26,6 +26,10 @@ export function registerPowerPointSupport(
 			getPowerPointSettings,
 			(wordCount) => plugin.updateDocumentWordCount(leaf, wordCount),
 			() => plugin.clearDocumentWordCount(leaf),
+			() => ({
+				enabled: () => plugin.pluginSettings.enableGrammarChecking,
+				requestLint: (text: string) => plugin.requestGrammarLint(text),
+			}),
 		),
 	);
 	plugin.registerExtensions(POWERPOINT_EXTENSIONS, NATIVE_POWERPOINT_VIEW_TYPE);

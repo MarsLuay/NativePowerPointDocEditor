@@ -1,3 +1,4 @@
+import { observeEditorChromeAttributes, type ChromeObservation } from '../../docxEditorChromeSync';
 import { insertImageFromFile } from '../runtime/bridge.mjs';
 import type { DocxEditorRef, EditorMode } from '../runtime/contract';
 import type { Mark } from 'prosemirror-model';
@@ -11,6 +12,8 @@ export interface Disposable {
 }
 
 export type ChromeListener = (records: MutationRecord[]) => void;
+
+export type { ChromeObservation };
 
 export interface DocxFindMatch {
 	from: number;
@@ -29,7 +32,7 @@ export interface DocxEditorAdapter {
 	 * `null` means the editor has not mounted yet.
 	 */
 	serialize(): Promise<ArrayBuffer | null>;
-	observeChrome(listener: ChromeListener): Disposable;
+	observeChrome(listener: ChromeListener): ChromeObservation;
 	setMode(mode: EditorMode): void;
 	getView(): EditorView | null;
 	getSelectedText(): string;
@@ -67,14 +70,7 @@ export function createDocxEditorAdapter(chromeTarget: HTMLElement): DocxEditorAd
 			return editor ? await editor.save({ selective: false }) : null;
 		},
 		observeChrome(listener) {
-			const observer = new MutationObserver(listener);
-			observer.observe(chromeTarget, {
-				childList: true,
-				subtree: true,
-				attributes: true,
-				attributeFilter: ['title', 'aria-label'],
-			});
-			return { dispose: () => observer.disconnect() };
+			return observeEditorChromeAttributes(chromeTarget, listener);
 		},
 		setMode(mode) {
 			onSetMode?.(mode);

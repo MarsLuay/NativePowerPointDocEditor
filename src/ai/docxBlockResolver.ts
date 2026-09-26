@@ -196,36 +196,39 @@ export interface ResolvedParagraphReference {
 	anchor: string;
 }
 
-/** Resolve a paragraph by its persistent anchor, retaining positional ids for compatibility. */
+/**
+ * Persistent w14:paraId wins when supplied. A positional id is the compatibility
+ * path and must not select a different paragraph than that anchor.
+ */
 export function resolveParagraphReferenceInPart(
 	partXml: string,
 	blockId: string,
 	anchor?: string,
 ): ResolvedParagraphReference {
-	const anchorIdMatch = /^(.*)\/para\[([^\]]+)\]$/.exec(blockId);
-	const requestedAnchor = anchor ?? anchorIdMatch?.[2];
-	const requestedId = anchorIdMatch ? `${anchorIdMatch[1]}/p[0]` : blockId;
-	const requestedLocation = parseStableLocation(requestedId);
+	const requestedLocation = parseStableLocation(blockId);
 	if (!requestedLocation || requestedLocation.kind !== 'paragraph') {
 		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph blockId: ${blockId}.`, { field: 'blockId' });
 	}
-	if (!requestedAnchor) {
+	if (!anchor) {
+		const block = findTopLevelBlock(getEditableInner(partXml, requestedLocation), blockId);
+		if (block.kind !== 'paragraph') {
+			throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Paragraph ${blockId} was not found.`, { field: 'blockId' });
+		}
 		return {
 			location: requestedLocation,
-			blockId: paragraphIdForLocation(requestedLocation),
-			anchor: getParagraphAnchor(findTopLevelBlock(getEditableInner(partXml, requestedLocation), blockId).xml) ?? '',
+			blockId,
+			anchor: getParagraphAnchor(block.xml) ?? '',
 		};
 	}
-
-	const block = findParagraphByAnchorInPart(partXml, requestedLocation, requestedAnchor);
+	const block = findParagraphByAnchorInPart(partXml, requestedLocation, anchor);
 	const location = parseStableLocation(block.id);
 	if (!location || location.kind !== 'paragraph') {
-		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Paragraph anchor ${requestedAnchor} was not found.`, { field: 'anchor' });
+		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Paragraph anchor ${anchor} was not found.`, { field: 'anchor' });
 	}
 	return {
 		location,
 		blockId: block.id,
-		anchor: getParagraphAnchor(block.xml) ?? requestedAnchor.trim().toUpperCase(),
+		anchor: getParagraphAnchor(block.xml) ?? anchor.trim().toUpperCase(),
 	};
 }
 
@@ -429,25 +432,6 @@ export function deleteTableInPart(partXml: string, location: DocxStableLocation)
 		`Table ${docxIdPrefix(location.part, location.partNumber)}/tbl[${location.tableIndex}] was not found.`,
 		{ field: 'tableId' },
 	);
-}
-
-export function insertBlockBeforeInPart(partXml: string, beforeBlockId: string, blockXml: string): string {
-	const location = parseStableLocation(beforeBlockId);
-	if (!location) {
-		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Block ${beforeBlockId} was not found.`, { field: 'beforeBlockId' });
-	}
-	if (location.part === 'footnotes' || location.part === 'endnotes') {
-		throw createAiError(
-			AI_ERROR_CODES.VALIDATION_FAILED,
-			'Paragraph insertion before is only supported in body, header, and footer parts.',
-			{ field: 'beforeBlockId' },
-		);
-	}
-
-	const inner = getEditableInner(partXml, location);
-	const anchor = findTopLevelBlock(inner, beforeBlockId);
-	const nextInner = `${inner.slice(0, anchor.startInBody)}${blockXml}${inner.slice(anchor.startInBody)}`;
-	return setEditableInner(partXml, location, nextInner);
 }
 
 export function insertBlockAfterInPart(partXml: string, afterBlockId: string, blockXml: string): string {
