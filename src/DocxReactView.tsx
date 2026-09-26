@@ -1557,25 +1557,36 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 	});
 }
 
+function selectionSnapshot(view: { state: { selection: { from: number; to: number; empty: boolean } } }) {
+	const { from, to, empty } = view.state.selection;
+	return { from, to, empty };
+}
+
 function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticTracker) {
 	return new Plugin({
 		props: {
 			handleDOMEvents: {
-				keydown(_view, event) {
-					inputDiagnostics.observeKeyDown(event);
+				keydown(view, event) {
+					inputDiagnostics.observeKeyDown(event, selectionSnapshot(view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.keydown');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
 					return false;
 				},
-				keyup(_view, event) {
-					inputDiagnostics.observeKeyUp(event);
+				keyup(view, event) {
+					inputDiagnostics.observeKeyUp(event, selectionSnapshot(view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.keyup');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
 					return false;
 				},
 				beforeinput(_view, event) {
-					inputDiagnostics.observeBeforeInput(event);
+					inputDiagnostics.observeBeforeInput(event, selectionSnapshot(_view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.beforeinput');
+					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
+					return false;
+				},
+				input(_view, event) {
+					inputDiagnostics.observeInput(event, selectionSnapshot(_view));
+					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.input');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
 					return false;
 				},
