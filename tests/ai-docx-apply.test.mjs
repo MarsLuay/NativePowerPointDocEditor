@@ -182,6 +182,57 @@ test('DOCX apply enforces describe revisions and returns the new revision', asyn
 	assert.equal(stale.errors[0]?.code, 'STALE_DOCUMENT_REVISION');
 });
 
+test('a stale DOCX plan cannot retarget content after a structural change', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/stale-structure.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>Alpha</w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Bravo</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const first = await service.describe(docPath);
+	const second = await service.describe(docPath);
+	assert.equal(first.ok, true);
+	assert.equal(second.snapshot.revision, first.snapshot.revision);
+
+	const split = await service.apply(
+		docPath,
+		[{ op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', offset: 2 }],
+		{ expectedRevision: first.snapshot.revision },
+	);
+	assert.equal(split.ok, true);
+	assert.equal(split.revisionBefore, first.snapshot.revision);
+	assert.notEqual(split.revisionAfter, first.snapshot.revision);
+
+	const stalePlan = [{ op: 'docx.setRunText', blockId: 'body/p[1]', runId: 'body/p[1]/r[0]', text: 'Retargeted' }];
+	const staleDryRun = await service.apply(docPath, stalePlan, {
+		dryRun: true,
+		expectedRevision: first.snapshot.revision,
+	});
+	assert.equal(staleDryRun.ok, false);
+	assert.equal(staleDryRun.errors[0]?.code, 'STALE_DOCUMENT_REVISION');
+
+	const staleApply = await service.apply(docPath, stalePlan, {
+		expectedRevision: first.snapshot.revision,
+	});
+	assert.equal(staleApply.ok, false);
+	assert.equal(staleApply.errors[0]?.code, 'STALE_DOCUMENT_REVISION');
+
+	const after = await service.describe(docPath);
+	assert.equal(after.snapshot.revision, split.revisionAfter);
+	assert.equal(after.snapshot.blocks[1]?.text, 'pha');
+	assert.equal(after.snapshot.blocks[2]?.text, 'Bravo');
+});
+
 test('DocxDocumentService dryRun does not persist edits', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
