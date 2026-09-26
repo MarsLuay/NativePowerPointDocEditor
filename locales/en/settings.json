@@ -129,6 +129,12 @@
 		"clipboardApplyInvalid": "Clipboard JSON must include ops: { \"path\"?: \"...\", \"ops\": [...] }.",
 		"clipboardInvalid": "Could not read valid JSON from the clipboard."
 	},
+	"grammar": {
+		"enableGrammarChecking": {
+			"name": "Grammar checking",
+			"description": "Check grammar in open documents. Word and PowerPoint share one checker."
+		}
+	},
 	"debug": {
 		"copyFullLog": {
 			"name": "Copy full debug log",
