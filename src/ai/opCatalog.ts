@@ -56,19 +56,30 @@ function pptxOp(
 	};
 }
 
+const PERSISTENT_PARAGRAPH_ANCHOR: JsonSchema = {
+	type: 'string',
+	description: 'Persistent w14:paraId from describe(). Authoritative paragraph identity when present. Positional ids remain accepted, but a stale positional id must not retarget this anchor.',
+};
+
 function docxOp(
 	id: string,
 	featureArea: string,
 	description: string,
 	parameters: JsonSchema,
 ): OpDefinition {
+	const properties = parameters.properties;
+	const targetsParagraph = Boolean(
+		properties && !properties.anchor && (properties.blockId || properties.afterBlockId || properties.runId),
+	);
 	return {
 		id: `docx.${id}`,
 		namespace: 'docx',
 		featureArea,
 		description,
 		status: 'implemented',
-		parameters,
+		parameters: targetsParagraph && properties
+			? { ...parameters, properties: { ...properties, anchor: PERSISTENT_PARAGRAPH_ANCHOR } }
+			: parameters,
 	};
 }
 
@@ -82,8 +93,9 @@ const DOCX_TEXT_POSITION: JsonSchema = {
 	type: 'object',
 	required: ['blockId', 'offset'],
 	properties: {
-		blockId: { type: 'string', description: 'Paragraph block id from describe(), e.g. body/p[0].' },
-		runId: { type: 'string', description: 'Optional anchor run id; must belong to blockId when provided.' },
+		blockId: { type: 'string', description: 'Positional compatibility paragraph id from describe(), e.g. body/p[0].' },
+		anchor: PERSISTENT_PARAGRAPH_ANCHOR,
+		runId: { type: 'string', description: 'Optional positional run id; must belong to the resolved paragraph when provided.' },
 		offset: DOCX_PARAGRAPH_OFFSET,
 	},
 	additionalProperties: false,

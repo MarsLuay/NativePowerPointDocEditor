@@ -22,6 +22,8 @@ export interface DocxTextPosition {
 	blockId: string;
 	offset: number;
 	runId?: string;
+	/** Persistent w14:paraId. Authoritative over blockId when both are present. */
+	anchor?: string;
 }
 
 export interface DocxTextRange {

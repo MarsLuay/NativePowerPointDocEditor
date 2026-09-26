@@ -890,6 +890,83 @@ test('DocxDocumentService inserts paragraphs atomically around a persistent anch
 	assert.equal((savedXml.match(/w14:paraId="PLACE001"/g) ?? []).length, 1);
 });
 
+test('persistent anchors survive a structural change and reject a stale follow-up plan', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/anchor-migration.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p w14:paraId="FIRST001"><w:r><w:t>First</w:t></w:r></w:p>',
+			'<w:p w14:paraId="TARGET01"><w:r><w:t>Target</w:t></w:r></w:p>',
+			'<w:p w14:paraId="LAST0001"><w:r><w:t>Last</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+	const described = await service.describe(docPath);
+	assert.equal(described.snapshot.blocks[1]?.anchor, 'TARGET01');
+	const originalRevision = described.snapshot.revision;
+
+	const inserted = await service.apply(docPath, [{
+		op: 'docx.insertParagraphs',
+		placement: 'before',
+		anchor: 'TARGET01',
+		paragraphs: [{ text: 'Shifted' }],
+	}], { expectedRevision: originalRevision });
+	assert.equal(inserted.ok, true, JSON.stringify(inserted.errors));
+	const shifted = await service.describe(docPath);
+	assert.deepEqual(shifted.snapshot.blocks.map((block) => block.text), ['First', 'Shifted', 'Target', 'Last']);
+	assert.equal(shifted.snapshot.blocks[2]?.anchor, 'TARGET01');
+
+	const stale = await service.apply(docPath, [{
+		op: 'docx.setRunText',
+		blockId: 'body/p[1]',
+		runId: 'body/p[1]/r[0]',
+		anchor: 'TARGET01',
+		text: 'Retargeted',
+	}], { expectedRevision: originalRevision });
+	assert.equal(stale.ok, false);
+	assert.equal(stale.errors[0]?.code, 'STALE_DOCUMENT_REVISION');
+	assert.equal((await service.describe(docPath)).snapshot.blocks[1]?.text, 'Shifted');
+
+	const followed = await service.apply(docPath, [{
+		op: 'docx.setRunText',
+		blockId: 'body/p[1]',
+		runId: 'body/p[1]/r[0]',
+		anchor: 'TARGET01',
+		text: 'Target anchored',
+	}], { expectedRevision: inserted.revisionAfter });
+	assert.equal(followed.ok, true, JSON.stringify(followed.errors));
+	const afterText = await service.describe(docPath);
+	assert.equal(afterText.snapshot.blocks[1]?.text, 'Shifted');
+	assert.equal(afterText.snapshot.blocks.find((block) => block.anchor === 'TARGET01')?.text, 'Target anchored');
+
+	const deleted = await service.apply(docPath, [{
+		op: 'docx.deleteBlock',
+		blockId: 'body/p[1]',
+		anchor: 'TARGET01',
+	}], { expectedRevision: followed.revisionAfter });
+	assert.equal(deleted.ok, true, JSON.stringify(deleted.errors));
+	const afterDelete = await service.describe(docPath);
+	assert.deepEqual(afterDelete.snapshot.blocks.map((block) => block.text), ['First', 'Shifted', 'Last']);
+	assert.equal(afterDelete.snapshot.blocks.some((block) => block.anchor === 'TARGET01'), false);
+
+	const positional = await service.apply(docPath, [{
+		op: 'docx.setRunText',
+		blockId: 'body/p[2]',
+		runId: 'body/p[2]/r[0]',
+		text: 'Last still positional',
+	}]);
+	assert.equal(positional.ok, true, JSON.stringify(positional.errors));
+	const finalSnapshot = await service.describe(docPath);
+	assert.equal(finalSnapshot.snapshot.blocks[2]?.text, 'Last still positional');
+	assert.equal(finalSnapshot.snapshot.blocks[1]?.text, 'Shifted');
+});
+
 test('DocxDocumentService deletes a blank paragraph without merging the next heading', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 	const { describeDocxFromBuffer } = await loadDocxDescribeModule();

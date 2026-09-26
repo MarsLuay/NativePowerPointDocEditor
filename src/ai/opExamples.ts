@@ -51,7 +51,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 	},
 	'docx.removeComments': { op: 'docx.removeComments' },
 	'docx.setCoreProperties': { op: 'docx.setCoreProperties', creator: 'Document Author', lastModifiedBy: 'Document Editor' },
-	'docx.setRunText': { op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', text: 'Updated' },
+	'docx.setRunText': { op: 'docx.setRunText', blockId: 'body/p[0]', runId: 'body/p[0]/r[0]', anchor: '01234567', text: 'Updated' },
 	'docx.setRunStyle': { op: 'docx.setRunStyle', runId: 'body/p[0]/r[0]', style: { bold: true } },
 	'docx.setParagraphStyle': { op: 'docx.setParagraphStyle', blockId: 'body/p[0]', style: { name: 'Heading1' } },
 	'docx.setParagraphDefaultRunStyle': {
@@ -105,7 +105,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 			end: { blockId: 'body/p[0]', offset: 5 },
 		},
 	},
-	'docx.deleteBlock': { op: 'docx.deleteBlock', blockId: 'body/p[1]' },
+	'docx.deleteBlock': { op: 'docx.deleteBlock', blockId: 'body/p[1]', anchor: '01234567' },
 	'docx.insertHyperlink': {
 		op: 'docx.insertHyperlink',
 		range: {
@@ -122,7 +122,7 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 			end: { blockId: 'body/p[0]', offset: 5 },
 		},
 	},
-	'docx.insertParagraphBreak': { op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', offset: 5 },
+	'docx.insertParagraphBreak': { op: 'docx.insertParagraphBreak', blockId: 'body/p[0]', anchor: '01234567', offset: 5 },
 	'docx.replaceBodyParagraphs': {
 		op: 'docx.replaceBodyParagraphs',
 		paragraphs: [
