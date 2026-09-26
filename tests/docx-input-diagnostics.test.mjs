@@ -137,3 +137,81 @@ test('diagnostic IDs distinguish independent view and DOM input routes', async (
 	assert.equal(relevantLogs(firstLogs, 'DOCX input event observed').at(-1).target, 'div#editor-a.ProseMirror.editor-surface[role=textbox]');
 	assert.equal(relevantLogs(secondLogs, 'DOCX input event observed').at(-1).target, 'div#editor-b.ProseMirror.editor-surface[role=textbox]');
 });
+
+test('one ordinary space keeps one correlated input lifecycle and omits document text', async () => {
+	const { createDocxInputDiagnostics } = await loadDiagnosticsModule();
+	const logs = [];
+	const diagnostics = createDocxInputDiagnostics({
+		viewId: 'editor-view-space',
+		emit: (message, data) => logs.push({ message, data }),
+	});
+	const space = keyboardEvent({ key: ' ', code: 'Space', timeStamp: 40 });
+	diagnostics.observeKeyDown(space, { from: 2, to: 2, empty: true });
+	diagnostics.observeBeforeInput({ ...keyboardEvent({ timeStamp: 41 }), inputType: 'insertText', data: 'SECRET_TEXT' });
+	diagnostics.observeBeforeInput({ ...keyboardEvent({ timeStamp: 42 }), inputType: 'insertText', data: ' ' });
+	diagnostics.observeInput({ ...keyboardEvent({ timeStamp: 43 }), inputType: 'insertText', data: ' ' });
+	diagnostics.observeKeyUp(keyboardEvent({ key: ' ', code: 'Space', timeStamp: 44 }));
+
+	const observed = relevantLogs(logs, 'DOCX input event observed');
+	const types = observed.map((entry) => entry.eventType);
+	assert.deepEqual(types, ['keydown', 'beforeinput', 'input', 'keyup']);
+	assert.equal(observed[0].correlationId, observed[1].correlationId);
+	assert.equal(observed[0].correlationId, observed[2].correlationId);
+	assert.equal(observed[0].correlationId, observed[3].correlationId);
+	assert.deepEqual(observed[0].selectionBefore, { from: 2, to: 2, empty: true });
+	assert.equal(JSON.stringify(logs).includes('SECRET_TEXT'), false);
+	assert.equal(relevantLogs(logs, 'DOCX duplicate input candidate').length, 0);
+});
+
+test('repeat is distinct from a duplicate keydown delivery', async () => {
+	const { createDocxInputDiagnostics } = await loadDiagnosticsModule();
+	const logs = [];
+	const diagnostics = createDocxInputDiagnostics({
+		viewId: 'editor-view-repeat',
+		emit: (message, data) => logs.push({ message, data }),
+	});
+	diagnostics.observeKeyDown(keyboardEvent({ timeStamp: 50 }));
+	diagnostics.observeKeyDown(keyboardEvent({ repeat: true, timeStamp: 60 }));
+	assert.equal(relevantLogs(logs, 'DOCX duplicate input candidate').length, 0);
+
+	diagnostics.observeKeyDown(keyboardEvent({ timeStamp: 70 }));
+	diagnostics.observeKeyDown(keyboardEvent({ timeStamp: 70 }));
+	const summary = relevantLogs(logs, 'DOCX duplicate input candidate').at(-1);
+	assert.equal(summary.key, 'Enter');
+	assert.equal(summary.probableBoundary, 'duplicate-keydown');
+	assert.ok(summary.keydownCount >= 2);
+	assert.equal(summary.repeatKeydowns, undefined);
+});
+
+test('two views and a double transaction name the earliest duplicate boundary', async () => {
+	const { createDocxInputDiagnostics } = await loadDiagnosticsModule();
+	const logs = [];
+	const emit = (message, data) => logs.push({ message, data });
+	const first = createDocxInputDiagnostics({ viewId: 'editor-view-a', emit });
+	const second = createDocxInputDiagnostics({ viewId: 'editor-view-b', emit });
+	const shared = keyboardEvent({ timeStamp: 80 });
+	first.observeKeyDown(shared);
+	second.observeKeyDown({ ...shared, target: target('docx-editor-b'), currentTarget: target('docx-editor-b') });
+	const views = relevantLogs(logs, 'DOCX duplicate input candidate');
+	assert.ok(views.some((entry) => entry.probableBoundary === 'multiple-views' && entry.viewIds.includes('editor-view-a') && entry.viewIds.includes('editor-view-b')));
+
+	const transactionView = createDocxInputDiagnostics({ viewId: 'editor-view-tx', emit });
+	const enter = keyboardEvent({ timeStamp: 90 });
+	transactionView.observeKeyDown(enter);
+	transactionView.observeBeforeInput({ ...keyboardEvent({ timeStamp: 91 }), inputType: 'insertParagraph' });
+	const transaction = {
+		paragraphsBefore: 1,
+		paragraphsAfter: 2,
+		selectionBefore: { from: 1, to: 1, empty: true },
+		selectionAfter: { from: 2, to: 2, empty: true },
+		transactionCount: 2,
+		docChangedCount: 2,
+		steps: ['ReplaceStep'],
+		meta: ['uiEvent'],
+	};
+	transactionView.recordTransaction(transaction);
+	const boundary = relevantLogs(logs, 'DOCX duplicate input candidate').at(-1);
+	assert.equal(boundary.probableBoundary, 'keydown-and-beforeinput');
+	assert.equal(boundary.docChangingTransactionCount, 2);
+	assert.equal(JSON.stringify(logs).includes('paragraph text'), false);
+});

@@ -106,3 +106,18 @@ test('a single oversized newest event is compacted without invalidating JSON', a
 	assert.ok(payload.logs.at(-1).message.endsWith('z'.repeat(100)));
 	assert.equal(payload.logRetention.truncated, true);
 });
+
+test('DOCX input traces survive newer unrelated log spam', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const inputTrace = {
+		time: '2026-01-01T00:00:00.000Z',
+		level: 'debug',
+		area: 'text-input',
+		message: 'DOCX input event observed',
+		data: { correlationId: 'docx-input-plugin-1:correlation-1', key: 'Enter' },
+	};
+	const spam = Array.from({ length: 2000 }, (_, index) => log(index + 1, `caret-${index}-${'y'.repeat(80)}`));
+	const payload = buildCopiedLogPayload(input('docx', [inputTrace, ...spam]));
+	assert.equal(payload.logs.some((entry) => entry.message === 'DOCX input event observed'), true);
+	assert.equal(payload.logs.at(-1).message, spam.at(-1).message);
+});

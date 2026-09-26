@@ -1,4 +1,4 @@
-export type DocxInputDiagnosticEventType = 'keydown' | 'keyup' | 'beforeinput';
+export type DocxInputDiagnosticEventType = 'keydown' | 'keyup' | 'beforeinput' | 'input';
 
 export interface DocxInputDiagnosticIds {
 	viewId: string;
@@ -7,6 +7,7 @@ export interface DocxInputDiagnosticIds {
 		keydown: string;
 		keyup: string;
 		beforeinput: string;
+		input: string;
 		transaction: string;
 	};
 }
@@ -37,11 +38,18 @@ export interface DocxInputTransactionDiagnosticDetails {
 	meta: string[];
 }
 
+export interface DocxInputSelectionSnapshot {
+	from: number;
+	to: number;
+	empty: boolean;
+}
+
 export interface DocxInputDiagnosticTracker {
 	readonly ids: DocxInputDiagnosticIds;
-	observeKeyDown(event: unknown): void;
-	observeKeyUp(event: unknown): void;
-	observeBeforeInput(event: unknown): void;
+	observeKeyDown(event: unknown, selection?: DocxInputSelectionSnapshot): void;
+	observeKeyUp(event: unknown, selection?: DocxInputSelectionSnapshot): void;
+	observeBeforeInput(event: unknown, selection?: DocxInputSelectionSnapshot): void;
+	observeInput(event: unknown, selection?: DocxInputSelectionSnapshot): void;
 	beginHandler(event: unknown, source: string): DocxInputDiagnosticHandler | null;
 	finishHandler(handler: DocxInputDiagnosticHandler | null, handled: boolean, defaultPreventedAfter?: boolean): void;
 	getEventContext(event: unknown): Record<string, unknown>;
@@ -78,6 +86,8 @@ interface TrackedEvent {
 	isComposing: boolean;
 	target: string | null;
 	currentTarget: string | null;
+	selectionBefore: DocxInputSelectionSnapshot | null;
+	selectionAfter: DocxInputSelectionSnapshot | null;
 }
 
 interface ActiveKey {
@@ -191,14 +201,28 @@ function inputTypeIsRelevant(event: unknown): boolean {
 	return inputType !== null && RELEVANT_INPUT_TYPES.has(inputType);
 }
 
+function insertTextIsSpace(event: unknown): boolean {
+	if (getString(event, 'inputType') !== 'insertText') {
+		return false;
+	}
+	const data = getEventRecord(event)?.data;
+	return data === ' ' || data === '\u00a0';
+}
+
+function inputEventIsRelevant(event: unknown): boolean {
+	return inputTypeIsRelevant(event) || insertTextIsSpace(event);
+}
+
 function keyIsRelevant(event: unknown): boolean {
 	const key = getString(event, 'key');
 	const code = getString(event, 'code');
 	return key === 'Enter'
+		|| key === ' '
 		|| key === 'Backspace'
 		|| key === 'Delete'
 		|| code === 'Enter'
 		|| code === 'NumpadEnter'
+		|| code === 'Space'
 		|| code === 'Backspace'
 		|| code === 'Delete';
 }
@@ -229,6 +253,19 @@ function eventData(tracked: TrackedEvent): Record<string, unknown> {
 		isComposing: tracked.isComposing,
 		target: tracked.target,
 		currentTarget: tracked.currentTarget,
+		selectionBefore: tracked.selectionBefore,
+		selectionAfter: tracked.selectionAfter,
+	};
+}
+
+function copySelection(selection: DocxInputSelectionSnapshot | undefined): DocxInputSelectionSnapshot | null {
+	if (!selection || !Number.isFinite(selection.from) || !Number.isFinite(selection.to)) {
+		return null;
+	}
+	return {
+		from: selection.from,
+		to: selection.to,
+		empty: selection.empty === true,
 	};
 }
 
@@ -248,6 +285,19 @@ function clampTransactionDetails(details: DocxInputTransactionDiagnosticDetails)
 	};
 }
 
+interface RecentRelevantKeydown {
+	key: string | null;
+	timeStamp: number | null;
+	repeat: boolean;
+	viewId: string;
+	pluginId: string;
+	handlerId: string;
+	attach(viewId: string, handlerId: string): void;
+}
+
+const recentRelevantKeydowns: RecentRelevantKeydown[] = [];
+const MAX_RECENT_KEYDOWNS = 32;
+
 export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions): DocxInputDiagnosticTracker {
 	const trackerNumber = ++trackerCounter;
 	const pluginId = `docx-input-plugin-${trackerNumber}`;
@@ -259,6 +309,7 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 			keydown: `${pluginId}:keydown`,
 			keyup: `${pluginId}:keyup`,
 			beforeinput: `${pluginId}:beforeinput`,
+			input: `${pluginId}:input`,
 			transaction: `${pluginId}:transaction`,
 		},
 	};
@@ -269,6 +320,16 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 	let sequenceCounter = 0;
 	let currentEvent: TrackedEvent | null = null;
 	let mounted = false;
+	const sequences = new Map<string, {
+		key: string | null;
+		keydownCount: number;
+		beforeInputCount: number;
+		repeatKeydowns: number;
+		docChangingTransactionCount: number;
+		viewIds: Set<string>;
+		handlerIds: Set<string>;
+		summarized: boolean;
+	}>();
 
 	const nextEventId = () => `${pluginId}:event-${++eventCounter}`;
 	const nextCorrelationId = () => `${pluginId}:correlation-${++correlationCounter}`;
@@ -298,6 +359,7 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 		correlationId: string,
 		keySequenceId: string | null,
 		repeatIndex: number,
+		selection?: DocxInputSelectionSnapshot,
 	): TrackedEvent => {
 		const record = getEventRecord(event);
 		return {
@@ -319,7 +381,85 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 			isComposing: record?.isComposing === true,
 			target: describeTarget(record?.target),
 			currentTarget: describeTarget(record?.currentTarget),
+			selectionBefore: copySelection(selection),
+			selectionAfter: null,
 		};
+	};
+
+	const sequenceFor = (correlationId: string, key: string | null) => {
+		let sequence = sequences.get(correlationId);
+		if (!sequence) {
+			sequence = {
+				key,
+				keydownCount: 0,
+				beforeInputCount: 0,
+				repeatKeydowns: 0,
+				docChangingTransactionCount: 0,
+				viewIds: new Set([viewId]),
+				handlerIds: new Set(),
+				summarized: false,
+			};
+			sequences.set(correlationId, sequence);
+		}
+		if (key && !sequence.key) {
+			sequence.key = key;
+		}
+		return sequence;
+	};
+
+	const emitDuplicateSummary = (correlationId: string) => {
+		const sequence = sequences.get(correlationId);
+		if (!sequence || sequence.summarized) {
+			return;
+		}
+		const duplicateKeydown = sequence.keydownCount >= 2 && sequence.repeatKeydowns === 0;
+		const multipleViews = sequence.viewIds.size > 1 && sequence.repeatKeydowns === 0;
+		const multipleTransactions = sequence.docChangingTransactionCount >= 2;
+		const keydownAndBeforeInput = sequence.keydownCount >= 1
+			&& sequence.beforeInputCount >= 1
+			&& multipleTransactions;
+		if (!duplicateKeydown && !multipleViews && !multipleTransactions && !keydownAndBeforeInput) {
+			return;
+		}
+		const probableBoundary = multipleViews
+			? 'multiple-views'
+			: duplicateKeydown
+				? 'duplicate-keydown'
+				: keydownAndBeforeInput
+					? 'keydown-and-beforeinput'
+					: 'multiple-transactions';
+		sequence.summarized = true;
+		emit('DOCX duplicate input candidate', {
+			correlationId,
+			key: sequence.key,
+			keydownCount: sequence.keydownCount,
+			beforeInputCount: sequence.beforeInputCount,
+			handlerCount: sequence.handlerIds.size,
+			docChangingTransactionCount: sequence.docChangingTransactionCount,
+			viewIds: [...sequence.viewIds],
+			handlerIds: [...sequence.handlerIds],
+			probableBoundary,
+		});
+	};
+
+	const noteSequence = (
+		correlationId: string,
+		key: string | null,
+		kind: 'keydown' | 'beforeinput' | 'input',
+		repeat: boolean,
+		handlerId: string,
+	) => {
+		const sequence = sequenceFor(correlationId, key);
+		sequence.handlerIds.add(handlerId);
+		if (kind === 'keydown') {
+			sequence.keydownCount += 1;
+			if (repeat) {
+				sequence.repeatKeydowns += 1;
+			}
+		} else if (kind === 'beforeinput' || kind === 'input') {
+			sequence.beforeInputCount += 1;
+		}
+		emitDuplicateSummary(correlationId);
 	};
 
 	const observe = (tracked: TrackedEvent, origin: string, handlerId: string) => {
@@ -334,7 +474,7 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 
 	return {
 		ids,
-		observeKeyDown(event) {
+		observeKeyDown(event, selection) {
 			if (!keyIsRelevant(event)) {
 				return;
 			}
@@ -352,10 +492,49 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 				}
 			}
 			activeKeys.set(token, { correlationId, keySequenceId, repeatIndex });
-			const tracked = createTracked(event, 'keydown', correlationId, keySequenceId, repeatIndex);
+			const tracked = createTracked(event, 'keydown', correlationId, keySequenceId, repeatIndex, selection);
+			const sequence = sequenceFor(correlationId, tracked.key);
+			for (const previous of recentRelevantKeydowns) {
+				const sameKeyAndTime = previous.key === tracked.key
+					&& previous.timeStamp === tracked.timeStamp
+					&& !previous.repeat
+					&& !tracked.repeat;
+				if (!sameKeyAndTime) {
+					continue;
+				}
+				if (previous.viewId !== viewId) {
+					sequence.viewIds.add(previous.viewId);
+					sequence.handlerIds.add(previous.handlerId);
+					previous.attach(viewId, ids.handlerIds.keydown);
+				} else if (previous.pluginId === pluginId) {
+					sequence.keydownCount += 1;
+					sequence.handlerIds.add(previous.handlerId);
+				}
+			}
+			recentRelevantKeydowns.push({
+				key: tracked.key,
+				timeStamp: tracked.timeStamp,
+				repeat: tracked.repeat,
+				viewId,
+				pluginId,
+				handlerId: ids.handlerIds.keydown,
+				attach(otherViewId, otherHandlerId) {
+					const owner = sequences.get(correlationId);
+					if (!owner) {
+						return;
+					}
+					owner.viewIds.add(otherViewId);
+					owner.handlerIds.add(otherHandlerId);
+					emitDuplicateSummary(correlationId);
+				},
+			});
+			if (recentRelevantKeydowns.length > MAX_RECENT_KEYDOWNS) {
+				recentRelevantKeydowns.shift();
+			}
 			observe(tracked, 'dom.keydown', ids.handlerIds.keydown);
+			noteSequence(correlationId, tracked.key, 'keydown', tracked.repeat, ids.handlerIds.keydown);
 		},
-		observeKeyUp(event) {
+		observeKeyUp(event, selection) {
 			if (!keyIsRelevant(event)) {
 				return;
 			}
@@ -367,17 +546,18 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 				active?.correlationId ?? nextCorrelationId(),
 				active?.keySequenceId ?? null,
 				active?.repeatIndex ?? 0,
+				selection,
 			);
 			activeKeys.delete(token);
 			observe(tracked, 'dom.keyup', ids.handlerIds.keyup);
 			deferClear(tracked);
 		},
-		observeBeforeInput(event) {
-			if (!inputTypeIsRelevant(event)) {
+		observeBeforeInput(event, selection) {
+			if (!inputEventIsRelevant(event)) {
 				return;
 			}
 			const activeKey = firstIteratorValue(activeKeys.values());
-			const active = activeKey ?? (currentEvent?.eventType === 'keydown' || currentEvent?.eventType === 'beforeinput'
+			const active = activeKey ?? (currentEvent?.eventType === 'keydown' || currentEvent?.eventType === 'beforeinput' || currentEvent?.eventType === 'input'
 				? currentEvent
 				: null);
 			const tracked = createTracked(
@@ -386,8 +566,29 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 				active?.correlationId ?? nextCorrelationId(),
 				active?.keySequenceId ?? null,
 				active?.repeatIndex ?? 0,
+				selection,
 			);
 			observe(tracked, 'dom.beforeinput', ids.handlerIds.beforeinput);
+			noteSequence(tracked.correlationId, tracked.key, 'beforeinput', false, ids.handlerIds.beforeinput);
+		},
+		observeInput(event, selection) {
+			if (!inputEventIsRelevant(event)) {
+				return;
+			}
+			const activeKey = firstIteratorValue(activeKeys.values());
+			const active = activeKey ?? (currentEvent?.eventType === 'keydown' || currentEvent?.eventType === 'beforeinput' || currentEvent?.eventType === 'input'
+				? currentEvent
+				: null);
+			const tracked = createTracked(
+				event,
+				'input',
+				active?.correlationId ?? nextCorrelationId(),
+				active?.keySequenceId ?? null,
+				active?.repeatIndex ?? 0,
+				selection,
+			);
+			observe(tracked, 'dom.input', ids.handlerIds.input);
+			noteSequence(tracked.correlationId, tracked.key, 'input', false, ids.handlerIds.input);
 		},
 		beginHandler(event, source) {
 			const record = eventObject(event) ? eventRecords.get(eventObject(event)!) : currentEvent;
@@ -396,7 +597,11 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 			}
 			const handlerId = record.eventType === 'keydown'
 				? ids.handlerIds.keydown
-				: record.eventType === 'beforeinput' ? ids.handlerIds.beforeinput : ids.handlerIds.keyup;
+				: record.eventType === 'beforeinput'
+					? ids.handlerIds.beforeinput
+					: record.eventType === 'input'
+						? ids.handlerIds.input
+						: ids.handlerIds.keyup;
 			return {
 				eventId: record.eventId,
 				correlationId: record.correlationId,
@@ -431,8 +636,9 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 		},
 		recordTransaction(details) {
 			const boundedDetails = clampTransactionDetails(details);
+			const correlationId = currentEvent?.correlationId ?? null;
 			emit('DOCX input transaction applied', {
-				correlationId: currentEvent?.correlationId ?? null,
+				correlationId,
 				keySequenceId: currentEvent?.keySequenceId ?? null,
 				eventId: currentEvent?.eventId ?? null,
 				handlerId: ids.handlerIds.transaction,
@@ -440,6 +646,12 @@ export function createDocxInputDiagnostics(options: DocxInputDiagnosticOptions):
 				source: 'DocxReactView.inputDiagnosticsPlugin.appendTransaction',
 				...boundedDetails,
 			});
+			if (correlationId && boundedDetails.docChangedCount > 0) {
+				const sequence = sequenceFor(correlationId, currentEvent?.key ?? null);
+				sequence.docChangingTransactionCount += boundedDetails.docChangedCount;
+				sequence.handlerIds.add(ids.handlerIds.transaction);
+				emitDuplicateSummary(correlationId);
+			}
 		},
 		mount() {
 			if (mounted) {
