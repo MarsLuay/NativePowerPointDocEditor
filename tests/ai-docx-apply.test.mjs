@@ -1111,3 +1111,85 @@ test('DocxDocumentService replaceText does not damage unrelated DOCX structural 
 	const documentXml = await savedZip.file('word/document.xml').async('string');
 	assert.match(documentXml, /<w:t xml:space="preserve">v:t kept<\/w:t>/);
 });
+
+test('persistent paragraph anchors survive insertion before and resolve later mutations', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const { describeDocxFromBuffer } = await loadDocxDescribeModule();
+	const docPath = 'notes/persistent-anchor-edit.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>First</w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Target</w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Last</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+	const described = await describeDocxFromBuffer(initialBuffer, docPath);
+	const target = described.blocks.find((block) => block.text === 'Target');
+	assert.ok(target?.anchor);
+
+	const inserted = await service.apply(docPath, [{
+		op: 'docx.insertParagraphsBefore',
+		beforeBlockId: target.id,
+		anchor: target.anchor,
+		paragraphs: [{ text: 'Inserted', runStyle: { italic: true }, layout: { spacing: { after: 120 } } }],
+	}], { expectedRevision: described.revision });
+	assert.equal(inserted.ok, true, JSON.stringify(inserted.errors));
+	assert.equal(inserted.createdAnchors?.length, 1);
+	assert.equal(inserted.structuralMutations?.[0]?.placement, 'before');
+
+	const afterInsert = await service.describe(docPath);
+	assert.equal(afterInsert.snapshot.blocks.find((block) => block.text === 'Target')?.anchor, target.anchor);
+	assert.equal(afterInsert.snapshot.blocks[1]?.text, 'Inserted');
+	assert.equal(afterInsert.snapshot.blocks[1]?.runs?.[0]?.italic, true);
+
+	const changed = await service.apply(docPath, [{
+		op: 'docx.insertText',
+		blockId: 'body/p[1]',
+		anchor: target.anchor,
+		offset: 6,
+		text: ' anchored',
+	}], { expectedRevision: afterInsert.snapshot.revision });
+	assert.equal(changed.ok, true, JSON.stringify(changed.errors));
+	await service.save(docPath);
+	const saved = vault.store.get(docPath);
+	const finalSnapshot = await describeDocxFromBuffer(saved.buffer.slice(saved.byteOffset, saved.byteOffset + saved.byteLength), docPath);
+	assert.equal(finalSnapshot.blocks.find((block) => block.anchor === target.anchor)?.text, 'Target anchored');
+});
+
+test('atomic paragraph insertion inherits native list and applies surgical formatting', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+	const docPath = 'notes/atomic-list-insert.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p w14:paraId="AABBCCDD" w14:textId="11111111"><w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="7"/></w:numPr><w:spacing w:after="80"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Aptos"/><w:sz w:val="22"/></w:rPr><w:t>Template</w:t></w:r></w:p>',
+			'<w:p><w:r><w:t>Following</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+	const result = await service.apply(docPath, [{
+		op: 'docx.insertParagraphsAfter',
+		afterBlockId: 'body/p[0]',
+		paragraphs: [{ text: 'Added', listStyle: 'bullet', runStyle: { fontSizePt: 14 }, border: { style: 'single', size: 4 } }],
+	}]);
+	assert.equal(result.ok, true, JSON.stringify(result.errors));
+	assert.equal(result.createdAnchors?.length, 1);
+	await service.save(docPath);
+	const saved = vault.store.get(docPath);
+	const xml = await (await JSZip.loadAsync(saved.buffer)).file('word/document.xml').async('string');
+	assert.match(xml, /<w:numPr><w:ilvl w:val="1"\/><w:numId w:val="7"\/><\/w:numPr>/g);
+	assert.match(xml, /<w:sz w:val="28"\/>/);
+	assert.match(xml, /<w:pBdr><w:bottom w:val="single" w:sz="4"\/><\/w:pBdr>/);
+});

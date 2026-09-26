@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import { DOCX_CORE_PROPERTIES_PATH, DOCX_DOCUMENT_PATH, listDocxDescribeParts } from './docxParts';
 import { AI_ERROR_CODES, createAiError } from './errors';
 import { computeDocxRevision } from './docxRevision';
+import { ensureParagraphAnchors } from './docxOoxml';
 
 export class DocxPatchSession {
 	private readonly partXml = new Map<string, string>();
@@ -20,12 +21,16 @@ export class DocxPatchSession {
 			throw createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Missing word/document.xml in DOCX package.');
 		}
 
-		const session = new DocxPatchSession(zip, documentXml);
+		const anchoredDocumentXml = ensureParagraphAnchors(documentXml);
+		zip.file(DOCX_DOCUMENT_PATH, anchoredDocumentXml);
+		const session = new DocxPatchSession(zip, anchoredDocumentXml);
 		for (const listed of listDocxDescribeParts(zip)) {
 			if (listed.path === DOCX_DOCUMENT_PATH) continue;
 			const xml = await zip.file(listed.path)?.async('string');
 			if (xml) {
-				session.partXml.set(listed.path, xml);
+				const anchoredXml = ensureParagraphAnchors(xml);
+				zip.file(listed.path, anchoredXml);
+				session.partXml.set(listed.path, anchoredXml);
 			}
 		}
 		const corePropertiesXml = await zip.file(DOCX_CORE_PROPERTIES_PATH)?.async('string');

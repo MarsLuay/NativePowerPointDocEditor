@@ -15,7 +15,13 @@ import {
 	replaceFootnoteInner,
 	replaceWrapperInner,
 } from './docxOoxml';
-import { patchRunStyle } from './docxOoxmlWrite';
+import {
+	patchParagraphBottomBorder,
+	patchRunStyle,
+	type DocxParagraphBottomBorderPatch,
+	type DocxRunStylePatch,
+} from './docxOoxmlWrite';
+import { patchParagraphLayout, type DocxParagraphLayout } from './docxLayout';
 import { AI_ERROR_CODES, createAiError } from './errors';
 
 export interface DocxTextPosition {
@@ -47,6 +53,11 @@ export interface DocxInsertedParagraph {
 	text: string;
 	listStyle?: DocxListStyle;
 	bold?: boolean;
+	runStyle?: DocxRunStylePatch;
+	layout?: DocxParagraphLayout;
+	border?: DocxParagraphBottomBorderPatch;
+	listLevel?: number;
+	numId?: number;
 }
 
 export interface DocxParagraphInheritance {
@@ -68,6 +79,7 @@ export const FULL_PARAGRAPH_INHERITANCE: DocxParagraphInheritance = {
 export interface DocxParagraphMutationResult {
 	partXml: string;
 	createdBlockIds: string[];
+	createdAnchors?: string[];
 	inheritedListProperties: boolean;
 }
 
@@ -792,6 +804,24 @@ function paragraphWithInsertedText(
 			{ field: 'paragraphs' },
 		);
 	}
+	if (paragraph.listLevel !== undefined || paragraph.numId !== undefined) {
+		const numPrMatch = /<w:numPr\b[\s\S]*?<\/w:numPr>|<w:numPr\b[^>]*\/>/.exec(paragraphProperties);
+		if (!numPrMatch) {
+			throw createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'listLevel and numId require native numbering on the template paragraph.', { field: 'paragraphs' });
+		}
+		let numPr = numPrMatch[0];
+		if (paragraph.listLevel !== undefined) {
+			numPr = /<w:ilvl\b[^>]*\/>/.test(numPr)
+				? numPr.replace(/<w:ilvl\b[^>]*\/>/, `<w:ilvl w:val="${paragraph.listLevel}"/>`)
+				: numPr.replace(/<w:numPr\b[^>]*>/, (match) => `${match}<w:ilvl w:val="${paragraph.listLevel}"/>`);
+		}
+		if (paragraph.numId !== undefined) {
+			numPr = /<w:numId\b[^>]*\/>/.test(numPr)
+				? numPr.replace(/<w:numId\b[^>]*\/>/, `<w:numId w:val="${paragraph.numId}"/>`)
+				: numPr.replace(/<w:numPr\b[^>]*>/, (match) => `${match}<w:numId w:val="${paragraph.numId}"/>`);
+		}
+		paragraphProperties = paragraphProperties.replace(numPrMatch[0], numPr);
+	}
 
 	const templateRun = inherit.run ? flattenParagraphRuns(template.contentXml)[0]?.xml : undefined;
 	const runXml = templateRun
@@ -801,6 +831,15 @@ function paragraphWithInsertedText(
 	let nextParagraph = composeParagraph(openTag, paragraphProperties, runXml, template.closeTag);
 	if (paragraph.bold !== undefined) {
 		nextParagraph = patchRunStyle(nextParagraph, 0, { bold: paragraph.bold });
+	}
+	if (paragraph.runStyle) {
+		nextParagraph = patchRunStyle(nextParagraph, 0, paragraph.runStyle);
+	}
+	if (paragraph.layout) {
+		nextParagraph = patchParagraphLayout(nextParagraph, paragraph.layout);
+	}
+	if (paragraph.border) {
+		nextParagraph = patchParagraphBottomBorder(nextParagraph, paragraph.border);
 	}
 	return nextParagraph;
 }
@@ -823,7 +862,7 @@ export function applyInsertParagraphsAfterInPart(
 	}
 	const templateParagraphXml = block.xml;
 	const templateProperties = decomposeParagraph(templateParagraphXml).prefixXml;
-	const insertedXml = paragraphs.map((paragraph, index) => {
+	const insertedParagraphXml = paragraphs.map((paragraph, index) => {
 		if (typeof paragraph.text !== 'string') {
 			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must be a string.`, { field: 'paragraphs' });
 		}
@@ -837,7 +876,8 @@ export function applyInsertParagraphsAfterInPart(
 			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].bold must be boolean.`, { field: 'paragraphs' });
 		}
 		return paragraphWithInsertedText(templateParagraphXml, paragraph);
-	}).join('');
+	});
+	const insertedXml = insertedParagraphXml.join('');
 	const nextInner = `${inner.slice(0, block.endInBody)}${insertedXml}${inner.slice(block.endInBody)}`;
 	const nextBlocks = enumerateTopLevelBlockPositions(nextInner, idPrefix);
 	const nextParagraphCount = nextBlocks.filter((entry) => entry.kind === 'paragraph').length;
@@ -856,6 +896,7 @@ export function applyInsertParagraphsAfterInPart(
 			...location,
 			paragraphIndex: location.paragraphIndex + 1 + index,
 		})),
+		createdAnchors: insertedParagraphXml.map((xml) => getParagraphAnchor(xml) ?? ''),
 		inheritedListProperties: /<w:numPr\b/.test(templateProperties),
 	};
 }

@@ -80,6 +80,12 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		afterBlockId: 'body/p[0]',
 		paragraphs: [{ text: 'Added item', listStyle: 'bullet', bold: false }],
 	},
+	'docx.insertParagraphsBefore': {
+		op: 'docx.insertParagraphsBefore',
+		beforeBlockId: 'body/p[1]',
+		anchor: '89ABCDEF',
+		paragraphs: [{ text: 'Inserted before', runStyle: { italic: true } }],
+	},
 	'docx.insertParagraphs': {
 		op: 'docx.insertParagraphs',
 		placement: 'after',
