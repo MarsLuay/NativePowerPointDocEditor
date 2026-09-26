@@ -237,6 +237,7 @@ test("settings catalog covers DOCX and PowerPoint configurable settings", async 
       "addAiSkill",
       "enableAiInterfacing",
       "enableDocxSearchIndex",
+      "enableGrammarChecking",
       "powerPointAutosaveEnabled",
       "powerPointHideUnsupportedSvgContent",
       "powerPointOpenWithYoloMode",

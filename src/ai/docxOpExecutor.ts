@@ -27,6 +27,7 @@ import {
 	patchRunText,
 	getRunText,
 	replacePartText,
+	type DocxParagraphBottomBorderPatch,
 	type DocxRunStylePatch,
 } from './docxOoxmlWrite';
 import {
@@ -55,12 +56,14 @@ import {
 } from './docxParagraphEdit';
 import { parseStableLocation } from './docxStableIds';
 import { AI_ERROR_CODES, createAiError, isAiErrorDetail } from './errors';
-import type { ApplyPreviewChange, DocumentOp } from './types';
+import type { ApplyPreviewChange, ApplyResult, DocumentOp } from './types';
 import { readVaultBinaryFile } from './vaultBinary';
 
 export interface DocxOpExecutionResult {
 	changedIds: string[];
 	createdIds: string[];
+	createdAnchors: string[];
+	structuralMutations: NonNullable<ApplyResult['structuralMutations']>;
 	preview: ApplyPreviewChange[];
 	warnings: string[];
 	documentXml: string;
@@ -77,6 +80,8 @@ interface DocxOpAccumulator {
 	documentXml: string;
 	changedIds: string[];
 	createdIds: string[];
+	createdAnchors: string[];
+	structuralMutations: NonNullable<ApplyResult['structuralMutations']>;
 	preview: ApplyPreviewChange[];
 	warnings: string[];
 }
@@ -866,6 +871,11 @@ function executeTextEditOp(
 					text: paragraph.text,
 					...(typeof paragraph.listStyle === 'string' ? { listStyle: paragraph.listStyle as 'none' | 'bullet' | 'number' } : {}),
 					...(typeof paragraph.bold === 'boolean' ? { bold: paragraph.bold } : {}),
+					...(paragraph.runStyle && typeof paragraph.runStyle === 'object' && !Array.isArray(paragraph.runStyle) ? { runStyle: paragraph.runStyle } : {}),
+					...(paragraph.layout && typeof paragraph.layout === 'object' && !Array.isArray(paragraph.layout) ? { layout: paragraph.layout } : {}),
+					...(paragraph.border && typeof paragraph.border === 'object' && !Array.isArray(paragraph.border) ? { border: paragraph.border as DocxParagraphBottomBorderPatch } : {}),
+					...(Number.isInteger(paragraph.listLevel) ? { listLevel: paragraph.listLevel as number } : {}),
+					...(Number.isInteger(paragraph.numId) ? { numId: paragraph.numId as number } : {}),
 				};
 			});
 			rejectWriteOnlyExcludedId(afterBlockId, 'afterBlockId');
@@ -880,6 +890,7 @@ function executeTextEditOp(
 			}
 			acc.changedIds.push(afterBlockId, ...result.createdBlockIds);
 			acc.createdIds.push(...result.createdBlockIds);
+			acc.createdAnchors.push(...(result.createdAnchors ?? []));
 			acc.preview.push({
 				id: afterBlockId,
 				field: 'insertParagraphsAfter',
@@ -914,6 +925,11 @@ function executeTextEditOp(
 					text: paragraph.text,
 					...(typeof paragraph.listStyle === 'string' ? { listStyle: paragraph.listStyle as 'none' | 'bullet' | 'number' } : {}),
 					...(typeof paragraph.bold === 'boolean' ? { bold: paragraph.bold } : {}),
+					...(paragraph.runStyle && typeof paragraph.runStyle === 'object' && !Array.isArray(paragraph.runStyle) ? { runStyle: paragraph.runStyle } : {}),
+					...(paragraph.layout && typeof paragraph.layout === 'object' && !Array.isArray(paragraph.layout) ? { layout: paragraph.layout } : {}),
+					...(paragraph.border && typeof paragraph.border === 'object' && !Array.isArray(paragraph.border) ? { border: paragraph.border as DocxParagraphBottomBorderPatch } : {}),
+					...(Number.isInteger(paragraph.listLevel) ? { listLevel: paragraph.listLevel as number } : {}),
+					...(Number.isInteger(paragraph.numId) ? { numId: paragraph.numId as number } : {}),
 				};
 			});
 			const inheritance = parseParagraphInheritance(record.inherit);
@@ -937,6 +953,16 @@ function executeTextEditOp(
 			}
 			acc.changedIds.push(resolvedAnchor.blockId, ...result.createdAnchors);
 			acc.createdIds.push(...result.createdAnchors);
+			acc.createdAnchors.push(...result.createdAnchors);
+			acc.structuralMutations.push({
+				op: opId,
+				anchor: result.anchor,
+				placement: result.placement,
+				templateBlockId: resolvedTemplate.blockId,
+				createdBlockIds: result.createdBlockIds,
+				createdAnchors: result.createdAnchors,
+				inheritedListProperties: result.inheritedListProperties,
+			});
 			acc.preview.push({
 				id: anchor,
 				field: 'insertParagraphs',
@@ -1131,6 +1157,8 @@ export async function executeDocxOp(
 		documentXml: context.session.getDocumentXml(),
 		changedIds: [],
 		createdIds: [],
+		createdAnchors: [],
+		structuralMutations: [],
 		preview: [],
 		warnings: [],
 	};
@@ -1161,6 +1189,9 @@ export async function executeDocxOp(
 		case 'docx.insertHyperlink':
 		case 'docx.removeHyperlink':
 			await executeHyperlinkOp(context, opId, record, acc);
+			break;
+		case 'docx.insertParagraphsBefore':
+			executeTextEditOp(context, 'docx.insertParagraphs', { ...record, placement: 'before' }, acc);
 			break;
 		case 'docx.setRunText':
 		case 'docx.insertParagraphsAfter':

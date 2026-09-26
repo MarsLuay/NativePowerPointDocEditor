@@ -145,15 +145,25 @@ export function getParagraphAnchor(paragraphXml: string): string | null {
 	return /<w:p\b[^>]*\bw14:paraId="([^"]+)"/.exec(paragraphXml)?.[1] ?? null;
 }
 
-let nextGeneratedParagraphId = (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) >>> 0;
+function paragraphAnchorSeed(paragraphXml: string): number {
+	let hash = 0x811c9dc5;
+	for (let index = 0; index < paragraphXml.length; index += 1) {
+		hash ^= paragraphXml.charCodeAt(index);
+		hash = Math.imul(hash, 0x01000193) >>> 0;
+	}
+	return hash >>> 0;
+}
 
-function nextParagraphAnchor(used: Set<string>): string {
-	do {
-		nextGeneratedParagraphId = (nextGeneratedParagraphId + 0x0101_0101) >>> 0;
-	} while (used.has(nextGeneratedParagraphId.toString(16).padStart(8, '0').toUpperCase()));
-	const anchor = nextGeneratedParagraphId.toString(16).padStart(8, '0').toUpperCase();
-	used.add(anchor);
-	return anchor;
+function nextParagraphAnchor(used: Set<string>, paragraphXml: string): string {
+	let candidate = paragraphAnchorSeed(paragraphXml);
+	for (;;) {
+		const anchor = candidate.toString(16).padStart(8, '0').toUpperCase();
+		if (!used.has(anchor)) {
+			used.add(anchor);
+			return anchor;
+		}
+		candidate = (candidate + 0x0101_0101) >>> 0;
+	}
 }
 
 function ensureW14Namespace(xml: string): string {
@@ -165,16 +175,18 @@ function ensureW14Namespace(xml: string): string {
 export function ensureParagraphAnchors(xml: string): string {
 	const used = new Set<string>([...xml.matchAll(/w14:paraId="([^"]+)"/g)].map((match) => match[1]!));
 	let changed = false;
-	const nextXml = xml.replace(/<w:p\b[^>]*?(?:\/>|>)/g, (openTag) => {
+	const nextXml = xml.replace(/<w:p\b[^>]*?(?:\/>|>)/g, (openTag: string, offset: number) => {
 		if (/\bw14:paraId="[^"]+"/.test(openTag)) return openTag;
 		changed = true;
-		const anchor = nextParagraphAnchor(used);
+		const paragraphEnd = xml.indexOf('</w:p>', offset);
+		const paragraphXml = paragraphEnd === -1 ? openTag : xml.slice(offset, paragraphEnd + '</w:p>'.length);
+		const anchor = nextParagraphAnchor(used, paragraphXml);
 		if (openTag.endsWith('/>')) {
 			return openTag.replace(/\/>$/, ` w14:paraId="${anchor}"/>`);
 		}
 		return openTag.replace(/>$/, ` w14:paraId="${anchor}">`);
 	});
-	return changed ? ensureW14Namespace(nextXml) : xml;
+	return changed || /w14:paraId=/.test(nextXml) ? ensureW14Namespace(nextXml) : xml;
 }
 
 export function parseParagraph(paragraphXml: string): ParsedDocxParagraph {

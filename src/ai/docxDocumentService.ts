@@ -125,6 +125,8 @@ export class DocxDocumentService {
 			let documentXml = originalXml;
 			const changed = new Set<string>();
 			const created = new Set<string>();
+			const createdAnchors = new Set<string>();
+			const structuralMutations: NonNullable<ApplyResult['structuralMutations']> = [];
 			const preview: ApplyResult['preview'] = [];
 			const warnings: string[] = [];
 
@@ -142,6 +144,8 @@ export class DocxDocumentService {
 				documentXml = result.documentXml;
 				for (const id of result.changedIds) changed.add(id);
 				for (const id of result.createdIds) created.add(id);
+				for (const anchor of result.createdAnchors) createdAnchors.add(anchor);
+				structuralMutations.push(...result.structuralMutations);
 				preview.push(...(result.preview ?? []));
 				warnings.push(...result.warnings);
 			}
@@ -177,6 +181,8 @@ export class DocxDocumentService {
 				dryRun,
 				changed: [...changed],
 				created: created.size > 0 ? [...created] : undefined,
+				createdAnchors: createdAnchors.size > 0 ? [...createdAnchors] : undefined,
+				structuralMutations: structuralMutations.length > 0 ? structuralMutations : undefined,
 				undoLabel: dryRun ? undefined : AI_EDIT_UNDO_LABEL,
 				canUndo: !dryRun && aiUndoStore.canUndo(lease.file.path),
 				preview: preview.length > 0 ? preview : undefined,
