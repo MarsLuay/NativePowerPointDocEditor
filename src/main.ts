@@ -377,6 +377,10 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		this.grammarChecking?.setEnabled(this.pluginSettings.enableGrammarChecking);
 	}
 
+	requestGrammarLint(text: string) {
+		return this.grammarChecking?.requestLint(text) ?? Promise.resolve(null);
+	}
+
 	private setupGrammarChecking(): void {
 		const service = createHarperGrammarService({
 			createLinter: () => {

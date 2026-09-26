@@ -3,6 +3,8 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRe
 import { AllSelection, Plugin, PluginKey, TextSelection } from 'prosemirror-state';
 import type { Mark, Node as ProseMirrorNode, Slice } from 'prosemirror-model';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
+import { createDocxGrammarPlugin, applyDocxGrammarReviewSuggestion, addDocxGrammarDictionaryWord, ignoreDocxGrammarDiagnostic, clearDocxGrammarTransaction } from './harper/docxGrammarPlugin';
+import type { DocxGrammarDiagnostic } from './harper/docxGrammarDiagnostics';
 import proseMirrorViewStyles from 'prosemirror-view/style/prosemirror.css';
 import type { I18nService } from './i18n/I18nService';
 import {
@@ -2358,6 +2360,8 @@ export interface DocxReactViewProps {
 	onDocumentNameChange: (name: string, expectedPath?: string | null) => Promise<void>;
 	onWordCountChange: (wordCount: DocumentWordCount) => void;
 	onLoadPhase?: (phase: string, data?: Record<string, unknown>) => void;
+	grammarEnabled?: boolean;
+	requestGrammarLint?: (text: string) => Promise<import('./harper/harperGrammarService').HarperGrammarLint[] | null>;
 }
 
 export interface DocxReactViewHandle {
@@ -2380,10 +2384,15 @@ export interface DocxReactViewHandle {
 }
 
 export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>(function DocxReactView(
-	{ file, buffer, documentKey, editorAdapter, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, hostDocument, onDirtyChange, onSave, onDocumentNameChange, onWordCountChange, onLoadPhase },
+	{ file, buffer, documentKey, editorAdapter, error, isLoading, authorName, resolvedEditorTheme, i18n, pluginI18n, showNotice, showRuler, autosave, defaultZoom, reserveReviewSidebar, hostDocument, onDirtyChange, onSave, onDocumentNameChange, onWordCountChange, onLoadPhase, grammarEnabled = false, requestGrammarLint },
 	ref,
 ) {
 	const editorRef = useRef<DocxEditorRef>(null);
+	const grammarEnabledRef = useRef(grammarEnabled);
+	const requestGrammarLintRef = useRef(requestGrammarLint);
+	const [grammarReview, setGrammarReview] = useState<DocxGrammarDiagnostic[]>([]);
+	grammarEnabledRef.current = grammarEnabled;
+	requestGrammarLintRef.current = requestGrammarLint;
 	const sourceBufferRef = useRef<ArrayBuffer | null | undefined>(buffer);
 	const renderedDomContextRef = useRef<RenderedDomContext | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
@@ -2455,6 +2464,17 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			ownerDocument.removeEventListener('beforeinput', onBeforeInput, true);
 		};
 	}, [hostDocument]);
+	useEffect(() => {
+		if (grammarEnabled) return;
+		const view = editorRef.current?.getEditorRef()?.getView();
+		if (!view) {
+			setGrammarReview([]);
+			return;
+		}
+		const clear = clearDocxGrammarTransaction(view.state);
+		if (clear) view.dispatch(clear);
+		setGrammarReview([]);
+	}, [grammarEnabled]);
 	useEffect(() => {
 		debugLog('settings', 'DOCX React colorMode', {
 			file: file?.path,
@@ -2633,9 +2653,18 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		() => createPreserveTypedSpacePlugin(inputDiagnostics),
 		[inputDiagnostics],
 	);
+	const grammarPlugin = useMemo(
+		() => createDocxGrammarPlugin({
+			getEnabled: () => grammarEnabledRef.current,
+			requestLint: (text) => requestGrammarLintRef.current?.(text) ?? Promise.resolve(null),
+			onReview: (diagnostics) => setGrammarReview([...diagnostics]),
+			log: (data) => debugLog('harper', 'DOCX grammar diagnostics', data),
+		}),
+		[],
+	);
 	const externalPlugins = useMemo(
-		() => [inputDiagnosticsPlugin, preserveTypedSpacePlugin, contentShrinkDiagnosticsPlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
-		[inputDiagnosticsPlugin, preserveTypedSpacePlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin],
+		() => [inputDiagnosticsPlugin, preserveTypedSpacePlugin, contentShrinkDiagnosticsPlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin, grammarPlugin],
+		[inputDiagnosticsPlugin, preserveTypedSpacePlugin, findHighlightPlugin, paragraphLayoutRelayoutPlugin, grammarPlugin],
 	);
 	const pluginSidebarItems = useMemo<NonNullable<ComponentProps<typeof DocxEditor>['pluginSidebarItems']>>(() => {
 		if (!reserveReviewSidebar) {
@@ -4805,6 +4834,54 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				style={{ display: 'none' }}
 				onChange={handleImageInputChange}
 			/>
+			{grammarReview.length > 0 && (
+				<div className="native-powerpoint-doc-editor-grammar-review" role="region" aria-label="Grammar">
+					{grammarReview.map((diagnostic) => (
+						<div className="native-powerpoint-doc-editor-grammar-review-item" key={diagnostic.id}>
+							<p>{diagnostic.message}</p>
+							<div>
+								{diagnostic.suggestions.map((suggestion, index) => (
+									<button
+										type="button"
+										key={`${diagnostic.id}:${index}`}
+										onClick={() => {
+											const view = editorRef.current?.getEditorRef()?.getView();
+											if (!view) return;
+											const transaction = applyDocxGrammarReviewSuggestion(view.state, diagnostic.id, index);
+											if (transaction) view.dispatch(transaction);
+										}}
+									>
+										{suggestion.kind === 'remove' ? 'Remove' : suggestion.replacement || 'Apply'}
+									</button>
+								))}
+								<button
+									type="button"
+									onClick={() => {
+										const view = editorRef.current?.getEditorRef()?.getView();
+										if (!view) return;
+										const transaction = ignoreDocxGrammarDiagnostic(view.state, diagnostic.id, undefined);
+										if (transaction) view.dispatch(transaction);
+									}}
+								>
+									Ignore
+								</button>
+								<button
+									type="button"
+									onClick={() => {
+										const view = editorRef.current?.getEditorRef()?.getView();
+										if (!view) return;
+										addDocxGrammarDictionaryWord(view.state, diagnostic.id, undefined);
+										const transaction = ignoreDocxGrammarDiagnostic(view.state, diagnostic.id, undefined);
+										if (transaction) view.dispatch(transaction);
+									}}
+								>
+									Dictionary
+								</button>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
 			<DocxEditor
 				key={documentKey}
 				ref={editorRef}

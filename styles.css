@@ -3007,6 +3007,25 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-root.na
 	display: none;
 }
 
+.native-powerpoint-doc-editor-grammar-review {
+	background: var(--npde-editor-bg);
+	border-top: 1px solid var(--npde-editor-border);
+	color: var(--npde-editor-text);
+	font-size: 13px;
+	padding: 8px 12px;
+}
+
+.native-powerpoint-doc-editor-grammar-review-item {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+	justify-content: space-between;
+}
+
+.native-powerpoint-doc-editor-grammar-mark {
+	text-decoration: underline;
+}
+
 .native-powerpoint-slide-surface {
 	background: var(--npde-document-bg);
 	box-shadow: var(--npde-document-shadow);

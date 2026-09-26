@@ -44,6 +44,8 @@ export async function registerDocxSupport(
 			() => plugin.pluginSettings.autosave,
 			() => plugin.pluginSettings.createBackupsBeforeSave,
 			() => plugin.pluginSettings.defaultZoom,
+			() => plugin.pluginSettings.enableGrammarChecking,
+			(text) => plugin.requestGrammarLint(text),
 			(wordCount) => plugin.updateDocumentWordCount(leaf, wordCount),
 			() => plugin.clearDocumentWordCount(leaf),
 		),

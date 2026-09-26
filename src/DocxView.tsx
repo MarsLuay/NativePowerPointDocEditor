@@ -1003,6 +1003,8 @@ export class DocxView extends FileView {
 		private getAutosave: () => boolean,
 		private getCreateBackupsBeforeSave: () => boolean,
 		private getDefaultZoom: () => number,
+		private getGrammarEnabled: () => boolean,
+		private requestGrammarLint: (text: string) => Promise<import('./harper/harperGrammarService').HarperGrammarLint[] | null>,
 		private onWordCountChange: (wordCount: DocumentWordCount) => void,
 		private onWordCountClear: () => void,
 	) {
@@ -3843,6 +3845,8 @@ export class DocxView extends FileView {
 			showRuler: this.getShowRuler(),
 			autosave: this.getAutosave(),
 			defaultZoom: this.getDefaultZoom(),
+			grammarEnabled: this.getGrammarEnabled(),
+			requestGrammarLint: (text) => this.requestGrammarLint(text),
 			reserveReviewSidebar: this.reserveReviewSidebar,
 			hostDocument: this.hostEl?.ownerDocument,
 			onDirtyChange: (isDirty) => {
