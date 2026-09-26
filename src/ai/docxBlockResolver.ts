@@ -190,6 +190,48 @@ export function findParagraphByAnchorInPart(
 	return findParagraphByAnchor(inner, anchor, idPrefixForLocation(location));
 }
 
+export interface ResolvedParagraphReference {
+	location: DocxStableLocation;
+	blockId: string;
+	anchor: string;
+}
+
+/**
+ * Persistent w14:paraId wins when supplied. A positional id is the compatibility
+ * path and must not select a different paragraph than that anchor.
+ */
+export function resolveParagraphReferenceInPart(
+	partXml: string,
+	blockId: string,
+	anchor?: string,
+): ResolvedParagraphReference {
+	const requestedLocation = parseStableLocation(blockId);
+	if (!requestedLocation || requestedLocation.kind !== 'paragraph') {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `Invalid paragraph blockId: ${blockId}.`, { field: 'blockId' });
+	}
+	if (!anchor) {
+		const block = findTopLevelBlock(getEditableInner(partXml, requestedLocation), blockId);
+		if (block.kind !== 'paragraph') {
+			throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Paragraph ${blockId} was not found.`, { field: 'blockId' });
+		}
+		return {
+			location: requestedLocation,
+			blockId,
+			anchor: getParagraphAnchor(block.xml) ?? '',
+		};
+	}
+	const block = findParagraphByAnchorInPart(partXml, requestedLocation, anchor);
+	const location = parseStableLocation(block.id);
+	if (!location || location.kind !== 'paragraph') {
+		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Paragraph anchor ${anchor} was not found.`, { field: 'anchor' });
+	}
+	return {
+		location,
+		blockId: block.id,
+		anchor: getParagraphAnchor(block.xml) ?? anchor.trim().toUpperCase(),
+	};
+}
+
 export function getParagraphXml(partXml: string, location: DocxStableLocation): string {
 	const inner = getEditableInner(partXml, location);
 	let currentIndex = 0;
