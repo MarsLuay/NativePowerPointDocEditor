@@ -80,6 +80,11 @@ export const OP_EXAMPLES: Record<string, DocumentOp> = {
 		afterBlockId: 'body/p[0]',
 		paragraphs: [{ text: 'Added item', listStyle: 'bullet', bold: false }],
 	},
+	'docx.insertParagraphsBefore': {
+		op: 'docx.insertParagraphsBefore',
+		beforeBlockId: 'body/p[0]',
+		paragraphs: [{ text: 'Inserted heading', runStyle: { bold: true } }],
+	},
 	'docx.setCellText': { op: 'docx.setCellText', cellId: 'body/tbl[0]/tr[0]/tc[0]', text: 'Cell' },
 	'docx.setCellStyle': { op: 'docx.setCellStyle', cellId: 'body/tbl[0]/tr[0]/tc[0]', style: { name: 'Normal' } },
 	'docx.deleteTable': { op: 'docx.deleteTable', tableId: 'body/tbl[0]' },

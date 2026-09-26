@@ -43,9 +43,9 @@ const STABLE_ID_RULES: StableIdRules = {
 	pptxShape: 'slide:<slideIndex>/shape:<shapeIndex>',
 	pptxParagraph: 'slide:<slideIndex>/shape:<shapeIndex>/p:<paragraphIndex>',
 	pptxRun: 'slide:<slideIndex>/shape:<shapeIndex>/p:<paragraphIndex>/r:<runIndex>',
-	docxBlock: 'Positional body/p[<index>] | body/tbl[<index>]/tr[<row>]/tc[<col>]; paragraph blocks also expose persistent w14:paraId anchors.',
-	docxRun: 'body/p[<index>]/r[<runIndex>] (compatibility location; resolve paragraph mutations by the described persistent anchor when available)',
-	docxTextPosition: '{ blockId: positional paragraph id, offset: 0-based char offset in paragraph plain text, runId?: optional anchor run }',
+	docxBlock: 'Positional body/p[<index>] | body/tbl[<index>]/tr[<row>]/tc[<col>] compatibility ids; paragraph blocks expose persistent w14:paraId anchors for mutation.',
+	docxRun: 'body/p[<index>]/r[<runIndex>] compatibility run id; supply the paragraph anchor when structure may have shifted.',
+	docxTextPosition: '{ blockId: positional paragraph id, anchor?: persistent w14:paraId, offset: 0-based char offset, runId?: optional run id }',
 	docxTextRange: '{ start: docxTextPosition, end: docxTextPosition } — same part; end block/run must not precede start',
 	editableRule: 'PPTX shape indices must be integers >= 0. Negative indices are inherited placeholders.',
 };

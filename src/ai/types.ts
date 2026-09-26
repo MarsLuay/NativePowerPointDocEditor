@@ -44,11 +44,23 @@ export interface ApplyPreviewChange {
 	after: unknown;
 }
 
+export interface StructuralMutationMetadata {
+	op: string;
+	anchor: string;
+	placement: 'before' | 'after';
+	templateBlockId: string;
+	createdBlockIds: string[];
+	createdAnchors: string[];
+	inheritedListProperties: boolean;
+}
+
 export interface ApplyResult {
 	ok: boolean;
 	dryRun?: boolean;
 	changed?: string[];
 	created?: string[];
+	createdAnchors?: string[];
+	structuralMutations?: StructuralMutationMetadata[];
 	undoLabel?: string;
 	canUndo?: boolean;
 	canRedo?: boolean;

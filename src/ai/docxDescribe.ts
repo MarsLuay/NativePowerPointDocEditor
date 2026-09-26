@@ -241,10 +241,11 @@ export async function describeDocxFromBuffer(buffer: ArrayBuffer, filePath: stri
 	for (const listed of listDocxDescribeParts(zip)) {
 		const partXml = await zip.file(listed.path)?.async('string');
 		if (!partXml) continue;
-		revisionEntries.push({ path: listed.path, xml: partXml });
-		// Describe exposes an anchor even for legacy paragraphs that do not yet
-		// carry w14:paraId; the first editable mutation persists these IDs.
+		// Canonicalize legacy parts before both describing and hashing them. This
+		// keeps the revision accepted by apply identical to the revision returned
+		// here, even before the first save persists generated paragraph anchors.
 		const anchoredPartXml = ensureParagraphAnchors(partXml);
+		revisionEntries.push({ path: listed.path, xml: anchoredPartXml });
 
 		sources.push(listed.path);
 		const label = describePartLabel(listed.part, listed.partNumber);
