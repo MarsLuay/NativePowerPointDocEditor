@@ -226,7 +226,7 @@ function flattenParagraphRuns(contentXml: string): FlatRun[] {
 function setRunTextContent(runXml: string, text: string): string {
 	const encoded = encodeXmlText(text);
 	if (/<w:t\b/.test(runXml)) {
-		return runXml.replace(/<w:t\b[^>]*>([\s\S]*?)<\/w:t>/, `<w:t>${encoded}</w:t>`);
+		return runXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/, `$1${encoded}$3`);
 	}
 	if (runXml.trim().endsWith('/>')) {
 		return runXml.replace(/\/>$/, `><w:t>${encoded}</w:t></w:r>`);
@@ -261,7 +261,7 @@ function rebuildContentFromRuns(runs: FlatRun[]): string {
 
 function cloneRunTemplate(runXml: string): string {
 	if (/<w:t\b/.test(runXml)) {
-		return runXml.replace(/<w:t\b[^>]*>[\s\S]*?<\/w:t>/, '<w:t></w:t>');
+		return runXml.replace(/(<w:t\b[^>]*>)[\s\S]*?(<\/w:t>)/, '$1$2');
 	}
 	if (runXml.trim().endsWith('/>')) {
 		return runXml.replace(/\/>$/, '><w:t></w:t></w:r>');
