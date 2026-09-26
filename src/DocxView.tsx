@@ -54,6 +54,7 @@ import {
 import { getDocxEditorChromeRegionSelector } from './editorChromeRegions';
 
 import { neutralizeToolbarButtonTooltipSources } from './docxToolbarTooltip';
+import { createCaretThemeDiagnostics } from './docxCaretThemeDiagnostics';
 import {
 	createEditorChromeReconciler,
 	removeAttributeIfPresent,
@@ -979,6 +980,9 @@ export class DocxView extends FileView {
 	private hostResizeObserver: ResizeObserver | null = null;
 	private editorAdapter: DocxEditorAdapterController | null = null;
 	private editorChromeReconciler: EditorChromeReconciler | null = null;
+	private readonly caretThemeDiagnostics = createCaretThemeDiagnostics((entry) => {
+		debugLog('editor', entry.message, entry.data);
+	});
 	private optionSearchPopoverEl: HTMLElement | null = null;
 	private optionSearchCleanup: (() => void) | null = null;
 	private editorEditPopoverEl: HTMLElement | null = null;
@@ -1225,7 +1229,7 @@ export class DocxView extends FileView {
 		) ?? null;
 		const rootStyles = sampleRoot ? getComputedStyle(sampleRoot) : null;
 		const caretStyles = sampleCaret ? getComputedStyle(sampleCaret) : null;
-		debugLog('editor', 'DOCX caret pinned to page ink', {
+		this.caretThemeDiagnostics.record({
 			file: this.file?.path,
 			wantDark,
 			roots: roots.length,
