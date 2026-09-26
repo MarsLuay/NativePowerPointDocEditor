@@ -3,6 +3,7 @@ import {
 	getParagraphXml,
 	replaceParagraphXml,
 } from './docxBlockResolver';
+import { getParagraphAnchor } from './docxOoxml';
 import { buildHyperlinkXml } from './docxHyperlink';
 import { extractDocxRunText } from '../docxXmlText';
 import { wrapperTagForPart, type DocxWrapperTag } from './docxParts';
@@ -46,6 +47,22 @@ export interface DocxInsertedParagraph {
 	bold?: boolean;
 }
 
+export interface DocxParagraphInheritance {
+	paragraph: boolean;
+	run: boolean;
+	layout: boolean;
+	border: boolean;
+	list: boolean;
+}
+
+export const FULL_PARAGRAPH_INHERITANCE: DocxParagraphInheritance = {
+	paragraph: true,
+	run: true,
+	layout: true,
+	border: true,
+	list: true,
+};
+
 export interface DocxParagraphMutationResult {
 	partXml: string;
 	createdBlockIds: string[];
@@ -69,9 +86,10 @@ function nextWordId(): string {
 }
 
 function cloneParagraphOpenTag(openTag: string): string {
-	return openTag
-		.replace(/w14:paraId="[^"]*"/, `w14:paraId="${nextWordId()}"`)
-		.replace(/w14:textId="[^"]*"/, `w14:textId="${nextWordId()}"`);
+	const withAnchor = /\bw14:paraId="/.test(openTag)
+		? openTag.replace(/w14:paraId="[^"]*"/, `w14:paraId="${nextWordId()}"`)
+		: openTag.replace(/^<w:p\b/, `<w:p w14:paraId="${nextWordId()}"`);
+	return withAnchor.replace(/w14:textId="[^"]*"/, `w14:textId="${nextWordId()}"`);
 }
 
 function extractElementXml(
@@ -711,12 +729,57 @@ export function applyInsertParagraphBreakInPart(
 	};
 }
 
+const LAYOUT_PROPERTY_TAGS = new Set(['spacing', 'ind', 'jc', 'tabs', 'contextualSpacing']);
+
+function paragraphPropertyGroup(tag: string): keyof DocxParagraphInheritance {
+	if (tag === 'numPr') return 'list';
+	if (LAYOUT_PROPERTY_TAGS.has(tag)) return 'layout';
+	if (tag === 'pBdr') return 'border';
+	if (tag === 'rPr') return 'run';
+	return 'paragraph';
+}
+
+function paragraphPropertyChildren(prefixXml: string): string[] {
+	if (!prefixXml || /\/>\s*$/.test(prefixXml)) return [];
+	const inner = prefixXml.replace(/^<w:pPr\b[^>]*>/, '').replace(/<\/w:pPr>\s*$/, '');
+	const children: string[] = [];
+	let cursor = 0;
+	while (cursor < inner.length) {
+		const start = inner.indexOf('<w:', cursor);
+		if (start === -1) break;
+		const tag = /^<w:([A-Za-z0-9]+)/.exec(inner.slice(start))?.[1];
+		if (!tag) break;
+		const wrapped = new RegExp(`^<w:${tag}\\b[^>]*>[\\s\\S]*?</w:${tag}>`).exec(inner.slice(start));
+		const selfClosed = new RegExp(`^<w:${tag}\\b[^>]*/>`).exec(inner.slice(start));
+		const element = wrapped?.[0] ?? selfClosed?.[0];
+		if (!element) break;
+		children.push(element);
+		cursor = start + element.length;
+	}
+	return children;
+}
+
+function selectParagraphProperties(
+	prefixXml: string,
+	inherit: DocxParagraphInheritance,
+): string {
+	if (inherit.paragraph && inherit.run && inherit.layout && inherit.border && inherit.list) {
+		return prefixXml;
+	}
+	const kept = paragraphPropertyChildren(prefixXml).filter((element) => {
+		const tag = /^<w:([A-Za-z0-9]+)/.exec(element)?.[1] ?? '';
+		return inherit[paragraphPropertyGroup(tag)];
+	});
+	return kept.length > 0 ? `<w:pPr>${kept.join('')}</w:pPr>` : '';
+}
+
 function paragraphWithInsertedText(
 	templateParagraphXml: string,
 	paragraph: DocxInsertedParagraph,
+	inherit: DocxParagraphInheritance = FULL_PARAGRAPH_INHERITANCE,
 ): string {
 	const template = decomposeParagraph(templateParagraphXml);
-	let paragraphProperties = template.prefixXml;
+	let paragraphProperties = selectParagraphProperties(template.prefixXml, inherit);
 	const listStyle = paragraph.listStyle;
 	if (listStyle === 'none') {
 		paragraphProperties = paragraphProperties.replace(/<w:numPr\b[\s\S]*?<\/w:numPr>|<w:numPr\b[^>]*\/>/, '');
@@ -728,7 +791,7 @@ function paragraphWithInsertedText(
 		);
 	}
 
-	const templateRun = flattenParagraphRuns(template.contentXml)[0]?.xml;
+	const templateRun = inherit.run ? flattenParagraphRuns(template.contentXml)[0]?.xml : undefined;
 	const runXml = templateRun
 		? setRunTextContent(cloneRunTemplate(templateRun), paragraph.text)
 		: buildRunXml(paragraph.text);
@@ -792,6 +855,85 @@ export function applyInsertParagraphsAfterInPart(
 			paragraphIndex: location.paragraphIndex + 1 + index,
 		})),
 		inheritedListProperties: /<w:numPr\b/.test(templateProperties),
+	};
+}
+
+export interface DocxAnchoredParagraphInsertion {
+	anchorBlockId: string;
+	templateParagraphXml: string;
+	paragraphs: DocxInsertedParagraph[];
+	placement: 'before' | 'after';
+	inherit: DocxParagraphInheritance;
+	anchor: string;
+	templateAnchor: string;
+}
+
+export function applyInsertParagraphsInPart(
+	partXml: string,
+	request: DocxAnchoredParagraphInsertion,
+): DocxParagraphMutationResult & {
+	createdAnchors: string[];
+	placement: 'before' | 'after';
+	anchor: string;
+	templateAnchor: string;
+	inheritance: DocxParagraphInheritance;
+} {
+	const { paragraphs, placement, anchorBlockId } = request;
+	if (paragraphs.length === 0) {
+		throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, 'paragraphs must contain at least one paragraph.', { field: 'paragraphs' });
+	}
+	const location = resolveParagraphLocation(anchorBlockId);
+	const inner = getEditableInner(partXml, location);
+	const idPrefix = idPrefixForLocation(location);
+	const blocks = enumerateTopLevelBlockPositions(inner, idPrefix);
+	const block = blocks.find((entry) => entry.id === anchorBlockId);
+	if (!block || block.kind !== 'paragraph') {
+		throw createAiError(AI_ERROR_CODES.BLOCK_NOT_FOUND, `Block ${anchorBlockId} was not found.`, { field: 'anchor' });
+	}
+	const insertedParagraphs = paragraphs.map((paragraph, index) => {
+		if (typeof paragraph.text !== 'string') {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must be a string.`, { field: 'paragraphs' });
+		}
+		if (paragraph.text.includes('\n') || paragraph.text.includes('\r')) {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].text must not contain line breaks.`, { field: 'paragraphs' });
+		}
+		if (paragraph.listStyle !== undefined && !['none', 'bullet', 'number'].includes(paragraph.listStyle)) {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].listStyle is invalid.`, { field: 'paragraphs' });
+		}
+		if (paragraph.bold !== undefined && typeof paragraph.bold !== 'boolean') {
+			throw createAiError(AI_ERROR_CODES.SCHEMA_INVALID, `paragraphs[${index}].bold must be boolean.`, { field: 'paragraphs' });
+		}
+		return paragraphWithInsertedText(request.templateParagraphXml, paragraph, request.inherit);
+	});
+	const insertAt = placement === 'before' ? block.startInBody : block.endInBody;
+	const nextInner = `${inner.slice(0, insertAt)}${insertedParagraphs.join('')}${inner.slice(insertAt)}`;
+	const nextBlocks = enumerateTopLevelBlockPositions(nextInner, idPrefix);
+	const nextParagraphCount = nextBlocks.filter((entry) => entry.kind === 'paragraph').length;
+	const previousParagraphCount = blocks.filter((entry) => entry.kind === 'paragraph').length;
+	if (nextParagraphCount !== previousParagraphCount + paragraphs.length) {
+		throw createAiError(
+			AI_ERROR_CODES.VALIDATION_FAILED,
+			`Paragraph insertion did not create ${paragraphs.length} new paragraphs for ${anchorBlockId}.`,
+			{ field: 'anchor' },
+		);
+	}
+	const createdAnchors = insertedParagraphs.map((xml) => getParagraphAnchor(xml) ?? '');
+	if (createdAnchors.some((createdAnchor) => !createdAnchor)) {
+		throw createAiError(AI_ERROR_CODES.VALIDATION_FAILED, 'Inserted paragraph is missing a persistent anchor.', { field: 'paragraphs' });
+	}
+	const anchorIndex = location.paragraphIndex;
+	return {
+		partXml: setEditableInner(partXml, location, nextInner),
+		createdBlockIds: paragraphs.map((_, index) => paragraphIdForLocation({
+			...location,
+			paragraphIndex: placement === 'before' ? anchorIndex + index : anchorIndex + 1 + index,
+		})),
+		createdAnchors,
+		inheritedListProperties: request.inherit.list && /<w:numPr\b/.test(request.templateParagraphXml),
+		placement,
+		anchor: request.anchor,
+		templateAnchor: request.templateAnchor,
+		inheritance: request.inherit,
 	};
 }
 
