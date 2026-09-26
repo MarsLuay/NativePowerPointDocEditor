@@ -1,0 +1,251 @@
+diff --git a/src/main/main_edit.mbt b/src/main/main_edit.mbt
+index ab7b721..f069749 100644
+--- a/src/main/main_edit.mbt
++++ b/src/main/main_edit.mbt
+@@ -130,6 +130,7 @@ fn make_default_run(
+     italic: false,
+     font_size,
+     color,
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+diff --git a/src/main/main_inherit.mbt b/src/main/main_inherit.mbt
+index 6606bf0..963b691 100644
+--- a/src/main/main_inherit.mbt
++++ b/src/main/main_inherit.mbt
+@@ -602,6 +602,7 @@ fn inject_placeholder_auto_content(
+         italic: false,
+         font_size: 0,
+         color: @ooxml.Color::none(),
++        highlight: @ooxml.Color::none(),
+         font_face: "",
+         ea_font: "",
+         cs_font: "",
+diff --git a/src/ooxml/ooxml.mbt b/src/ooxml/ooxml.mbt
+index c60f10a..4a729ae 100644
+--- a/src/ooxml/ooxml.mbt
++++ b/src/ooxml/ooxml.mbt
+@@ -882,6 +882,7 @@ pub(all) struct TextRun {
+   italic : Bool
+   font_size : Int // in hundredths-of-a-point (sz attr); 0 = inherit
+   color : Color
++  highlight : Color // <a:highlight> run highlight fill; Color::none() = no highlight
+   font_face : String // explicit typeface from <a:latin>; "" = use theme font
+   ea_font : String // East Asian typeface from <a:ea>; "" = use theme ea font
+   cs_font : String // Complex Script typeface from <a:cs>; "" = use theme cs font
+diff --git a/src/ooxml/ooxml_parse.mbt b/src/ooxml/ooxml_parse.mbt
+index 9d26902..cf36300 100644
+--- a/src/ooxml/ooxml_parse.mbt
++++ b/src/ooxml/ooxml_parse.mbt
+@@ -70,6 +70,18 @@ fn parse_solid_fill(nodes : Array[@xml.XmlNode], theme : ThemeData) -> Color {
+   }
+ }
+ 
++///|
++/// Parse <a:highlight> (run-level highlight color) from child nodes.
++/// Shares the same inner color container as <a:solidFill>.
++/// Returns Color::none() if absent.
++fn parse_highlight(nodes : Array[@xml.XmlNode], theme : ThemeData) -> Color {
++  match @xml.find_child(nodes, "a:highlight") {
++    None => Color::none()
++    Some(hl_node) =>
++      parse_color_from_children(@xml.get_children(hl_node), theme)
++  }
++}
++
+ // ── Gradient fill parsing ────────────────────────────────────────────────────
+ 
+ ///|
+diff --git a/src/ooxml/ooxml_text.mbt b/src/ooxml/ooxml_text.mbt
+index b709f6e..dcd6357 100644
+--- a/src/ooxml/ooxml_text.mbt
++++ b/src/ooxml/ooxml_text.mbt
+@@ -430,6 +430,7 @@ fn default_text_run(
+     italic: def_italic,
+     font_size: def_font_size,
+     color: def_color,
++    highlight: Color::none(),
+     font_face: def_font_face,
+     ea_font: def_ea_font,
+     cs_font: "",
+@@ -495,6 +496,8 @@ fn parse_run_props(
+   let rpr_ch = @xml.get_children(rpr)
+   let clr_raw = parse_solid_fill(rpr_ch, theme)
+   let color = if clr_raw.is_none() { def_color } else { clr_raw }
++  // <a:highlight> is authored on the run and never inherited from defaults.
++  let highlight = parse_highlight(rpr_ch, theme)
+   let ff_raw = child_attr(rpr_ch, "a:latin", "typeface")
+   let ff_resolved = resolve_font_theme(ff_raw, theme)
+   let font_face = if ff_resolved.is_empty() {
+@@ -552,6 +555,7 @@ fn parse_run_props(
+     italic,
+     font_size,
+     color,
++    highlight,
+     font_face,
+     ea_font,
+     cs_font,
+diff --git a/src/renderer/renderer_test.mbt b/src/renderer/renderer_test.mbt
+index 11c5b53..c0056a1 100644
+--- a/src/renderer/renderer_test.mbt
++++ b/src/renderer/renderer_test.mbt
+@@ -646,6 +646,7 @@ test "roundtrip justify alignment" {
+     italic: false,
+     font_size: 1800,
+     color: @ooxml.Color::none(),
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+@@ -732,6 +733,7 @@ fn make_bulleted_shape(indent : Int) -> @ooxml.Shape {
+     italic: false,
+     font_size: 1800,
+     color: @ooxml.Color::none(),
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+@@ -843,6 +845,7 @@ fn make_rotated_text_shape(rot : Int) -> @ooxml.Shape {
+     italic: false,
+     font_size: 2400,
+     color: @ooxml.Color::none(),
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+@@ -1343,6 +1346,7 @@ test "rendered SVG drops javascript: hyperlink target" {
+     italic: false,
+     font_size: 1800,
+     color: @ooxml.Color::black(),
++    highlight: @ooxml.Color::none(),
+     font_face: "Arial",
+     ea_font: "",
+     cs_font: "",
+@@ -1607,6 +1611,7 @@ test "bullet inherits first run color when buClr is absent" {
+     italic: false,
+     font_size: 0,
+     color: ({ r: 255, g: 255, b: 255, alpha: 255 } : @ooxml.Color), // white
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+@@ -1804,6 +1809,7 @@ test "bullet font-size matches run when bu_size is unspecified" {
+     italic: false,
+     font_size: 1200, // 12 pt → 16 px at scale 9525
+     color: ({ r: 0, g: 0, b: 0, alpha: 255 } : @ooxml.Color),
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+@@ -1943,6 +1949,7 @@ fn tl_run(text : String) -> @ooxml.TextRun {
+     italic: false,
+     font_size: 1800,
+     color: @ooxml.Color::none(),
++    highlight: @ooxml.Color::none(),
+     font_face: "",
+     ea_font: "",
+     cs_font: "",
+diff --git a/src/renderer/renderer_text.mbt b/src/renderer/renderer_text.mbt
+index dd60c36..f19faba 100644
+--- a/src/renderer/renderer_text.mbt
++++ b/src/renderer/renderer_text.mbt
+@@ -774,6 +774,10 @@ fn render_run_tspan(
+     da("bold", bool_str(run.bold)) +
+     da("font-size", int_to_str(run.font_size)) +
+     da("color", run.color.to_hex()) +
++    da(
++      "highlight-color",
++      if run.highlight.is_none() { "" } else { run.highlight.to_hex() },
++    ) +
+     da("run-font", run.font_face) +
+     da("ea-font", run.ea_font) +
+     da("cs-font", run.cs_font) +
+diff --git a/src/serializer/serializer.mbt b/src/serializer/serializer.mbt
+index b471567..2407d0d 100644
+--- a/src/serializer/serializer.mbt
++++ b/src/serializer/serializer.mbt
+@@ -564,6 +564,7 @@ fn serialize_run_props(run : @ooxml.TextRun) -> String {
+     rpr = rpr + " kern=\"" + int_to_str(run.kern) + "\""
+   }
+   let has_children = !run.color.is_none() ||
++    !run.highlight.is_none() ||
+     !run.font_face.is_empty() ||
+     !run.ea_font.is_empty() ||
+     !run.cs_font.is_empty() ||
+@@ -597,6 +598,14 @@ fn serialize_run_props(run : @ooxml.TextRun) -> String {
+     if !run.text_patt_fill.is_none() {
+       rpr = rpr + serialize_pattern_fill(run.text_patt_fill)
+     }
++    // Run highlight: a:highlight on a:rPr (CT_TextCharacterProperties order:
++    // after the fill group, before a:latin).
++    if !run.highlight.is_none() {
++      rpr = rpr +
++        "<a:highlight>" +
++        serialize_color_inner(run.highlight) +
++        "</a:highlight>"
++    }
+     if !run.font_face.is_empty() {
+       rpr = rpr + "<a:latin typeface=\"" + xml_escape(run.font_face) + "\"/>"
+     }
+diff --git a/src/serializer/serializer_test.mbt b/src/serializer/serializer_test.mbt
+index b058704..97614ad 100644
+--- a/src/serializer/serializer_test.mbt
++++ b/src/serializer/serializer_test.mbt
+@@ -484,6 +484,36 @@ test "restore round-trip: shape text survives parse_slide" {
+   assert_eq(out, serialize_slide(slide2))
+ }
+ 
++///|
++test "run highlight survives parse_slide -> serialize round-trip" {
++  // <a:highlight> is authored on a run's rPr. The renderer model previously
++  // dropped it on parse, so any model->serialize cycle (move/resize/fill, undo,
++  // export) silently lost the highlight. Parse must capture it onto the run and
++  // serialize must re-emit it, making the round-trip lossless.
++  let xml =
++    #|<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
++    #|<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld><p:spTree><p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr/><p:sp><p:nvSpPr><p:cNvPr id="2" name="TextBox"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x="100000" y="100000"/><a:ext cx="500000" cy="300000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></p:spPr><p:txBody><a:bodyPr/><a:p><a:r><a:rPr lang="en-US"><a:highlight><a:srgbClr val="FFFF00"/></a:highlight></a:rPr><a:t>lit</a:t></a:r></a:p></p:txBody></p:sp></p:spTree></p:cSld></p:sld>
++  let slide = @ooxml.parse_slide(
++    xml,
++    @ooxml.SlideSize::default(),
++    @ooxml.ThemeData::default(),
++  )
++  // Parse captured the highlight onto the run.
++  let run = slide.shapes[0].paragraphs[0].runs[0]
++  assert_eq(run.highlight.r, 255)
++  assert_eq(run.highlight.g, 255)
++  assert_eq(run.highlight.b, 0)
++  // Serialize re-emits <a:highlight>, and the cycle is a fixed point.
++  let out = serialize_slide(slide)
++  assert_true(out.contains("<a:highlight><a:srgbClr val=\"FFFF00\"/></a:highlight>"))
++  let slide2 = @ooxml.parse_slide(
++    out,
++    @ooxml.SlideSize::default(),
++    @ooxml.ThemeData::default(),
++  )
++  assert_eq(out, serialize_slide(slide2))
++}
++
+ // ── parse_shapes_xml round-trip (E6.5 copy/paste) ────────────────────────────
+ 
+ ///|
+diff --git a/src/svg_parser/svg_parser.mbt b/src/svg_parser/svg_parser.mbt
+index 5b5097a..c7ee54b 100644
+--- a/src/svg_parser/svg_parser.mbt
++++ b/src/svg_parser/svg_parser.mbt
+@@ -488,6 +488,7 @@ fn parse_text_from_svg(text_node : @xml.XmlNode) -> Array[@ooxml.TextParagraph]
+                     italic,
+                     font_size,
+                     color,
++                    highlight: color_or_none(run_node, "highlight-color"),
+                     font_face,
+                     ea_font,
+                     cs_font,
+@@ -518,6 +519,7 @@ fn parse_text_from_svg(text_node : @xml.XmlNode) -> Array[@ooxml.TextParagraph]
+                     italic: false,
+                     font_size: 0,
+                     color: @ooxml.Color::none(),
++                    highlight: @ooxml.Color::none(),
+                     font_face: "",
+                     ea_font: "",
+                     cs_font: "",

@@ -1,0 +1,40 @@
+{
+	"name": "@npde/docx-editor-i18n",
+	"version": "1.9.0",
+	"license": "Apache-2.0",
+	"sideEffects": true,
+	"description": "Shared UI locale strings and types for the @npde/docx-editor adapters.",
+	"main": "./dist/index.js",
+	"module": "./dist/index.mjs",
+	"exports": {
+		".": {
+			"import": "./dist/index.mjs",
+			"require": "./dist/index.js"
+		},
+		"./en": {
+			"import": "./dist/en.mjs",
+			"require": "./dist/en.js"
+		},
+		"./he": {
+			"import": "./dist/he.mjs",
+			"require": "./dist/he.js"
+		},
+		"./pl": {
+			"import": "./dist/pl.mjs",
+			"require": "./dist/pl.js"
+		},
+		"./pt-BR": {
+			"import": "./dist/pt-BR.mjs",
+			"require": "./dist/pt-BR.js"
+		},
+		"./tr": {
+			"import": "./dist/tr.mjs",
+			"require": "./dist/tr.js"
+		},
+		"./zh-CN": {
+			"import": "./dist/zh-CN.mjs",
+			"require": "./dist/zh-CN.js"
+		},
+		"./package.json": "./package.json"
+	}
+}
