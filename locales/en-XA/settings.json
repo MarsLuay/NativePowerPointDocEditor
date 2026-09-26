@@ -129,6 +129,12 @@
     "clipboardApplyInvalid": "[Ćſįpbǫąrḑ JŞǪÑ mųşţ įñćſųḑę ǫpş: { \"path\"?: \"...\", \"ops\": [...] }.]",
     "clipboardInvalid": "[Ćǫųſḑ ñǫţ ręąḑ vąſįḑ JŞǪÑ frǫm ţhę ćſįpbǫąrḑ.]"
   },
+  "grammar": {
+    "enableGrammarChecking": {
+      "name": "[Ğrąmmąr ćhęćkįñğ]",
+      "description": "[Ćhęćk ğrąmmąr įñ ǫpęñ ḑǫćųmęñţş. Wǫrḑ ąñḑ PǫwęrPǫįñţ şhąrę ǫñę ćhęćkęr.]"
+    }
+  },
   "debug": {
     "copyFullLog": {
       "name": "[Ćǫpÿ fųſſ ḑębųğ ſǫğ]",

@@ -129,6 +129,12 @@
 		"clipboardApplyInvalid": "JSON w schowku musi zawierać ops: { \"path\"?: \"...\", \"ops\": [...] }.",
 		"clipboardInvalid": "Nie udało się odczytać poprawnego JSON ze schowka."
 	},
+	"grammar": {
+		"enableGrammarChecking": {
+			"name": "Sprawdzanie gramatyki",
+			"description": "Sprawdzaj gramatykę w otwartych dokumentach. Word i PowerPoint używają jednego sprawdzania."
+		}
+	},
 	"debug": {
 		"copyFullLog": {
 			"name": "Kopiuj pełny dziennik debugowania",

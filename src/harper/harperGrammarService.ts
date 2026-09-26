@@ -56,6 +56,7 @@ export interface HarperGrammarServiceOptions {
 export interface HarperGrammarService {
   initialize(): Promise<void>;
   requestLint(text: string): Promise<HarperGrammarLint[] | null>;
+  enable(): void;
   disable(): void;
   dispose(): Promise<void>;
 }
@@ -249,6 +250,10 @@ export function createHarperGrammarService(options: HarperGrammarServiceOptions)
       timer?.cancel();
       timer = null;
       settleOlder(version);
+    },
+    enable(): void {
+      if (disposed) return;
+      disabled = false;
     },
     async dispose(): Promise<void> {
       if (disposed) return;

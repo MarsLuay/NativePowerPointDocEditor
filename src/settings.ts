@@ -75,6 +75,7 @@ export interface NativePowerPointDocEditorSettings {
 	disablePowerPointFiles: boolean;
 	enableAiInterfacing: boolean;
 	addAiSkill: boolean;
+	enableGrammarChecking: boolean;
 }
 
 export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
@@ -95,6 +96,7 @@ export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
 	disablePowerPointFiles: false,
 	enableAiInterfacing: false,
 	addAiSkill: false,
+	enableGrammarChecking: true,
 };
 
 export type NativePowerPointDocEditorSettingSectionId =
@@ -127,6 +129,7 @@ export type NativePowerPointDocEditorSettingId =
 	| 'rebuildDocxSearchIndex'
 	| 'enableAiInterfacing'
 	| 'addAiSkill'
+	| 'enableGrammarChecking'
 	| 'debugLogging'
 	| 'copyDocxLog'
 	| 'copyPptxLog'
@@ -222,6 +225,7 @@ export function mergeNativePowerPointDocEditorSettings(
 	const normalizedDisablePowerPointFiles = raw.disablePowerPointFiles === true;
 	const normalizedEnableAiInterfacing = raw.enableAiInterfacing === true;
 	const normalizedAddAiSkill = raw.addAiSkill === true;
+	const normalizedEnableGrammarChecking = raw.enableGrammarChecking !== false;
 
 	const settings: NativePowerPointDocEditorSettings = {
 		authorName: readString(raw.authorName, DEFAULT_SETTINGS.authorName),
@@ -241,6 +245,7 @@ export function mergeNativePowerPointDocEditorSettings(
 		disablePowerPointFiles: normalizedDisablePowerPointFiles,
 		enableAiInterfacing: normalizedEnableAiInterfacing,
 		addAiSkill: normalizedAddAiSkill,
+		enableGrammarChecking: normalizedEnableGrammarChecking,
 	};
 
 	const shouldPersistSettings = hadLegacyEditorLanguage
@@ -258,7 +263,8 @@ export function mergeNativePowerPointDocEditorSettings(
 		|| raw.disableDocxFiles !== normalizedDisableDocxFiles
 		|| raw.disablePowerPointFiles !== normalizedDisablePowerPointFiles
 		|| raw.enableAiInterfacing !== normalizedEnableAiInterfacing
-		|| raw.addAiSkill !== normalizedAddAiSkill;
+		|| raw.addAiSkill !== normalizedAddAiSkill
+		|| raw.enableGrammarChecking !== normalizedEnableGrammarChecking;
 
 	return {
 		settings,
@@ -421,6 +427,11 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 						name: descriptors.showRuler.name,
 						desc: descriptors.showRuler.description,
 						control: { type: 'toggle', key: 'showRuler' },
+					},
+					{
+						name: descriptors.enableGrammarChecking.name,
+						desc: descriptors.enableGrammarChecking.description,
+						control: { type: 'toggle', key: 'enableGrammarChecking' },
 					},
 					{
 						name: descriptors.defaultZoom.name,
@@ -673,6 +684,11 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				await this.plugin.saveSettings();
 				this.plugin.refreshDocxViews();
 				return;
+			case 'enableGrammarChecking':
+				settings.enableGrammarChecking = Boolean(value);
+				await this.plugin.saveSettings();
+				this.plugin.applyGrammarChecking();
+				return;
 			case 'defaultZoom':
 				settings.defaultZoom = normalizeDefaultZoom(value);
 				break;
@@ -844,6 +860,17 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 					this.plugin.pluginSettings.showRuler = value;
 					await this.plugin.saveSettings();
 					this.plugin.refreshDocxViews();
+				}));
+
+		new Setting(containerEl)
+			.setName(settingDescriptors.enableGrammarChecking.name)
+			.setDesc(settingDescriptors.enableGrammarChecking.description)
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.pluginSettings.enableGrammarChecking)
+				.onChange(async (value) => {
+					this.plugin.pluginSettings.enableGrammarChecking = value;
+					await this.plugin.saveSettings();
+					this.plugin.applyGrammarChecking();
 				}));
 
 		const zoomSetting = new Setting(containerEl)

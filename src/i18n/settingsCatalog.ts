@@ -83,7 +83,7 @@ function getEditorDefaultsSettingDescriptors(
 	i18n: I18nService,
 ): Pick<
 	Record<NativePowerPointDocEditorSettingId, NativePowerPointDocEditorSettingDescriptor>,
-	'editorTheme' | 'showRuler' | 'defaultZoom'
+	'editorTheme' | 'showRuler' | 'defaultZoom' | 'enableGrammarChecking'
 > {
 	return {
 		editorTheme: {
@@ -97,6 +97,12 @@ function getEditorDefaultsSettingDescriptors(
 			name: i18n.t('settings:docx.showRuler.name'),
 			description: i18n.t('settings:docx.showRuler.description'),
 			defaultValue: DEFAULT_SETTINGS.showRuler,
+		},
+		enableGrammarChecking: {
+			sectionId: 'editorDefaults',
+			name: i18n.t('settings:grammar.enableGrammarChecking.name'),
+			description: i18n.t('settings:grammar.enableGrammarChecking.description'),
+			defaultValue: DEFAULT_SETTINGS.enableGrammarChecking,
 		},
 		defaultZoom: {
 			sectionId: 'editorDefaults',
@@ -272,7 +278,7 @@ export function getNativePowerPointDocEditorSettingsTabSections(i18n: I18nServic
 	return [
 		{ id: 'identity', label: sectionLabels.identity, settings: ['authorName'] },
 		{ id: 'fileHandoff', label: sectionLabels.fileHandoff, settings: ['disableDocxFiles', 'disablePowerPointFiles'] },
-		{ id: 'editorDefaults', label: sectionLabels.editorDefaults, settings: ['editorTheme', 'showRuler', 'defaultZoom'] },
+		{ id: 'editorDefaults', label: sectionLabels.editorDefaults, settings: ['editorTheme', 'showRuler', 'enableGrammarChecking', 'defaultZoom'] },
 		{ id: 'saving', label: sectionLabels.saving, settings: ['autosave', 'createBackupsBeforeSave', 'powerPointAutosaveEnabled'] },
 		{ id: 'powerpoint', label: sectionLabels.powerpoint, settings: ['powerPointShowInspector', 'powerPointHideUnsupportedSvgContent', 'powerPointOpenWithYoloMode'] },
 		{ id: 'search', label: sectionLabels.search, settings: ['enableDocxSearchIndex', 'autoIndexDocxSearch', 'rebuildDocxSearchIndex'] },

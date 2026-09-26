@@ -129,6 +129,12 @@
     "clipboardApplyInvalid": "‫ :spo edulcni tsum NOSJ draobpilC{ \"path\"?: \"...\", \"ops\": [...] }.",
     "clipboardInvalid": "‫.draobpilc eht morf NOSJ dilav daer ton dluoC"
   },
+  "grammar": {
+    "enableGrammarChecking": {
+      "name": "‫gnikcehc rammarG",
+      "description": "‫.rekcehc eno erahs tnioPrewoP dna droW .stnemucod nepo ni rammarg kcehC"
+    }
+  },
   "debug": {
     "copyFullLog": {
       "name": "‫gol gubed lluf ypoC",
