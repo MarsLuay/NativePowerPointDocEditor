@@ -12,6 +12,7 @@ import {
 	DOCX_TABLE_TOOLBAR_SELECTOR,
 	EDITOR_CHROME_NO_TOOLTIP_ATTRIBUTE,
 } from './docxEditorChromeMarkers';
+import { setAttributeIfChanged } from './docxEditorChromeSync';
 import { ControlTooltipAdapter } from './ui/ControlTooltipAdapter';
 import {
 	containsEventTarget,
@@ -96,7 +97,7 @@ function standardizeToolbarButtonTooltipMetadata(button: HTMLElement): void {
 		button.dataset.tooltip = label;
 	}
 	if (!normalizeTooltipText(button.getAttribute('aria-label'))) {
-		button.setAttribute('aria-label', label);
+		setAttributeIfChanged(button, 'aria-label', label);
 	}
 }
 

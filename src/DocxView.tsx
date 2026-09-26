@@ -54,10 +54,14 @@ import {
 import { getDocxEditorChromeRegionSelector } from './editorChromeRegions';
 
 import { neutralizeToolbarButtonTooltipSources } from './docxToolbarTooltip';
+import {
+	createEditorChromeReconciler,
+	removeAttributeIfPresent,
+	type EditorChromeReconciler,
+} from './docxEditorChromeSync';
 import { VIEW_TYPE_DOCX } from './docxViewConstants';
 import {
 	createDocxEditorAdapter,
-	type Disposable,
 	type DocxEditorAdapterController,
 } from './docx/adapter/DocxEditorAdapter';
 import { createDetachedDocxEditorChromeElement } from './docxEditorChromeDom';
@@ -974,9 +978,7 @@ export class DocxView extends FileView {
 	private reserveReviewSidebar = false;
 	private hostResizeObserver: ResizeObserver | null = null;
 	private editorAdapter: DocxEditorAdapterController | null = null;
-	private editorChromeObserver: Disposable | null = null;
-	private editorChromeSyncQueued = false;
-	private editorChromeSyncing = false;
+	private editorChromeReconciler: EditorChromeReconciler | null = null;
 	private optionSearchPopoverEl: HTMLElement | null = null;
 	private optionSearchCleanup: (() => void) | null = null;
 	private editorEditPopoverEl: HTMLElement | null = null;
@@ -1153,12 +1155,25 @@ export class DocxView extends FileView {
 		this.markOpenLoadPhase('editor-chrome-observers-start');
 		logLifecycleStep('editor-chrome-observers:start', { file: this.file?.path });
 		this.syncEditorChromeCustomizations(true);
-		this.editorChromeObserver = this.editorAdapter.observeChrome(() => {
-			this.scheduleEditorChromeSync();
+		const view = this.hostEl?.ownerDocument.defaultView ?? window;
+		this.editorChromeReconciler = createEditorChromeReconciler({
+			observe: (listener) => this.editorAdapter!.observeChrome(() => listener()),
+			sync: () => {
+				this.syncEditorChromeCustomizations(false);
+			},
+			syncTarget: this.hostEl,
+			requestFrame: (callback) => view.requestAnimationFrame(callback),
+			cancelFrame: (handle) => view.cancelAnimationFrame(handle),
+			onStorm: (summary) => {
+				debugLog('editor', 'DOCX chrome sync storm', {
+					file: this.file?.path,
+					...summary,
+				});
+			},
 		});
 		this.register(() => {
-			this.editorChromeObserver?.dispose();
-			this.editorChromeObserver = null;
+			this.editorChromeReconciler?.dispose();
+			this.editorChromeReconciler = null;
 		});
 		this.markOpenLoadPhase('editor-chrome-observers-ready');
 		logLifecycleStep('editor-chrome-observers:ready', { file: this.file?.path });
@@ -1220,29 +1235,17 @@ export class DocxView extends FileView {
 		});
 	}
 
-	private scheduleEditorChromeSync() {
-		if (this.editorChromeSyncQueued || this.editorChromeSyncing) {
-			return;
-		}
-
-		this.editorChromeSyncQueued = true;
-		window.requestAnimationFrame(() => {
-			this.editorChromeSyncQueued = false;
-			this.runEditorChromeSync();
-		});
-	}
-
 	private runEditorChromeSync() {
-		if (!this.hostEl || this.editorChromeSyncing) {
+		if (!this.hostEl) {
 			return;
 		}
 
-		this.editorChromeSyncing = true;
-		try {
-			this.syncEditorChromeCustomizations(false);
-		} finally {
-			this.editorChromeSyncing = false;
+		if (this.editorChromeReconciler) {
+			this.editorChromeReconciler.run();
+			return;
 		}
+
+		this.syncEditorChromeCustomizations(false);
 	}
 
 	private reconcileEditorChromeAfterViewReady() {
@@ -1368,11 +1371,9 @@ export class DocxView extends FileView {
 		this.reactMountLoading = false;
 		this.hostResizeObserver?.disconnect();
 		this.hostResizeObserver = null;
-		this.editorChromeObserver?.dispose();
-		this.editorChromeObserver = null;
+		this.editorChromeReconciler?.dispose();
+		this.editorChromeReconciler = null;
 		this.editorAdapter = null;
-		this.editorChromeSyncQueued = false;
-		this.editorChromeSyncing = false;
 		this.closeEditorOptionSearchMenu();
 		this.closeEditorEditMenu();
 		this.hostEl = null;
@@ -2873,11 +2874,11 @@ export class DocxView extends FileView {
 		this.hostEl?.querySelectorAll(`${DOCX_EDITOR_ROOT_SELECTOR} button[title]`).forEach((button) => {
 			if (isHTMLElement(button)) {
 				const title = button.getAttribute('title');
-				if (title) {
+				if (title && button.dataset.nativePowerPointDocEditorNativeTitle === undefined) {
 					button.dataset.nativePowerPointDocEditorNativeTitle = title;
 				}
 			}
-			button.removeAttribute('title');
+			removeAttributeIfPresent(button, 'title');
 		});
 	}
 
