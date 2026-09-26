@@ -74,6 +74,41 @@ test('text selection overlay does not inflate shape bounds and stays idempotent'
 	assert.equal(caret.classList.contains('native-powerpoint-geometry-measure-suspended'), false);
 });
 
+test('issue 169 double-click selection boxes stay on the text-box frame', async () => {
+	const { InlineTextGeometry } = await loadInlineTextGeometryModule();
+	const dom = new JSDOM('<!doctype html><div id="pane"></div>');
+	const { document, window } = dom.window;
+	const pane = document.getElementById('pane');
+	box(pane, { left: 0, top: 0, width: 800, height: 600 });
+	pane.scrollLeft = 0;
+	pane.scrollTop = 0;
+
+	const frame = { left: 207, top: 202.5, width: 216, height: 54 };
+	const shape = document.createElement('g');
+	box(shape, frame);
+	const text = document.createElement('text');
+	box(text, { left: 207, top: 210, width: 180, height: 30 });
+	const selection = document.createElement('rect');
+	selection.className = 'native-powerpoint-svg-selection';
+	selection.setAttribute('data-npde-geometry-overlay', 'true');
+	shape.append(text, selection);
+	document.body.append(pane, shape);
+	installContentBounds(window);
+
+	const geometry = new InlineTextGeometry(() => pane);
+	const inflated = [
+		{ left: -28.69000244140625, top: 36.5, width: 451.69000244140625, height: 220 },
+		{ left: -70, top: 36.5, width: 493, height: 220 },
+	];
+	for (const outlier of inflated) {
+		box(selection, outlier);
+		assert.ok(outlier.width > frame.width);
+		assert.deepEqual(geometry.getElementBox(shape), frame);
+	}
+	box(selection, { left: 0, top: 0, width: 0, height: 0 });
+	assert.deepEqual(geometry.getElementBox(shape), frame);
+});
+
 test('grouped content and image geometry still union without the selection rect', async () => {
 	const { InlineTextGeometry } = await loadInlineTextGeometryModule();
 	const dom = new JSDOM('<!doctype html><div id="pane"></div>');
