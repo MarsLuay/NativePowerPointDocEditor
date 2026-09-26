@@ -52,6 +52,11 @@ import {
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
 import {
+	createDuplicateEnterGuard,
+	isDocxEditingTarget,
+	type DuplicateEnterGuard,
+} from './docxDuplicateEnterGuard';
+import {
 	resolveDocxFormattingTarget,
 	resolveDocxFontSizeStepBase,
 	type DocxFormattingTargetSource,
@@ -2392,6 +2397,64 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		});
 	}
 	const inputDiagnostics = inputDiagnosticsRef.current;
+	const duplicateEnterGuardRef = useRef<DuplicateEnterGuard | null>(null);
+	if (duplicateEnterGuardRef.current === null) {
+		duplicateEnterGuardRef.current = createDuplicateEnterGuard();
+	}
+	useEffect(() => {
+		const guard = duplicateEnterGuardRef.current;
+		if (!guard) {
+			return;
+		}
+		const ownerDocument = hostDocument ?? activeDocument;
+		const currentParagraphCount = () => {
+			const doc = editorRef.current?.getEditorRef()?.getView()?.state.doc;
+			return doc ? countDocTextblocks(doc) : null;
+		};
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (!isDocxEditingTarget(event.target)) {
+				return;
+			}
+			const now = Number.isFinite(event.timeStamp) ? event.timeStamp : performance.now();
+			if (guard.observeKeyDown(event, now, currentParagraphCount()) !== 'suppress') {
+				return;
+			}
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			debugLog('text-input', 'DOCX duplicate Enter suppressed', {
+				key: event.key,
+				code: event.code,
+				timeStamp: event.timeStamp,
+				repeat: event.repeat,
+			});
+		};
+		const onBeforeInput = (event: Event) => {
+			if (!isDocxEditingTarget(event.target)) {
+				return;
+			}
+			const inputEvent = event as InputEvent;
+			const paragraphCount = currentParagraphCount();
+			if (paragraphCount === null) {
+				return;
+			}
+			const now = Number.isFinite(inputEvent.timeStamp) ? inputEvent.timeStamp : performance.now();
+			if (guard.observeBeforeInput(inputEvent, paragraphCount, now) !== 'suppress') {
+				return;
+			}
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			debugLog('text-input', 'DOCX duplicate insertParagraph suppressed', {
+				inputType: inputEvent.inputType,
+				timeStamp: inputEvent.timeStamp,
+			});
+		};
+		ownerDocument.addEventListener('keydown', onKeyDown, true);
+		ownerDocument.addEventListener('beforeinput', onBeforeInput, true);
+		return () => {
+			ownerDocument.removeEventListener('keydown', onKeyDown, true);
+			ownerDocument.removeEventListener('beforeinput', onBeforeInput, true);
+		};
+	}, [hostDocument]);
 	useEffect(() => {
 		debugLog('settings', 'DOCX React colorMode', {
 			file: file?.path,
