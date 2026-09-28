@@ -57,6 +57,13 @@ import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './d
 import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
 import { getSharedContinuousInteractionProfiler } from './continuousInteractionProfiler';
 import {
+	createAffectedDocxRange,
+	createDocxPaginationProfiler,
+	inferDocxReflowLocation,
+	summarizeDocxReflowForLog,
+	type DocxPaginationProfiler,
+} from './docxPaginationProfiler';
+import {
 	createDuplicateEnterGuard,
 	isDocxEditingTarget,
 	type DuplicateEnterGuard,
@@ -2430,6 +2437,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		});
 	}
 	const inputLatency = inputLatencyRef.current;
+	const paginationProfilerRef = useRef<DocxPaginationProfiler | null>(null);
+	if (paginationProfilerRef.current === null) {
+		paginationProfilerRef.current = createDocxPaginationProfiler({ maxSamples: 60 });
+	}
+	const paginationProfiler = paginationProfilerRef.current;
 	const duplicateEnterGuardRef = useRef<DuplicateEnterGuard | null>(null);
 	if (duplicateEnterGuardRef.current === null) {
 		duplicateEnterGuardRef.current = createDuplicateEnterGuard();
@@ -2607,6 +2619,16 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				bottomMarginTwips: sectionProperties.marginBottom ?? DEFAULT_MARGIN_TWIPS,
 				...sourceDiagnostics,
 			};
+			paginationProfiler.recordLayoutCallback();
+			paginationProfiler.recordPaginationPass(details.totalPages);
+			const reflowMeasurement = paginationProfiler.complete({ stablePageCount: details.totalPages });
+			if (reflowMeasurement) {
+				debugLog('pagination', 'DOCX reflow performance', {
+					file: filePath,
+					measurement: reflowMeasurement,
+					summary: summarizeDocxReflowForLog(paginationProfiler.getSummary()),
+				});
+			}
 			const signature = JSON.stringify(details);
 			if (signature === lastPaginationLogSignatureRef.current) {
 				return;
@@ -2620,6 +2642,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [filePath]);
 	const scheduleParagraphLayoutRelayout = useCallback(() => {
 		clearParagraphMeasureCache();
+		paginationProfilerRef.current?.recordPaginationPass(editorRef.current?.getTotalPages() ?? null);
 		if (listLayoutRelayoutFrameRef.current !== null) {
 			cancelRuntimeFrame(listLayoutRelayoutFrameRef.current);
 		}
@@ -2872,6 +2895,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				window.clearTimeout(paginationLogTimeoutRef.current);
 				paginationLogTimeoutRef.current = null;
 			}
+			paginationProfilerRef.current?.reset();
 		};
 	}, [documentKey]);
 
@@ -5009,6 +5033,18 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					<SaveStatusIndicator status={saveStatus} />
 				)}
 					onChange={() => {
+					const changedView = editorRef.current?.getEditorRef()?.getView();
+					if (changedView) {
+						const documentSize = changedView.state.doc.content.size;
+						const { from, to } = changedView.state.selection;
+						const totalPages = editorRef.current?.getTotalPages() ?? null;
+						paginationProfiler.beginEdit({
+							editKind: 'transaction',
+							location: inferDocxReflowLocation(from, documentSize),
+							affectedRange: createAffectedDocxRange(from, to, documentSize, totalPages),
+							initialPageCount: totalPages,
+						});
+					}
 					if (
 						dirtyTrackingEnabledRef.current
 						&& !externalReloadBlockedRef.current
@@ -5020,6 +5056,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						publishWordCount(editorRef.current?.getEditorRef()?.getView());
 						scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
+					paginationProfiler.markSynchronousWorkComplete();
 					schedulePaginationDiagnostics('document-change');
 				}}
 				onFontsLoaded={() => {
