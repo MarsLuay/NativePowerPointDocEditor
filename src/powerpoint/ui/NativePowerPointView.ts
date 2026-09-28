@@ -68,6 +68,16 @@ import type { CopiedLogEditorViewSnapshot } from '../../debugLogCopy';
 import { aiUndoStore } from '../../ai/aiUndoStore';
 import { renameFileToSiblingName } from '../../vault/renameFlow';
 import { scheduleIdleWork } from '../../idleSchedule';
+import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
+import { createTextInputLatencyTracker } from '../../textInputLatency';
+import { getSharedContinuousInteractionProfiler } from '../../continuousInteractionProfiler';
+import { sessionResourceRegistry } from '../../sessionMemoryDiagnostics';
+import {
+	createSlideSwitchProfiler,
+	summarizeSlideSwitchForLog,
+	type SlideSwitchStage,
+	type SlideSwitchStatus,
+} from '../../slideSwitchProfiler';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -248,6 +258,7 @@ const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const EMU_PER_POINT = 12700;
 
 export class NativePowerPointView extends FileView {
+  private sessionMountCleanup: (() => void) | null = null;
   private readonly t: TranslateFn = (key, values) => pptT(key, values);
   private tb(suffix: string, values?: TranslateValues): string {
     return this.t(`powerpoint:toolbar.${suffix}`, values);
@@ -303,6 +314,7 @@ export class NativePowerPointView extends FileView {
   private filmstripRenderScheduled = false;
   private filmstripRendered = false;
   private isNavigatingSlide = false;
+  private readonly slideSwitchProfiler = createSlideSwitchProfiler({ maxSamples: 80, maxWorstSwitches: 10 });
   private isTearingDownEditor = false;
   private slideRenderGeneration = 0;
   private textCommitPromise: Promise<void> | null = null;
@@ -528,6 +540,10 @@ export class NativePowerPointView extends FileView {
       recordHistoryEntry: (entry) => getView().recordHistoryEntry(entry),
       markDirty: () => getView().markDirty(),
       renderCurrentSlide: (keepSelection, expectedGeneration) => getView().renderCurrentSlide(keepSelection, expectedGeneration),
+      beginSlideSwitchTrace: (options) => getView().beginSlideSwitchTrace(options),
+      recordSlideSwitchStage: (stage, durationMs) => getView().recordSlideSwitchStage(stage, durationMs),
+      markSlideSwitchFrame: () => getView().markSlideSwitchFrame(),
+      finishSlideSwitchTrace: (status) => getView().finishSlideSwitchTrace(status),
       clearSelection: (options) => getView().clearSelection(options),
       renderInspector: () => getView().renderInspector(),
       prepareSvgForRender: (svg, isThumbnail) => getView().prepareSvgForRender(svg, isThumbnail),
@@ -956,6 +972,8 @@ export class NativePowerPointView extends FileView {
   }
 
   async onOpen(): Promise<void> {
+    this.sessionMountCleanup?.();
+    this.sessionMountCleanup = sessionResourceRegistry.registerView('pptx', this);
     debugLog('view', 'Opening PowerPoint view');
     this.contentEl.empty();
     this.contentEl.addClass('native-powerpoint-view');
@@ -1019,6 +1037,8 @@ export class NativePowerPointView extends FileView {
     this.slideFilmstripController.dispose();
 
     this.resetLoadedPresentation();
+    this.sessionMountCleanup?.();
+    this.sessionMountCleanup = null;
     this.contentEl.removeClass('native-powerpoint-view');
     this.file = null;
     debugLog('view', 'Closed PowerPoint view');
@@ -1230,6 +1250,9 @@ export class NativePowerPointView extends FileView {
     });
     this.registerDomEvent(addSlideButton, 'click', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
     this.thumbnailContainer = sidebar.createDiv({ cls: 'native-powerpoint-thumbnails' });
+    this.registerDomEvent(this.thumbnailContainer, 'scroll', () => {
+      getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-filmstrip-scroll');
+    }, { passive: true });
 
     const main = this.layoutEl.createDiv({ cls: 'native-powerpoint-main-content' });
     this.createToolbar(main);
@@ -1780,7 +1803,14 @@ export class NativePowerPointView extends FileView {
     const pane = this.canvasPane;
     const handleWheel = (event: WheelEvent) => this.handleCanvasWheel(event);
     pane.addEventListener('wheel', handleWheel, { passive: false });
-    this.register(() => pane.removeEventListener('wheel', handleWheel));
+    const handleScroll = () => {
+      getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-canvas-scroll');
+    };
+    pane.addEventListener('scroll', handleScroll, { passive: true });
+    this.register(() => {
+      pane.removeEventListener('wheel', handleWheel);
+      pane.removeEventListener('scroll', handleScroll);
+    });
   }
 
   private createToolbar(main: HTMLElement): void {
@@ -3391,6 +3421,31 @@ export class NativePowerPointView extends FileView {
     this.updateEditingAvailability();
   }
 
+  private beginSlideSwitchTrace(options: { fromSlide: number; toSlide: number; reason: string; slideCount: number }): void {
+    this.slideSwitchProfiler.begin(options);
+  }
+
+  private recordSlideSwitchStage(stage: SlideSwitchStage, durationMs: number): void {
+    this.slideSwitchProfiler.recordStage(stage, durationMs);
+  }
+
+  private markSlideSwitchFrame(): void {
+    const measurement = this.slideSwitchProfiler.markFrame();
+    if (measurement) this.logSlideSwitchMeasurement(measurement);
+  }
+
+  private finishSlideSwitchTrace(status: SlideSwitchStatus): void {
+    const measurement = this.slideSwitchProfiler.finish(status);
+    if (measurement) this.logSlideSwitchMeasurement(measurement);
+  }
+
+  private logSlideSwitchMeasurement(measurement: Parameters<typeof summarizeSlideSwitchForLog>[0]): void {
+    debugLog('slide', 'PPTX slide-switch performance', {
+      measurement: summarizeSlideSwitchForLog(measurement),
+      summary: this.slideSwitchProfiler.getSummary(),
+    });
+  }
+
   private async renderCurrentSlide(keepSelection = false, expectedGeneration?: number): Promise<boolean> {
     if (!this.engine || !this.slideSurface) return false;
     if (expectedGeneration !== undefined && expectedGeneration !== this.slideRenderGeneration) {
@@ -3410,6 +3465,8 @@ export class NativePowerPointView extends FileView {
     const phaseStarted = performance.now();
     const cachedSlide = this.slideFilmstripController.getCachedSlideRender(slideIndex);
     const cacheLookupMs = Math.round(performance.now() - phaseStarted);
+    this.slideSwitchProfiler.setCacheState(cachedSlide ? 'warm' : 'cold');
+    this.slideSwitchProfiler.recordStage('cache-lookup', cacheLookupMs);
     let source: 'thumbnail-cache' | 'engine-render' = 'thumbnail-cache';
     let engineRenderMs = 0;
     let sanitizeMs = 0;
@@ -3423,9 +3480,11 @@ export class NativePowerPointView extends FileView {
       const engineRenderStarted = performance.now();
       const { svg } = this.engine.renderSlide(slideIndex);
       engineRenderMs = Math.round(performance.now() - engineRenderStarted);
+      this.slideSwitchProfiler.recordStage('render', engineRenderMs);
       const sanitizeStarted = performance.now();
       const safeSvg = this.prepareSvgForRender(svg);
       sanitizeMs = Math.round(performance.now() - sanitizeStarted);
+      this.slideSwitchProfiler.recordStage('svg-sanitize', sanitizeMs);
 
       if (!safeSvg.allowed) {
         this.showUnsafeSvgWarning(safeSvg.issues);
@@ -3435,6 +3494,7 @@ export class NativePowerPointView extends FileView {
       const parseStarted = performance.now();
       svgElement = createSvgElementFromString(safeSvg.svg, this.slideSurface.ownerDocument);
       parseMs = Math.round(performance.now() - parseStarted);
+      this.slideSwitchProfiler.recordStage('svg-parse', parseMs);
       if (!svgElement) {
         this.showError(this.t('powerpoint:loading.couldNotRenderSlide'));
         return false;
@@ -3469,6 +3529,7 @@ export class NativePowerPointView extends FileView {
     this.slideSurface.appendChild(svgElement);
     this.svgEl = svgElement;
     const domSwapMs = Math.round(performance.now() - domSwapStarted);
+    this.slideSwitchProfiler.recordStage('dom-swap', domSwapMs);
 
     if (this.svgEl) {
       const postprocessStarted = performance.now();
@@ -3484,10 +3545,15 @@ export class NativePowerPointView extends FileView {
       // Skip chrome on the first scale pass: selection/editor targets were just
       // cleared and SVG events are not attached yet.
       this.updateSlideScale({ skipChrome: true });
-      window.requestAnimationFrame(() => this.updateSlideScale());
+      requestRuntimeFrame(() => {
+        if (expectedGeneration !== undefined && expectedGeneration !== this.slideRenderGeneration) return;
+        this.updateSlideScale();
+        this.markSlideSwitchFrame();
+      });
       this.attachSvgEvents();
       this.applyRunHighlights();
       const postprocessMs = Math.round(performance.now() - postprocessStarted);
+      this.slideSwitchProfiler.recordStage('postprocess', postprocessMs);
       debugLog('render', 'renderCurrentSlide phases', {
         slide: slideIndex,
         source,
@@ -3753,6 +3819,7 @@ export class NativePowerPointView extends FileView {
 		void this.renderThumbnails()
 			.then(() => {
 				this.filmstripRendered = true;
+				sessionResourceRegistry.setThumbnailCacheEntries(this.engine?.slideCount ?? 0);
 			})
 			.catch((error) => {
 				errorLog('render', 'PowerPoint filmstrip render failed', { error: cleanError(error) });
@@ -6389,7 +6456,7 @@ export class NativePowerPointView extends FileView {
       drag.pendingClientX = moveEvent.clientX;
       drag.pendingClientY = moveEvent.clientY;
       if (drag.pendingFrame === null) {
-        drag.pendingFrame = window.requestAnimationFrame(flushDragFrame);
+        drag.pendingFrame = requestRuntimeFrame(flushDragFrame);
       }
     };
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -6426,7 +6493,7 @@ export class NativePowerPointView extends FileView {
     };
     const cleanup = () => {
       if (this.inlineSelectionDrag?.pendingFrame !== null && this.inlineSelectionDrag) {
-        window.cancelAnimationFrame(this.inlineSelectionDrag.pendingFrame);
+        cancelRuntimeFrame(this.inlineSelectionDrag.pendingFrame);
       }
       activeDocument.removeEventListener('pointermove', onPointerMove, true);
       activeDocument.removeEventListener('pointerup', onPointerUp, true);
@@ -7365,6 +7432,11 @@ export class NativePowerPointView extends FileView {
     let pendingInlineInputType: string | null = null;
     let pendingInlineBeforeInputSeen = false;
     let pendingInlineDeleteKeySeen = false;
+    const inputLatency = createTextInputLatencyTracker({
+      scope: 'pptx',
+      onSummary: (summary) => debugLog('text-edit', 'PPTX typing latency summary', summary),
+      onSlowInteraction: (data) => warnLog('text-edit', 'PPTX slow typing interaction', data),
+    });
     // Native input normally repaints a changed SVG run, but Chromium can retain
     // stale glyphs when a transparent textarea clears all visible text. Keep a
     // one-event flag so the input handler can replace the owning <text> frame.
@@ -7385,6 +7457,7 @@ export class NativePowerPointView extends FileView {
     // themselves since they don't fire beforeinput.
     editor.addEventListener('beforeinput', (event) => {
       if (this.activeEditor === editor) {
+        inputLatency.begin(event, 'beforeinput');
         const inputType = event.inputType || null;
         pendingInlineBeforeInputSeen = true;
         captureInlineEditScroll(inputType);
@@ -7431,7 +7504,7 @@ export class NativePowerPointView extends FileView {
       this.updateInlineCaret(editor, target.element);
     };
     const queueCaretUpdate = () => {
-      window.requestAnimationFrame(() => {
+      requestRuntimeFrame(() => {
         if (this.activeEditor === editor) {
           updateCaret();
         }
@@ -7570,6 +7643,9 @@ export class NativePowerPointView extends FileView {
           this.positionTextRunEditor(editor, nextBox);
         }
         updateCaret();
+        // The tracker schedules one following rAF, separating immediate SVG/model
+        // work from the presentation delay of the visible text update.
+        inputLatency.markModelUpdated();
         this.preserveCanvasScrollAfterInlineTextEdit(pendingInlineEditScroll, pendingInlineInputType);
         pendingInlineEditScroll = null;
         pendingInlineInputType = null;
@@ -7590,6 +7666,7 @@ export class NativePowerPointView extends FileView {
     editor.addEventListener('mouseup', updateCaret);
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
+      inputLatency.begin(event, 'keydown');
       const isVerticalArrow = event.key === 'ArrowUp' || event.key === 'ArrowDown';
       const isCaretNavKey = isVerticalArrow
         || event.key === 'ArrowLeft'
@@ -9205,7 +9282,7 @@ export class NativePowerPointView extends FileView {
     this.restoreCanvasScroll(position);
     if (!position) return;
 
-    window.requestAnimationFrame(() => this.restoreCanvasScroll(position));
+    requestRuntimeFrame(() => this.restoreCanvasScroll(position));
     window.setTimeout(() => this.restoreCanvasScroll(position), 0);
   }
 
@@ -14876,6 +14953,7 @@ export class NativePowerPointView extends FileView {
     // Browsers synthesize Ctrl+wheel for trackpad pinch gestures. All other
     // wheel input, including two-finger trackpad scrolling, pans the canvas.
     if (!event.ctrlKey) {
+      getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-canvas-scroll');
       // Pane already has overflow:auto — let the browser scroll. preventDefault
       // + JS scrollLeft/Top + layout-forcing pan logs made every trackpad tick
       // hitch on large slides.
@@ -14883,6 +14961,7 @@ export class NativePowerPointView extends FileView {
       return;
     }
 
+    getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-zoom');
     event.preventDefault();
     event.stopPropagation();
 
@@ -14936,7 +15015,9 @@ export class NativePowerPointView extends FileView {
     const pending = this.pendingWheelZoom;
     this.pendingWheelZoom = null;
     if (!pending) return;
-    this.setZoom(pending.zoom, pending.anchor, { deferChrome: true });
+    getSharedContinuousInteractionProfiler().measureSynchronousWork('pptx-zoom', () => {
+      this.setZoom(pending.zoom, pending.anchor, { deferChrome: true });
+    });
   }
 
   private scheduleWheelZoomChromeSync(): void {
@@ -14992,6 +15073,7 @@ export class NativePowerPointView extends FileView {
     const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(value * 1000) / 1000));
     if (nextZoom === this.zoomLevel) return;
 
+    getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-zoom');
     const previousZoom = this.zoomLevel;
     const anchorState = anchor ? this.captureZoomAnchor(anchor) : null;
     this.zoomLevel = nextZoom;
@@ -15076,8 +15158,10 @@ export class NativePowerPointView extends FileView {
   }
 
   private resetLoadedPresentation(): void {
+    this.slideSwitchProfiler.reset();
     this.filmstripRendered = false;
     this.filmstripRenderScheduled = false;
+    sessionResourceRegistry.setThumbnailCacheEntries(0);
     this.cancelPresentationWordCountRefresh();
     this.session.reset();
     this.slideFilmstripController.dispose();

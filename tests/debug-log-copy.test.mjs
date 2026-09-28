@@ -83,6 +83,87 @@ test('copy-time editor diagnostics preserve bounded live DOCX and PowerPoint sta
 	assert.equal(payload.editorDiagnostics.pptx[0].currentSlide, 3);
 });
 
+test('copied logs include the resolved runtime frame profile', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const frameTiming = {
+		measuredRefreshHz: 120,
+		measuredFrameBudgetMs: 8.33,
+		resolvedRefreshHz: 120,
+		resolvedFrameBudgetMs: 8.33,
+		sampleCount: 32,
+		confidence: 'stable',
+		thresholdSource: 'measured-raf',
+		platform: 'windows',
+		appMode: 'desktop',
+		thresholds: {
+			synchronousWorkMs: 8,
+			lateFrameGapMs: 12.5,
+			missedFrameGapMs: 16.67,
+			substantialStallMs: 25,
+		},
+	};
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		diagnostics: diagnostics({ frameTiming }),
+	}));
+	assert.deepEqual(payload.diagnostics.frameTiming, frameTiming);
+});
+
+test('copied logs include continuous interaction scroll and zoom summaries', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const continuousInteractions = [
+		{
+			scope: 'docx',
+			interactionType: 'docx-scroll',
+			frameCount: 24,
+			totalDurationMs: 400,
+			lateFrameCount: 0,
+			missedFrameEstimate: 0,
+			longestFrameGapMs: 16.7,
+			frameIntervalsMs: { p50: 16.6, p95: 16.7, max: 16.7 },
+			rafSchedulingDelayMs: { p50: 0.5, p95: 1.0, max: 1.2 },
+			synchronousWorkMs: { p50: 2.1, p95: 3.5, max: 4.0 },
+			eventLoopDelayMs: { p50: 0.2, p95: 0.4, max: 0.5 },
+			worstFrames: [],
+			frameBudgetMs: 16.67,
+			resolvedRefreshHz: 60,
+		},
+	];
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		diagnostics: diagnostics({ continuousInteractions }),
+	}));
+	assert.deepEqual(payload.diagnostics.continuousInteractions, continuousInteractions);
+});
+
+test('copied logs include session resource and memory diagnostics', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const resourceDiagnostics = {
+		timestamp: 12345678,
+		label: 'test-snapshot',
+		memory: {
+			supported: false,
+			provider: 'unsupported',
+			usedBytes: null,
+			totalBytes: null,
+			limitBytes: null,
+		},
+		resources: {
+			mountedDocxViews: 1,
+			mountedPptxViews: 0,
+			activeTimers: 2,
+			activeAnimationFrames: 0,
+			activeMutationObservers: 1,
+			activeResizeObservers: 0,
+			thumbnailCacheEntries: 0,
+			domNodeCount: 150,
+			registeredListeners: 5,
+		},
+	};
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		diagnostics: diagnostics({ resourceDiagnostics }),
+	}));
+	assert.deepEqual(payload.diagnostics.resourceDiagnostics, resourceDiagnostics);
+});
+
 test('oversized copied logs retain the newest tail and valid JSON', async () => {
 	const { buildCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
 	const logs = Array.from({ length: 2000 }, (_, index) => log(index, `event-${index}-${'x'.repeat(80)}`));

@@ -9,6 +9,7 @@ import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { ensureEditorStyles } from './DocxReactView';
 import { isHTMLElement } from './domGuards';
 import { Component, MarkdownRenderChild } from './obsidianRuntime';
+import { cancelRuntimeFrame, requestRuntimeFrame } from './runtimeFrameProfiler';
 
 const DOCX_EMBED_SELECTOR = '.internal-embed[src], .internal-embed[data-src]';
 
@@ -73,7 +74,7 @@ function useDocxEmbedSync(hostEl: HTMLElement) {
 			return;
 		}
 
-		syncFrameRef.current = window.requestAnimationFrame(() => {
+		syncFrameRef.current = requestRuntimeFrame(() => {
 			syncFrameRef.current = null;
 			syncPages();
 		});
@@ -125,7 +126,7 @@ function useDocxEmbedSync(hostEl: HTMLElement) {
 
 		return () => {
 			if (syncFrameRef.current !== null) {
-				window.cancelAnimationFrame(syncFrameRef.current);
+				cancelRuntimeFrame(syncFrameRef.current);
 				syncFrameRef.current = null;
 			}
 			if (neutralizerRetryTimeout !== undefined) {

@@ -35,6 +35,7 @@ import { isClipboardEvent, isElement, isHTMLElement, isHTMLButtonElement, isInpu
 import { summarizeDocxComment, summarizeDocxComments } from './docxCommentLogging';
 import { debugLog, errorLog, warnLog } from './logger';
 import { Platform } from './obsidianRuntime';
+import { cancelRuntimeFrame, requestRuntimeFrame } from './runtimeFrameProfiler';
 import { configureToolbarIconButton, createMenuItem, createMenuSection, hardenInjectedMenuOption } from './menuControls';
 import { DOCX_SAVE_STATUS_TO_STATE, getSaveStatusFlags, type DocxSaveStatus } from './save/saveStatus';
 import { formatFindResultStatus, wrapMatchIndex, type FindReplaceMode } from './find/findReplaceShell';
@@ -53,6 +54,15 @@ import {
 } from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
+import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
+import { getSharedContinuousInteractionProfiler } from './continuousInteractionProfiler';
+import {
+	createAffectedDocxRange,
+	createDocxPaginationProfiler,
+	inferDocxReflowLocation,
+	summarizeDocxReflowForLog,
+	type DocxPaginationProfiler,
+} from './docxPaginationProfiler';
 import {
 	createDuplicateEnterGuard,
 	isDocxEditingTarget,
@@ -731,8 +741,8 @@ function scheduleFormattingDropdownClamp(layer: HTMLElement): void {
 			clampFormattingDropdownToViewport(layer);
 		}
 	};
-	window.requestAnimationFrame(() => {
-		window.requestAnimationFrame(clampIfConnected);
+	requestRuntimeFrame(() => {
+		requestRuntimeFrame(clampIfConnected);
 	});
 	window.setTimeout(clampIfConnected, 100);
 }
@@ -942,7 +952,9 @@ function scheduleFontFamilySelectDisplaySync(
 		return syncFontFamilySelectDisplay(editorRoot, fontFamily, fonts);
 	};
 	sync();
-	window.requestAnimationFrame(sync);
+	requestRuntimeFrame(() => {
+		sync();
+	});
 	window.setTimeout(sync, 0);
 	window.setTimeout(sync, 120);
 	window.setTimeout(sync, 320);
@@ -1204,7 +1216,9 @@ function scheduleFontFamilySelectTriggerTag(container: HTMLElement) {
 		tagFontFamilySelectTrigger(container);
 		if (!container.id && attempts < 5) {
 			attempts += 1;
-			window.requestAnimationFrame(tryTag);
+			requestRuntimeFrame(() => {
+				tryTag();
+			});
 		}
 	};
 
@@ -1569,11 +1583,15 @@ function selectionSnapshot(view: { state: { selection: { from: number; to: numbe
 	return { from, to, empty };
 }
 
-function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticTracker) {
+function createDocxInputDiagnosticsPlugin(
+	inputDiagnostics: DocxInputDiagnosticTracker,
+	inputLatency: TextInputLatencyTracker,
+) {
 	return new Plugin({
 		props: {
 			handleDOMEvents: {
 				keydown(view, event) {
+					inputLatency.begin(event, 'keydown');
 					inputDiagnostics.observeKeyDown(event, selectionSnapshot(view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.keydown');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
@@ -1586,6 +1604,7 @@ function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticT
 					return false;
 				},
 				beforeinput(_view, event) {
+					inputLatency.begin(event, 'beforeinput');
 					inputDiagnostics.observeBeforeInput(event, selectionSnapshot(_view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.beforeinput');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
@@ -1604,6 +1623,7 @@ function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticT
 			return {
 				destroy() {
 					inputDiagnostics.unmount();
+					inputLatency.dispose();
 				},
 			};
 		},
@@ -1630,6 +1650,8 @@ function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticT
 				steps: transactions.flatMap((transaction) => transaction.steps.map((step) => step.constructor?.name ?? 'Step')),
 				meta: transactions.flatMap((transaction) => summarizeTransactionMeta(transaction)),
 			});
+			// The following shared rAF is the first rendered-frame approximation.
+			inputLatency.markModelUpdated();
 			return null;
 		},
 	});
@@ -2406,6 +2428,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		});
 	}
 	const inputDiagnostics = inputDiagnosticsRef.current;
+	const inputLatencyRef = useRef<TextInputLatencyTracker | null>(null);
+	if (inputLatencyRef.current === null) {
+		inputLatencyRef.current = createTextInputLatencyTracker({
+			scope: 'docx',
+			onSummary: (summary) => debugLog('text-input', 'DOCX typing latency summary', summary),
+			onSlowInteraction: (data) => warnLog('text-input', 'DOCX slow typing interaction', data),
+		});
+	}
+	const inputLatency = inputLatencyRef.current;
+	const paginationProfilerRef = useRef<DocxPaginationProfiler | null>(null);
+	if (paginationProfilerRef.current === null) {
+		paginationProfilerRef.current = createDocxPaginationProfiler({ maxSamples: 60 });
+	}
+	const paginationProfiler = paginationProfilerRef.current;
 	const duplicateEnterGuardRef = useRef<DuplicateEnterGuard | null>(null);
 	if (duplicateEnterGuardRef.current === null) {
 		duplicateEnterGuardRef.current = createDuplicateEnterGuard();
@@ -2583,6 +2619,16 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				bottomMarginTwips: sectionProperties.marginBottom ?? DEFAULT_MARGIN_TWIPS,
 				...sourceDiagnostics,
 			};
+			paginationProfiler.recordLayoutCallback();
+			paginationProfiler.recordPaginationPass(details.totalPages);
+			const reflowMeasurement = paginationProfiler.complete({ stablePageCount: details.totalPages });
+			if (reflowMeasurement) {
+				debugLog('pagination', 'DOCX reflow performance', {
+					file: filePath,
+					measurement: reflowMeasurement,
+					summary: summarizeDocxReflowForLog(paginationProfiler.getSummary()),
+				});
+			}
 			const signature = JSON.stringify(details);
 			if (signature === lastPaginationLogSignatureRef.current) {
 				return;
@@ -2596,19 +2642,20 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [filePath]);
 	const scheduleParagraphLayoutRelayout = useCallback(() => {
 		clearParagraphMeasureCache();
+		paginationProfilerRef.current?.recordPaginationPass(editorRef.current?.getTotalPages() ?? null);
 		if (listLayoutRelayoutFrameRef.current !== null) {
-			window.cancelAnimationFrame(listLayoutRelayoutFrameRef.current);
+			cancelRuntimeFrame(listLayoutRelayoutFrameRef.current);
 		}
 		if (listLayoutRelayoutSecondFrameRef.current !== null) {
-			window.cancelAnimationFrame(listLayoutRelayoutSecondFrameRef.current);
+			cancelRuntimeFrame(listLayoutRelayoutSecondFrameRef.current);
 			listLayoutRelayoutSecondFrameRef.current = null;
 		}
 
-		listLayoutRelayoutFrameRef.current = window.requestAnimationFrame(() => {
+		listLayoutRelayoutFrameRef.current = requestRuntimeFrame(() => {
 			listLayoutRelayoutFrameRef.current = null;
 			editorRef.current?.getEditorRef()?.relayout();
 
-			listLayoutRelayoutSecondFrameRef.current = window.requestAnimationFrame(() => {
+			listLayoutRelayoutSecondFrameRef.current = requestRuntimeFrame(() => {
 				listLayoutRelayoutSecondFrameRef.current = null;
 				editorRef.current?.getEditorRef()?.relayout();
 			});
@@ -2646,8 +2693,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		[scheduleParagraphLayoutRelayout],
 	);
 	const inputDiagnosticsPlugin = useMemo(
-		() => createDocxInputDiagnosticsPlugin(inputDiagnostics),
-		[inputDiagnostics],
+		() => createDocxInputDiagnosticsPlugin(inputDiagnostics, inputLatency),
+		[inputDiagnostics, inputLatency],
 	);
 	const preserveTypedSpacePlugin = useMemo(
 		() => createPreserveTypedSpacePlugin(inputDiagnostics),
@@ -2848,6 +2895,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				window.clearTimeout(paginationLogTimeoutRef.current);
 				paginationLogTimeoutRef.current = null;
 			}
+			paginationProfilerRef.current?.reset();
 		};
 	}, [documentKey]);
 
@@ -3406,6 +3454,22 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [buffer, filePath, isLoading]);
 
 	useEffect(() => {
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (!editorRoot) {
+			return;
+		}
+		const scrollContainer = getScrollableEditorElement(editorRoot);
+		const profiler = getSharedContinuousInteractionProfiler();
+		const handleScroll = () => {
+			profiler.recordInteractionEvent('docx-scroll');
+		};
+		scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+		return () => {
+			scrollContainer.removeEventListener('scroll', handleScroll);
+		};
+	}, [buffer, filePath, isLoading]);
+
+	useEffect(() => {
 		if (!shouldEnableTouchPinchZoom()) {
 			return;
 		}
@@ -3432,6 +3496,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				return false;
 			}
 
+			const profiler = getSharedContinuousInteractionProfiler();
+			profiler.recordInteractionEvent('docx-zoom');
+
 			const scrollContainer = getScrollableEditorElement(editorRoot);
 			const rect = scrollContainer.getBoundingClientRect();
 			const localX = viewportPoint.x - rect.left;
@@ -3439,7 +3506,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const documentX = (scrollContainer.scrollLeft + localX) / pinchState.lastZoom;
 			const documentY = (scrollContainer.scrollTop + localY) / pinchState.lastZoom;
 
-			editorRef.current?.setZoom(nextZoom);
+			profiler.measureSynchronousWork('docx-zoom', () => {
+				editorRef.current?.setZoom(nextZoom);
+			});
 			pinchState.lastZoom = nextZoom;
 
 			if (pinchZoomScrollFrameRef.current !== null) {
@@ -4964,6 +5033,18 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 					<SaveStatusIndicator status={saveStatus} />
 				)}
 					onChange={() => {
+					const changedView = editorRef.current?.getEditorRef()?.getView();
+					if (changedView) {
+						const documentSize = changedView.state.doc.content.size;
+						const { from, to } = changedView.state.selection;
+						const totalPages = editorRef.current?.getTotalPages() ?? null;
+						paginationProfiler.beginEdit({
+							editKind: 'transaction',
+							location: inferDocxReflowLocation(from, documentSize),
+							affectedRange: createAffectedDocxRange(from, to, documentSize, totalPages),
+							initialPageCount: totalPages,
+						});
+					}
 					if (
 						dirtyTrackingEnabledRef.current
 						&& !externalReloadBlockedRef.current
@@ -4975,6 +5056,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 						publishWordCount(editorRef.current?.getEditorRef()?.getView());
 						scheduleListMarkerSelectionHighlightSync();
 					scheduleCommentsSidebarToggleSync();
+					paginationProfiler.markSynchronousWorkComplete();
 					schedulePaginationDiagnostics('document-change');
 				}}
 				onFontsLoaded={() => {

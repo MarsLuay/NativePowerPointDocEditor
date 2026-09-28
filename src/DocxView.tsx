@@ -15,6 +15,8 @@ import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { extractDocxMarkdown, extractDocxText } from './docxTextExtractor';
 import { isElement, isHTMLElement, isNode } from './domGuards';
 import { scheduleIdleWork } from './idleSchedule';
+import { cancelRuntimeFrame, requestRuntimeFrame } from './runtimeFrameProfiler';
+import { sessionResourceRegistry } from './sessionMemoryDiagnostics';
 import { createLoadTrace, monotonicNow, type LoadTrace } from './loadTrace';
 import {
 	logLifecycleStep,
@@ -964,6 +966,7 @@ function shouldHandleEditorSaveClick(target: EventTarget | null, saveLabels: str
 }
 
 export class DocxView extends FileView {
+	private sessionMountCleanup: (() => void) | null = null;
 	private hostEl: HTMLDivElement | null = null;
 	private reactMount: DocxReactMount | null = null;
 	private reactMountLoading = false;
@@ -1123,6 +1126,8 @@ export class DocxView extends FileView {
 
 	async onOpen() {
 		try {
+			this.sessionMountCleanup?.();
+			this.sessionMountCleanup = sessionResourceRegistry.registerView('docx', this);
 			this.beginOpenLoadTrace('view-onOpen-start');
 			logLifecycleStep('view-onOpen', { file: this.file?.path });
 			debugLog('view', 'Opening DOCX view');
@@ -1169,8 +1174,8 @@ export class DocxView extends FileView {
 				this.syncEditorChromeCustomizations(false);
 			},
 			syncTarget: this.hostEl,
-			requestFrame: (callback) => view.requestAnimationFrame(callback),
-			cancelFrame: (handle) => view.cancelAnimationFrame(handle),
+			requestFrame: (callback) => requestRuntimeFrame(callback, view) ?? view.requestAnimationFrame(callback),
+			cancelFrame: (handle) => cancelRuntimeFrame(handle, view),
 			onStorm: (summary) => {
 				debugLog('editor', 'DOCX chrome sync storm', {
 					file: this.file?.path,
@@ -1369,6 +1374,8 @@ export class DocxView extends FileView {
 			warnLog('view', 'Canceled DOCX view close because unsaved changes were kept', { file: this.file?.path });
 			return;
 		}
+		this.sessionMountCleanup?.();
+		this.sessionMountCleanup = null;
 		this.finishOpenLoadTrace('view-closed-before-ready', { file: this.file?.path });
 		this.beginDocumentSession();
 		this.agentReloadGuard.clear(new Error('DOCX view closed before the agent reload completed.'));

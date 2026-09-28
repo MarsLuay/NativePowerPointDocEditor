@@ -2,6 +2,9 @@ import type {
 	NativePowerPointDocEditorLogEntry,
 	NativePowerPointDocEditorLogStats,
 } from './logger';
+import type { RuntimeFrameProfile } from './runtimeFrameProfiler';
+import type { ContinuousInteractionSummary } from './continuousInteractionProfiler';
+import type { SessionResourceSnapshot } from './sessionMemoryDiagnostics';
 
 export const MAX_COPIED_LOG_CHARACTERS = 32_000;
 const MAX_METADATA_STRING_CHARACTERS = 2_048;
@@ -20,6 +23,9 @@ export interface CopiedLogDiagnostics {
 	};
 	userAgent: string | null;
 	devicePixelRatio: number | null;
+	frameTiming?: RuntimeFrameProfile;
+	continuousInteractions?: ContinuousInteractionSummary[];
+	resourceDiagnostics?: SessionResourceSnapshot;
 }
 
 export type CopiedLogEditorScalar = string | number | boolean | null;
@@ -79,6 +85,9 @@ function normalizeDiagnostics(diagnostics: CopiedLogDiagnostics): CopiedLogDiagn
 		},
 		userAgent: diagnostics.userAgent === null ? null : truncateMetadataString(diagnostics.userAgent),
 		devicePixelRatio: Number.isFinite(diagnostics.devicePixelRatio) ? diagnostics.devicePixelRatio : null,
+		...(diagnostics.frameTiming === undefined ? {} : { frameTiming: diagnostics.frameTiming }),
+		...(diagnostics.continuousInteractions === undefined ? {} : { continuousInteractions: diagnostics.continuousInteractions }),
+		...(diagnostics.resourceDiagnostics === undefined ? {} : { resourceDiagnostics: diagnostics.resourceDiagnostics }),
 	};
 }
 
