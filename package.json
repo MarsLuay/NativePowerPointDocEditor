@@ -10,7 +10,7 @@
 	},
 	"scripts": {
 		"dev": "node scripts/emit-pptx-runtime-artifacts.mjs && node esbuild.config.mjs",
-		"build": "npm run i18n:generate && npm run ai:generate && npm run check:ai-capabilities && npm run i18n:validate && npm run check:docx-runtime && npm run check:review-surface && npm run typecheck && node esbuild.config.mjs production && node scripts/check-no-dynamic-script.mjs && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs && node scripts/check-pptx-js-engine-artifact.mjs && node scripts/check-plugin-runtime-artifacts.mjs && node scripts/check-pptx-action-coverage.mjs && node scripts/check-pptx-action-logs.mjs && node scripts/check-theme-architecture.mjs && node scripts/check-theme-css.mjs && node scripts/check-shared-ui-patterns.mjs",
+		"build": "npm run i18n:generate && npm run ai:generate && npm run check:ai-capabilities && npm run i18n:validate && npm run check:docx-runtime && npm run check:review-surface && npm run typecheck && node esbuild.config.mjs production && node scripts/check-no-dynamic-script.mjs && node scripts/check-mobile-compat.mjs && node scripts/check-pptx-js-engine-version.mjs && node scripts/check-pptx-js-engine-artifact.mjs && node scripts/check-plugin-runtime-artifacts.mjs && node scripts/check-pptx-action-coverage.mjs && node scripts/check-pptx-action-logs.mjs && node scripts/check-theme-architecture.mjs && node scripts/check-theme-css.mjs && node scripts/check-docx-page-background.mjs && node scripts/check-shared-ui-patterns.mjs",
 		"emit:pptx-runtime-artifacts": "node scripts/emit-pptx-runtime-artifacts.mjs --minify",
 		"i18n:generate": "node scripts/generate-i18n-types.mjs && node scripts/generate-pseudo-locales.mjs",
 		"ai:generate": "node scripts/generate-ai-capabilities.mjs",
@@ -25,6 +25,7 @@
 		"check:pptx-action-logs": "node scripts/check-pptx-action-logs.mjs",
 		"check:theme-architecture": "node scripts/check-theme-architecture.mjs",
 		"check:theme-css": "node scripts/check-theme-css.mjs",
+		"check:docx-page-background": "node scripts/check-docx-page-background.mjs",
 		"check:shared-ui-patterns": "node scripts/check-shared-ui-patterns.mjs",
 		"check:dead-pptx-controllers": "node --input-type=module -e \"import { readFileSync, existsSync } from 'node:fs'; const view = readFileSync('src/powerpoint/ui/NativePowerPointView.ts', 'utf8'); const controllers = [['arrangeController', 'ArrangeController'], ['insertController', 'InsertController'], ['inspectorController', 'InspectorController'], ['selectionDragController', 'SelectionDragController'], ['textToolbarController', 'TextToolbarController']]; const unused = controllers.filter(([file, symbol]) => !existsSync('src/powerpoint/' + file + '.ts') || !view.includes(\\\"../\\\" + file + \\\"'\\\") || !new RegExp('new\\\\\\\\s+' + symbol + '\\\\\\\\b').test(view)); if (unused.length) { throw new Error('Unused PPTX controllers: ' + unused.map(([file]) => file).join(', ')); }\"",
 		"smoke": "node scripts/smoke-native-powerpoint-doc-editor-load.cjs",

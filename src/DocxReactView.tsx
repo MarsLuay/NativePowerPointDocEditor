@@ -2067,12 +2067,14 @@ async function pasteClipboardIntoEditor(view: EditorView, options: PasteClipboar
 }
 
 export function ensureEditorStyles(targetDocument: Document = activeDocument) {
-	// After vendor tokens: pin --doc-caret to page ink. Vendor `.dark` uses a
-	// light caret for inverted canvas; Obsidian keeps Word-white pages.
+	// After vendor tokens: pin the page fallback and caret to the NPDE document
+	// surface. Vendor `.dark` declares --doc-page-bg: #cccccc for its inverted
+	// canvas, but NPDE disables that filter and keeps Word-white pages.
 	const hostCaretOverride = `
 .docx-editor-root.docx-editor,
 .docx-editor-root.docx-editor.dark,
 .docx-editor-root.dark {
+	--doc-page-bg: var(--npde-document-bg);
 	--doc-caret: #000000;
 }
 .docx-editor-root.dark .layout-page,

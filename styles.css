@@ -290,10 +290,9 @@ body.native-powerpoint-doc-editor-theme-resolved-dark,
 	--doc-hover: var(--npde-editor-hover);
 	--doc-text: var(--npde-editor-text);
 	--doc-text-muted: var(--npde-editor-text-muted);
-	/* Page stays Word-white (no canvas invert). Vendor .dark sets a light
-	   --doc-caret for inverted canvas — keep document caret on page ink.
-	   The dark runtime page token is only meaningful under its invert filter.
-	   NPDE disables that filter, so keep the token on the blank-slide white. */
+	/* Page stays Word-white (no canvas invert). The runtime paints its inline
+	   page background from --doc-page-bg, so normalize that fallback without
+	   touching authored page/background colors. */
 	--doc-caret: var(--npde-document-text);
 	--doc-page-bg: var(--npde-document-bg);
 }

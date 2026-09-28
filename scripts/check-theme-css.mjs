@@ -115,11 +115,12 @@ const requiredDocxDarkDocumentFragments = [
 	'filter: none;',
 ];
 
-// Page stays white — --doc-caret must track document ink in the always-on remap
-// (not only under theme-resolved-dark), or vendor .dark paints a light caret.
-const requiredDocxCaretOnWhitePageFragments = [
+// Page stays white — the runtime's inline --doc-page-bg fallback and
+// --doc-caret must track NPDE document tokens in every resolved theme.
+const requiredDocxWhitePageFragments = [
+	'--doc-page-bg: var(--npde-document-bg);',
 	'--doc-caret: var(--npde-document-text);',
-	'/* Page stays Word-white (no canvas invert). Vendor .dark sets a light',
+	'/* Page stays Word-white (no canvas invert). The runtime paints its inline',
 ];
 
 const requiredSettingsButtonFragments = [
