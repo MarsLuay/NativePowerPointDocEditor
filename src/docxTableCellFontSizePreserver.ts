@@ -171,8 +171,15 @@ function addMissingSizeTagsToRun(runXml: string, sourceTags: string[]) {
 	}
 
 	if (/<w:rPr\b[^>]*>/.test(runXml)) {
+		if (runXml.includes('</w:rPr>')) {
+			return {
+				xml: runXml.replace(/([\s\S]*)<\/w:rPr>/, `$1${missingTags.join('')}</w:rPr>`),
+				restoredTags: missingTags.length,
+			};
+		}
+
 		return {
-			xml: runXml.replace('</w:rPr>', `${missingTags.join('')}</w:rPr>`),
+			xml: runXml.replace(/(<w:rPr\b[^>]*?)\s*\/>/, `$1>${missingTags.join('')}</w:rPr>`),
 			restoredTags: missingTags.length,
 		};
 	}
