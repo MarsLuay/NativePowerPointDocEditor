@@ -117,6 +117,36 @@ test('copied logs include continuous interaction scroll and zoom summaries', asy
 	assert.deepEqual(payload.diagnostics.continuousInteractions, continuousInteractions);
 });
 
+test('copied logs include session resource and memory diagnostics', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const resourceDiagnostics = {
+		timestamp: 12345678,
+		label: 'test-snapshot',
+		memory: {
+			supported: false,
+			provider: 'unsupported',
+			usedBytes: null,
+			totalBytes: null,
+			limitBytes: null,
+		},
+		resources: {
+			mountedDocxViews: 1,
+			mountedPptxViews: 0,
+			activeTimers: 2,
+			activeAnimationFrames: 0,
+			activeMutationObservers: 1,
+			activeResizeObservers: 0,
+			thumbnailCacheEntries: 0,
+			domNodeCount: 150,
+			registeredListeners: 5,
+		},
+	};
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		diagnostics: diagnostics({ resourceDiagnostics }),
+	}));
+	assert.deepEqual(payload.diagnostics.resourceDiagnostics, resourceDiagnostics);
+});
+
 test('oversized copied logs retain the newest tail and valid JSON', async () => {
 	const { buildCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
 	const logs = Array.from({ length: 2000 }, (_, index) => log(index, `event-${index}-${'x'.repeat(80)}`));

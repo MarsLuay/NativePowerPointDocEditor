@@ -70,6 +70,7 @@ import { scheduleIdleWork } from '../../idleSchedule';
 import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
 import { createTextInputLatencyTracker } from '../../textInputLatency';
 import { getSharedContinuousInteractionProfiler } from '../../continuousInteractionProfiler';
+import { sessionResourceRegistry } from '../../sessionMemoryDiagnostics';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -250,6 +251,7 @@ const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 const EMU_PER_POINT = 12700;
 
 export class NativePowerPointView extends FileView {
+  private sessionMountCleanup: (() => void) | null = null;
   private readonly t: TranslateFn = (key, values) => pptT(key, values);
   private tb(suffix: string, values?: TranslateValues): string {
     return this.t(`powerpoint:toolbar.${suffix}`, values);
@@ -958,6 +960,8 @@ export class NativePowerPointView extends FileView {
   }
 
   async onOpen(): Promise<void> {
+    this.sessionMountCleanup?.();
+    this.sessionMountCleanup = sessionResourceRegistry.registerView('pptx', this);
     debugLog('view', 'Opening PowerPoint view');
     this.contentEl.empty();
     this.contentEl.addClass('native-powerpoint-view');
@@ -1021,6 +1025,8 @@ export class NativePowerPointView extends FileView {
     this.slideFilmstripController.dispose();
 
     this.resetLoadedPresentation();
+    this.sessionMountCleanup?.();
+    this.sessionMountCleanup = null;
     this.contentEl.removeClass('native-powerpoint-view');
     this.file = null;
     debugLog('view', 'Closed PowerPoint view');
@@ -3747,6 +3753,7 @@ export class NativePowerPointView extends FileView {
 		void this.renderThumbnails()
 			.then(() => {
 				this.filmstripRendered = true;
+				sessionResourceRegistry.setThumbnailCacheEntries(this.engine?.slideCount ?? 0);
 			})
 			.catch((error) => {
 				errorLog('render', 'PowerPoint filmstrip render failed', { error: cleanError(error) });
@@ -15087,6 +15094,7 @@ export class NativePowerPointView extends FileView {
   private resetLoadedPresentation(): void {
     this.filmstripRendered = false;
     this.filmstripRenderScheduled = false;
+    sessionResourceRegistry.setThumbnailCacheEntries(0);
     this.cancelPresentationWordCountRefresh();
     this.session.reset();
     this.slideFilmstripController.dispose();

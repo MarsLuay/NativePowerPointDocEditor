@@ -54,6 +54,10 @@ import {
 	getSharedContinuousInteractionProfiler,
 	resetSharedContinuousInteractionProfiler,
 } from './continuousInteractionProfiler';
+import {
+	captureSessionSnapshot,
+	sessionResourceRegistry,
+} from './sessionMemoryDiagnostics';
 
 type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
@@ -392,6 +396,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		this.runtimeFrameProfiler = null;
 		stopRuntimeFrameProfiler();
 		resetSharedContinuousInteractionProfiler();
+		sessionResourceRegistry.reset();
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
@@ -838,6 +843,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				...getCopiedLogDiagnostics(this.app),
 				frameTiming: getRuntimeFrameProfile(),
 				continuousInteractions: getSharedContinuousInteractionProfiler().getRecentSummaries(),
+				resourceDiagnostics: captureSessionSnapshot('debug-copy'),
 			},
 			logs,
 		});
