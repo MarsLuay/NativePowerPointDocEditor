@@ -9,9 +9,7 @@ const syncStandardLimitBytes = 5_000_000;
 // main.js embeds the optional runtime payloads for community installs. Keep a
 // small, explicit headroom budget for that bundle while retaining the strict
 // Sync limit for every materialized sidecar.
-// Frame-cadence diagnostics share one bounded implementation across DOCX and
-// PPTX; retain explicit release headroom for that runtime-only instrumentation.
-const embeddedMainBundleLimitBytes = 5_055_000;
+const embeddedMainBundleLimitBytes = 5_050_000;
 const runtimeArtifacts = [
   'main.js',
   'pptx-js-engine.mjs',
