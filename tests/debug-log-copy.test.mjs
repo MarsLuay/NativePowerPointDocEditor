@@ -91,6 +91,32 @@ test('copied logs include the resolved runtime frame profile', async () => {
 	assert.deepEqual(payload.diagnostics.frameTiming, frameTiming);
 });
 
+test('copied logs include continuous interaction scroll and zoom summaries', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const continuousInteractions = [
+		{
+			scope: 'docx',
+			interactionType: 'docx-scroll',
+			frameCount: 24,
+			totalDurationMs: 400,
+			lateFrameCount: 0,
+			missedFrameEstimate: 0,
+			longestFrameGapMs: 16.7,
+			frameIntervalsMs: { p50: 16.6, p95: 16.7, max: 16.7 },
+			rafSchedulingDelayMs: { p50: 0.5, p95: 1.0, max: 1.2 },
+			synchronousWorkMs: { p50: 2.1, p95: 3.5, max: 4.0 },
+			eventLoopDelayMs: { p50: 0.2, p95: 0.4, max: 0.5 },
+			worstFrames: [],
+			frameBudgetMs: 16.67,
+			resolvedRefreshHz: 60,
+		},
+	];
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		diagnostics: diagnostics({ continuousInteractions }),
+	}));
+	assert.deepEqual(payload.diagnostics.continuousInteractions, continuousInteractions);
+});
+
 test('oversized copied logs retain the newest tail and valid JSON', async () => {
 	const { buildCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
 	const logs = Array.from({ length: 2000 }, (_, index) => log(index, `event-${index}-${'x'.repeat(80)}`));

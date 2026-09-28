@@ -69,6 +69,7 @@ import { renameFileToSiblingName } from '../../vault/renameFlow';
 import { scheduleIdleWork } from '../../idleSchedule';
 import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
 import { createTextInputLatencyTracker } from '../../textInputLatency';
+import { getSharedContinuousInteractionProfiler } from '../../continuousInteractionProfiler';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -1213,6 +1214,9 @@ export class NativePowerPointView extends FileView {
     });
     this.registerDomEvent(addSlideButton, 'click', () => void this.slideFilmstripController.addSlideWithLayout('blank'));
     this.thumbnailContainer = sidebar.createDiv({ cls: 'native-powerpoint-thumbnails' });
+    this.registerDomEvent(this.thumbnailContainer, 'scroll', () => {
+      getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-filmstrip-scroll');
+    }, { passive: true });
 
     const main = this.layoutEl.createDiv({ cls: 'native-powerpoint-main-content' });
     this.createToolbar(main);
@@ -1763,7 +1767,14 @@ export class NativePowerPointView extends FileView {
     const pane = this.canvasPane;
     const handleWheel = (event: WheelEvent) => this.handleCanvasWheel(event);
     pane.addEventListener('wheel', handleWheel, { passive: false });
-    this.register(() => pane.removeEventListener('wheel', handleWheel));
+    const handleScroll = () => {
+      getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-canvas-scroll');
+    };
+    pane.addEventListener('scroll', handleScroll, { passive: true });
+    this.register(() => {
+      pane.removeEventListener('wheel', handleWheel);
+      pane.removeEventListener('scroll', handleScroll);
+    });
   }
 
   private createToolbar(main: HTMLElement): void {
@@ -14869,6 +14880,7 @@ export class NativePowerPointView extends FileView {
     // Browsers synthesize Ctrl+wheel for trackpad pinch gestures. All other
     // wheel input, including two-finger trackpad scrolling, pans the canvas.
     if (!event.ctrlKey) {
+      getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-canvas-scroll');
       // Pane already has overflow:auto — let the browser scroll. preventDefault
       // + JS scrollLeft/Top + layout-forcing pan logs made every trackpad tick
       // hitch on large slides.
@@ -14876,6 +14888,7 @@ export class NativePowerPointView extends FileView {
       return;
     }
 
+    getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-zoom');
     event.preventDefault();
     event.stopPropagation();
 
@@ -14929,7 +14942,9 @@ export class NativePowerPointView extends FileView {
     const pending = this.pendingWheelZoom;
     this.pendingWheelZoom = null;
     if (!pending) return;
-    this.setZoom(pending.zoom, pending.anchor, { deferChrome: true });
+    getSharedContinuousInteractionProfiler().measureSynchronousWork('pptx-zoom', () => {
+      this.setZoom(pending.zoom, pending.anchor, { deferChrome: true });
+    });
   }
 
   private scheduleWheelZoomChromeSync(): void {
@@ -14985,6 +15000,7 @@ export class NativePowerPointView extends FileView {
     const nextZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(value * 1000) / 1000));
     if (nextZoom === this.zoomLevel) return;
 
+    getSharedContinuousInteractionProfiler().recordInteractionEvent('pptx-zoom');
     const previousZoom = this.zoomLevel;
     const anchorState = anchor ? this.captureZoomAnchor(anchor) : null;
     this.zoomLevel = nextZoom;
