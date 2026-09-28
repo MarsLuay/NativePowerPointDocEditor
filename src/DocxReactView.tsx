@@ -54,6 +54,7 @@ import {
 } from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
+import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
 import {
 	createDuplicateEnterGuard,
 	isDocxEditingTarget,
@@ -1574,11 +1575,15 @@ function selectionSnapshot(view: { state: { selection: { from: number; to: numbe
 	return { from, to, empty };
 }
 
-function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticTracker) {
+function createDocxInputDiagnosticsPlugin(
+	inputDiagnostics: DocxInputDiagnosticTracker,
+	inputLatency: TextInputLatencyTracker,
+) {
 	return new Plugin({
 		props: {
 			handleDOMEvents: {
 				keydown(view, event) {
+					inputLatency.begin(event, 'keydown');
 					inputDiagnostics.observeKeyDown(event, selectionSnapshot(view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.keydown');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
@@ -1591,6 +1596,7 @@ function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticT
 					return false;
 				},
 				beforeinput(_view, event) {
+					inputLatency.begin(event, 'beforeinput');
 					inputDiagnostics.observeBeforeInput(event, selectionSnapshot(_view));
 					const handler = inputDiagnostics.beginHandler(event, 'DocxReactView.inputDiagnosticsPlugin.handleDOMEvents.beforeinput');
 					inputDiagnostics.finishHandler(handler, false, event.defaultPrevented);
@@ -1609,6 +1615,7 @@ function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticT
 			return {
 				destroy() {
 					inputDiagnostics.unmount();
+					inputLatency.dispose();
 				},
 			};
 		},
@@ -1635,6 +1642,8 @@ function createDocxInputDiagnosticsPlugin(inputDiagnostics: DocxInputDiagnosticT
 				steps: transactions.flatMap((transaction) => transaction.steps.map((step) => step.constructor?.name ?? 'Step')),
 				meta: transactions.flatMap((transaction) => summarizeTransactionMeta(transaction)),
 			});
+			// The following shared rAF is the first rendered-frame approximation.
+			inputLatency.markModelUpdated();
 			return null;
 		},
 	});
@@ -2411,6 +2420,15 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		});
 	}
 	const inputDiagnostics = inputDiagnosticsRef.current;
+	const inputLatencyRef = useRef<TextInputLatencyTracker | null>(null);
+	if (inputLatencyRef.current === null) {
+		inputLatencyRef.current = createTextInputLatencyTracker({
+			scope: 'docx',
+			onSummary: (summary) => debugLog('text-input', 'DOCX typing latency summary', summary),
+			onSlowInteraction: (data) => warnLog('text-input', 'DOCX slow typing interaction', data),
+		});
+	}
+	const inputLatency = inputLatencyRef.current;
 	const duplicateEnterGuardRef = useRef<DuplicateEnterGuard | null>(null);
 	if (duplicateEnterGuardRef.current === null) {
 		duplicateEnterGuardRef.current = createDuplicateEnterGuard();
@@ -2651,8 +2669,8 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		[scheduleParagraphLayoutRelayout],
 	);
 	const inputDiagnosticsPlugin = useMemo(
-		() => createDocxInputDiagnosticsPlugin(inputDiagnostics),
-		[inputDiagnostics],
+		() => createDocxInputDiagnosticsPlugin(inputDiagnostics, inputLatency),
+		[inputDiagnostics, inputLatency],
 	);
 	const preserveTypedSpacePlugin = useMemo(
 		() => createPreserveTypedSpacePlugin(inputDiagnostics),

@@ -68,6 +68,7 @@ import { aiUndoStore } from '../../ai/aiUndoStore';
 import { renameFileToSiblingName } from '../../vault/renameFlow';
 import { scheduleIdleWork } from '../../idleSchedule';
 import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
+import { createTextInputLatencyTracker } from '../../textInputLatency';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -7347,6 +7348,11 @@ export class NativePowerPointView extends FileView {
     let pendingInlineInputType: string | null = null;
     let pendingInlineBeforeInputSeen = false;
     let pendingInlineDeleteKeySeen = false;
+    const inputLatency = createTextInputLatencyTracker({
+      scope: 'pptx',
+      onSummary: (summary) => debugLog('text-edit', 'PPTX typing latency summary', summary),
+      onSlowInteraction: (data) => warnLog('text-edit', 'PPTX slow typing interaction', data),
+    });
     // Native input normally repaints a changed SVG run, but Chromium can retain
     // stale glyphs when a transparent textarea clears all visible text. Keep a
     // one-event flag so the input handler can replace the owning <text> frame.
@@ -7367,6 +7373,7 @@ export class NativePowerPointView extends FileView {
     // themselves since they don't fire beforeinput.
     editor.addEventListener('beforeinput', (event) => {
       if (this.activeEditor === editor) {
+        inputLatency.begin(event, 'beforeinput');
         const inputType = event.inputType || null;
         pendingInlineBeforeInputSeen = true;
         captureInlineEditScroll(inputType);
@@ -7552,6 +7559,9 @@ export class NativePowerPointView extends FileView {
           this.positionTextRunEditor(editor, nextBox);
         }
         updateCaret();
+        // The tracker schedules one following rAF, separating immediate SVG/model
+        // work from the presentation delay of the visible text update.
+        inputLatency.markModelUpdated();
         this.preserveCanvasScrollAfterInlineTextEdit(pendingInlineEditScroll, pendingInlineInputType);
         pendingInlineEditScroll = null;
         pendingInlineInputType = null;
@@ -7572,6 +7582,7 @@ export class NativePowerPointView extends FileView {
     editor.addEventListener('mouseup', updateCaret);
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
+      inputLatency.begin(event, 'keydown');
       const isVerticalArrow = event.key === 'ArrowUp' || event.key === 'ArrowDown';
       const isCaretNavKey = isVerticalArrow
         || event.key === 'ArrowLeft'
