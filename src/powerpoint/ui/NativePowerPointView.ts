@@ -67,6 +67,7 @@ import { debugLog, errorLog, logPptxAction, warnLog } from '../../logger';
 import { aiUndoStore } from '../../ai/aiUndoStore';
 import { renameFileToSiblingName } from '../../vault/renameFlow';
 import { scheduleIdleWork } from '../../idleSchedule';
+import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -3465,7 +3466,7 @@ export class NativePowerPointView extends FileView {
       // Skip chrome on the first scale pass: selection/editor targets were just
       // cleared and SVG events are not attached yet.
       this.updateSlideScale({ skipChrome: true });
-      window.requestAnimationFrame(() => this.updateSlideScale());
+      requestRuntimeFrame(() => this.updateSlideScale());
       this.attachSvgEvents();
       this.applyRunHighlights();
       const postprocessMs = Math.round(performance.now() - postprocessStarted);
@@ -6370,7 +6371,7 @@ export class NativePowerPointView extends FileView {
       drag.pendingClientX = moveEvent.clientX;
       drag.pendingClientY = moveEvent.clientY;
       if (drag.pendingFrame === null) {
-        drag.pendingFrame = window.requestAnimationFrame(flushDragFrame);
+        drag.pendingFrame = requestRuntimeFrame(flushDragFrame);
       }
     };
     const onPointerUp = (upEvent: PointerEvent) => {
@@ -6407,7 +6408,7 @@ export class NativePowerPointView extends FileView {
     };
     const cleanup = () => {
       if (this.inlineSelectionDrag?.pendingFrame !== null && this.inlineSelectionDrag) {
-        window.cancelAnimationFrame(this.inlineSelectionDrag.pendingFrame);
+        cancelRuntimeFrame(this.inlineSelectionDrag.pendingFrame);
       }
       activeDocument.removeEventListener('pointermove', onPointerMove, true);
       activeDocument.removeEventListener('pointerup', onPointerUp, true);
@@ -7412,7 +7413,7 @@ export class NativePowerPointView extends FileView {
       this.updateInlineCaret(editor, target.element);
     };
     const queueCaretUpdate = () => {
-      window.requestAnimationFrame(() => {
+      requestRuntimeFrame(() => {
         if (this.activeEditor === editor) {
           updateCaret();
         }
@@ -9186,7 +9187,7 @@ export class NativePowerPointView extends FileView {
     this.restoreCanvasScroll(position);
     if (!position) return;
 
-    window.requestAnimationFrame(() => this.restoreCanvasScroll(position));
+    requestRuntimeFrame(() => this.restoreCanvasScroll(position));
     window.setTimeout(() => this.restoreCanvasScroll(position), 0);
   }
 

@@ -43,6 +43,13 @@ import {
 	type NpdeAiApi,
 } from './ai';
 import { buildCopiedLogPayload, type CopiedLogDiagnostics } from './debugLogCopy';
+import {
+	detectRuntimePlatform,
+	getRuntimeFrameProfile,
+	startRuntimeFrameProfiler,
+	stopRuntimeFrameProfiler,
+	type RuntimeFrameProfiler,
+} from './runtimeFrameProfiler';
 
 type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
@@ -160,6 +167,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	private editorThemeObserver: MutationObserver | null = null;
 	private applyingEditorThemePreference = false;
 	private aiCore: AiCore | null = null;
+	private runtimeFrameProfiler: RuntimeFrameProfiler | null = null;
 	private docxWordCountStatusBarItem: HTMLElement | null = null;
 	private readonly documentWordCounts = new Map<WorkspaceLeaf, DocumentWordCount>();
 	private activeWordCountLeaf: WorkspaceLeaf | null = null;
@@ -232,6 +240,18 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			editorTheme: this.pluginSettings.editorTheme,
 		});
 		configureObsidianRuntime({ Notice, Platform, setIcon });
+		const frameDocument = this.app.workspace.containerEl.ownerDocument;
+		this.runtimeFrameProfiler = startRuntimeFrameProfiler({
+			platform: detectRuntimePlatform(Platform),
+			appMode: Platform.isMobileApp || Platform.isMobile ? 'mobile' : 'desktop',
+			isVisible: () => frameDocument.visibilityState !== 'hidden',
+			onProfileChange: (frameTiming) => {
+				infoLog('diagnostics', 'Runtime frame profile updated', { frameTiming });
+			},
+		});
+		infoLog('diagnostics', 'Runtime frame profiler initialized', {
+			frameTiming: getRuntimeFrameProfile(),
+		});
 		configureChromiumVersionReader(() => {
 			if (!Platform.isDesktop) {
 				return null;
@@ -364,6 +384,9 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		this.activeWordCountLeaf = null;
 		this.docxWordCountStatusBarItem = null;
 		this.editorThemeObserver = null;
+		this.runtimeFrameProfiler?.stop();
+		this.runtimeFrameProfiler = null;
+		stopRuntimeFrameProfiler();
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
@@ -806,7 +829,10 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			},
 			docxEditorBundle: 'main.js',
 			logStats: getNativePowerPointDocEditorLogStats(),
-			diagnostics: getCopiedLogDiagnostics(this.app),
+			diagnostics: {
+				...getCopiedLogDiagnostics(this.app),
+				frameTiming: getRuntimeFrameProfile(),
+			},
 			logs,
 		});
 		const serializedPayload = JSON.stringify(payload, null, 2);

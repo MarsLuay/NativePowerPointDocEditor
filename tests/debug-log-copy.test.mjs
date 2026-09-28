@@ -66,6 +66,31 @@ test('short copied logs preserve metadata and remain valid for every scope', asy
 	}
 });
 
+test('copied logs include the resolved runtime frame profile', async () => {
+	const { buildCopiedLogPayload } = await loadCopyModule();
+	const frameTiming = {
+		measuredRefreshHz: 120,
+		measuredFrameBudgetMs: 8.33,
+		resolvedRefreshHz: 120,
+		resolvedFrameBudgetMs: 8.33,
+		sampleCount: 32,
+		confidence: 'stable',
+		thresholdSource: 'measured-raf',
+		platform: 'windows',
+		appMode: 'desktop',
+		thresholds: {
+			synchronousWorkMs: 8,
+			lateFrameGapMs: 12.5,
+			missedFrameGapMs: 16.67,
+			substantialStallMs: 25,
+		},
+	};
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		diagnostics: diagnostics({ frameTiming }),
+	}));
+	assert.deepEqual(payload.diagnostics.frameTiming, frameTiming);
+});
+
 test('oversized copied logs retain the newest tail and valid JSON', async () => {
 	const { buildCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
 	const logs = Array.from({ length: 2000 }, (_, index) => log(index, `event-${index}-${'x'.repeat(80)}`));

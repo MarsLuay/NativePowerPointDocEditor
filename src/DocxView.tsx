@@ -15,6 +15,7 @@ import { ensureDocxDefaultStyles } from './docxStyleDefaults';
 import { extractDocxMarkdown, extractDocxText } from './docxTextExtractor';
 import { isElement, isHTMLElement, isNode } from './domGuards';
 import { scheduleIdleWork } from './idleSchedule';
+import { cancelRuntimeFrame, requestRuntimeFrame } from './runtimeFrameProfiler';
 import { createLoadTrace, monotonicNow, type LoadTrace } from './loadTrace';
 import {
 	logLifecycleStep,
@@ -1168,8 +1169,8 @@ export class DocxView extends FileView {
 				this.syncEditorChromeCustomizations(false);
 			},
 			syncTarget: this.hostEl,
-			requestFrame: (callback) => view.requestAnimationFrame(callback),
-			cancelFrame: (handle) => view.cancelAnimationFrame(handle),
+			requestFrame: (callback) => requestRuntimeFrame(callback, view) ?? view.requestAnimationFrame(callback),
+			cancelFrame: (handle) => cancelRuntimeFrame(handle, view),
 			onStorm: (summary) => {
 				debugLog('editor', 'DOCX chrome sync storm', {
 					file: this.file?.path,
