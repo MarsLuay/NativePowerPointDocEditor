@@ -11,6 +11,7 @@ import { debugLog, errorLog, warnLog } from '../logger';
 import { cleanError } from './runtimeCompat';
 import { normalizeSvgForDisplay } from './svgUtils';
 import type { HistoryEntry } from './types';
+import type { SlideSwitchStage, SlideSwitchStatus } from '../slideSwitchProfiler';
 import { scheduleIdleWork } from '../idleSchedule';
 import { isHTMLElement } from '../domGuards';
 import {
@@ -48,6 +49,10 @@ export interface SlideFilmstripHost {
   recordHistoryEntry(entry: HistoryEntry): void;
   markDirty(): void;
   renderCurrentSlide(keepSelection?: boolean, expectedGeneration?: number): Promise<boolean>;
+  beginSlideSwitchTrace(options: { fromSlide: number; toSlide: number; reason: string; slideCount: number }): void;
+  recordSlideSwitchStage(stage: SlideSwitchStage, durationMs: number): void;
+  markSlideSwitchFrame(): void;
+  finishSlideSwitchTrace(status: SlideSwitchStatus): void;
   clearSelection(options?: { skipTextCommit?: boolean }): void;
   renderInspector(): void;
   prepareSvgForRender(
@@ -786,12 +791,21 @@ export class SlideFilmstripController {
 
     const generation = ++this.host.slideRenderGeneration;
     const navigationStarted = performance.now();
+    this.host.beginSlideSwitchTrace({
+      fromSlide,
+      toSlide: index,
+      reason,
+      slideCount: this.host.engine.slideCount,
+    });
     this.host.isNavigatingSlide = true;
     debugLog('slide', 'goToSlide start', { from: fromSlide, to: index, reason, generation });
 
     try {
+      const selectionStarted = performance.now();
       await this.host.finishInlineTextEditing(`slide-navigation:${reason}`);
+      this.host.recordSlideSwitchStage('selection', performance.now() - selectionStarted);
       if (generation !== this.host.slideRenderGeneration) {
+        this.host.finishSlideSwitchTrace('superseded');
         debugLog('slide', 'goToSlide aborted (superseded)', { from: fromSlide, to: index, generation, reason });
         return;
       }
@@ -802,10 +816,12 @@ export class SlideFilmstripController {
       this.host.clearSelection();
       const rendered = await this.host.renderCurrentSlide(false, generation);
       if (generation !== this.host.slideRenderGeneration) {
+        this.host.finishSlideSwitchTrace('superseded');
         debugLog('slide', 'goToSlide render discarded (superseded)', { index, generation, reason });
         return;
       }
 
+      this.host.finishSlideSwitchTrace(rendered ? 'stable' : 'failed');
       if (rendered) {
         this.updateThumbnailActiveState();
         if (this.host.engine && shouldUseLazyThumbnails(this.host.engine.slideCount)) {

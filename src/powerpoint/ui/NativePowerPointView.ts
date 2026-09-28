@@ -71,6 +71,12 @@ import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfi
 import { createTextInputLatencyTracker } from '../../textInputLatency';
 import { getSharedContinuousInteractionProfiler } from '../../continuousInteractionProfiler';
 import { sessionResourceRegistry } from '../../sessionMemoryDiagnostics';
+import {
+	createSlideSwitchProfiler,
+	summarizeSlideSwitchForLog,
+	type SlideSwitchStage,
+	type SlideSwitchStatus,
+} from '../../slideSwitchProfiler';
 
 import {
   EDITABLE_POWERPOINT_EXTENSIONS,
@@ -307,6 +313,7 @@ export class NativePowerPointView extends FileView {
   private filmstripRenderScheduled = false;
   private filmstripRendered = false;
   private isNavigatingSlide = false;
+  private readonly slideSwitchProfiler = createSlideSwitchProfiler({ maxSamples: 80, maxWorstSwitches: 10 });
   private isTearingDownEditor = false;
   private slideRenderGeneration = 0;
   private textCommitPromise: Promise<void> | null = null;
@@ -532,6 +539,10 @@ export class NativePowerPointView extends FileView {
       recordHistoryEntry: (entry) => getView().recordHistoryEntry(entry),
       markDirty: () => getView().markDirty(),
       renderCurrentSlide: (keepSelection, expectedGeneration) => getView().renderCurrentSlide(keepSelection, expectedGeneration),
+      beginSlideSwitchTrace: (options) => getView().beginSlideSwitchTrace(options),
+      recordSlideSwitchStage: (stage, durationMs) => getView().recordSlideSwitchStage(stage, durationMs),
+      markSlideSwitchFrame: () => getView().markSlideSwitchFrame(),
+      finishSlideSwitchTrace: (status) => getView().finishSlideSwitchTrace(status),
       clearSelection: (options) => getView().clearSelection(options),
       renderInspector: () => getView().renderInspector(),
       prepareSvgForRender: (svg, isThumbnail) => getView().prepareSvgForRender(svg, isThumbnail),
@@ -3391,6 +3402,31 @@ export class NativePowerPointView extends FileView {
     this.updateEditingAvailability();
   }
 
+  private beginSlideSwitchTrace(options: { fromSlide: number; toSlide: number; reason: string; slideCount: number }): void {
+    this.slideSwitchProfiler.begin(options);
+  }
+
+  private recordSlideSwitchStage(stage: SlideSwitchStage, durationMs: number): void {
+    this.slideSwitchProfiler.recordStage(stage, durationMs);
+  }
+
+  private markSlideSwitchFrame(): void {
+    const measurement = this.slideSwitchProfiler.markFrame();
+    if (measurement) this.logSlideSwitchMeasurement(measurement);
+  }
+
+  private finishSlideSwitchTrace(status: SlideSwitchStatus): void {
+    const measurement = this.slideSwitchProfiler.finish(status);
+    if (measurement) this.logSlideSwitchMeasurement(measurement);
+  }
+
+  private logSlideSwitchMeasurement(measurement: Parameters<typeof summarizeSlideSwitchForLog>[0]): void {
+    debugLog('slide', 'PPTX slide-switch performance', {
+      measurement: summarizeSlideSwitchForLog(measurement),
+      summary: this.slideSwitchProfiler.getSummary(),
+    });
+  }
+
   private async renderCurrentSlide(keepSelection = false, expectedGeneration?: number): Promise<boolean> {
     if (!this.engine || !this.slideSurface) return false;
     if (expectedGeneration !== undefined && expectedGeneration !== this.slideRenderGeneration) {
@@ -3410,6 +3446,8 @@ export class NativePowerPointView extends FileView {
     const phaseStarted = performance.now();
     const cachedSlide = this.slideFilmstripController.getCachedSlideRender(slideIndex);
     const cacheLookupMs = Math.round(performance.now() - phaseStarted);
+    this.slideSwitchProfiler.setCacheState(cachedSlide ? 'warm' : 'cold');
+    this.slideSwitchProfiler.recordStage('cache-lookup', cacheLookupMs);
     let source: 'thumbnail-cache' | 'engine-render' = 'thumbnail-cache';
     let engineRenderMs = 0;
     let sanitizeMs = 0;
@@ -3423,9 +3461,11 @@ export class NativePowerPointView extends FileView {
       const engineRenderStarted = performance.now();
       const { svg } = this.engine.renderSlide(slideIndex);
       engineRenderMs = Math.round(performance.now() - engineRenderStarted);
+      this.slideSwitchProfiler.recordStage('render', engineRenderMs);
       const sanitizeStarted = performance.now();
       const safeSvg = this.prepareSvgForRender(svg);
       sanitizeMs = Math.round(performance.now() - sanitizeStarted);
+      this.slideSwitchProfiler.recordStage('svg-sanitize', sanitizeMs);
 
       if (!safeSvg.allowed) {
         this.showUnsafeSvgWarning(safeSvg.issues);
@@ -3435,6 +3475,7 @@ export class NativePowerPointView extends FileView {
       const parseStarted = performance.now();
       svgElement = createSvgElementFromString(safeSvg.svg, this.slideSurface.ownerDocument);
       parseMs = Math.round(performance.now() - parseStarted);
+      this.slideSwitchProfiler.recordStage('svg-parse', parseMs);
       if (!svgElement) {
         this.showError(this.t('powerpoint:loading.couldNotRenderSlide'));
         return false;
@@ -3469,6 +3510,7 @@ export class NativePowerPointView extends FileView {
     this.slideSurface.appendChild(svgElement);
     this.svgEl = svgElement;
     const domSwapMs = Math.round(performance.now() - domSwapStarted);
+    this.slideSwitchProfiler.recordStage('dom-swap', domSwapMs);
 
     if (this.svgEl) {
       const postprocessStarted = performance.now();
@@ -3484,10 +3526,15 @@ export class NativePowerPointView extends FileView {
       // Skip chrome on the first scale pass: selection/editor targets were just
       // cleared and SVG events are not attached yet.
       this.updateSlideScale({ skipChrome: true });
-      requestRuntimeFrame(() => this.updateSlideScale());
+      requestRuntimeFrame(() => {
+        if (expectedGeneration !== undefined && expectedGeneration !== this.slideRenderGeneration) return;
+        this.updateSlideScale();
+        this.markSlideSwitchFrame();
+      });
       this.attachSvgEvents();
       this.applyRunHighlights();
       const postprocessMs = Math.round(performance.now() - postprocessStarted);
+      this.slideSwitchProfiler.recordStage('postprocess', postprocessMs);
       debugLog('render', 'renderCurrentSlide phases', {
         slide: slideIndex,
         source,
@@ -15092,6 +15139,7 @@ export class NativePowerPointView extends FileView {
   }
 
   private resetLoadedPresentation(): void {
+    this.slideSwitchProfiler.reset();
     this.filmstripRendered = false;
     this.filmstripRenderScheduled = false;
     sessionResourceRegistry.setThumbnailCacheEntries(0);
