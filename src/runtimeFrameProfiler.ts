@@ -103,7 +103,7 @@ function defaultCancelFrame(handle: number): void {
 }
 
 function defaultVisibility(): boolean {
-	return typeof document === 'undefined' || document.visibilityState !== 'hidden';
+	return typeof activeDocument === 'undefined' || activeDocument.visibilityState !== 'hidden';
 }
 
 function scheduleTimer(callback: () => void, delayMs: number): number | null {
@@ -343,17 +343,18 @@ export function cancelRuntimeFrame(handle: number | null, frameWindow?: RuntimeF
 export function detectRuntimePlatform(platform: {
 	isMobile?: boolean;
 	isMobileApp?: boolean;
+	isIosApp?: boolean;
+	isAndroidApp?: boolean;
 	isMacOS?: boolean;
+	isWin?: boolean;
+	isLinux?: boolean;
 } = {}): string {
-	const userAgent = typeof navigator === 'undefined' ? '' : navigator.userAgent;
-	if (platform.isMobileApp || platform.isMobile) {
-		if (/iPhone|iPad|iPod|Macintosh.+Mobile/i.test(userAgent)) return 'ios';
-		if (/Android/i.test(userAgent)) return 'android';
-		return 'mobile';
-	}
-	if (platform.isMacOS || /Macintosh|Mac OS X/i.test(userAgent)) return 'macos';
-	if (/Windows/i.test(userAgent)) return 'windows';
-	if (/Linux/i.test(userAgent)) return 'linux';
+	if (platform.isIosApp) return 'ios';
+	if (platform.isAndroidApp) return 'android';
+	if (platform.isMobileApp || platform.isMobile) return 'mobile';
+	if (platform.isMacOS) return 'macos';
+	if (platform.isWin) return 'windows';
+	if (platform.isLinux) return 'linux';
 	return 'desktop';
 }
 
