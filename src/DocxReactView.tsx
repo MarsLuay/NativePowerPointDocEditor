@@ -55,6 +55,7 @@ import {
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
 import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
+import { getSharedContinuousInteractionProfiler } from './continuousInteractionProfiler';
 import {
 	createDuplicateEnterGuard,
 	isDocxEditingTarget,
@@ -3429,6 +3430,22 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	}, [buffer, filePath, isLoading]);
 
 	useEffect(() => {
+		const editorRoot = activeDocument.querySelector<HTMLElement>(`.${editorClassNameRef.current}`);
+		if (!editorRoot) {
+			return;
+		}
+		const scrollContainer = getScrollableEditorElement(editorRoot);
+		const profiler = getSharedContinuousInteractionProfiler();
+		const handleScroll = () => {
+			profiler.recordInteractionEvent('docx-scroll');
+		};
+		scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+		return () => {
+			scrollContainer.removeEventListener('scroll', handleScroll);
+		};
+	}, [buffer, filePath, isLoading]);
+
+	useEffect(() => {
 		if (!shouldEnableTouchPinchZoom()) {
 			return;
 		}
@@ -3455,6 +3472,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				return false;
 			}
 
+			const profiler = getSharedContinuousInteractionProfiler();
+			profiler.recordInteractionEvent('docx-zoom');
+
 			const scrollContainer = getScrollableEditorElement(editorRoot);
 			const rect = scrollContainer.getBoundingClientRect();
 			const localX = viewportPoint.x - rect.left;
@@ -3462,7 +3482,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			const documentX = (scrollContainer.scrollLeft + localX) / pinchState.lastZoom;
 			const documentY = (scrollContainer.scrollTop + localY) / pinchState.lastZoom;
 
-			editorRef.current?.setZoom(nextZoom);
+			profiler.measureSynchronousWork('docx-zoom', () => {
+				editorRef.current?.setZoom(nextZoom);
+			});
 			pinchState.lastZoom = nextZoom;
 
 			if (pinchZoomScrollFrameRef.current !== null) {

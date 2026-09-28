@@ -50,6 +50,10 @@ import {
 	stopRuntimeFrameProfiler,
 	type RuntimeFrameProfiler,
 } from './runtimeFrameProfiler';
+import {
+	getSharedContinuousInteractionProfiler,
+	resetSharedContinuousInteractionProfiler,
+} from './continuousInteractionProfiler';
 
 type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
@@ -387,6 +391,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		this.runtimeFrameProfiler?.stop();
 		this.runtimeFrameProfiler = null;
 		stopRuntimeFrameProfiler();
+		resetSharedContinuousInteractionProfiler();
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
 		activeDocument.body.removeAttribute('data-native-powerpoint-doc-editor-theme');
@@ -832,6 +837,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			diagnostics: {
 				...getCopiedLogDiagnostics(this.app),
 				frameTiming: getRuntimeFrameProfile(),
+				continuousInteractions: getSharedContinuousInteractionProfiler().getRecentSummaries(),
 			},
 			logs,
 		});
