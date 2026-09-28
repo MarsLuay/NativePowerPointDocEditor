@@ -45,6 +45,7 @@
 		"visual:caret": "node scripts/visual-inline-caret.mjs",
 		"visual:zoom": "node scripts/visual-powerpoint-zoom.mjs",
 		"benchmark:large-docs": "node scripts/benchmark-large-documents.mjs",
+		"benchmark:docx-pagination": "node scripts/benchmark-docx-pagination.mjs",
 		"test": "node scripts/prepare-vendor-test-runtime.mjs && node scripts/run-plugin-tests.mjs",
 		"test:update-fixtures": "node tests/fixtures/generate-fixtures.mjs --write",
 		"verify": "npm run verify:review && npm run smoke:pptx-js && npm run smoke:mobile-pptx && npm run smoke:pptx-action-matrix && npm run check:pptx-action-logs",
