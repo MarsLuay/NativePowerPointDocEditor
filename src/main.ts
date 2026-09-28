@@ -42,7 +42,14 @@ import {
 	writeCapabilitiesManifest,
 	type NpdeAiApi,
 } from './ai';
-import { buildCopiedLogPayload, type CopiedLogDiagnostics } from './debugLogCopy';
+import {
+	buildCopiedLogPayload,
+	type CopiedLogDiagnostics,
+	type CopiedLogEditorDiagnostics,
+	type CopiedLogEditorViewSnapshot,
+} from './debugLogCopy';
+import { VIEW_TYPE_DOCX } from './docxViewConstants';
+import { NATIVE_POWERPOINT_VIEW_TYPE } from './powerpoint/extensions';
 
 type DocxSupportModule = typeof import('./docxSupport');
 type PptxSupportModule = typeof import('./pptxSupport');
@@ -776,42 +783,76 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		});
 	}
 
-	async copyDebugLog(scope: DebugLogScope = 'all', activeDocxPath?: string) {
-		const logs = this.getDebugLogEntries(scope);
-		const payload = buildCopiedLogPayload({
-			generatedAt: new Date().toISOString(),
-			scope,
-			activeDocxPath,
-			plugin: {
-				id: this.manifest.id,
-				version: this.manifest.version,
-				dir: this.manifest.dir,
-			},
-			settings: {
-				locale: this.getResolvedLocale(),
-				editorTheme: this.pluginSettings.editorTheme,
-				showRuler: this.pluginSettings.showRuler,
-				autosave: this.pluginSettings.autosave,
-				createBackupsBeforeSave: this.pluginSettings.createBackupsBeforeSave,
-				defaultZoom: this.pluginSettings.defaultZoom,
-				debugLogging: this.pluginSettings.debugLogging,
-				enableDocxSearchIndex: this.pluginSettings.enableDocxSearchIndex,
-				autoIndexDocxSearch: this.pluginSettings.autoIndexDocxSearch,
-				powerPointAutosaveEnabled: this.pluginSettings.powerPointAutosaveEnabled,
-				powerPointHideUnsupportedSvgContent: this.pluginSettings.powerPointHideUnsupportedSvgContent,
-				powerPointOpenWithYoloMode: this.pluginSettings.powerPointOpenWithYoloMode,
-				disableDocxFiles: this.pluginSettings.disableDocxFiles,
-				disablePowerPointFiles: this.pluginSettings.disablePowerPointFiles,
-				enableAiInterfacing: this.pluginSettings.enableAiInterfacing,
-			},
-			docxEditorBundle: 'main.js',
-			logStats: getNativePowerPointDocEditorLogStats(),
-			diagnostics: getCopiedLogDiagnostics(this.app),
-			logs,
-		});
-		const serializedPayload = JSON.stringify(payload, null, 2);
+	private getCopyLogEditorDiagnostics(scope: DebugLogScope): CopiedLogEditorDiagnostics {
+		const workspace = this.app.workspace;
+		const activeLeaf = (workspace as unknown as { activeLeaf?: WorkspaceLeaf | null }).activeLeaf ?? null;
 
+		const collect = (viewType: string): CopiedLogEditorViewSnapshot[] => workspace
+			.getLeavesOfType(viewType)
+			.slice(0, 8)
+			.map((leaf): CopiedLogEditorViewSnapshot => {
+				const view = leaf.view as unknown as {
+					getCopyLogDiagnostics?: () => CopiedLogEditorViewSnapshot;
+				};
+				return {
+					...(view.getCopyLogDiagnostics?.() ?? { path: null, loaded: false }),
+					active: leaf === activeLeaf,
+				};
+			});
+
+		return {
+			docx: scope === 'pptx' ? [] : collect(VIEW_TYPE_DOCX),
+			pptx: scope === 'docx' ? [] : collect(NATIVE_POWERPOINT_VIEW_TYPE),
+		};
+	}
+
+	async copyDebugLog(scope: DebugLogScope = 'all', activeDocxPath?: string) {
 		try {
+			const logs = this.getDebugLogEntries(scope);
+			const editorDiagnostics = this.getCopyLogEditorDiagnostics(scope);
+			const activeFile = this.app.workspace.getActiveFile();
+			const resolvedActiveDocxPath = activeDocxPath ?? (
+				scope !== 'pptx' && activeFile?.extension.toLowerCase() === 'docx'
+					? activeFile.path
+					: undefined
+			);
+			if (logs.length === 0) {
+				showI18nNotice(this.getI18n(), 'settings:debug.noLogEntries');
+				return;
+			}
+			const payload = buildCopiedLogPayload({
+				generatedAt: new Date().toISOString(),
+				scope,
+				activeDocxPath: resolvedActiveDocxPath,
+				plugin: {
+					id: this.manifest.id,
+					version: this.manifest.version,
+					dir: this.manifest.dir,
+				},
+				settings: {
+					locale: this.getResolvedLocale(),
+					editorTheme: this.pluginSettings.editorTheme,
+					showRuler: this.pluginSettings.showRuler,
+					autosave: this.pluginSettings.autosave,
+					createBackupsBeforeSave: this.pluginSettings.createBackupsBeforeSave,
+					defaultZoom: this.pluginSettings.defaultZoom,
+					debugLogging: this.pluginSettings.debugLogging,
+					enableDocxSearchIndex: this.pluginSettings.enableDocxSearchIndex,
+					autoIndexDocxSearch: this.pluginSettings.autoIndexDocxSearch,
+					powerPointAutosaveEnabled: this.pluginSettings.powerPointAutosaveEnabled,
+					powerPointHideUnsupportedSvgContent: this.pluginSettings.powerPointHideUnsupportedSvgContent,
+					powerPointOpenWithYoloMode: this.pluginSettings.powerPointOpenWithYoloMode,
+					disableDocxFiles: this.pluginSettings.disableDocxFiles,
+					disablePowerPointFiles: this.pluginSettings.disablePowerPointFiles,
+					enableAiInterfacing: this.pluginSettings.enableAiInterfacing,
+				},
+				docxEditorBundle: 'main.js',
+				logStats: getNativePowerPointDocEditorLogStats(),
+				diagnostics: getCopiedLogDiagnostics(this.app),
+				editorDiagnostics,
+				logs,
+			});
+			const serializedPayload = JSON.stringify(payload, null, 2);
 			await navigator.clipboard.writeText(serializedPayload);
 			const label = scope === 'docx' ? 'DOCX' : scope === 'pptx' ? 'PPTX' : 'Native PowerPoint Doc Editor';
 			showI18nNotice(this.getI18n(), 'settings:debug.logCopied', { count: payload.logs.length, label });

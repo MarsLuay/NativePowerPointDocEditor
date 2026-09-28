@@ -22,6 +22,16 @@ export interface CopiedLogDiagnostics {
 	devicePixelRatio: number | null;
 }
 
+export type CopiedLogEditorScalar = string | number | boolean | null;
+
+/** Bounded, content-free state captured at the instant Copy Log is pressed. */
+export type CopiedLogEditorViewSnapshot = Record<string, CopiedLogEditorScalar>;
+
+export interface CopiedLogEditorDiagnostics {
+	docx: CopiedLogEditorViewSnapshot[];
+	pptx: CopiedLogEditorViewSnapshot[];
+}
+
 export interface CopiedLogPayloadInput {
 	generatedAt: string;
 	scope: CopiedLogScope;
@@ -35,6 +45,7 @@ export interface CopiedLogPayloadInput {
 	docxEditorBundle: string;
 	logStats: NativePowerPointDocEditorLogStats;
 	diagnostics: CopiedLogDiagnostics;
+	editorDiagnostics: CopiedLogEditorDiagnostics;
 	logs: NativePowerPointDocEditorLogEntry[];
 }
 
@@ -71,6 +82,13 @@ function normalizeDiagnostics(diagnostics: CopiedLogDiagnostics): CopiedLogDiagn
 	};
 }
 
+function normalizeEditorDiagnostics(diagnostics: CopiedLogEditorDiagnostics): CopiedLogEditorDiagnostics {
+	return {
+		docx: diagnostics.docx.slice(0, 8),
+		pptx: diagnostics.pptx.slice(0, 8),
+	};
+}
+
 function normalizeMetadata(input: CopiedLogPayloadInput): Omit<CopiedLogPayload, 'logs'> {
 	return {
 		generatedAt: input.generatedAt,
@@ -87,6 +105,7 @@ function normalizeMetadata(input: CopiedLogPayloadInput): Omit<CopiedLogPayload,
 		docxEditorBundle: truncateMetadataString(input.docxEditorBundle),
 		logStats: input.logStats,
 		diagnostics: normalizeDiagnostics(input.diagnostics),
+		editorDiagnostics: normalizeEditorDiagnostics(input.editorDiagnostics),
 		logRetention: {
 			maxCharacters: MAX_COPIED_LOG_CHARACTERS,
 			truncated: false,
@@ -157,6 +176,7 @@ function minimalPayload(metadata: Omit<CopiedLogPayload, 'logs'>): CopiedLogPayl
 		docxEditorBundle: metadata.docxEditorBundle,
 		logStats: metadata.logStats,
 		diagnostics: metadata.diagnostics,
+		editorDiagnostics: metadata.editorDiagnostics,
 		logRetention: {
 			...metadata.logRetention,
 			truncated: true,
@@ -287,6 +307,7 @@ export function buildCopiedLogPayload(input: CopiedLogPayloadInput): CopiedLogPa
 			droppedEntries: input.logStats.droppedEntries,
 		},
 		diagnostics: normalizeDiagnostics(input.diagnostics),
+		editorDiagnostics: normalizeEditorDiagnostics(input.editorDiagnostics),
 		logRetention: {
 			maxCharacters: MAX_COPIED_LOG_CHARACTERS,
 			truncated: true,

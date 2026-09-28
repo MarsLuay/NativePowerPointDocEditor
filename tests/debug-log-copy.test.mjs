@@ -37,6 +37,10 @@ function input(scope, logs, extra = {}) {
 			droppedEntries: 0,
 		},
 		diagnostics: diagnostics(),
+		editorDiagnostics: {
+			docx: [],
+			pptx: [],
+		},
 		logs,
 		...extra,
 	};
@@ -64,6 +68,19 @@ test('short copied logs preserve metadata and remain valid for every scope', asy
 		assert.equal(payload.diagnostics.appMode, 'desktop');
 		assert.equal(payload.diagnostics.runtime.electron, '30.0.0');
 	}
+});
+
+test('copy-time editor diagnostics preserve bounded live DOCX and PowerPoint state', async () => {
+	const { buildCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
+	const payload = buildCopiedLogPayload(input('all', [log(0)], {
+		editorDiagnostics: {
+			docx: [{ path: 'notes/report.docx', dirty: true, editorMounted: true }],
+			pptx: [{ path: 'slides/deck.pptx', slideCount: 12, currentSlide: 3, selectedShapeCount: 2 }],
+		},
+	}));
+	assert.ok(JSON.stringify(payload).length <= MAX_COPIED_LOG_CHARACTERS);
+	assert.equal(payload.editorDiagnostics.docx[0].dirty, true);
+	assert.equal(payload.editorDiagnostics.pptx[0].currentSlide, 3);
 });
 
 test('oversized copied logs retain the newest tail and valid JSON', async () => {

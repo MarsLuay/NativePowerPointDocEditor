@@ -142,6 +142,7 @@
 			"actionLabel": "Copy log"
 		},
 		"logCopied": "Copied {count} {label} log entries.",
+		"noLogEntries": "No debug logs. Enable logging and reproduce first.",
 		"logCopyFailed": "Could not copy Native PowerPoint Doc Editor debug log. Open the developer console and check window.nativePowerPointDocEditorDebugLogs."
 	},
 	"plugin": {

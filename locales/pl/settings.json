@@ -142,6 +142,7 @@
 			"actionLabel": "Kopiuj dziennik"
 		},
 		"logCopied": "Skopiowano {count} wpisów dziennika {label}.",
+		"noLogEntries": "Brak logów. Włącz logowanie i odtwórz problem.",
 		"logCopyFailed": "Nie udało się skopiować dziennika debugowania Native PowerPoint Doc Editor. Otwórz konsolę deweloperską i sprawdź window.nativePowerPointDocEditorDebugLogs."
 	},
 	"plugin": {

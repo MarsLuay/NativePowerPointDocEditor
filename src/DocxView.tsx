@@ -67,6 +67,7 @@ import {
 } from './docx/adapter/DocxEditorAdapter';
 import { createDetachedDocxEditorChromeElement } from './docxEditorChromeDom';
 import { DocxAgentReloadGuard, type DocxReloadIdentity } from './docx/DocxAgentReloadGuard';
+import type { CopiedLogEditorViewSnapshot } from './debugLogCopy';
 
 export { VIEW_TYPE_DOCX };
 
@@ -1626,6 +1627,18 @@ export class DocxView extends FileView {
 
 	getLoadedDocumentPath(): string | null {
 		return this.file?.path ?? null;
+	}
+
+	/** Content-free live state captured when the user copies diagnostics. */
+	getCopyLogDiagnostics(): CopiedLogEditorViewSnapshot {
+		return {
+			path: this.file?.path ?? null,
+			loaded: Boolean(this.file && this.buffer),
+			loading: this.isLoading,
+			dirty: this.isDirty,
+			error: Boolean(this.error),
+			editorMounted: Boolean(this.reactMount),
+		};
 	}
 
 	canAgentEdit(): boolean {

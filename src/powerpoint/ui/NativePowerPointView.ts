@@ -64,6 +64,7 @@ import {
   stripEmptyParagraphRenderAnchors,
 } from '../drawingmlText';
 import { debugLog, errorLog, logPptxAction, warnLog } from '../../logger';
+import type { CopiedLogEditorViewSnapshot } from '../../debugLogCopy';
 import { aiUndoStore } from '../../ai/aiUndoStore';
 import { renameFileToSiblingName } from '../../vault/renameFlow';
 import { scheduleIdleWork } from '../../idleSchedule';
@@ -1053,6 +1054,24 @@ export class NativePowerPointView extends FileView {
 
   getLoadedPresentationPath(): string | null {
     return (this.loadedFile || this.file)?.path ?? null;
+  }
+
+  /** Content-free live state captured when the user copies diagnostics. */
+  getCopyLogDiagnostics(): CopiedLogEditorViewSnapshot {
+    const file = this.loadedFile || this.file;
+    return {
+      path: file?.path ?? null,
+      loaded: Boolean(this.engine),
+      loading: this.isLoading,
+      dirty: this.session.dirty,
+      viewOnly: this.isViewOnly,
+      slideCount: this.engine?.slideCount ?? null,
+      currentSlide: this.engine ? this.currentSlide : null,
+      zoomPercent: Number.isFinite(this.zoomLevel) ? Math.round(this.zoomLevel * 100) : null,
+      selectedShapeCount: this.selectedShapeIndices.size,
+      rendering: this.isNavigatingSlide || this.isTearingDownEditor,
+      saveState: this.session.saveState,
+    };
   }
 
   getPresentationEngineForAgent(): PresentationEngine | null {

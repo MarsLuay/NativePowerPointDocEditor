@@ -142,6 +142,7 @@
       "actionLabel": "[Ćǫpÿ ſǫğ]"
     },
     "logCopied": "[Ćǫpįęḑ {count} {label} ſǫğ ęñţrįęş.]",
+    "noLogEntries": "[Ñǫ ḑębųğ ſǫğş. Ęñąbſę ſǫğğįñğ ąñḑ ręprǫḑųćę fįrşţ.]",
     "logCopyFailed": "[Ćǫųſḑ ñǫţ ćǫpÿ Ñąţįvę PǫwęrPǫįñţ Ḑǫć Ęḑįţǫr ḑębųğ ſǫğ. Ǫpęñ ţhę ḑęvęſǫpęr ćǫñşǫſę ąñḑ ćhęćk wįñḑǫw.ñąţįvęPǫwęrPǫįñţḐǫćĘḑįţǫrḐębųğŁǫğş.]"
   },
   "plugin": {
