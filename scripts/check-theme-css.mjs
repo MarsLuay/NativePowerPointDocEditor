@@ -178,7 +178,7 @@ if (docPageBgOverrides < 2) {
 	);
 }
 
-for (const fragment of requiredDocxCaretOnWhitePageFragments) {
+for (const fragment of requiredDocxWhitePageFragments) {
 	if (!css.includes(fragment)) {
 		failures.push(
 			`${path.relative(process.cwd(), stylePath)} must keep DOCX caret on white-page ink (not vendor inverted-canvas light caret): ${fragment}`,
