@@ -1,6 +1,8 @@
 // Runtime/environment helpers for the PowerPoint view: error normalization and
 // WebAssembly GC support detection. Extracted from NativePowerPointView.ts.
 
+import { requestRuntimeFrame } from '../runtimeFrameProfiler';
+
 export function cleanError(error: unknown): string {
   if (error instanceof Error) {
     return error.message || 'Unknown error';
@@ -36,13 +38,13 @@ export function isWasmGcUnsupportedError(error: unknown): boolean {
 
 /** Yields so status/progress DOM updates can paint before heavy work continues. */
 export function flushUi(): Promise<void> {
-  const requestAnimationFrame =
-		typeof window !== 'undefined' ? window.requestAnimationFrame.bind(window) : undefined;
-  if (typeof requestAnimationFrame === 'function') {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
     return new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => resolve());
+      const firstFrame = requestRuntimeFrame(() => {
+        const secondFrame = requestRuntimeFrame(() => resolve());
+        if (secondFrame === null) resolve();
       });
+      if (firstFrame === null) resolve();
     });
   }
 

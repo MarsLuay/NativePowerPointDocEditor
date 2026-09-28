@@ -35,6 +35,7 @@ import { isClipboardEvent, isElement, isHTMLElement, isHTMLButtonElement, isInpu
 import { summarizeDocxComment, summarizeDocxComments } from './docxCommentLogging';
 import { debugLog, errorLog, warnLog } from './logger';
 import { Platform } from './obsidianRuntime';
+import { cancelRuntimeFrame, requestRuntimeFrame } from './runtimeFrameProfiler';
 import { configureToolbarIconButton, createMenuItem, createMenuSection, hardenInjectedMenuOption } from './menuControls';
 import { DOCX_SAVE_STATUS_TO_STATE, getSaveStatusFlags, type DocxSaveStatus } from './save/saveStatus';
 import { formatFindResultStatus, wrapMatchIndex, type FindReplaceMode } from './find/findReplaceShell';
@@ -731,8 +732,8 @@ function scheduleFormattingDropdownClamp(layer: HTMLElement): void {
 			clampFormattingDropdownToViewport(layer);
 		}
 	};
-	window.requestAnimationFrame(() => {
-		window.requestAnimationFrame(clampIfConnected);
+	requestRuntimeFrame(() => {
+		requestRuntimeFrame(clampIfConnected);
 	});
 	window.setTimeout(clampIfConnected, 100);
 }
@@ -942,7 +943,9 @@ function scheduleFontFamilySelectDisplaySync(
 		return syncFontFamilySelectDisplay(editorRoot, fontFamily, fonts);
 	};
 	sync();
-	window.requestAnimationFrame(sync);
+	requestRuntimeFrame(() => {
+		sync();
+	});
 	window.setTimeout(sync, 0);
 	window.setTimeout(sync, 120);
 	window.setTimeout(sync, 320);
@@ -1204,7 +1207,9 @@ function scheduleFontFamilySelectTriggerTag(container: HTMLElement) {
 		tagFontFamilySelectTrigger(container);
 		if (!container.id && attempts < 5) {
 			attempts += 1;
-			window.requestAnimationFrame(tryTag);
+			requestRuntimeFrame(() => {
+				tryTag();
+			});
 		}
 	};
 
@@ -2597,18 +2602,18 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const scheduleParagraphLayoutRelayout = useCallback(() => {
 		clearParagraphMeasureCache();
 		if (listLayoutRelayoutFrameRef.current !== null) {
-			window.cancelAnimationFrame(listLayoutRelayoutFrameRef.current);
+			cancelRuntimeFrame(listLayoutRelayoutFrameRef.current);
 		}
 		if (listLayoutRelayoutSecondFrameRef.current !== null) {
-			window.cancelAnimationFrame(listLayoutRelayoutSecondFrameRef.current);
+			cancelRuntimeFrame(listLayoutRelayoutSecondFrameRef.current);
 			listLayoutRelayoutSecondFrameRef.current = null;
 		}
 
-		listLayoutRelayoutFrameRef.current = window.requestAnimationFrame(() => {
+		listLayoutRelayoutFrameRef.current = requestRuntimeFrame(() => {
 			listLayoutRelayoutFrameRef.current = null;
 			editorRef.current?.getEditorRef()?.relayout();
 
-			listLayoutRelayoutSecondFrameRef.current = window.requestAnimationFrame(() => {
+			listLayoutRelayoutSecondFrameRef.current = requestRuntimeFrame(() => {
 				listLayoutRelayoutSecondFrameRef.current = null;
 				editorRef.current?.getEditorRef()?.relayout();
 			});
