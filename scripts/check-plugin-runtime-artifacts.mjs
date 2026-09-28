@@ -72,19 +72,19 @@ assert.equal(typeof wasmRenderer.PptxRenderer, 'function', 'WASM renderer artifa
 assert.ok(wasmRenderer.wasmBytes instanceof Uint8Array, 'WASM renderer artifact must export Uint8Array wasmBytes.');
 assert.equal(typeof heicDecoder.default, 'function', 'HEIC decoder artifact must have a default decoder export.');
 
-const releaseWorkflow = await readFile(path.join(projectRoot, '.github/workflows/release.yml'), 'utf8');
+const bratWorkflow = await readFile(path.join(projectRoot, '.github/workflows/brat-prerelease.yml'), 'utf8');
 for (const artifact of runtimeArtifacts.slice(1)) {
   assert.doesNotMatch(
-    releaseWorkflow,
+    bratWorkflow,
     new RegExp(`^\\s*${artifact.replace(/\./g, '\\.')}\\s*$`, 'm'),
-    `release.yml must not upload unsupported Obsidian asset ${artifact}; community installs only download ${OBSIDIAN_SUPPORTED_RELEASE_ASSETS.join(', ')}.`,
+    `brat-prerelease.yml must not upload unsupported Obsidian asset ${artifact}; community installs only download ${OBSIDIAN_SUPPORTED_RELEASE_ASSETS.join(', ')}.`,
   );
 }
 for (const asset of OBSIDIAN_SUPPORTED_RELEASE_ASSETS) {
   assert.match(
-    releaseWorkflow,
+    bratWorkflow,
     new RegExp(`^\\s*${asset.replace(/\./g, '\\.')}\\s*$`, 'm'),
-    `release.yml must upload supported Obsidian asset ${asset}.`,
+    `brat-prerelease.yml must upload supported Obsidian asset ${asset}.`,
   );
 }
 
