@@ -9,6 +9,7 @@ import type {
   RunTarget
 } from '../PresentationEngine';
 import type { ShapeTransform } from 'pptx-svg';
+import type { ContinuousInteractionType } from '../continuousInteractionProfiler';
 
 export type SaveState = 'idle' | 'dirty' | 'saving' | 'saved' | 'failed' | 'recovered' | 'view-only';
 export type HandleName = 'nw' | 'ne' | 'sw' | 'se' | 'n' | 'e' | 's' | 'w';
@@ -21,6 +22,7 @@ export interface PointerPoint {
 
 export interface DragState {
   mode: 'move' | 'resize' | 'rotate';
+  interactionType: ContinuousInteractionType;
   handle?: HandleName;
   pointerId: number;
   startPoint: PointerPoint;
@@ -82,6 +84,7 @@ export interface MarqueeState {
 
 export interface GroupDragState {
   mode: DragState['mode'];
+  interactionType: ContinuousInteractionType;
   handle?: HandleName;
   pointerId: number;
   startPoint: PointerPoint;

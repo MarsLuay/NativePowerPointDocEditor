@@ -6,7 +6,22 @@ export type ContinuousInteractionType =
 	| 'docx-zoom'
 	| 'pptx-canvas-scroll'
 	| 'pptx-filmstrip-scroll'
-	| 'pptx-zoom';
+	| 'pptx-zoom'
+	| 'pptx-shape-drag'
+	| 'pptx-multi-selection-drag'
+	| 'pptx-resize'
+	| 'pptx-multi-selection-resize'
+	| 'pptx-rotate'
+	| 'pptx-multi-selection-rotate'
+	| 'pptx-image-crop'
+	| 'pptx-text-box-resize';
+
+export interface ContinuousInteractionEventDetails {
+	/** Pointer samples reported by PointerEvent.getCoalescedEvents(). */
+	coalescedInputCount?: number;
+	/** An optional platform-provided estimate; ordinary browser events cannot observe lost input. */
+	droppedInputEstimate?: number;
+}
 
 export interface ContinuousInteractionMetric {
 	p50: number | null;
@@ -37,6 +52,10 @@ export interface ContinuousInteractionSummary {
 	rafSchedulingDelayMs: ContinuousInteractionMetric;
 	synchronousWorkMs: ContinuousInteractionMetric;
 	eventLoopDelayMs: ContinuousInteractionMetric;
+	inputEventCount: number;
+	coalescedInputCount: number;
+	droppedInputEstimate: number;
+	domMutationCount: number;
 	worstFrames: WorstFrameRecord[];
 	frameBudgetMs: number;
 	resolvedRefreshHz: number;
@@ -116,6 +135,10 @@ class InteractionSession {
 	private frameHandle: number | null = null;
 	private settleTimer: number | null = null;
 	private syncWorkAccMs = 0;
+	inputEventCount = 0;
+	coalescedInputCount = 0;
+	droppedInputEstimate = 0;
+	domMutationCount = 0;
 
 	readonly frameIntervals: number[] = [];
 	readonly rafDelays: number[] = [];
@@ -134,6 +157,16 @@ class InteractionSession {
 
 	addSynchronousWork(durationMs: number): void {
 		this.syncWorkAccMs += Math.max(0, durationMs);
+	}
+
+	recordInput(details: ContinuousInteractionEventDetails = {}): void {
+		this.inputEventCount += 1;
+		this.coalescedInputCount += Math.max(0, Math.floor(details.coalescedInputCount ?? 0));
+		this.droppedInputEstimate += Math.max(0, Math.floor(details.droppedInputEstimate ?? 0));
+	}
+
+	recordDomMutations(count: number): void {
+		this.domMutationCount += Math.max(0, Math.floor(count));
 	}
 
 	scheduleFrame(
@@ -248,6 +281,10 @@ class InteractionSession {
 			rafSchedulingDelayMs: percentiles(this.rafDelays),
 			synchronousWorkMs: percentiles(this.syncWorks),
 			eventLoopDelayMs: percentiles(this.eventLoopDelays),
+			inputEventCount: this.inputEventCount,
+			coalescedInputCount: this.coalescedInputCount,
+			droppedInputEstimate: this.droppedInputEstimate,
+			domMutationCount: this.domMutationCount,
 			worstFrames: [...this.worstFrames],
 			frameBudgetMs: profile.resolvedFrameBudgetMs,
 			resolvedRefreshHz: profile.resolvedRefreshHz,
@@ -286,7 +323,10 @@ export class ContinuousInteractionProfiler {
 		this.onSlowInteraction = options.onSlowInteraction;
 	}
 
-	recordInteractionEvent(type: ContinuousInteractionType): void {
+	recordInteractionEvent(
+		type: ContinuousInteractionType,
+		details: ContinuousInteractionEventDetails = {},
+	): void {
 		if (this.disposed) return;
 		let session = this.activeSessions.get(type);
 		if (!session) {
@@ -294,12 +334,18 @@ export class ContinuousInteractionProfiler {
 			this.activeSessions.set(type, session);
 			this.scheduleSessionFrame(session);
 		}
+		session.recordInput(details);
 		session.resetSettleTimer(
 			this.scheduleTimeout,
 			this.cancelTimeout,
 			this.settleTimeoutMs,
 			(settledSession) => this.settleSession(settledSession),
 		);
+	}
+
+	recordDomMutations(type: ContinuousInteractionType, count = 1): void {
+		if (this.disposed) return;
+		this.activeSessions.get(type)?.recordDomMutations(count);
 	}
 
 	measureSynchronousWork<T>(type: ContinuousInteractionType, work: () => T): T {

@@ -70,7 +70,7 @@ import { renameFileToSiblingName } from '../../vault/renameFlow';
 import { scheduleIdleWork } from '../../idleSchedule';
 import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
 import { createTextInputLatencyTracker } from '../../textInputLatency';
-import { getSharedContinuousInteractionProfiler } from '../../continuousInteractionProfiler';
+import { getSharedContinuousInteractionProfiler, type ContinuousInteractionType } from '../../continuousInteractionProfiler';
 import { getSharedAutosaveInterferenceProfiler } from '../../save/saveInterferenceProfiler';
 import { sessionResourceRegistry } from '../../sessionMemoryDiagnostics';
 import {
@@ -2573,6 +2573,7 @@ export class NativePowerPointView extends FileView {
 
     this.dragState = {
       mode: 'rotate',
+      interactionType: 'pptx-rotate',
       pointerId: event.pointerId,
       startPoint: { x: event.clientX, y: event.clientY },
       startClientX: event.clientX,
@@ -2588,6 +2589,7 @@ export class NativePowerPointView extends FileView {
       previewElement,
       previewOriginalTransform: previewElement?.getAttribute('transform') ?? null,
     };
+    this.recordDirectManipulationInput(event, 'pptx-rotate');
     logPptxAction('selection', 'rotate', {
       slide: this.currentSlide,
       shapeIndexes: this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex],
@@ -12869,6 +12871,57 @@ export class NativePowerPointView extends FileView {
     return true;
   }
 
+  private getGroupInteractionType(mode: DragState['mode']): ContinuousInteractionType {
+    if (mode === 'resize') return 'pptx-multi-selection-resize';
+    if (mode === 'rotate') return 'pptx-multi-selection-rotate';
+    return 'pptx-multi-selection-drag';
+  }
+
+  private getSingleInteractionType(
+    mode: DragState['mode'],
+    shape: SVGGElement | null,
+  ): ContinuousInteractionType {
+    if (mode === 'rotate') return 'pptx-rotate';
+    if (mode === 'resize' && shape && this.pictureHasCrop(shape)) return 'pptx-image-crop';
+    if (
+      mode === 'resize'
+      && this.engine
+      && this.selectedShapeIndex !== null
+      && this.engine.isTextBoxShape(this.currentSlide, this.selectedShapeIndex)
+    ) {
+      return 'pptx-text-box-resize';
+    }
+    return mode === 'resize' ? 'pptx-resize' : 'pptx-shape-drag';
+  }
+
+  private getCoalescedInputCount(event: PointerEvent): number {
+    const pointerEvent = event as PointerEvent & {
+      getCoalescedEvents?: () => readonly Event[];
+    };
+    if (typeof pointerEvent.getCoalescedEvents !== 'function') return 0;
+    try {
+      return Math.max(0, pointerEvent.getCoalescedEvents().length);
+    } catch {
+      return 0;
+    }
+  }
+
+  private recordDirectManipulationInput(
+    event: PointerEvent,
+    interactionType: ContinuousInteractionType,
+  ): void {
+    getSharedContinuousInteractionProfiler().recordInteractionEvent(interactionType, {
+      coalescedInputCount: this.getCoalescedInputCount(event),
+    });
+  }
+
+  private recordDirectManipulationMutations(
+    interactionType: ContinuousInteractionType,
+    count = 1,
+  ): void {
+    getSharedContinuousInteractionProfiler().recordDomMutations(interactionType, count);
+  }
+
   private startGroupDrag(
     event: PointerEvent,
     mode: DragState['mode'] = 'move',
@@ -12902,8 +12955,10 @@ export class NativePowerPointView extends FileView {
     const centerClientX = overlayRect ? overlayRect.left + overlayRect.width / 2 : undefined;
     const centerClientY = overlayRect ? overlayRect.top + overlayRect.height / 2 : undefined;
     this.snapController.beginDrag(new Set(this.selectedShapeIndices));
+    const interactionType = this.getGroupInteractionType(mode);
     this.groupDrag = {
       mode,
+      interactionType,
       handle,
       pointerId: event.pointerId,
       startPoint,
@@ -12927,6 +12982,7 @@ export class NativePowerPointView extends FileView {
       latest: new Map(start),
       moved: false
     };
+    this.recordDirectManipulationInput(event, interactionType);
     logPptxAction('selection', 'group-transform', {
       slide: this.currentSlide,
       shapeIndexes: [...start.keys()],
@@ -12951,6 +13007,7 @@ export class NativePowerPointView extends FileView {
 
     if (this.groupDrag.mode === 'rotate') {
       this.updateGroupRotateDrag(event);
+      this.recordDirectManipulationMutations(this.groupDrag.interactionType, 1);
       return;
     }
 
@@ -12991,6 +13048,10 @@ export class NativePowerPointView extends FileView {
       this.groupDrag.latestBounds = nextBounds;
       this.applyGroupOverlayBox(this.getGroupResizeOverlayBox(this.groupDrag, nextBounds));
       this.applyGroupResizePreview(this.groupDrag, nextBounds);
+      this.recordDirectManipulationMutations(
+        this.groupDrag.interactionType,
+        Math.max(1, this.groupDrag.previewObjectCount ?? this.groupDrag.start.size) + 1,
+      );
       return;
     }
 
@@ -13019,6 +13080,10 @@ export class NativePowerPointView extends FileView {
       height: this.groupDrag.startBox.height,
     }, paneScale === null ? { x: deltaClientX, y: deltaClientY } : undefined);
     this.applyGroupMovePreview(this.groupDrag, nextBounds);
+    this.recordDirectManipulationMutations(
+      this.groupDrag.interactionType,
+      Math.max(1, this.groupDrag.previewObjectCount ?? this.groupDrag.start.size) + 1,
+    );
   }
 
   private getGroupResizeBounds(groupDrag: GroupDragState, dx: number, dy: number): ShapeTransform {
@@ -13935,6 +14000,7 @@ export class NativePowerPointView extends FileView {
     if (!startPoint || !startBox) return;
 
     const previewElement = this.getSelectedShapeElement();
+    const interactionType = this.getSingleInteractionType(mode, previewElement);
     const freezeShapeDuringResize = this.shouldFreezeTextDuringResize(mode, previewElement);
     const paneEmuScale = this.getPaneEmuScale();
     const previewImageElement = previewElement ? this.getPictureImageElement(previewElement) : null;
@@ -13961,6 +14027,7 @@ export class NativePowerPointView extends FileView {
 
     this.dragState = {
       mode,
+      interactionType,
       handle,
       pointerId: event.pointerId,
       startPoint,
@@ -13982,6 +14049,7 @@ export class NativePowerPointView extends FileView {
       previewClipRectElement,
       previewClipAttrs,
     };
+    this.recordDirectManipulationInput(event, interactionType);
     logPptxAction('selection', 'drag', {
       slide: this.currentSlide,
       shapeIndexes: this.selectedShapeIndex === null ? [] : [this.selectedShapeIndex],
@@ -14475,6 +14543,24 @@ export class NativePowerPointView extends FileView {
   }
 
   private handleDragMove = (event: PointerEvent): void => {
+    const interactionType = this.groupDrag?.pointerId === event.pointerId
+      ? this.groupDrag.interactionType
+      : this.dragState?.pointerId === event.pointerId
+        ? this.dragState.interactionType
+        : null;
+    if (!interactionType) {
+      this.handleDragMoveInternal(event);
+      return;
+    }
+
+    this.recordDirectManipulationInput(event, interactionType);
+    getSharedContinuousInteractionProfiler().measureSynchronousWork(
+      interactionType,
+      () => this.handleDragMoveInternal(event),
+    );
+  };
+
+  private handleDragMoveInternal = (event: PointerEvent): void => {
     if (this.marquee) {
       this.updateMarquee(event);
       return;
@@ -14488,6 +14574,7 @@ export class NativePowerPointView extends FileView {
 
     if (this.dragState.mode === 'rotate') {
       this.updateRotateDrag(event);
+      this.recordDirectManipulationMutations(this.dragState.interactionType, 2);
       return;
     }
 
@@ -14513,6 +14600,7 @@ export class NativePowerPointView extends FileView {
       this.selectedTransform = cloneTransform(next);
       this.updateShapeTransformPreview(next);
       this.positionOverlayDuringMove(next);
+      this.recordDirectManipulationMutations(this.dragState.interactionType, 2);
       return;
     }
 
@@ -14560,6 +14648,10 @@ export class NativePowerPointView extends FileView {
           'picture-image-bounds-live',
         );
       }
+      this.recordDirectManipulationMutations(
+        this.dragState.interactionType,
+        this.dragState.previewClipRectElement ? 3 : 2,
+      );
       return;
     }
 
@@ -14588,6 +14680,7 @@ export class NativePowerPointView extends FileView {
         );
       }
     }
+    this.recordDirectManipulationMutations(this.dragState.interactionType, 2);
   };
 
   private updateRotateDrag(event: PointerEvent): void {
