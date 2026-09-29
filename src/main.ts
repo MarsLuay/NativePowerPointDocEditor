@@ -44,6 +44,7 @@ import {
 } from './ai';
 import {
 	buildCopiedLogPayload,
+	serializeCopiedLogPayload,
 	type CopiedLogDiagnostics,
 	type CopiedLogEditorDiagnostics,
 	type CopiedLogEditorViewSnapshot,
@@ -858,7 +859,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				showI18nNotice(this.getI18n(), 'settings:debug.noLogEntries');
 				return;
 			}
-			const payload = buildCopiedLogPayload({
+			const copyInput = {
 				generatedAt: new Date().toISOString(),
 				scope,
 				activeDocxPath: resolvedActiveDocxPath,
@@ -895,8 +896,9 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 				},
 				editorDiagnostics,
 				logs,
-			});
-			const serializedPayload = JSON.stringify(payload, null, 2);
+			};
+			const payload = buildCopiedLogPayload(copyInput);
+			const serializedPayload = serializeCopiedLogPayload(copyInput);
 			await navigator.clipboard.writeText(serializedPayload);
 			const label = scope === 'docx' ? 'DOCX' : scope === 'pptx' ? 'PPTX' : 'Native PowerPoint Doc Editor';
 			showI18nNotice(this.getI18n(), 'settings:debug.logCopied', { count: payload.logs.length, label });

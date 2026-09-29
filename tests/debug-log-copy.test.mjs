@@ -164,16 +164,20 @@ test('copied logs include session resource and memory diagnostics', async () => 
 	assert.deepEqual(payload.diagnostics.resourceDiagnostics, resourceDiagnostics);
 });
 
-test('oversized copied logs retain the newest tail and valid JSON', async () => {
-	const { buildCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
+test('oversized copied logs retain the newest tail and valid JSON for every scope', async () => {
+	const { buildCopiedLogPayload, serializeCopiedLogPayload, MAX_COPIED_LOG_CHARACTERS } = await loadCopyModule();
 	const logs = Array.from({ length: 2000 }, (_, index) => log(index, `event-${index}-${'x'.repeat(80)}`));
-	const payload = buildCopiedLogPayload(input('all', logs));
-	const serialized = JSON.stringify(payload, null, 2);
-	assert.ok(serialized.length <= MAX_COPIED_LOG_CHARACTERS);
-	assert.equal(JSON.parse(serialized).scope, 'all');
-	assert.equal(payload.logs.at(-1).message, logs.at(-1).message);
-	assert.equal(payload.logs[0].message, logs[logs.length - payload.logs.length].message);
-	assert.equal(payload.logRetention.truncated, true);
+
+	for (const scope of ['all', 'docx', 'pptx']) {
+		const payloadInput = input(scope, logs);
+		const payload = buildCopiedLogPayload(payloadInput);
+		const serialized = serializeCopiedLogPayload(payloadInput);
+		assert.ok(serialized.length <= MAX_COPIED_LOG_CHARACTERS);
+		assert.equal(JSON.parse(serialized).scope, scope);
+		assert.equal(payload.logs.at(-1).message, logs.at(-1).message);
+		assert.equal(payload.logs[0].message, logs[logs.length - payload.logs.length].message);
+		assert.equal(payload.logRetention.truncated, true);
+	}
 });
 
 test('missing optional environment fields stay explicit and machine-readable', async () => {
