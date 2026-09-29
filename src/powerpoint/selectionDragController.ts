@@ -91,6 +91,7 @@ export class SelectionDragController {
 
       this.dragState = {
         mode: 'rotate',
+        interactionType: 'pptx-rotate',
         pointerId: event.pointerId,
         startPoint: { x: event.clientX, y: event.clientY },
         startClientX: event.clientX,
@@ -396,6 +397,7 @@ export class SelectionDragController {
 
       this.groupDrag = {
         mode: 'move',
+        interactionType: 'pptx-multi-selection-drag',
         pointerId: event.pointerId,
         startPoint,
         startClientX: event.clientX,
@@ -554,6 +556,7 @@ export class SelectionDragController {
 
       this.dragState = {
         mode,
+        interactionType: mode === 'resize' ? 'pptx-resize' : 'pptx-shape-drag',
         handle,
         pointerId: event.pointerId,
         startPoint,

@@ -110,6 +110,46 @@ test('continuous profiler measures 60Hz scroll frames and detects late and misse
 	assert.equal(worst.classification, 'missed');
 });
 
+test('direct-manipulation summaries separate coalesced input, observable loss, and preview mutations', async () => {
+	const { ContinuousInteractionProfiler } = await loadProfiler();
+	let currentTime = 1000;
+	const rafCallbacks = [];
+	const timeoutCallbacks = [];
+	const summaries = [];
+
+	const profiler = new ContinuousInteractionProfiler({
+		now: () => currentTime,
+		requestFrame: (cb) => {
+			rafCallbacks.push(cb);
+			return rafCallbacks.length;
+		},
+		cancelFrame: () => {},
+		scheduleTimeout: (cb, ms) => {
+			timeoutCallbacks.push({ cb, triggerTime: currentTime + ms });
+			return timeoutCallbacks.length;
+		},
+		cancelTimeout: () => {},
+		getFrameProfile: () => mockProfile(60),
+		settleTimeoutMs: 150,
+		onSummary: (summary) => summaries.push(summary),
+	});
+
+	profiler.recordInteractionEvent('pptx-text-box-resize', { coalescedInputCount: 2 });
+	profiler.recordInteractionEvent('pptx-text-box-resize', { coalescedInputCount: 3 });
+	profiler.recordDomMutations('pptx-text-box-resize', 4);
+	currentTime = 1016.7;
+	rafCallbacks.shift()(1016.7);
+	currentTime = 1200;
+	timeoutCallbacks[timeoutCallbacks.length - 1].cb();
+
+	assert.equal(summaries.length, 1);
+	assert.equal(summaries[0].interactionType, 'pptx-text-box-resize');
+	assert.equal(summaries[0].inputEventCount, 2);
+	assert.equal(summaries[0].coalescedInputCount, 5);
+	assert.equal(summaries[0].droppedInputEstimate, 0);
+	assert.equal(summaries[0].domMutationCount, 4);
+});
+
 test('continuous profiler uses 120Hz frame budget correctly without false positives on 8.3ms frames', async () => {
 	const { ContinuousInteractionProfiler } = await loadProfiler();
 	let currentTime = 1000;
