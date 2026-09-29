@@ -4,6 +4,7 @@ import type {
 } from './logger';
 import type { RuntimeFrameProfile } from './runtimeFrameProfiler';
 import type { ContinuousInteractionSummary } from './continuousInteractionProfiler';
+import type { AutosaveInterferenceSummary } from './save/saveInterferenceProfiler';
 import type { SessionResourceSnapshot } from './sessionMemoryDiagnostics';
 
 export const MAX_COPIED_LOG_CHARACTERS = 32_000;
@@ -25,6 +26,7 @@ export interface CopiedLogDiagnostics {
 	devicePixelRatio: number | null;
 	frameTiming?: RuntimeFrameProfile;
 	continuousInteractions?: ContinuousInteractionSummary[];
+	autosaveInterference?: AutosaveInterferenceSummary[];
 	resourceDiagnostics?: SessionResourceSnapshot;
 }
 
@@ -87,6 +89,7 @@ function normalizeDiagnostics(diagnostics: CopiedLogDiagnostics): CopiedLogDiagn
 		devicePixelRatio: Number.isFinite(diagnostics.devicePixelRatio) ? diagnostics.devicePixelRatio : null,
 		...(diagnostics.frameTiming === undefined ? {} : { frameTiming: diagnostics.frameTiming }),
 		...(diagnostics.continuousInteractions === undefined ? {} : { continuousInteractions: diagnostics.continuousInteractions }),
+		...(diagnostics.autosaveInterference === undefined ? {} : { autosaveInterference: diagnostics.autosaveInterference.slice(-24) }),
 		...(diagnostics.resourceDiagnostics === undefined ? {} : { resourceDiagnostics: diagnostics.resourceDiagnostics }),
 	};
 }

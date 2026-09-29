@@ -62,6 +62,10 @@ import {
 	resetSharedContinuousInteractionProfiler,
 } from './continuousInteractionProfiler';
 import {
+	getSharedAutosaveInterferenceProfiler,
+	resetSharedAutosaveInterferenceProfiler,
+} from './save/saveInterferenceProfiler';
+import {
 	captureSessionSnapshot,
 	sessionResourceRegistry,
 } from './sessionMemoryDiagnostics';
@@ -403,6 +407,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		this.runtimeFrameProfiler = null;
 		stopRuntimeFrameProfiler();
 		resetSharedContinuousInteractionProfiler();
+		resetSharedAutosaveInterferenceProfiler();
 		sessionResourceRegistry.reset();
 		const activeDocument = this.app.workspace.containerEl.ownerDocument;
 		activeDocument.body.removeClasses([...EDITOR_THEME_CLASSES, ...RESOLVED_EDITOR_THEME_CLASSES]);
@@ -885,6 +890,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 					...getCopiedLogDiagnostics(this.app),
 					frameTiming: getRuntimeFrameProfile(),
 					continuousInteractions: getSharedContinuousInteractionProfiler().getRecentSummaries(),
+					autosaveInterference: getSharedAutosaveInterferenceProfiler().getRecentSummaries(),
 					resourceDiagnostics: captureSessionSnapshot('debug-copy'),
 				},
 				editorDiagnostics,
