@@ -16,7 +16,8 @@ test("DOCX visual surface forwards deletion keys to the hidden ProseMirror keyma
 	assert.match(source, /view\.someProp\('handleKeyDown', \(f: Function\) => f\(view, e\.nativeEvent\)\)/);
 	assert.match(source, /deleteCharacterAfterFocusRecovery\(view, e\.key\)/);
 	assert.match(source, /tr\.delete\(selection\.from - 1, selection\.from\)/);
-	assert.match(source, /e\.defaultPrevented && !isDeletionKey/);
+	assert.match(source, /if \(e\.defaultPrevented\) return;/);
+	assert.match(source, /shouldReplayDeletionFromContainer\(e\.nativeEvent, view\.dom\)/);
 });
 
 test("DOCX list keymap removes markers and list indentation with either deletion key", async () => {

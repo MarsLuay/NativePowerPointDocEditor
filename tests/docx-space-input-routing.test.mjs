@@ -33,8 +33,13 @@ test("shipped PagedEditor dist does not replay deletion after hidden ProseMirror
 
     assert.match(
       dist,
-      /(?:\.defaultPrevented&&\(![\w$]+\|\|[\w$]+\)|!\([\w$]+\.defaultPrevented&&!)/,
-      `${filename} must stop a handled deletion when the same hidden-editor event mutated the document`,
+      /\.defaultPrevented\)??return\s+(?:false|!1)/,
+      `${filename} must stop a handled deletion before replaying the container keydown`,
+    );
+    assert.match(
+      dist,
+      /\.contains\(/,
+      `${filename} must distinguish hidden-editor deletion events from surface recovery`,
     );
   }
 });
