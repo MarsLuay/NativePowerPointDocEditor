@@ -17,6 +17,7 @@ import {
 } from '../save/DocumentSaveCoordinator';
 import type { NativePowerPointSettings } from '../settings';
 import { debugLog, errorLog, warnLog } from '../logger';
+import { getSharedAutosaveInterferenceProfiler } from '../save/saveInterferenceProfiler';
 import { isEditablePowerPointExtension, isModernPowerPointExtension } from './extensions';
 import { cleanError } from './runtimeCompat';
 import type { SaveState } from './types';
@@ -142,6 +143,34 @@ export class SaveController {
       }),
       onAutosaveStarted: (editVersion) => debugLog('save', 'PowerPoint autosave started', {
         file: this.host.getFile()?.path ?? null, editVersion
+      }),
+      onSaveStarted: (request, context, startedAt) => {
+        if (request.source !== 'autosave') return;
+        getSharedAutosaveInterferenceProfiler().beginSave({
+          scope: 'pptx',
+          documentBytes: context.sourceBuffer.byteLength,
+          startedAt,
+        });
+      },
+      onSaveCompleted: (measurement) => {
+        if (measurement.source !== 'autosave') return;
+        const summary = getSharedAutosaveInterferenceProfiler().completeSave({
+          scope: 'pptx',
+          documentBytes: measurement.documentBytes,
+          changedContentBytes: measurement.changedContentBytes,
+          outputBytes: measurement.outputBytes,
+          startedAt: measurement.startedAt,
+          endedAt: measurement.endedAt,
+          phases: measurement.phases,
+        });
+        if (summary) debugLog('save', 'PowerPoint autosave interference summary', summary);
+      },
+      getSaveMetrics: (context, serialized) => ({
+        documentBytes: context.sourceBuffer.byteLength,
+        outputBytes: serialized?.byteLength ?? null,
+        changedContentBytes: serialized
+          ? Math.abs(serialized.byteLength - context.sourceBuffer.byteLength)
+          : null,
       }),
       runAutosave: () => {
         void this.save('autosave');

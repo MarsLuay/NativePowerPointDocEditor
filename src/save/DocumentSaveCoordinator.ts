@@ -12,6 +12,31 @@ export interface DocumentSaveAdapter<Context, Serialized, Prepared, Validated, S
 	persist(prepared: Prepared, validated: Validated, context: Context, request: DocumentSaveRequest<Source>): Promise<void>;
 }
 
+export type DocumentSavePhaseName = 'serialize' | 'prepare' | 'validate' | 'persist';
+
+export interface DocumentSavePhaseMeasurement {
+	name: DocumentSavePhaseName;
+	durationMs: number;
+	synchronousWorkMs: number;
+}
+
+export interface DocumentSaveMetrics {
+	documentBytes?: number | null;
+	changedContentBytes?: number | null;
+	outputBytes?: number | null;
+}
+
+export interface DocumentSaveMeasurement<Source extends string> {
+	source: Source;
+	targetVersion: number;
+	startedAt: number;
+	endedAt: number;
+	phases: DocumentSavePhaseMeasurement[];
+	documentBytes: number | null;
+	changedContentBytes: number | null;
+	outputBytes: number | null;
+}
+
 export interface DocumentSaveCoordinatorOptions<Context, Serialized, Prepared, Validated, Source extends string> {
 	adapter: DocumentSaveAdapter<Context, Serialized, Prepared, Validated, Source>;
 	getContext(): Context | null;
@@ -23,6 +48,10 @@ export interface DocumentSaveCoordinatorOptions<Context, Serialized, Prepared, V
 	onStateChange?(state: DocumentSaveState, error?: unknown): void;
 	onAutosaveScheduled?(delayMs: number, version: number): void;
 	onAutosaveStarted?(version: number): void;
+	onSaveStarted?(request: DocumentSaveRequest<Source>, context: Context, startedAt: number): void;
+	onSaveCompleted?(measurement: DocumentSaveMeasurement<Source>): void;
+	getSaveMetrics?(context: Context, serialized?: Serialized): DocumentSaveMetrics;
+	now?: () => number;
 	/** If set, autosave timers call this instead of coordinator.save(). */
 	runAutosave?(version: number): void;
 	setTimeout?(this: void, callback: () => void, delayMs: number): number;
@@ -40,6 +69,7 @@ interface PendingSave<Source extends string> extends DocumentSaveRequest<Source>
 export class DocumentSaveCoordinator<Context, Serialized, Prepared, Validated, Source extends string> {
 	private readonly setTimer: (callback: () => void, delayMs: number) => number;
 	private readonly clearTimer: (timer: number) => void;
+	private readonly now: () => number;
 	private stateValue: DocumentSaveState = 'clean';
 	private dirtyVersion = 0;
 	private autosaveTimer: number | null = null;
@@ -49,6 +79,7 @@ export class DocumentSaveCoordinator<Context, Serialized, Prepared, Validated, S
 	constructor(private readonly options: DocumentSaveCoordinatorOptions<Context, Serialized, Prepared, Validated, Source>) {
 		this.setTimer = options.setTimeout ?? ((callback, delayMs) => window.setTimeout(callback, delayMs));
 		this.clearTimer = options.clearTimeout ?? ((timer) => window.clearTimeout(timer));
+		this.now = options.now ?? (() => typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now());
 	}
 
 	get state(): DocumentSaveState {
@@ -137,7 +168,26 @@ export class DocumentSaveCoordinator<Context, Serialized, Prepared, Validated, S
 		const context = this.options.getContext();
 		if (!context) return false;
 
+		const startedAt = this.now();
+		const phases: DocumentSavePhaseMeasurement[] = [];
+		let metrics = this.options.getSaveMetrics?.(context) ?? {};
+		let outputBytes = metrics.outputBytes ?? null;
+		this.options.onSaveStarted?.(request, context, startedAt);
 		this.setState('saving');
+		const runPhase = async <Result>(name: DocumentSavePhaseName, operation: () => Promise<Result>): Promise<Result> => {
+			const invocationStartedAt = this.now();
+			const resultPromise = operation();
+			const invocationEndedAt = this.now();
+			const result = await resultPromise;
+			const endedAt = this.now();
+			phases.push({
+				name,
+				durationMs: Math.max(0, endedAt - invocationStartedAt),
+				synchronousWorkMs: Math.max(0, invocationEndedAt - invocationStartedAt),
+			});
+			return result;
+		};
+
 		try {
 			// Edits can land while serialize/prepare runs. Persist only a snapshot
 			// that still matches live dirtyVersion; otherwise retry so disk does
@@ -149,19 +199,21 @@ export class DocumentSaveCoordinator<Context, Serialized, Prepared, Validated, S
 					source: request.source,
 					targetVersion: this.dirtyVersion,
 				};
-				const serialized = await this.options.adapter.serialize(context, liveRequest);
+				const serialized = await runPhase('serialize', () => this.options.adapter.serialize(context, liveRequest));
+				metrics = this.options.getSaveMetrics?.(context, serialized) ?? metrics;
+				outputBytes = metrics.outputBytes ?? outputBytes;
 				if (this.dirtyVersion !== liveRequest.targetVersion) {
 					continue;
 				}
-				const prepared = await this.options.adapter.prepareForWrite(serialized, context, liveRequest);
+				const prepared = await runPhase('prepare', () => this.options.adapter.prepareForWrite(serialized, context, liveRequest));
 				if (this.dirtyVersion !== liveRequest.targetVersion) {
 					continue;
 				}
-				const validated = await this.options.adapter.validate(prepared, context, liveRequest);
+				const validated = await runPhase('validate', () => this.options.adapter.validate(prepared, context, liveRequest));
 				if (this.dirtyVersion !== liveRequest.targetVersion) {
 					continue;
 				}
-				await this.options.adapter.persist(prepared, validated, context, liveRequest);
+				await runPhase('persist', () => this.options.adapter.persist(prepared, validated, context, liveRequest));
 
 				if (this.dirtyVersion === liveRequest.targetVersion) {
 					this.setState('clean');
@@ -179,6 +231,18 @@ export class DocumentSaveCoordinator<Context, Serialized, Prepared, Validated, S
 			this.setState('failed', error);
 			if (this.options.autosave.enabled()) this.scheduleAutosave(5000);
 			return false;
+		} finally {
+			const endedAt = this.now();
+			this.options.onSaveCompleted?.({
+				source: request.source,
+				targetVersion: request.targetVersion,
+				startedAt,
+				endedAt,
+				phases,
+				documentBytes: metrics.documentBytes ?? null,
+				changedContentBytes: metrics.changedContentBytes ?? null,
+				outputBytes,
+			});
 		}
 	}
 

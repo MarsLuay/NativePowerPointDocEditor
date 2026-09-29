@@ -71,6 +71,7 @@ import { scheduleIdleWork } from '../../idleSchedule';
 import { cancelRuntimeFrame, requestRuntimeFrame } from '../../runtimeFrameProfiler';
 import { createTextInputLatencyTracker } from '../../textInputLatency';
 import { getSharedContinuousInteractionProfiler } from '../../continuousInteractionProfiler';
+import { getSharedAutosaveInterferenceProfiler } from '../../save/saveInterferenceProfiler';
 import { sessionResourceRegistry } from '../../sessionMemoryDiagnostics';
 import {
 	createSlideSwitchProfiler,
@@ -7435,6 +7436,7 @@ export class NativePowerPointView extends FileView {
     const inputLatency = createTextInputLatencyTracker({
       scope: 'pptx',
       onSummary: (summary) => debugLog('text-edit', 'PPTX typing latency summary', summary),
+      onInteractionComplete: (sample) => getSharedAutosaveInterferenceProfiler().recordTyping(sample),
       onSlowInteraction: (data) => warnLog('text-edit', 'PPTX slow typing interaction', data),
     });
     // Native input normally repaints a changed SVG run, but Chromium can retain

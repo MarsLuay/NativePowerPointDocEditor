@@ -318,6 +318,19 @@ export function getRuntimeFrameThresholds(): RuntimeFrameThresholds {
 }
 
 export type RuntimeFrameWindow = Pick<Window, 'requestAnimationFrame' | 'cancelAnimationFrame'>;
+export type RuntimeFrameObserver = (timestamp: number, scheduledAt: number) => void;
+
+const runtimeFrameObservers = new Set<RuntimeFrameObserver>();
+
+/** Observe the shared editor rAF stream without adding per-frame log entries. */
+export function subscribeRuntimeFrameObserver(observer: RuntimeFrameObserver): () => void {
+	runtimeFrameObservers.add(observer);
+	return () => runtimeFrameObservers.delete(observer);
+}
+
+function monotonicNow(): number {
+	return typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+}
 
 /** Shared rAF entry point for DOCX and PPTX visual work. */
 export function requestRuntimeFrame(
@@ -327,8 +340,10 @@ export function requestRuntimeFrame(
 	const request = frameWindow
 		? (handler: (timestamp: number) => void) => frameWindow.requestAnimationFrame(handler)
 		: (handler: (timestamp: number) => void) => activeProfiler?.requestFrameForConsumer(handler) ?? defaultRequestFrame(handler);
+	const scheduledAt = monotonicNow();
 	return request((timestamp) => {
 		activeProfiler?.observeScheduledFrame(timestamp);
+		for (const observer of runtimeFrameObservers) observer(timestamp, scheduledAt);
 		callback(timestamp);
 	});
 }

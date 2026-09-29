@@ -56,6 +56,7 @@ import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
 import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
 import { getSharedContinuousInteractionProfiler } from './continuousInteractionProfiler';
+import { getSharedAutosaveInterferenceProfiler } from './save/saveInterferenceProfiler';
 import {
 	createAffectedDocxRange,
 	createDocxPaginationProfiler,
@@ -189,6 +190,7 @@ type FindMatch = DocxFindMatch;
 
 interface DocxSaveContext {
 	file: TFile;
+	sourceBufferBytes: number | null;
 	persist(buffer: ArrayBuffer): Promise<void>;
 }
 
@@ -2435,6 +2437,7 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		inputLatencyRef.current = createTextInputLatencyTracker({
 			scope: 'docx',
 			onSummary: (summary) => debugLog('text-input', 'DOCX typing latency summary', summary),
+			onInteractionComplete: (sample) => getSharedAutosaveInterferenceProfiler().recordTyping(sample),
 			onSlowInteraction: (data) => warnLog('text-input', 'DOCX slow typing interaction', data),
 		});
 	}
@@ -3863,7 +3866,9 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				) {
 					return null;
 				}
-				return currentFile ? { file: currentFile, persist } : null;
+				return currentFile
+					? { file: currentFile, sourceBufferBytes: sourceBufferRef.current?.byteLength ?? null, persist }
+					: null;
 			},
 			autosave: {
 				enabled: () => (
@@ -3880,6 +3885,34 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			}),
 			onAutosaveStarted: (version) => debugLog('save', 'DOCX autosave started', {
 				file: saveHostRef.current.file?.path ?? null, dirtyVersion: version,
+			}),
+			onSaveStarted: (request, context, startedAt) => {
+				if (request.source !== 'autosave') return;
+				getSharedAutosaveInterferenceProfiler().beginSave({
+					scope: 'docx',
+					documentBytes: context.sourceBufferBytes,
+					startedAt,
+				});
+			},
+			onSaveCompleted: (measurement) => {
+				if (measurement.source !== 'autosave') return;
+				const summary = getSharedAutosaveInterferenceProfiler().completeSave({
+					scope: 'docx',
+					documentBytes: measurement.documentBytes,
+					changedContentBytes: measurement.changedContentBytes,
+					outputBytes: measurement.outputBytes,
+					startedAt: measurement.startedAt,
+					endedAt: measurement.endedAt,
+					phases: measurement.phases,
+				});
+				if (summary) debugLog('save', 'DOCX autosave interference summary', summary);
+			},
+			getSaveMetrics: (context, serialized) => ({
+				documentBytes: context.sourceBufferBytes,
+				outputBytes: serialized?.byteLength ?? null,
+				changedContentBytes: serialized && context.sourceBufferBytes !== null
+					? Math.abs(serialized.byteLength - context.sourceBufferBytes)
+					: null,
 			}),
 		});
 	}, [documentKey, editorAdapter]);

@@ -38,6 +38,14 @@ interface TextInputLatencyOptions {
 	now?: () => number;
 	requestFrame?: (callback: (timestamp: number) => void) => number | null;
 	onSummary?: (summary: TextInputLatencySummary) => void;
+	onInteractionComplete?: (data: {
+		startedAt: number;
+		completedAt: number;
+		inputToModelMs: number;
+		frameSchedulingDelayMs: number;
+		inputToVisibleMs: number;
+		slow: boolean;
+	}) => void;
 	onSlowInteraction?: (data: {
 		correlationId: string;
 		source: TextInputLatencySource;
@@ -153,7 +161,16 @@ export function createTextInputLatencyTracker(options: TextInputLatencyOptions):
 				trim(frameDelays);
 				trim(visibleTimes);
 				const slowThresholdMs = getRuntimeFrameProfile().thresholds.substantialStallMs;
-				if (inputToVisibleMs >= slowThresholdMs) {
+				const slow = inputToVisibleMs >= slowThresholdMs;
+				options.onInteractionComplete?.({
+					startedAt: interaction.startedAt,
+					completedAt: visibleAt,
+					inputToModelMs: round(inputToModelMs),
+					frameSchedulingDelayMs: round(frameSchedulingDelayMs),
+					inputToVisibleMs: round(inputToVisibleMs),
+					slow,
+				});
+				if (slow) {
 					slowInteractionCount += 1;
 					options.onSlowInteraction?.({
 						correlationId: interaction.correlationId,
