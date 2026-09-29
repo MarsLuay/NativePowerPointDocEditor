@@ -3,6 +3,78 @@ import { monotonicNow } from './loadTrace';
 
 const LOG_PREFIX = '[Native PowerPoint Doc Editor]';
 
+export interface ObserverAmplificationRecord {
+	action: string;
+	durationMs: number;
+	callbackCount: number;
+	mutationCount: number;
+	callbackWorkMs: number;
+	sources: Record<string, { callbacks: number; mutations: number; workMs: number }>;
+}
+
+export interface ObserverAmplificationTrace {
+	begin(action: string): void;
+	record(source: string, mutationCount: number, callbackWorkMs: number): void;
+	end(): ObserverAmplificationRecord | null;
+}
+
+export function createObserverAmplificationTrace(): ObserverAmplificationTrace {
+	let active: {
+		action: string;
+		startedAt: number;
+		callbackCount: number;
+		mutationCount: number;
+		callbackWorkMs: number;
+		sources: Map<string, { callbacks: number; mutations: number; workMs: number }>;
+	} | null = null;
+
+	return {
+		begin(action) {
+			active = {
+				action,
+				startedAt: monotonicNow(),
+				callbackCount: 0,
+				mutationCount: 0,
+				callbackWorkMs: 0,
+				sources: new Map(),
+			};
+		},
+		record(source, mutationCount, callbackWorkMs) {
+			if (!active) return;
+			active.callbackCount += 1;
+			active.mutationCount += Math.max(0, mutationCount);
+			active.callbackWorkMs += Math.max(0, callbackWorkMs);
+			const current = active.sources.get(source) ?? { callbacks: 0, mutations: 0, workMs: 0 };
+			if (active.sources.size < 8 || active.sources.has(source)) {
+				current.callbacks += 1;
+				current.mutations += Math.max(0, mutationCount);
+				current.workMs += Math.max(0, callbackWorkMs);
+				active.sources.set(source, current);
+			}
+		},
+		end() {
+			if (!active) return null;
+			const record: ObserverAmplificationRecord = {
+				action: active.action,
+				durationMs: Math.round((monotonicNow() - active.startedAt) * 10) / 10,
+				callbackCount: active.callbackCount,
+				mutationCount: active.mutationCount,
+				callbackWorkMs: Math.round(active.callbackWorkMs * 10) / 10,
+				sources: Object.fromEntries([...active.sources.entries()].map(([source, value]) => [source, {
+					callbacks: value.callbacks,
+					mutations: value.mutations,
+					workMs: Math.round(value.workMs * 10) / 10,
+				}]))
+			};
+			active = null;
+			if (record.callbackCount >= 20 || record.callbackWorkMs >= 16.7) {
+				warnLog('observer', `Observer amplification: ${record.action}`, record);
+			}
+			return record;
+		},
+	};
+}
+
 export function logLifecycleStep(step: string, data?: Record<string, unknown>) {
 	const payload = { step, ...data };
 	debugLog('lifecycle', step, payload);
@@ -27,6 +99,7 @@ export function traceSyncStep<T>(step: string, run: () => T, data?: Record<strin
 export function createObservedMutationObserver(
 	name: string,
 	callback: MutationCallback,
+	trace?: ObserverAmplificationTrace,
 ): MutationObserver {
 	let mutationCount = 0;
 	let windowStart = monotonicNow();
@@ -53,7 +126,9 @@ export function createObservedMutationObserver(
 			windowStart = now;
 		}
 
+		const callbackStartedAt = monotonicNow();
 		callback(records, observer);
+		trace?.record(name, records.length, monotonicNow() - callbackStartedAt);
 	});
 }
 
