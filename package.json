@@ -50,6 +50,7 @@
 		"benchmark:search": "node scripts/benchmark-search.mjs",
 		"benchmark:grammar": "node scripts/benchmark-grammar.mjs",
 		"benchmark:save-export": "node scripts/benchmark-save-export.mjs",
+		"benchmark:endurance": "node scripts/benchmark-endurance.mjs",
 		"benchmark:docx-pagination": "node scripts/benchmark-docx-pagination.mjs",
 		"benchmark:pptx-slide-switch": "node scripts/benchmark-pptx-slide-switch.mjs",
 		"test": "node scripts/prepare-vendor-test-runtime.mjs && node scripts/run-plugin-tests.mjs",
