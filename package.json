@@ -48,6 +48,7 @@
 		"benchmark:large-docs": "node scripts/benchmark-large-documents.mjs",
 		"benchmark:pptx-thumbnails": "node scripts/benchmark-pptx-thumbnails.mjs",
 		"benchmark:search": "node scripts/benchmark-search.mjs",
+		"benchmark:grammar": "node scripts/benchmark-grammar.mjs",
 		"benchmark:docx-pagination": "node scripts/benchmark-docx-pagination.mjs",
 		"benchmark:pptx-slide-switch": "node scripts/benchmark-pptx-slide-switch.mjs",
 		"test": "node scripts/prepare-vendor-test-runtime.mjs && node scripts/run-plugin-tests.mjs",
