@@ -71,6 +71,7 @@ import { useLayoutPipeline } from './hooks/useLayoutPipeline';
 import { useSelectionOverlay } from './hooks/useSelectionOverlay';
 import { useImageInteractions } from './hooks/useImageInteractions';
 import { useExternalImageDrop } from './hooks/useExternalImageDrop';
+import { shouldReplayDeletionFromContainer } from './internals/keyboardEventRouting';
 import { usePagedScrollApi } from './hooks/usePagedScrollApi';
 import { usePagesPointer } from './hooks/usePagesPointer';
 import { usePagedEditorRefApi } from './hooks/usePagedEditorRefApi';
@@ -722,15 +723,12 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
       (e: React.KeyboardEvent) => {
         if (readOnly) return;
         const target = e.target as HTMLElement | null;
-        const isDeletionKey = e.key === 'Backspace' || e.key === 'Delete';
         // The hidden ProseMirror view can already own this event. Because it is
         // rendered through a React portal, the handled key still bubbles to
         // this container; replaying it here would insert the same text twice.
-        // Deletion needs one exception: after a synthetic Space, a Backspace
-        // can arrive at hidden PM and still be defaultPrevented without any
-        // browser `beforeinput` deletion being produced. Let the recovery path
-        // below inspect and synthesize that deletion once.
-        if (e.defaultPrevented && !isDeletionKey) return;
+        // This also applies to deletion: replaying Backspace at the start of
+        // consecutive empty paragraphs joins both paragraphs in one key press.
+        if (e.defaultPrevented) return;
         // Don't steal focus from a persistent HF EditorView — body's
         // `isFocused()` check would return false while HF is focused,
         // causing the body PM to grab every keystroke after the first.
@@ -777,7 +775,7 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
           && !e.nativeEvent.isComposing
         ) {
           const view = hiddenPMRef.current?.getView();
-          if (!view) {
+          if (!view || !shouldReplayDeletionFromContainer(e.nativeEvent, view.dom)) {
             return;
           }
           e.preventDefault();
