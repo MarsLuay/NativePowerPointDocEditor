@@ -83,3 +83,45 @@ test("preserveDocxTableCellFontSizes leaves explicit new table-cell font sizes a
   assert.match(outputXml, /<w:tc>[\s\S]*?<w:sz w:val="22"\/>[\s\S]*?<w:szCs w:val="22"\/>[\s\S]*?<\/w:tc>/);
   assert.equal(outputXml.match(/<w:sz w:val="48"\/>/g).length, 19);
 });
+
+test("preserveDocxTableCellFontSizes injects into self-closing w:rPr correctly", async () => {
+  const { preserveDocxTableCellFontSizes } = await loadDocxTableCellFontSizePreserverModule();
+  const source = toArrayBuffer(await readFile(fixturePath));
+
+  const damaged = await updateDocumentXml(source, (documentXml) => {
+    return documentXml.replace(
+      /<w:rPr>(?:(?!<\/w:rPr>)[\s\S])*?<w:sz w:val="48"\/>(?:(?!<\/w:rPr>)[\s\S])*?<w:szCs w:val="48"\/>(?:(?!<\/w:rPr>)[\s\S])*?<\/w:rPr>/,
+      '<w:rPr/>'
+    );
+  });
+
+  const preserved = await preserveDocxTableCellFontSizes(source, damaged);
+  const repairedXml = await readDocumentXml(preserved.buffer);
+
+  assert.equal(preserved.restoredRuns, 1);
+  assert.equal(preserved.restoredTags, 2);
+  assert.equal(preserved.status, "restored");
+
+  assert.match(repairedXml, /<w:rPr><w:sz w:val="48"\/><w:szCs w:val="48"\/><\/w:rPr>/);
+});
+
+test("preserveDocxTableCellFontSizes injects into outer w:rPr without breaking w:rPrChange", async () => {
+  const { preserveDocxTableCellFontSizes } = await loadDocxTableCellFontSizePreserverModule();
+  const source = toArrayBuffer(await readFile(fixturePath));
+
+  const damaged = await updateDocumentXml(source, (documentXml) => {
+    // Replace the specific properties but keep everything else inside the run properties
+    return documentXml.replace(
+      /<w:rPr>((?:(?!<\/w:rPr>)[\s\S])*?)<w:sz w:val="48"\/>((?:(?!<\/w:rPr>)[\s\S])*?)<w:szCs w:val="48"\/>((?:(?!<\/w:rPr>)[\s\S])*?)<\/w:rPr>/,
+      '<w:rPr>$1$2$3<w:rPrChange><w:rPr><w:b/></w:rPr></w:rPrChange></w:rPr>'
+    );
+  });
+
+  const preserved = await preserveDocxTableCellFontSizes(source, damaged);
+  const repairedXml = await readDocumentXml(preserved.buffer);
+
+  assert.equal(preserved.restoredRuns, 1);
+  assert.equal(preserved.restoredTags, 2);
+
+  assert.match(repairedXml, /<w:rPrChange><w:rPr><w:b\/><\/w:rPr><\/w:rPrChange><w:sz w:val="48"\/><w:szCs w:val="48"\/><\/w:rPr>/);
+});
