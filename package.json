@@ -99,7 +99,7 @@
 		"@radix-ui/react-select": "^2.3.7",
 		"clsx": "^2.1.1",
 		"docxtemplater": "^3.69.3",
-		"dompurify": "3.4.13",
+		"dompurify": "3.4.16",
 		"harper.js": "2.10.0",
 		"heic-decode": "^2.1.0",
 		"html2canvas": "^1.4.1",
