@@ -7,6 +7,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
+import { createPptxRuntimeArtifactResolver } from './lib/pptx-runtime-artifact-test-loader.mjs';
 
 const require = createRequire(import.meta.url);
 const { DOMParser, XMLSerializer } = require('@xmldom/xmldom');
@@ -135,7 +136,10 @@ try {
     bundle: true, format: 'cjs', loader: { '.wasm': 'binary' },
     outfile: engineOut, platform: 'node', plugins: [inlineWasm], logLevel: 'silent'
   });
-  const { PresentationEngine } = require(engineOut);
+  const { PresentationEngine, configurePptxRuntimeArtifactLoader } = require(engineOut);
+  configurePptxRuntimeArtifactLoader(
+    await createPptxRuntimeArtifactResolver({ projectRoot: path.resolve(), outputDirectory: tmp }),
+  );
 
   const buffer = toArrayBuffer(await readFile(samplePath));
   const engine = await PresentationEngine.load(buffer);
