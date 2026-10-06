@@ -664,6 +664,29 @@ export async function mergeSlideGraphicFramesFromBuffer(
     : buildZip(exportedBuffer, new Map([[slidePath, mergedXml]]));
 }
 
+/** Merge preserved graphic frames for every slide with one ZIP read/write pass. */
+export async function mergeSlideGraphicFramesAcrossBuffer(
+  previousBuffer: ArrayBuffer,
+  exportedBuffer: ArrayBuffer,
+  slideCount: number,
+): Promise<ArrayBuffer> {
+  const [previousZip, exportedZip] = await Promise.all([
+    extractZip(previousBuffer),
+    extractZip(exportedBuffer),
+  ]);
+  const modifications = new Map<string, string>();
+  for (let slideIndex = 0; slideIndex < slideCount; slideIndex += 1) {
+    const slidePath = getSlidePath(slideIndex);
+    const previousXml = previousZip.textFiles.get(slidePath);
+    const exportedXml = exportedZip.textFiles.get(slidePath);
+    if (!previousXml || !exportedXml) continue;
+
+    const mergedXml = mergePreservedGraphicFrames(previousXml, exportedXml, slidePath);
+    if (mergedXml !== exportedXml) modifications.set(slidePath, mergedXml);
+  }
+  return modifications.size > 0 ? buildZip(exportedBuffer, modifications) : exportedBuffer;
+}
+
 const PRESERVED_PACKAGE_PART_PATTERNS = [
   /^\[Content_Types\]\.xml$/,
   /^ppt\/charts\//,

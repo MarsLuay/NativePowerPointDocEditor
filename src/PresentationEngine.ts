@@ -21,6 +21,7 @@ import {
 } from './ChartData';
 import { type FontSubstitution } from './FontFidelity';
 import { debugLog, errorLog } from './logger';
+import { logSlowPerformance, startPerformanceTimer } from './performanceTelemetry';
 import {
   type PptxRendererBackend,
 } from './powerpoint/backend/rendererBackend';
@@ -43,6 +44,7 @@ import {
   buildDuplicateSlideOrder,
   copySlidesFromSourceBuffer,
   mergeMissingPackageParts,
+  mergeSlideGraphicFramesAcrossBuffer,
   mergeSlideGraphicFramesFromBuffer,
   permuteSlidesInBuffer,
   type InsertableChartType,
@@ -1371,25 +1373,47 @@ export class PresentationEngine {
       return 0;
     }
 
+    const stopTimer = startPerformanceTimer();
     const matchCase = options.matchCase ?? false;
     const scoped = options.slideIndex !== undefined && options.shapeIndex !== undefined;
-    const slideStart = scoped ? (options.slideIndex as number) : 0;
-    const slideEnd = scoped ? (options.slideIndex as number) + 1 : this.slideCountValue;
-
-    const rawExport = await this.exportRendererState();
-    const zip = await extractZip(rawExport);
-    const updatedFiles = new Map<string, string>();
     let total = 0;
 
-    for (let slideIndex = slideStart; slideIndex < slideEnd; slideIndex++) {
-      const result = this.replaceSlideText(
-        zip,
-        slideIndex,
-        query,
-        replacement,
-        matchCase,
-        scoped ? options.shapeIndex : undefined
+    if (scoped) {
+      const changed = await this.editSlideShape(
+        options.slideIndex as number,
+        options.shapeIndex as number,
+        (shape) => {
+          const paragraphs = getDescendants(shape, 'p')
+            .filter((element) => element.namespaceURI === DRAWINGML_NAMESPACE);
+          for (const paragraph of paragraphs) {
+            total += replaceTextInParagraph(paragraph, query, replacement, matchCase);
+          }
+          return total > 0;
+        },
       );
+      if (!changed) total = 0;
+      logSlowPerformance('search', 'Slow PowerPoint scoped text replacement completed', stopTimer(), {
+        op: 'replace-text',
+        scope: 'shape',
+        slideIndex: options.slideIndex,
+        shapeIndex: options.shapeIndex,
+        queryLength: query.length,
+        replacementLength: replacement.length,
+        replacedCount: total,
+      });
+      return total;
+    }
+
+    // Replace-all only needs the authoritative OOXML package. Avoid exporting
+    // the renderer and reconciling every slide before making the same XML edit.
+    // Pending slide-local edits are folded once so this remains lossless.
+    await this.syncCurrentBuffer();
+    const rawPackage = this.currentBuffer.slice(0);
+    const zip = await extractZip(rawPackage);
+    const updatedFiles = new Map<string, string>();
+
+    for (let slideIndex = 0; slideIndex < this.slideCountValue; slideIndex++) {
+      const result = this.replaceSlideText(zip, slideIndex, query, replacement, matchCase);
       if (result) {
         total += result.count;
         updatedFiles.set(result.slidePath, result.serializedXml);
@@ -1397,10 +1421,19 @@ export class PresentationEngine {
     }
 
     if (total > 0) {
-      const patchedExport = await buildZip(rawExport, updatedFiles);
-      await this.reloadFromBuffer(patchedExport, this.slideCountValue);
+      const patchedPackage = await buildZip(rawPackage, updatedFiles);
+      await this.reloadFromBuffer(patchedPackage, this.slideCountValue);
     }
 
+    logSlowPerformance('search', 'Slow PowerPoint deck text replacement completed', stopTimer(), {
+      op: 'replace-text',
+      scope: 'deck',
+      slideCount: this.slideCountValue,
+      queryLength: query.length,
+      replacementLength: replacement.length,
+      replacedCount: total,
+      updatedSlideCount: updatedFiles.size,
+    });
     return total;
   }
 
@@ -3792,10 +3825,11 @@ export class PresentationEngine {
     authoritativePackage: ArrayBuffer,
     renderedExport: ArrayBuffer
   ): Promise<ArrayBuffer> {
-    let mergedExport = renderedExport;
-    for (let slideIndex = 0; slideIndex < this.slideCountValue; slideIndex++) {
-      mergedExport = await mergeSlideGraphicFramesFromBuffer(authoritativePackage, mergedExport, slideIndex);
-    }
+    const mergedExport = await mergeSlideGraphicFramesAcrossBuffer(
+      authoritativePackage,
+      renderedExport,
+      this.slideCountValue,
+    );
     const preservedExport = await preserveSlideExtensionLists(authoritativePackage, mergedExport);
     return this.reconcileRunPropsIntoBuffer(preservedExport);
   }
@@ -3813,20 +3847,26 @@ export class PresentationEngine {
   }
 
   private async refreshDerivedState(buffer: ArrayBuffer): Promise<void> {
+    // These derived views all read the same package. Decompress it once rather
+    // than starting three concurrent ZIP reads for every save.
+    const zip = await extractZip(buffer);
     await Promise.all([
-      this.refreshChartTextValues(buffer),
-      this.refreshSlideBackgroundImages(buffer),
-      this.refreshSlideLayouts(buffer),
+      this.refreshChartTextValues(buffer, zip),
+      this.refreshSlideBackgroundImages(buffer, zip),
+      this.refreshSlideLayouts(buffer, zip),
     ]);
   }
 
-  private async refreshSlideLayouts(buffer: ArrayBuffer): Promise<void> {
-    const zip = await extractZip(buffer);
+  private async refreshSlideLayouts(buffer: ArrayBuffer, existingZip?: ZipContents): Promise<void> {
+    const zip = existingZip ?? await extractZip(buffer);
     this.slideLayouts = listSlideLayouts(zip, this.slideCountValue);
   }
 
-  private async refreshSlideBackgroundImages(buffer: ArrayBuffer): Promise<void> {
-    const zip = await extractZip(buffer);
+  private async refreshSlideBackgroundImages(
+    buffer: ArrayBuffer,
+    existingZip?: ZipContents,
+  ): Promise<void> {
+    const zip = existingZip ?? await extractZip(buffer);
     const backgrounds = new Map<number, SlideBackgroundImage>();
 
     for (let slideIndex = 0; slideIndex < this.slideCountValue; slideIndex++) {
@@ -3944,8 +3984,11 @@ export class PresentationEngine {
     return `${directory}_rels/${fileName}.rels`;
   }
 
-  private async refreshChartTextValues(buffer: ArrayBuffer): Promise<void> {
-    const zip = await extractZip(buffer);
+  private async refreshChartTextValues(
+    buffer: ArrayBuffer,
+    existingZip?: ZipContents,
+  ): Promise<void> {
+    const zip = existingZip ?? await extractZip(buffer);
     const chartTextValues = new Map<string, string[]>();
     const chartAxisFormats = new Map<string, ChartAxisFormat[]>();
     const chartDataDescriptors = new Map<string, ChartDataDescriptor>();
