@@ -2,7 +2,8 @@ import { buildZip, type PptxRenderer } from 'pptx-svg';
 import { createPresentationRenderer, type PptxRendererBackend } from '../backend/rendererBackend';
 import { FontFidelity } from '../../FontFidelity';
 import { debugLog, errorLog } from '../../logger';
-import { mergeSlideGraphicFramesFromBuffer } from '../../SlideInsertions';
+import { logSlowPerformance, startPerformanceTimer } from '../../performanceTelemetry';
+import { mergeSlideGraphicFramesAcrossBuffer } from '../../SlideInsertions';
 import { getSlidePath } from '../ooxmlXml';
 import { preserveSlideExtensionLists } from '../slideExtensionPreserve';
 
@@ -131,29 +132,48 @@ export class PptxPackageDocument {
   }
 
   async export(): Promise<ArrayBuffer> {
-    const startedAt = Date.now();
+    const stopTotalTimer = startPerformanceTimer();
+    const pendingSlideCount = this.pendingSlideXml.size;
     // Slide-local text edits defer folding pending XML into `currentBuffer`.
     // Drain that queue first so reconcile sees the lossless slide parts (and so
     // we do not discard pending without applying it).
+    const stopPendingTimer = startPerformanceTimer();
     await this.syncPackageFromPendingSlides();
-    const pendingSlideCount = this.pendingSlideXml.size;
+    const pendingSyncMs = stopPendingTimer();
     debugLog('engine', 'Package export transaction started', {
       op: 'export-package',
       pendingSlideCount,
       authoritativePackage: true,
     });
     try {
+      const stopRendererTimer = startPerformanceTimer();
       const rawExport = await this.patchSlidesFromRendererOoxml(await this._renderer.exportPptx());
+      const rendererExportMs = stopRendererTimer();
+      const stopReconcileTimer = startPerformanceTimer();
       const reconciledExport = await this.hooks.reconcileExport(this.currentBuffer, rawExport);
+      const reconcileMs = stopReconcileTimer();
       this.currentBuffer = reconciledExport.slice(0);
       this.pendingSlideXml.clear();
+      const stopRefreshTimer = startPerformanceTimer();
       await this.hooks.refreshDerivedState(reconciledExport);
+      const refreshDerivedStateMs = stopRefreshTimer();
+      const durationMs = stopTotalTimer();
+      logSlowPerformance('save', 'Slow PowerPoint package export completed', durationMs, {
+        op: 'export-package',
+        slideCount: this._slideCount,
+        pendingSlideCount,
+        pendingSyncMs,
+        rendererExportMs,
+        reconcileMs,
+        refreshDerivedStateMs,
+        outputBytes: reconciledExport.byteLength,
+      });
       debugLog('engine', 'Package export transaction committed', {
         op: 'export-package',
         pendingSlideCount,
         outputBytes: reconciledExport.byteLength,
         authoritativePackage: true,
-        ms: Date.now() - startedAt,
+        ms: Math.round(durationMs),
       });
       return reconciledExport;
     } catch (error) {
@@ -182,14 +202,17 @@ export class PptxPackageDocument {
     try {
       this.pendingSlideXml = new Map();
       const previousBuffer = this.currentBuffer;
-      let buffer = await buildZip(
+      const buffer = await buildZip(
         previousBuffer,
         new Map(Array.from(pending, ([slideIndex, xml]) => [getSlidePath(slideIndex), xml]))
       );
-      for (const slideIndex of slides) {
-        buffer = await mergeSlideGraphicFramesFromBuffer(previousBuffer, buffer, slideIndex);
-      }
-      this.currentBuffer = await preserveSlideExtensionLists(previousBuffer, buffer);
+      const mergedBuffer = await mergeSlideGraphicFramesAcrossBuffer(
+        previousBuffer,
+        buffer,
+        this._slideCount,
+        slides,
+      );
+      this.currentBuffer = await preserveSlideExtensionLists(previousBuffer, mergedBuffer);
       debugLog('engine', 'Pending slide package transaction committed', {
         op: 'sync-pending-slides',
         pendingSlideCount: slides.length,

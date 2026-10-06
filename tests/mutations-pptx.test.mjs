@@ -336,6 +336,57 @@ test("PptxMutationService routes preceding paragraph merge commands", async () =
   ]);
 });
 
+test("PptxMutationService keeps scoped and deck-wide replacements on their fast commit paths", async () => {
+  const { PptxMutationService } = await loadMutationModules();
+  const calls = [];
+  const engine = {
+    export: async () => {
+      calls.push("export");
+      return new ArrayBuffer(4);
+    },
+    snapshotAuthoritativePackage: async () => {
+      calls.push("authoritative-snapshot");
+      return new ArrayBuffer(4);
+    },
+    getSlideXml: (slideIndex) => {
+      calls.push(["getSlideXml", slideIndex]);
+      return `<slide-${slideIndex}/>`;
+    },
+    restoreSlideXml: async (slideIndex, xml) => calls.push(["restoreSlideXml", slideIndex, xml]),
+    restoreSnapshot: async (snapshot) => calls.push(["restoreSnapshot", snapshot]),
+    replaceText: async (query, replacement, options) => {
+      calls.push(["replaceText", query, replacement, options]);
+      return 1;
+    },
+    commitMutation: async () => calls.push("commit"),
+    commitSlideLocalMutation: async () => calls.push("commit-slide-local"),
+  };
+  const service = new PptxMutationService(engine);
+
+  await service.execute({
+    type: "replace-text",
+    query: "old",
+    replacement: "new",
+    slideIndex: 2,
+    shapeIndex: 3,
+  });
+  await service.execute({
+    type: "replace-text",
+    query: "old",
+    replacement: "new",
+  });
+
+  assert.deepEqual(calls, [
+    ["getSlideXml", 2],
+    ["replaceText", "old", "new", { matchCase: undefined, slideIndex: 2, shapeIndex: 3 }],
+    "commit-slide-local",
+    "authoritative-snapshot",
+    ["replaceText", "old", "new", { matchCase: undefined, slideIndex: undefined, shapeIndex: undefined }],
+  ]);
+  assert.ok(!calls.includes("export"), "replacement paths must not export a full renderer snapshot");
+  assert.ok(!calls.includes("commit"), "replacement paths already commit their package state");
+});
+
 test("PptxMutationService uses slide-XML rollback for slide-local text edits", async () => {
   const { PptxMutationService } = await loadMutationModules();
   const calls = [];

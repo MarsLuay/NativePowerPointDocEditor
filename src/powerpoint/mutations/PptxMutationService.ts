@@ -29,6 +29,10 @@ function slideLocalRollbackSlideIndex(command: MutationCommand): number | null {
     case 'set-paragraph-alignment':
     case 'set-paragraph-alignment-ranges':
       return command.slideIndex;
+    case 'replace-text':
+      return command.slideIndex !== undefined && command.shapeIndex !== undefined
+        ? command.slideIndex
+        : null;
     default:
       return null;
   }
@@ -102,7 +106,12 @@ export class PptxMutationService implements MutationExecutor {
     const slideXmlSnapshot = useSlideXmlRollback && rollbackSlide !== null
       ? engine.getSlideXml(rollbackSlide)
       : null;
-    const snapshot = useSlideXmlRollback ? null : await engine.export();
+    const replacementCommitsPackage = command.type === 'replace-text';
+    const snapshot = useSlideXmlRollback
+      ? null
+      : replacementCommitsPackage
+        ? await engine.snapshotAuthoritativePackage()
+        : await engine.export();
 
     // The same slide-local text/format ops that roll back from slide XML also already
     // pushed their result into the renderer model (via `commitSlideDoc`) and
@@ -125,7 +134,9 @@ export class PptxMutationService implements MutationExecutor {
       }
       if (useSlideLocalCommit) {
         await engine.commitSlideLocalMutation();
-      } else {
+      } else if (!replacementCommitsPackage) {
+        // replaceText commits by reloading its patched package directly. A
+        // second renderer export here would erase the benefit of that fast path.
         await engine.commitMutation();
       }
       debugLog('mutate', 'PowerPoint mutation committed', {
