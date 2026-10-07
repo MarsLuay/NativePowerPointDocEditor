@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-06
+
+### Added
+
+- Added deterministic performance benchmarks for large documents, pagination, search, thumbnails, slide switching, grammar checks, endurance, and save/export responsiveness.
+- Added bounded local slow-operation diagnostics for slow PowerPoint exports and text replacement; no document contents, paths, or network telemetry are collected.
+
+### Fixed
+
+- PowerPoint package reconciliation now performs one ZIP read/write pass instead of repeatedly extracting and rebuilding the deck for every slide.
+- PowerPoint find/replace avoids an unnecessary renderer export and commits scoped edits through the slide-local path.
+- Derived PowerPoint state refreshes reuse one decompressed package across chart, background, and layout reads.
+- DOCX and PPTX diagnostics retain bounded summaries for save interference, observer amplification, frame timing, and pagination reflow.
+
 ## [1.1.15] - 2026-08-15
 
 - Synchronized the release notes with the current manifest version.
