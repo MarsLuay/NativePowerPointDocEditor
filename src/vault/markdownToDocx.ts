@@ -4,6 +4,7 @@ import type { App, TFile } from 'obsidian';
 import { DEFAULT_DOCX_STYLES_XML } from '../docxStyleDefaults';
 import { getAvailableNumberedPath } from '../export/artifactPaths';
 import { errorLog, infoLog } from '../logger';
+import { isMarkdownDocxSourceExtension, readMarkdownSourceForDocx } from './markdownSource';
 
 const PACKAGE_RELS_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
 const OFFICE_RELS_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
@@ -326,10 +327,12 @@ function buildNumberingXml(): string {
 }
 
 export function buildMarkdownDocxCandidatePath(sourcePath: string): string {
-	if (!/\.md$/i.test(sourcePath)) {
-		throw new Error('Markdown source path must end in .md');
+	const extensionStart = sourcePath.lastIndexOf('.');
+	const extension = extensionStart < 0 ? '' : sourcePath.slice(extensionStart + 1);
+	if (!isMarkdownDocxSourceExtension(extension)) {
+		throw new Error('Markdown source path must end in .md, .mdenc, or .encrypted');
 	}
-	return `${sourcePath.slice(0, -3)}.docx`;
+	return `${sourcePath.slice(0, extensionStart)}.docx`;
 }
 
 export function resolveMarkdownDocxOutputPath(sourcePath: string, exists: (path: string) => boolean): string {
@@ -383,7 +386,7 @@ export async function convertMarkdownFileToDocx(app: App, sourceFile: TFile): Pr
 		sourceFile.path,
 		path => app.vault.getAbstractFileByPath(path) != null,
 	);
-	const markdown = await app.vault.read(sourceFile);
+	const markdown = await readMarkdownSourceForDocx(app, sourceFile);
 	const buffer = await buildMarkdownDocxArrayBuffer(markdown);
 
 	infoLog('file', 'Converting Markdown to DOCX', { sourcePath: sourceFile.path, outputPath });

@@ -35,6 +35,7 @@ let docxSessionModulePromise;
 let fakeDocxEditorAdapterModulePromise;
 let docxToolbarTooltipModulePromise;
 let markdownToDocxModulePromise;
+let markdownSourceModulePromise;
 let tooltipControllerModulePromise;
 let docxEmbedLoaderModulePromise;
 let powerPointToolbarTooltipTargetModulePromise;
@@ -375,6 +376,14 @@ export function loadMarkdownToDocxModule() {
     [stubObsidianPlugin],
   ).then((outfile) => require(outfile));
   return markdownToDocxModulePromise;
+}
+
+export function loadMarkdownSourceModule() {
+	markdownSourceModulePromise ??= bundleSource(
+		"src/vault/markdownSource.ts",
+		"markdown-source.cjs",
+	).then((outfile) => require(outfile));
+	return markdownSourceModulePromise;
 }
 
 export function loadTooltipControllerModule() {

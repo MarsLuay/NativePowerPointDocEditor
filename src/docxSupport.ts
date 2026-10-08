@@ -15,6 +15,7 @@ import { getDocxEditorLocale, loadDocxEditorLocale, preloadDocxEditorLocale } fr
 import type NativePowerPointDocEditorPlugin from './main';
 import { createAndOpenNewOfficeFile } from './vault/createNewOfficeFile';
 import { convertMarkdownFileToDocx } from './vault/markdownToDocx';
+import { isMarkdownDocxSourceExtension } from './vault/markdownSource';
 
 export { createDocxReactMount, DocxFileEmbed, renderDocxEmbeds, hasReviewMarkup } from './docxEditorChunk';
 export { DocxView, VIEW_TYPE_DOCX };
@@ -71,7 +72,7 @@ function registerDocxFileMenu(plugin: NativePowerPointDocEditorPlugin) {
 			return;
 		}
 
-		if (file instanceof TFile && file.extension.toLowerCase() === 'md') {
+		if (file instanceof TFile && isMarkdownDocxSourceExtension(file.extension)) {
 			addConvertMarkdownToDocxMenuItem(plugin, menu, file);
 		}
 	}));
