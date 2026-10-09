@@ -921,3 +921,34 @@ test("large 160-slide fixture loads, renders its bounds, and round-trips", async
   assert.equal(reloaded.getSlideCount(), 160);
   assert.match(reloaded.getSlideOoxml(159), /Large deck slide 160/);
 });
+
+test("MUTABLE_PART_PATTERNS correctly allows embedded non-xlsx files to be removed", async () => {
+  const { validatePowerPointExportContents } = await loadPowerPointPackageModule();
+
+  const createMockZipBuffer = async (files) => {
+    const { createRequire } = await import("node:module");
+    const JSZip = createRequire(import.meta.url)("jszip");
+    const zip = new JSZip();
+    for (const [path, content] of Object.entries(files)) {
+      zip.file(path, content);
+    }
+    const base64 = await zip.generateAsync({ type: "base64" });
+    return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)).buffer;
+  };
+
+  const original = await createMockZipBuffer({
+    "ppt/slides/slide1.xml": "<p:sld></p:sld>",
+    "ppt/embeddings/oleObject1.bin": "binarydata",
+    "ppt/embeddings/document.docx": "docxdata"
+  });
+
+  const exported = await createMockZipBuffer({
+    "ppt/slides/slide1.xml": "<p:sld></p:sld>"
+  });
+
+  const result = await validatePowerPointExportContents(original, exported, {
+    allowedPartRemovals: ["ppt/embeddings/oleObject1.bin", "ppt/embeddings/document.docx"]
+  });
+
+  assert.equal(result.ok, true, `Validation failed: ${result.errors.join(", ")}`);
+});
