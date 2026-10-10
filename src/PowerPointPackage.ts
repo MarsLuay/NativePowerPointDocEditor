@@ -82,7 +82,7 @@ const MUTABLE_EXACT_PARTS = new Set([
 
 const MUTABLE_PART_PATTERNS = [
   /^ppt\/charts\/chart\d+\.xml$/,
-  /^ppt\/embeddings\/[^/]+\.xlsx$/i,
+  /^ppt\/embeddings\/[^/]+$/i,
   /^ppt\/slides\/slide\d+\.xml$/,
   /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/
 ];
