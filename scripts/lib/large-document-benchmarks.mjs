@@ -24,6 +24,7 @@ export const OPT_IN_PPTX_TIERS = [250, 500];
 
 const WORD_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 const LOREM = "The quick brown fox jumps over the lazy dog. Continuous document performance verification measures latency across realistic OOXML page and slide counts.";
+const FIXTURE_DATE = new Date("2000-01-01T00:00:00.000Z");
 
 function round(val) {
   return Math.round(val * 10) / 10;
@@ -39,21 +40,24 @@ export async function generateDeterministicDocx(pageCount) {
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-</Types>`
+</Types>`,
+    { date: FIXTURE_DATE },
   );
   zip.file(
     "_rels/.rels",
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`
+</Relationships>`,
+    { date: FIXTURE_DATE },
   );
   zip.file(
     "word/_rels/document.xml.rels",
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>`
+</Relationships>`,
+    { date: FIXTURE_DATE },
   );
   zip.file(
     "word/styles.xml",
@@ -61,7 +65,8 @@ export async function generateDeterministicDocx(pageCount) {
 <w:styles xmlns:w="${WORD_NS}">
   <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="Heading 1"/></w:style>
   <w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
-</w:styles>`
+</w:styles>`,
+    { date: FIXTURE_DATE },
   );
 
   let body = "";
@@ -87,7 +92,8 @@ export async function generateDeterministicDocx(pageCount) {
 
   zip.file(
     "word/document.xml",
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${WORD_NS}"><w:body>${body}</w:body></w:document>`
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="${WORD_NS}"><w:body>${body}</w:body></w:document>`,
+    { date: FIXTURE_DATE },
   );
 
   return zip.generateAsync({ type: "arraybuffer", compression: "DEFLATE" });

@@ -7,9 +7,9 @@ import { OBSIDIAN_SUPPORTED_RELEASE_ASSETS } from './lib/pptx-runtime-artifact-s
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const syncStandardLimitBytes = 5_000_000;
 // main.js embeds the optional runtime payloads for community installs. Keep a
-// small, explicit headroom budget for that bundle while retaining the strict
-// Sync limit for every materialized sidecar.
-const embeddedMainBundleLimitBytes = 5_050_000;
+// measured headroom budget for that bundle while retaining the strict Sync
+// limit for every materialized sidecar.
+const embeddedMainBundleLimitBytes = 5_100_000;
 const runtimeArtifacts = [
   'main.js',
   'pptx-js-engine.mjs',

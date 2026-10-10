@@ -1,3 +1,5 @@
+/* global process -- Node-only memory probing is guarded for browser runtimes. */
+
 export type MemoryProviderType = 'v8-process' | 'performance-memory' | 'unsupported';
 
 export interface MemoryCapabilityReport {
@@ -43,7 +45,7 @@ export interface SessionLeakDelta {
 }
 
 export function detectMemoryCapability(env?: {
-	process?: { memoryUsage?: () => NodeJS.MemoryUsage };
+	process?: { memoryUsage?: () => { heapUsed: number; heapTotal: number } };
 	performance?: { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } };
 }): MemoryCapabilityReport {
 	const p = env?.performance ?? (typeof performance !== 'undefined' ? (performance as unknown as { memory?: { usedJSHeapSize: number; totalJSHeapSize: number; jsHeapSizeLimit: number } }) : undefined);
@@ -174,8 +176,10 @@ class SessionResourceRegistry {
 
 	getCounters(): SessionResourceCounters {
 		let domNodeCount: number | null = null;
-		if (typeof document !== 'undefined' && typeof document.getElementsByTagName === 'function') {
-			domNodeCount = document.getElementsByTagName('*').length;
+		if (typeof activeDocument !== 'undefined' && typeof activeDocument.createTreeWalker === 'function') {
+			const walker = activeDocument.createTreeWalker(activeDocument, NodeFilter.SHOW_ELEMENT);
+			domNodeCount = 0;
+			while (walker.nextNode()) domNodeCount += 1;
 		}
 
 		return {
