@@ -84,7 +84,12 @@ const MUTABLE_PART_PATTERNS = [
   /^ppt\/charts\/chart\d+\.xml$/,
   /^ppt\/embeddings\/[^/]+$/i,
   /^ppt\/slides\/slide\d+\.xml$/,
-  /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/
+  /^ppt\/slides\/_rels\/slide\d+\.xml\.rels$/,
+  /^ppt\/notesSlides\/notesSlide\d+\.xml$/,
+  /^ppt\/notesSlides\/_rels\/notesSlide\d+\.xml\.rels$/,
+  /^ppt\/notesMasters\/notesMaster\d+\.xml$/,
+  /^ppt\/notesMasters\/_rels\/notesMaster\d+\.xml\.rels$/,
+  /^ppt\/theme\/theme\d+\.xml$/
 ];
 
 interface CentralDirectoryHeader {
