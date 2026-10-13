@@ -3,10 +3,11 @@ import * as assert from 'node:assert';
 import { extractZip, buildZip } from 'pptx-svg';
 import { readDeck, toArrayBuffer } from './helpers/renderer.mjs';
 import { bundleSource } from './helpers/load-plugin-modules.mjs';
+import { pathToFileURL } from 'node:url';
 
 test('MUTABLE_PART_PATTERNS correctly allows notes and theme parts to be removed or modified', async () => {
   const outfile = await bundleSource('src/PowerPointPackage.ts', 'powerpoint-package.cjs');
-  const mod = await import(outfile);
+  const mod = await import(pathToFileURL(outfile).href);
 
   const originalBytes = await readDeck('features.pptx');
   const originalBuffer = toArrayBuffer(originalBytes);
