@@ -50,12 +50,12 @@ function extractRuns(paragraphXml: string): Array<{ full: string; inner: string 
 function setRunTextContent(runXml: string, text: string): string {
 	const encoded = encodeXmlText(text);
 	if (/<w:t\b/.test(runXml)) {
-		return runXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/, `$1${encoded}$3`);
+		return runXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/, (_full, p1: string, _p2: string, p3: string) => `${p1}${encoded}${p3}`);
 	}
 	if (runXml.trim().endsWith('/>')) {
-		return runXml.replace(/\/>$/, `><w:t>${encoded}</w:t></w:r>`);
+		return runXml.replace(/\/>$/, () => `><w:t>${encoded}</w:t></w:r>`);
 	}
-	return runXml.replace(/<\/w:r>$/, `<w:t>${encoded}</w:t></w:r>`);
+	return runXml.replace(/<\/w:r>$/, () => `<w:t>${encoded}</w:t></w:r>`);
 }
 
 function getChildElementXml(propertiesXml: string, tag: string): string | null {
@@ -148,7 +148,7 @@ function patchRunPropertiesContainer(
 	const paired = /<w:rPr\b([^>]*)>([\s\S]*?)<\/w:rPr>/.exec(containerXml);
 	if (paired) {
 		const [full, attributes = '', properties = ''] = paired;
-		return containerXml.replace(full, `<w:rPr${attributes}>${patchRunProperties(properties, style)}</w:rPr>`);
+		return containerXml.replace(full, () => `<w:rPr${attributes}>${patchRunProperties(properties, style)}</w:rPr>`);
 	}
 	if (/<w:rPr\b[^>]*\/>/.test(containerXml)) {
 		return containerXml.replace(/<w:rPr\b([^>]*)\/>/, (_match, attributes: string) => (
@@ -211,7 +211,7 @@ export function patchRunStyle(paragraphXml: string, runIndex: number, style: Doc
 		? run.full
 		: run.full.replace(run.inner, nextInner);
 	const patched = isSelfClosingRun
-		? run.full.replace(/\/>$/, `>${nextInner}</w:r>`)
+		? run.full.replace(/\/>$/, () => `>${nextInner}</w:r>`)
 		: nextRunXml;
 	return replaceRunAtIndex(paragraphXml, runIndex, patched);
 }
@@ -252,7 +252,7 @@ export function patchParagraphStyle(paragraphXml: string, style: DocxParagraphSt
 	const styleXml = `<w:pStyle w:val="${encodeXmlText(styleName)}"/>`;
 	if (/<w:pPr\b/.test(paragraphXml)) {
 		if (/<w:pStyle\b/.test(paragraphXml)) {
-			return paragraphXml.replace(/<w:pStyle\b[^>]*\/?>/, styleXml);
+			return paragraphXml.replace(/<w:pStyle\b[^>]*\/?>/, () => styleXml);
 		}
 		return paragraphXml.replace(/<w:pPr\b[^>]*>/, (match) => `${match}${styleXml}`);
 	}
@@ -285,9 +285,9 @@ export function patchParagraphBottomBorder(
 
 	if (/<w:pBdr\b/.test(paragraphXml)) {
 		if (/<w:bottom\b[^>]*\/>/.test(paragraphXml)) {
-			return paragraphXml.replace(/<w:bottom\b[^>]*\/>/, bottomXml);
+			return paragraphXml.replace(/<w:bottom\b[^>]*\/>/, () => bottomXml);
 		}
-		return paragraphXml.replace(/<\/w:pBdr>/, `${bottomXml}</w:pBdr>`);
+		return paragraphXml.replace(/<\/w:pBdr>/, () => `${bottomXml}</w:pBdr>`);
 	}
 	if (/<w:pPr\b/.test(paragraphXml)) {
 		return paragraphXml.replace(/<w:pPr\b[^>]*>/, (match) => `${match}<w:pBdr>${bottomXml}</w:pBdr>`);
