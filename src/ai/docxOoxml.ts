@@ -323,7 +323,7 @@ export function getDocumentBodyInner(documentXml: string): string | null {
 }
 
 export function replaceDocumentBodyInner(documentXml: string, inner: string): string {
-	return documentXml.replace(/(<w:body\b[^>]*>)([\s\S]*?)(<\/w:body>)/, `$1${inner}$3`);
+	return documentXml.replace(/(<w:body\b[^>]*>)([\s\S]*?)(<\/w:body>)/, (_full, p1: string, _p2: string, p3: string) => `${p1}${inner}${p3}`);
 }
 
 export function parseTopLevelBlocks(innerXml: string): ParsedDocxBodyBlock[] {
@@ -351,7 +351,7 @@ export function getWrapperInner(documentXml: string, wrapperTag: 'body' | 'hdr' 
 
 export function replaceWrapperInner(documentXml: string, wrapperTag: 'body' | 'hdr' | 'ftr', inner: string): string {
 	const pattern = new RegExp(`(<w:${wrapperTag}\\b[^>]*>)([\\s\\S]*?)(<\\/w:${wrapperTag}>)`);
-	return documentXml.replace(pattern, `$1${inner}$3`);
+	return documentXml.replace(pattern, (_full, p1: string, _p2: string, p3: string) => `${p1}${inner}${p3}`);
 }
 
 export interface ParsedDocxFootnote {
@@ -400,7 +400,7 @@ export function replaceFootnoteInner(
 	const pattern = new RegExp(
 		`(<w:${footnoteTag}\\b[^>]*w:id="${footnoteId}"[^>]*>)([\\s\\S]*?)(<\\/w:${footnoteTag}>)`,
 	);
-	return xml.replace(pattern, `$1${inner}$3`);
+	return xml.replace(pattern, (_full, p1: string, _p2: string, p3: string) => `${p1}${inner}${p3}`);
 }
 
 export interface ParsedDocxComment {

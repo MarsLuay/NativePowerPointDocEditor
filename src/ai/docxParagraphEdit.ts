@@ -101,9 +101,9 @@ function nextWordId(): string {
 
 function cloneParagraphOpenTag(openTag: string): string {
 	const withAnchor = /\bw14:paraId="/.test(openTag)
-		? openTag.replace(/w14:paraId="[^"]*"/, `w14:paraId="${nextWordId()}"`)
-		: openTag.replace(/^<w:p\b/, `<w:p w14:paraId="${nextWordId()}"`);
-	return withAnchor.replace(/w14:textId="[^"]*"/, `w14:textId="${nextWordId()}"`);
+		? openTag.replace(/w14:paraId="[^"]*"/, () => `w14:paraId="${nextWordId()}"`)
+		: openTag.replace(/^<w:p\b/, () => `<w:p w14:paraId="${nextWordId()}"`);
+	return withAnchor.replace(/w14:textId="[^"]*"/, () => `w14:textId="${nextWordId()}"`);
 }
 
 function extractElementXml(
@@ -226,12 +226,12 @@ function flattenParagraphRuns(contentXml: string): FlatRun[] {
 function setRunTextContent(runXml: string, text: string): string {
 	const encoded = encodeXmlText(text);
 	if (/<w:t\b/.test(runXml)) {
-		return runXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/, `$1${encoded}$3`);
+		return runXml.replace(/(<w:t\b[^>]*>)([\s\S]*?)(<\/w:t>)/, (_full, p1: string, _p2: string, p3: string) => `${p1}${encoded}${p3}`);
 	}
 	if (runXml.trim().endsWith('/>')) {
-		return runXml.replace(/\/>$/, `><w:t>${encoded}</w:t></w:r>`);
+		return runXml.replace(/\/>$/, () => `><w:t>${encoded}</w:t></w:r>`);
 	}
-	return runXml.replace(/<\/w:r>$/, `<w:t>${encoded}</w:t></w:r>`);
+	return runXml.replace(/<\/w:r>$/, () => `<w:t>${encoded}</w:t></w:r>`);
 }
 
 function buildRunXml(text: string): string {
@@ -261,12 +261,12 @@ function rebuildContentFromRuns(runs: FlatRun[]): string {
 
 function cloneRunTemplate(runXml: string): string {
 	if (/<w:t\b/.test(runXml)) {
-		return runXml.replace(/(<w:t\b[^>]*>)[\s\S]*?(<\/w:t>)/, '$1$2');
+		return runXml.replace(/(<w:t\b[^>]*>)[\s\S]*?(<\/w:t>)/, (_full, p1: string, p2: string) => `${p1}${p2}`);
 	}
 	if (runXml.trim().endsWith('/>')) {
-		return runXml.replace(/\/>$/, '><w:t></w:t></w:r>');
+		return runXml.replace(/\/>$/, () => '><w:t></w:t></w:r>');
 	}
-	return runXml.replace(/<\/w:r>$/, '<w:t></w:t></w:r>');
+	return runXml.replace(/<\/w:r>$/, () => '<w:t></w:t></w:r>');
 }
 
 export function getParagraphPlainText(paragraphXml: string): string {

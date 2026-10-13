@@ -20,7 +20,7 @@ function upsertCoreProperty(corePropertiesXml: string, qualifiedName: string, va
 	const encodedValue = encodeXmlText(value);
 	const elementPattern = new RegExp(`(<${qualifiedName}\\b[^<>]*>)[^<]*(</${qualifiedName}>)`);
 	if (elementPattern.test(corePropertiesXml)) {
-		return corePropertiesXml.replace(elementPattern, `$1${encodedValue}$2`);
+		return corePropertiesXml.replace(elementPattern, (_full, p1: string, p2: string) => `${p1}${encodedValue}${p2}`);
 	}
 
 	const closeTagIndex = corePropertiesXml.indexOf(CORE_PROPERTIES_CLOSE_TAG);
