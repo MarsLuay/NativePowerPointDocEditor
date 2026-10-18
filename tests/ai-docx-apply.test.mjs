@@ -1108,6 +1108,39 @@ test('DocxDocumentService setRunText does not damage custom XML attributes on te
 	assert.match(documentXml, /<w:t w14:customAttr="testVal">kept<\/w:t>/);
 });
 
+test('DocxDocumentService replaceText handles dollar sign capture group references safely', async () => {
+	const { DocxDocumentService } = await loadDocxServiceModule();
+
+	const docPath = 'notes/replace-dollars.docx';
+	const initialBuffer = await createDocxBuffer({
+		'word/document.xml': wrapBody(
+			'<w:p><w:r><w:t>Price is 10</w:t></w:r></w:p>',
+		),
+	});
+	const vault = createMockVault(new Map([[docPath, Buffer.from(initialBuffer)]]));
+	const service = new DocxDocumentService({
+		vault,
+		normalizePath: (value) => value,
+		findOpenDocxView: () => null,
+		findOpenPptxView: () => null,
+	});
+
+	const applyResult = await service.apply(docPath, [
+		{
+			op: 'docx.replaceText',
+			query: '10',
+			replacement: '$20',
+		}
+	]);
+	assert.equal(applyResult.ok, true, JSON.stringify(applyResult.errors));
+	await service.save(docPath);
+
+	const savedZip = await JSZip.loadAsync(vault.store.get(docPath).buffer);
+	const documentXml = await savedZip.file('word/document.xml').async('string');
+	// $20 should not be treated as a regex capture group
+	assert.match(documentXml, /<w:t>Price is \$20<\/w:t>/);
+});
+
 test('DocxDocumentService replaceText does not damage unrelated DOCX structural attributes', async () => {
 	const { DocxDocumentService } = await loadDocxServiceModule();
 
