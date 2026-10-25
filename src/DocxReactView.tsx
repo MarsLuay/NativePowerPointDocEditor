@@ -1348,6 +1348,25 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 	key: preserveTypedSpacePluginKey,
 	props: {
 		handleDOMEvents: {
+			blur(view) {
+				getLatexSuiteHost()?.handleDocxBlur(view);
+				return false;
+			},
+			mouseup(view) {
+				getLatexSuiteHost()?.handleDocxCaretSettled(view);
+				return false;
+			},
+			keyup(view, event) {
+				if (
+					event.key === 'ArrowLeft'
+					|| event.key === 'ArrowRight'
+					|| event.key === 'Home'
+					|| event.key === 'End'
+				) {
+					getLatexSuiteHost()?.handleDocxCaretSettled(view);
+				}
+				return false;
+			},
 			beforeinput(view, event) {
 				const inputHandler = inputDiagnostics.beginHandler(event, 'DocxReactView.preserveTypedSpacePlugin.handleDOMEvents.beforeinput');
 				const finishInputHandler = (handled: boolean) => {
@@ -1554,6 +1573,7 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 			const { from, to } = view.state.selection;
 			event.preventDefault();
 			const handled = insertPlainTypedText(view, text, from, to);
+			getLatexSuiteHost()?.handleDocxCaretSettled(view);
 			if (text === ' ') {
 				logDocxSpaceInputRoute('keydown', {
 					from,
@@ -1580,6 +1600,7 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 			}
 
 			const handled = insertPlainTypedText(view, text, from, to);
+			getLatexSuiteHost()?.handleDocxCaretSettled(view);
 			if (text === ' ') {
 				logDocxSpaceInputRoute('text-input', {
 					from,
@@ -2493,6 +2514,11 @@ const EquationDialog = ({ isOpen, labels, onClose, onInsert }: EquationDialogPro
 							})) {
 								evt.preventDefault();
 							}
+						}}
+						onBlur={(evt) => {
+							getLatexSuiteHost()?.handleTextareaBlur(evt.currentTarget, () => {
+								setSource(evt.currentTarget.value);
+							});
 						}}
 						onChange={(evt) => setSource(evt.currentTarget.value)}
 					/>

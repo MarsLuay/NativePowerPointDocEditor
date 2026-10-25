@@ -4,7 +4,12 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { findClosedMathSpans } from '../src/latexSuite/mathSpans.ts';
+import {
+	findClosedMathSpans,
+	findMathSpansToCommit,
+	isMathReadyToCommit,
+	unwrapLatexSuiteInner,
+} from '../src/latexSuite/mathSpans.ts';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -41,13 +46,37 @@ test('closed math spans skip the caret and empty braces', () => {
 	assert.equal(findClosedMathSpans('\\(a\\)', 5)[0]?.inner, 'a');
 });
 
+test('mk-wrapped cdot is ready to commit on Tab even with caret inside', () => {
+	const source = '${}\\cdot{}$';
+	const caretAfterCdot = source.indexOf('\\cdot') + '\\cdot'.length;
+	assert.equal(unwrapLatexSuiteInner('{}\\cdot{}'), '\\cdot');
+	assert.equal(findClosedMathSpans(source, caretAfterCdot).length, 0);
+	const spans = findMathSpansToCommit(source, caretAfterCdot, { commitReadyAtCaret: true });
+	assert.equal(spans.length, 1);
+	assert.equal(unwrapLatexSuiteInner(spans[0].inner), '\\cdot');
+	assert.equal(isMathReadyToCommit(source, spans[0], caretAfterCdot), true);
+	assert.equal(findMathSpansToCommit('${}{}$', 3, { commitReadyAtCaret: true }).length, 0);
+	assert.equal(findMathSpansToCommit('${} \\cdot{}$', '${} \\cdot{}$'.length).map((span) => unwrapLatexSuiteInner(span.inner))[0], '\\cdot');
+
+	const fraction = '${}\\frac{a}{}{}$';
+	const caretAfterNumerator = fraction.indexOf('a') + 1;
+	assert.equal(findMathSpansToCommit(fraction, caretAfterNumerator, { commitReadyAtCaret: true }).length, 0);
+});
+
 test('plugin wires a LaTeX Suite host through settings', async () => {
 	const main = await readFile(path.join(projectRoot, 'src/main.ts'), 'utf8');
 	assert.match(main, /this\.setupLatexSuite\(\)/);
 	assert.match(main, /this\.latexSuiteHost\?\.destroy\(\)/);
 	assert.match(main, /applyLatexSuite\(\): void/);
+	const host = await readFile(path.join(projectRoot, 'src/latexSuite/host.ts'), 'utf8');
+	assert.match(host, /commitReadyAtCaret: finish/);
+	assert.match(host, /commitNonEmptyAtCaret: true/);
 	const view = await readFile(path.join(projectRoot, 'src/DocxReactView.tsx'), 'utf8');
 	assert.match(view, /handleDocxKeydown\(view, event\)/);
+	assert.match(view, /handleDocxBlur\(view\)/);
+	assert.match(view, /handleDocxCaretSettled\(view\)/);
 	const pptx = await readFile(path.join(projectRoot, 'src/powerpoint/ui/NativePowerPointView.ts'), 'utf8');
 	assert.match(pptx, /handleTextareaKeydown\(event, editor/);
+	assert.match(pptx, /handleTextareaBlur\(editor/);
+	assert.match(pptx, /handleTextareaCaretSettled\(editor/);
 });

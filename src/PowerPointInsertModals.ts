@@ -307,6 +307,10 @@ export class InsertEquationModal extends Modal {
         insertButton.disabled = sourceInput.value.trim().length === 0;
       }
     });
+    this.domScope.registerDomEvent(sourceInput, 'blur', () => {
+      getLatexSuiteHost()?.handleTextareaBlur(sourceInput, refreshPreview);
+      insertButton.disabled = sourceInput.value.trim().length === 0;
+    });
     this.domScope.registerDomEvent(sourceInput, 'input', () => {
       insertButton.disabled = sourceInput.value.trim().length === 0;
       refreshPreview();

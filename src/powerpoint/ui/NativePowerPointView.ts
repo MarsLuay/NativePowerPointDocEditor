@@ -7668,8 +7668,24 @@ export class NativePowerPointView extends FileView {
       }
     });
     editor.addEventListener('click', updateCaret);
-    editor.addEventListener('keyup', updateCaret);
-    editor.addEventListener('mouseup', updateCaret);
+    editor.addEventListener('keyup', (event) => {
+      if (
+        event.key === 'ArrowLeft'
+        || event.key === 'ArrowRight'
+        || event.key === 'Home'
+        || event.key === 'End'
+      ) {
+        getLatexSuiteHost()?.handleTextareaCaretSettled(editor, () => queueCaretUpdate());
+      }
+      updateCaret();
+    });
+    editor.addEventListener('mouseup', () => {
+      getLatexSuiteHost()?.handleTextareaCaretSettled(editor, () => queueCaretUpdate());
+      updateCaret();
+    });
+    editor.addEventListener('blur', () => {
+      getLatexSuiteHost()?.handleTextareaBlur(editor, () => queueCaretUpdate());
+    });
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
       inputLatency.begin(event, 'keydown');
@@ -7830,6 +7846,7 @@ export class NativePowerPointView extends FileView {
         await this.rangeDeletionPromise;
       }
       if (this.activeEditor !== editor) return;
+      getLatexSuiteHost()?.handleTextareaBlur(editor, () => queueCaretUpdate());
       const text = this.resolveInlineTextForCommit(editor);
       const textWasEdited = this.activeEditorTextDirty;
       const replaceWholeShape = this.inlineWholeShapeReplacement?.shapeIndex === commitTarget.shapeIndex;

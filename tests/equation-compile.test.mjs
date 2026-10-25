@@ -52,3 +52,9 @@ test('plain Unicode math stays a single OMML run', () => {
 test('rejects empty input', () => {
 	assert.throws(() => compileEquation('   '), /empty/i);
 });
+
+test('compiles LaTeX Suite mk-wrapped cdot to a dot', () => {
+	const equation = compileEquation('{}\\cdot{}');
+	assert.equal(equation.plainText, '⋅');
+	assert.match(equation.ommlXml, /⋅/);
+});

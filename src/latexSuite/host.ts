@@ -10,7 +10,11 @@ import { compileEquation } from '../equation/compileEquation';
 import { insertMathNodeAtSelection } from '../equation/insertMathNode';
 import { debugLog, errorLog } from '../logger';
 import { getLatexSuitePlugin } from './detect';
-import { findClosedMathSpans } from './mathSpans';
+import {
+	findMathSpansToCommit,
+	unwrapLatexSuiteInner,
+	type MathCommitOptions,
+} from './mathSpans';
 
 export interface LatexSuiteSession {
 	getText(): string;
@@ -24,6 +28,7 @@ export class LatexSuiteHost {
 	private view: EditorView | null = null;
 	private parent: HTMLElement | null = null;
 	private enabled = false;
+	private lastDocxBlockStart: number | null = null;
 
 	constructor(
 		private readonly app: App,
@@ -113,15 +118,60 @@ export class LatexSuiteHost {
 			getSelection: () => ({ from: $from.parentOffset, to: $to.parentOffset }),
 			setText: (text, selection) => replaceTextblockText(view, text, selection.from, selection.to),
 		});
-		if (!handled) {
-			return false;
+		const finish = isLatexFinishKey(event);
+		const converted = convertClosedDocxMath(view, {
+			commitReadyAtCaret: finish,
+		});
+		this.rememberDocxBlock(view);
+		if (handled) {
+			return true;
 		}
+		if (converted && event.key === 'Tab') {
+			event.preventDefault();
+			return true;
+		}
+		return false;
+	}
 
+	handleDocxCaretSettled(view: ProseMirrorView): void {
+		if (!this.isActive()) {
+			return;
+		}
+		this.commitPreviousDocxBlock(view);
 		convertClosedDocxMath(view);
-		return true;
+		this.rememberDocxBlock(view);
+	}
+
+	handleDocxBlur(view: ProseMirrorView): void {
+		if (!this.isActive()) {
+			return;
+		}
+		this.commitPreviousDocxBlock(view);
+		convertClosedDocxMath(view, { commitNonEmptyAtCaret: true });
+		this.rememberDocxBlock(view);
+	}
+
+	private rememberDocxBlock(view: ProseMirrorView): void {
+		const { $from } = view.state.selection;
+		this.lastDocxBlockStart = $from.parent.isTextblock ? $from.start() : null;
+	}
+
+	private commitPreviousDocxBlock(view: ProseMirrorView): void {
+		const current = view.state.selection.$from.parent.isTextblock
+			? view.state.selection.$from.start()
+			: null;
+		const previous = this.lastDocxBlockStart;
+		if (previous == null || previous === current) {
+			return;
+		}
+		convertDocxMathInBlock(view, previous, {}, view.state.selection);
 	}
 
 	handleTextareaKeydown(event: KeyboardEvent, editor: HTMLTextAreaElement, afterChange?: () => void): boolean {
+		if (!this.isActive()) {
+			return false;
+		}
+
 		const handled = this.handleKeydown(event, {
 			getText: () => editor.value,
 			getSelection: () => ({
@@ -135,20 +185,32 @@ export class LatexSuiteHost {
 				editor.dispatchEvent(new Event('input', { bubbles: true }));
 			},
 		});
-		if (!handled) {
-			return false;
+		const finish = isLatexFinishKey(event);
+		const converted = commitTextareaMath(editor, afterChange, {
+			commitReadyAtCaret: finish,
+		});
+		if (handled) {
+			return true;
 		}
+		if (converted && event.key === 'Tab') {
+			event.preventDefault();
+			return true;
+		}
+		return false;
+	}
 
-		const cursor = editor.selectionStart ?? 0;
-		const converted = applyClosedMathPlainText(editor.value, cursor);
-		if (converted !== editor.value) {
-			editor.value = converted;
-			const caret = Math.min(cursor, converted.length);
-			editor.setSelectionRange(caret, caret);
-			afterChange?.();
-			editor.dispatchEvent(new Event('input', { bubbles: true }));
+	handleTextareaBlur(editor: HTMLTextAreaElement, afterChange?: () => void): void {
+		if (!this.isActive()) {
+			return;
 		}
-		return true;
+		commitTextareaMath(editor, afterChange, { commitNonEmptyAtCaret: true });
+	}
+
+	handleTextareaCaretSettled(editor: HTMLTextAreaElement, afterChange?: () => void): void {
+		if (!this.isActive()) {
+			return;
+		}
+		commitTextareaMath(editor, afterChange);
 	}
 
 	destroy(): void {
@@ -204,6 +266,7 @@ export class LatexSuiteHost {
 		this.view = null;
 		this.parent?.remove();
 		this.parent = null;
+		this.lastDocxBlockStart = null;
 	}
 }
 
@@ -239,53 +302,144 @@ function replaceTextblockText(
 	view.dispatch(transaction.scrollIntoView());
 }
 
-function convertClosedDocxMath(view: ProseMirrorView): void {
+function isLatexFinishKey(event: KeyboardEvent): boolean {
+	return event.key === 'Tab' || event.key === 'Enter';
+}
+
+function convertClosedDocxMath(view: ProseMirrorView, options: MathCommitOptions = {}): boolean {
 	const { $from } = view.state.selection;
 	if (!$from.parent.isTextblock) {
-		return;
+		return false;
 	}
-	for (let index = 0; index < $from.parent.childCount; index += 1) {
-		if (!$from.parent.child(index).isText) {
-			return;
+	return convertDocxMathInBlock(view, $from.start(), options, null);
+}
+
+function convertDocxMathInBlock(
+	view: ProseMirrorView,
+	blockStart: number,
+	options: MathCommitOptions,
+	restore: { from: number; to: number } | null,
+): boolean {
+	if (blockStart < 1 || blockStart > view.state.doc.content.size) {
+		return false;
+	}
+	let $pos: ReturnType<ProseMirrorView['state']['doc']['resolve']>;
+	try {
+		$pos = view.state.doc.resolve(blockStart);
+	} catch {
+		return false;
+	}
+	const node = $pos.parent;
+	if (!node.isTextblock) {
+		return false;
+	}
+	for (let index = 0; index < node.childCount; index += 1) {
+		if (!node.child(index).isText) {
+			return false;
 		}
 	}
 
-	const text = $from.parent.textContent;
-	const cursor = $from.parentOffset;
-	const spans = findClosedMathSpans(text, cursor);
+	const start = $pos.start();
+	const text = node.textContent;
+	const end = $pos.end();
+	const caret = restore?.from ?? view.state.selection.from;
+	const cursorInBlock = caret >= start && caret <= end;
+	const cursor = cursorInBlock ? caret - start : text.length;
+	const spans = findMathSpansToCommit(text, cursor, cursorInBlock ? options : {});
 	if (spans.length === 0) {
-		return;
+		return false;
 	}
 
-	const start = $from.start();
+	let converted = false;
+	let mapFrom = restore?.from ?? view.state.selection.from;
+	let mapTo = restore?.to ?? view.state.selection.to;
 	for (const span of [...spans].sort((left, right) => right.from - left.from)) {
 		try {
-			const equation = compileEquation(span.inner, span.display);
+			const inner = unwrapLatexSuiteInner(span.inner);
+			if (!inner) {
+				continue;
+			}
+			const equation = compileEquation(inner, span.display);
 			const from = start + span.from;
 			const to = start + span.to;
 			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
 			if (!insertMathNodeAtSelection(view, equation)) {
-				view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, start + cursor)));
+				continue;
+			}
+			converted = true;
+			const nodeSize = view.state.selection.from - from;
+			const delta = nodeSize - (to - from);
+			if (mapFrom >= to) {
+				mapFrom += delta;
+			} else if (mapFrom > from) {
+				mapFrom = from + nodeSize;
+			}
+			if (mapTo >= to) {
+				mapTo += delta;
+			} else if (mapTo > from) {
+				mapTo = from + nodeSize;
 			}
 		} catch {
 			// Leave the LaTeX source in the paragraph.
 		}
 	}
+	if (converted && restore) {
+		try {
+			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, mapFrom, mapTo)));
+		} catch {
+			// Selection may no longer resolve after the replacement.
+		}
+	}
+	return converted;
 }
 
-function applyClosedMathPlainText(text: string, cursor: number): string {
-	const spans = findClosedMathSpans(text, cursor);
+function commitTextareaMath(
+	editor: HTMLTextAreaElement,
+	afterChange: (() => void) | undefined,
+	options: MathCommitOptions = {},
+): boolean {
+	const cursor = editor.selectionStart ?? 0;
+	const converted = applyClosedMathPlainText(editor.value, cursor, options);
+	if (converted.text === editor.value) {
+		return false;
+	}
+	editor.value = converted.text;
+	const caret = clamp(converted.caret, 0, converted.text.length);
+	editor.setSelectionRange(caret, caret);
+	afterChange?.();
+	editor.dispatchEvent(new Event('input', { bubbles: true }));
+	return true;
+}
+
+function applyClosedMathPlainText(
+	text: string,
+	cursor: number,
+	options: MathCommitOptions = {},
+): { text: string; caret: number } {
+	const spans = findMathSpansToCommit(text, cursor, options);
 	if (spans.length === 0) {
-		return text;
+		return { text, caret: cursor };
 	}
 
 	let next = text;
+	let caret = cursor;
 	for (const span of [...spans].sort((left, right) => right.from - left.from)) {
 		try {
-			next = `${next.slice(0, span.from)}${compileEquation(span.inner, span.display).plainText}${next.slice(span.to)}`;
+			const inner = unwrapLatexSuiteInner(span.inner);
+			if (!inner) {
+				continue;
+			}
+			const replacement = compileEquation(inner, span.display).plainText;
+			next = `${next.slice(0, span.from)}${replacement}${next.slice(span.to)}`;
+			const delta = replacement.length - (span.to - span.from);
+			if (caret >= span.to) {
+				caret += delta;
+			} else if (caret > span.from) {
+				caret = span.from + replacement.length;
+			}
 		} catch {
 			// Keep the original span.
 		}
 	}
-	return next;
+	return { text: next, caret };
 }
