@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Optional LaTeX Suite snippets in DOCX and PowerPoint. Off by default; the toggle appears only when LaTeX Suite is installed.
 
+### Fixed
+
+- DOCX arrow keys move the caret instead of the page scrollbar. The hidden editor is portaled off the page scroller; focusing it no longer hides the caret overlay, and Arrow/Home/End on the page surface are replayed into the editor.
+
 ## [1.2.0] - 2026-10-06
 
 ### Added

@@ -5,3 +5,4 @@
 - Word paragraph borders keep the authored space plus stroke width in the paragraph's layout height. The paginator must reserve that inset and the overlay must paint inside it; a negative overlay inset paints through the next paragraph.
 - PPTX action logging uses the shared `debugLog`/`warnLog`/`errorLog` facilities, with `logPptxAction` preferred for user-triggered operation starts and small payloads.
 - The optional DOCX search index, recovery copies, plugin settings, and development debug log are local data paths; the debug log is enabled only through the documented debug/hot-reload behavior.
+- DOCX hidden ProseMirror is portaled to `document.body` so ProseMirror scroll restore cannot clobber the page scroller. PagedEditor must treat that host as in-editor focus and replay unchorded Arrow/Home/End from the tabIndex container; otherwise arrows scroll the page and the caret overlay disappears.
