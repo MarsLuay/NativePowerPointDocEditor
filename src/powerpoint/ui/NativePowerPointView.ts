@@ -7667,7 +7667,10 @@ export class NativePowerPointView extends FileView {
         event.clipboardData?.setData('text/plain', this.inlineWholeShapeSelection);
       }
     });
-    editor.addEventListener('click', updateCaret);
+    editor.addEventListener('click', () => {
+      getLatexSuiteHost()?.handleTextareaCaretSettled(editor, () => queueCaretUpdate(), { fromPointer: true });
+      updateCaret();
+    });
     editor.addEventListener('keyup', (event) => {
       if (
         event.key === 'ArrowLeft'
@@ -7680,7 +7683,7 @@ export class NativePowerPointView extends FileView {
       updateCaret();
     });
     editor.addEventListener('mouseup', () => {
-      getLatexSuiteHost()?.handleTextareaCaretSettled(editor, () => queueCaretUpdate());
+      getLatexSuiteHost()?.handleTextareaCaretSettled(editor, () => queueCaretUpdate(), { fromPointer: true });
       updateCaret();
     });
     editor.addEventListener('blur', () => {

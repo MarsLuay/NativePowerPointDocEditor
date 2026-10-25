@@ -1360,6 +1360,8 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 				if (
 					event.key === 'ArrowLeft'
 					|| event.key === 'ArrowRight'
+					|| event.key === 'ArrowUp'
+					|| event.key === 'ArrowDown'
 					|| event.key === 'Home'
 					|| event.key === 'End'
 				) {
@@ -1611,6 +1613,18 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 			return handled;
 		},
 	},
+		view(editorView) {
+			const doc = editorView.dom.ownerDocument;
+			const onPointerUp = (event: Event) => {
+				getLatexSuiteHost()?.handleDocxPointerUp(editorView, event);
+			};
+			doc.addEventListener('pointerup', onPointerUp, true);
+			return {
+				destroy() {
+					doc.removeEventListener('pointerup', onPointerUp, true);
+				},
+			};
+		},
 	});
 }
 

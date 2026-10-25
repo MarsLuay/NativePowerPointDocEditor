@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Optional LaTeX Suite snippets in DOCX and PowerPoint. Off by default; the toggle appears only when LaTeX Suite is installed.
+- Clicking or arrowing into a committed equation shows the LaTeX source for editing, then converts it back when the caret leaves.
 
 ### Fixed
 

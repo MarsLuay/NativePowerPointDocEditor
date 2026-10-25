@@ -3,8 +3,9 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 // eslint-disable-next-line import/no-extraneous-dependencies -- provided by Obsidian; esbuild keeps this external
 import { EditorView } from '@codemirror/view';
 import type { App } from 'obsidian';
+import type { Node as ProseMirrorNode } from 'prosemirror-model';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
 import type { EditorView as ProseMirrorView } from 'prosemirror-view';
-import { TextSelection } from 'prosemirror-state';
 
 import { compileEquation } from '../equation/compileEquation';
 import { insertMathNodeAtSelection } from '../equation/insertMathNode';
@@ -14,7 +15,15 @@ import {
 	findMathSpansToCommit,
 	unwrapLatexSuiteInner,
 	type MathCommitOptions,
+	type MathSpanDisplay,
 } from './mathSpans';
+import {
+	encodeHiddenMath,
+	expandPlainTextMath,
+	latexCaretOffsets,
+	mathInnerForEdit,
+	wrapLatexForEdit,
+} from './mathSource';
 
 export interface LatexSuiteSession {
 	getText(): string;
@@ -99,25 +108,29 @@ export class LatexSuiteHost {
 	}
 
 	handleDocxKeydown(view: ProseMirrorView, event: KeyboardEvent): boolean {
-		if (!this.isActive() || view.composing) {
+		if (!this.isActive() || view.composing || !view.editable) {
 			return false;
+		}
+
+		if (expandDocxMathForArrow(view, event)) {
+			event.preventDefault();
+			this.rememberDocxBlock(view);
+			return true;
 		}
 
 		const { $from, $to } = view.state.selection;
 		if (!$from.parent.isTextblock || $from.parent !== $to.parent) {
 			return false;
 		}
-		for (let index = 0; index < $from.parent.childCount; index += 1) {
-			if (!$from.parent.child(index).isText) {
-				return false;
-			}
-		}
 
-		const handled = this.handleKeydown(event, {
-			getText: () => $from.parent.textContent,
-			getSelection: () => ({ from: $from.parentOffset, to: $to.parentOffset }),
-			setText: (text, selection) => replaceTextblockText(view, text, selection.from, selection.to),
-		});
+		let handled = false;
+		if (textblockIsPlainText($from.parent)) {
+			handled = this.handleKeydown(event, {
+				getText: () => $from.parent.textContent,
+				getSelection: () => ({ from: $from.parentOffset, to: $to.parentOffset }),
+				setText: (text, selection) => replaceTextblockText(view, text, selection.from, selection.to),
+			});
+		}
 		const finish = isLatexFinishKey(event);
 		const converted = convertClosedDocxMath(view, {
 			commitReadyAtCaret: finish,
@@ -133,8 +146,36 @@ export class LatexSuiteHost {
 		return false;
 	}
 
+	handleDocxPointerUp(view: ProseMirrorView, event: Event): void {
+		if (!this.isActive() || !view.editable) {
+			return;
+		}
+		if ('button' in event && (event as PointerEvent).button !== 0) {
+			return;
+		}
+		if (view.state.selection.from !== view.state.selection.to) {
+			if (view.hasFocus()) {
+				this.handleDocxCaretSettled(view);
+			}
+			return;
+		}
+		const mathPos = mathPosFromPointerEvent(view, event);
+		if (mathPos != null && expandMathNode(view, mathPos, 'start')) {
+			this.rememberDocxBlock(view);
+			return;
+		}
+		if (!view.hasFocus()) {
+			return;
+		}
+		this.handleDocxCaretSettled(view);
+	}
+
 	handleDocxCaretSettled(view: ProseMirrorView): void {
 		if (!this.isActive()) {
+			return;
+		}
+		if (expandDocxMathAtSelection(view)) {
+			this.rememberDocxBlock(view);
 			return;
 		}
 		this.commitPreviousDocxBlock(view);
@@ -172,6 +213,11 @@ export class LatexSuiteHost {
 			return false;
 		}
 
+		if (expandTextareaMath(editor, afterChange, { key: event.key })) {
+			event.preventDefault();
+			return true;
+		}
+
 		const handled = this.handleKeydown(event, {
 			getText: () => editor.value,
 			getSelection: () => ({
@@ -206,8 +252,15 @@ export class LatexSuiteHost {
 		commitTextareaMath(editor, afterChange, { commitNonEmptyAtCaret: true });
 	}
 
-	handleTextareaCaretSettled(editor: HTMLTextAreaElement, afterChange?: () => void): void {
+	handleTextareaCaretSettled(
+		editor: HTMLTextAreaElement,
+		afterChange?: () => void,
+		options: { fromPointer?: boolean } = {},
+	): void {
 		if (!this.isActive()) {
+			return;
+		}
+		if (expandTextareaMath(editor, afterChange, { fromPointer: options.fromPointer })) {
 			return;
 		}
 		commitTextareaMath(editor, afterChange);
@@ -333,35 +386,44 @@ function convertDocxMathInBlock(
 	if (!node.isTextblock) {
 		return false;
 	}
-	for (let index = 0; index < node.childCount; index += 1) {
-		if (!node.child(index).isText) {
-			return false;
-		}
-	}
 
 	const start = $pos.start();
-	const text = node.textContent;
-	const end = $pos.end();
+	const ranges = collectTextblockRanges(node, start);
+	if (ranges.length === 0) {
+		return false;
+	}
+
 	const caret = restore?.from ?? view.state.selection.from;
-	const cursorInBlock = caret >= start && caret <= end;
-	const cursor = cursorInBlock ? caret - start : text.length;
-	const spans = findMathSpansToCommit(text, cursor, cursorInBlock ? options : {});
-	if (spans.length === 0) {
+	const jobs: Array<{ from: number; to: number; inner: string; display: MathSpanDisplay }> = [];
+	for (const range of ranges) {
+		const inRange = caret >= range.from && caret <= range.from + range.text.length;
+		const cursor = inRange ? caret - range.from : range.text.length;
+		const spans = findMathSpansToCommit(range.text, cursor, inRange ? options : {});
+		for (const span of spans) {
+			jobs.push({
+				from: range.from + span.from,
+				to: range.from + span.to,
+				inner: span.inner,
+				display: span.display,
+			});
+		}
+	}
+	if (jobs.length === 0) {
 		return false;
 	}
 
 	let converted = false;
 	let mapFrom = restore?.from ?? view.state.selection.from;
 	let mapTo = restore?.to ?? view.state.selection.to;
-	for (const span of [...spans].sort((left, right) => right.from - left.from)) {
+	for (const span of [...jobs].sort((left, right) => right.from - left.from)) {
 		try {
 			const inner = unwrapLatexSuiteInner(span.inner);
 			if (!inner) {
 				continue;
 			}
 			const equation = compileEquation(inner, span.display);
-			const from = start + span.from;
-			const to = start + span.to;
+			const from = span.from;
+			const to = span.to;
 			view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, from, to)));
 			if (!insertMathNodeAtSelection(view, equation)) {
 				continue;
@@ -399,19 +461,15 @@ function commitTextareaMath(
 	options: MathCommitOptions = {},
 ): boolean {
 	const cursor = editor.selectionStart ?? 0;
-	const converted = applyClosedMathPlainText(editor.value, cursor, options);
+	const converted = commitPlainTextMath(editor.value, cursor, options);
 	if (converted.text === editor.value) {
 		return false;
 	}
-	editor.value = converted.text;
-	const caret = clamp(converted.caret, 0, converted.text.length);
-	editor.setSelectionRange(caret, caret);
-	afterChange?.();
-	editor.dispatchEvent(new Event('input', { bubbles: true }));
+	applyTextareaUpdate(editor, converted.text, converted.caret, afterChange);
 	return true;
 }
 
-function applyClosedMathPlainText(
+function commitPlainTextMath(
 	text: string,
 	cursor: number,
 	options: MathCommitOptions = {},
@@ -429,7 +487,8 @@ function applyClosedMathPlainText(
 			if (!inner) {
 				continue;
 			}
-			const replacement = compileEquation(inner, span.display).plainText;
+			const equation = compileEquation(inner, span.display);
+			const replacement = `${equation.plainText}${encodeHiddenMath(span.display, inner, equation.plainText)}`;
 			next = `${next.slice(0, span.from)}${replacement}${next.slice(span.to)}`;
 			const delta = replacement.length - (span.to - span.from);
 			if (caret >= span.to) {
@@ -442,4 +501,160 @@ function applyClosedMathPlainText(
 		}
 	}
 	return { text: next, caret };
+}
+
+function expandTextareaMath(
+	editor: HTMLTextAreaElement,
+	afterChange: (() => void) | undefined,
+	options: { key?: string; fromPointer?: boolean },
+): boolean {
+	if (editor.selectionStart !== editor.selectionEnd) {
+		return false;
+	}
+	const expanded = expandPlainTextMath(editor.value, editor.selectionStart ?? 0, options);
+	if (!expanded) {
+		return false;
+	}
+	applyTextareaUpdate(editor, expanded.text, expanded.caret, afterChange);
+	return true;
+}
+
+function applyTextareaUpdate(
+	editor: HTMLTextAreaElement,
+	text: string,
+	caret: number,
+	afterChange: (() => void) | undefined,
+): void {
+	editor.value = text;
+	const next = clamp(caret, 0, text.length);
+	editor.setSelectionRange(next, next);
+	afterChange?.();
+	editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function textblockIsPlainText(node: ProseMirrorNode): boolean {
+	for (let index = 0; index < node.childCount; index += 1) {
+		if (!node.child(index).isText) {
+			return false;
+		}
+	}
+	return true;
+}
+
+function collectTextblockRanges(
+	node: ProseMirrorNode,
+	blockStart: number,
+): Array<{ from: number; text: string }> {
+	const ranges: Array<{ from: number; text: string }> = [];
+	node.forEach((child, offset) => {
+		if (!child.isText || !child.text) {
+			return;
+		}
+		const from = blockStart + offset;
+		const last = ranges[ranges.length - 1];
+		if (last && last.from + last.text.length === from) {
+			last.text += child.text;
+			return;
+		}
+		ranges.push({ from, text: child.text });
+	});
+	return ranges;
+}
+
+function expandDocxMathForArrow(view: ProseMirrorView, event: KeyboardEvent): boolean {
+	if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) {
+		return false;
+	}
+	if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+		return false;
+	}
+	const selection = view.state.selection;
+	if (!selection.empty && !(selection instanceof NodeSelection)) {
+		return false;
+	}
+	if (selection instanceof NodeSelection && selection.node.type.name === 'math') {
+		return expandMathNode(view, selection.from, event.key === 'ArrowLeft' ? 'end' : 'start');
+	}
+	const $from = selection.$from;
+	if (event.key === 'ArrowRight' && $from.nodeAfter?.type.name === 'math') {
+		return expandMathNode(view, $from.pos, 'start');
+	}
+	if (event.key === 'ArrowLeft' && $from.nodeBefore?.type.name === 'math') {
+		return expandMathNode(view, $from.pos - $from.nodeBefore.nodeSize, 'end');
+	}
+	return false;
+}
+
+function expandDocxMathAtSelection(view: ProseMirrorView): boolean {
+	const selection = view.state.selection;
+	if (selection instanceof NodeSelection && selection.node.type.name === 'math') {
+		return expandMathNode(view, selection.from, 'start');
+	}
+	return false;
+}
+
+function mathPosFromPointerEvent(view: ProseMirrorView, event: Event): number | null {
+	const target = eventTargetElement(event.target);
+	const span = target?.closest('[data-pm-start][data-pm-end]');
+	if (!span || !('dataset' in span)) {
+		return null;
+	}
+	const pos = Number((span as HTMLElement).dataset.pmStart);
+	if (!Number.isFinite(pos) || pos < 0 || pos > view.state.doc.content.size) {
+		return null;
+	}
+	try {
+		return view.state.doc.nodeAt(pos)?.type.name === 'math' ? pos : null;
+	} catch {
+		return null;
+	}
+}
+
+function eventTargetElement(raw: EventTarget | null | undefined): { closest: (selector: string) => Element | null } | null {
+	if (!raw || typeof raw !== 'object') {
+		return null;
+	}
+	if ('nodeType' in raw && (raw as Node).nodeType === 3) {
+		const parent = (raw as Node).parentElement;
+		return parent && typeof parent.closest === 'function' ? parent : null;
+	}
+	if ('closest' in raw && typeof (raw as Element).closest === 'function') {
+		return raw as Element;
+	}
+	return null;
+}
+
+function expandMathNode(
+	view: ProseMirrorView,
+	pos: number,
+	caret: 'start' | 'end',
+): boolean {
+	const node = view.state.doc.nodeAt(pos);
+	if (!node || node.type.name !== 'math') {
+		return false;
+	}
+	const display: MathSpanDisplay = node.attrs.display === 'block' ? 'block' : 'inline';
+	const source = mathInnerForEdit(
+		String(node.attrs.ommlXml ?? ''),
+		String(node.attrs.plainText ?? ''),
+		display,
+	);
+	const wrapped = wrapLatexForEdit(source.inner, source.display);
+	const marks = view.state.storedMarks ?? view.state.selection.$from.marks();
+	const textNode = view.state.schema.text(wrapped, marks);
+	let transaction = view.state.tr.replaceWith(pos, pos + node.nodeSize, textNode);
+	const offsets = latexCaretOffsets(wrapped, source.display);
+	const caretPos = pos + (caret === 'end' ? offsets.end : offsets.start);
+	try {
+		transaction = transaction.setSelection(TextSelection.create(transaction.doc, caretPos));
+	} catch {
+		return false;
+	}
+	view.dispatch(transaction.scrollIntoView());
+	debugLog('editor', 'Expanded a math node to editable LaTeX', {
+		pos,
+		display: source.display,
+		length: wrapped.length,
+	});
+	return true;
 }

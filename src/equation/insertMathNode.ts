@@ -1,6 +1,7 @@
 import { TextSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 
+import { embedLatexSource, latexBodyFromSource } from '../latexSuite/mathSource';
 import type { CompiledEquation } from './compileEquation';
 
 export function insertMathNodeAtSelection(view: EditorView, equation: CompiledEquation): boolean {
@@ -11,7 +12,11 @@ export function insertMathNodeAtSelection(view: EditorView, equation: CompiledEq
 
 	const node = mathType.create({
 		display: equation.display,
-		ommlXml: equation.ommlXml,
+		ommlXml: embedLatexSource(
+			equation.ommlXml,
+			latexBodyFromSource(equation.source),
+			equation.display,
+		),
 		plainText: equation.plainText,
 	});
 	const { $from, from, to } = view.state.selection;
