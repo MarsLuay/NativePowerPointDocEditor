@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 
-import { shouldReplayDeletionFromContainer } from './keyboardEventRouting';
+import {
+  isCaretNavigationKey,
+  shouldKeepPagedEditorFocused,
+  shouldReplayDeletionFromContainer,
+  shouldReplayKeyFromContainer,
+} from './keyboardEventRouting';
 
 function eventTargetContainer(editorTarget: EventTarget) {
   return {
@@ -8,7 +13,7 @@ function eventTargetContainer(editorTarget: EventTarget) {
   };
 }
 
-describe('shouldReplayDeletionFromContainer', () => {
+describe('shouldReplayKeyFromContainer', () => {
   test('does not replay a Backspace that bubbled from the hidden editor', () => {
     const editorTarget = {} as EventTarget;
     let replayCount = 0;
@@ -32,22 +37,69 @@ describe('shouldReplayDeletionFromContainer', () => {
     const editorTarget = {} as EventTarget;
 
     expect(
-      shouldReplayDeletionFromContainer(
+      shouldReplayKeyFromContainer(
         { defaultPrevented: true, target: editorTarget },
         eventTargetContainer(editorTarget),
       ),
     ).toBe(false);
   });
 
-  test('replays an unhandled deletion targeted at the paged surface', () => {
+  test('replays an unhandled key targeted at the paged surface', () => {
     const editorTarget = {} as EventTarget;
     const pagedSurfaceTarget = {} as EventTarget;
 
     expect(
-      shouldReplayDeletionFromContainer(
+      shouldReplayKeyFromContainer(
         { defaultPrevented: false, target: pagedSurfaceTarget },
         eventTargetContainer(editorTarget),
       ),
     ).toBe(true);
+  });
+});
+
+describe('isCaretNavigationKey', () => {
+  test('matches unchorded caret keys', () => {
+    expect(isCaretNavigationKey('ArrowLeft')).toBe(true);
+    expect(isCaretNavigationKey('ArrowDown')).toBe(true);
+    expect(isCaretNavigationKey('Home')).toBe(true);
+    expect(isCaretNavigationKey('a')).toBe(false);
+    expect(isCaretNavigationKey('PageDown')).toBe(false);
+  });
+
+  test('ignores modified or composing caret keys', () => {
+    expect(isCaretNavigationKey('ArrowDown', { ctrl: true })).toBe(false);
+    expect(isCaretNavigationKey('Home', { meta: true })).toBe(false);
+    expect(isCaretNavigationKey('ArrowLeft', { composing: true })).toBe(false);
+  });
+});
+
+describe('shouldKeepPagedEditorFocused', () => {
+  test('keeps focus when relatedTarget is inside the paged container', () => {
+    const inside = { nodeType: 1 } as Node;
+    expect(shouldKeepPagedEditorFocused(inside, eventTargetContainer(inside as unknown as EventTarget))).toBe(
+      true,
+    );
+  });
+
+  test('keeps focus when relatedTarget is the portaled hidden PM', () => {
+    const hiddenPm = {
+      closest: (selector: string) => (selector === '.paged-editor__hidden-pm' ? {} : null),
+    };
+    expect(shouldKeepPagedEditorFocused(hiddenPm, { contains: () => false })).toBe(true);
+  });
+
+  test('keeps focus when relatedTarget is a hidden header/footer PM', () => {
+    const hfPm = {
+      closest: (selector: string) => (selector === '[data-hf-r-id]' ? {} : null),
+    };
+    expect(shouldKeepPagedEditorFocused(hfPm, { contains: () => false })).toBe(true);
+  });
+
+  test('drops focus when relatedTarget is outside the editor', () => {
+    const outside = {
+      closest: () => null,
+    };
+    expect(shouldKeepPagedEditorFocused(outside, { contains: () => false })).toBe(false);
+    expect(shouldKeepPagedEditorFocused(null, { contains: () => false })).toBe(false);
   });
 });

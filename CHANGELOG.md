@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- DOCX arrow keys move the caret instead of the page scrollbar. Hidden ProseMirror is portaled to `document.body`, so focusing it no longer counts as leaving the editor (caret overlay stayed hidden) and unchorded Arrow/Home/End on the tabIndex container are replayed into the editor the same way Enter and Backspace already were.
+
 ## [1.0.43] - 2026-07-15
 
 ### Fixed

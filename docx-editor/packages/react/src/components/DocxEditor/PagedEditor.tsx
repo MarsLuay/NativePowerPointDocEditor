@@ -71,7 +71,12 @@ import { useLayoutPipeline } from './hooks/useLayoutPipeline';
 import { useSelectionOverlay } from './hooks/useSelectionOverlay';
 import { useImageInteractions } from './hooks/useImageInteractions';
 import { useExternalImageDrop } from './hooks/useExternalImageDrop';
-import { shouldReplayDeletionFromContainer } from './internals/keyboardEventRouting';
+import {
+  isCaretNavigationKey,
+  shouldKeepPagedEditorFocused,
+  shouldReplayDeletionFromContainer,
+  shouldReplayKeyFromContainer,
+} from './internals/keyboardEventRouting';
 import { usePagedScrollApi } from './hooks/usePagedScrollApi';
 import { usePagesPointer } from './hooks/usePagesPointer';
 import { usePagedEditorRefApi } from './hooks/usePagedEditorRefApi';
@@ -667,10 +672,15 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
      * Handle blur from container.
      */
     const handleContainerBlur = useCallback((e: React.FocusEvent) => {
-      // Check if focus is moving to hidden PM or staying within container
       const relatedTarget = e.relatedTarget as HTMLElement | null;
-      if (relatedTarget && containerRef.current?.contains(relatedTarget)) {
-        return; // Focus staying within editor
+      // Hidden PM is a body portal (scroll-preserve isolation). contains()
+      // cannot see it; treating that move as a blur hides the caret overlay
+      // while arrow keys natively scroll the page scroller.
+      if (shouldKeepPagedEditorFocused(relatedTarget, containerRef.current)) {
+        return;
+      }
+      if (hiddenPMRef.current?.isFocused()) {
+        return;
       }
       // Keep selection visible when focus moves to toolbar or dropdown portals
       if (
@@ -815,6 +825,27 @@ const PagedEditorComponent = forwardRef<PagedEditorRef, PagedEditorProps>(
           if (!handled || view.state.doc === docBefore) {
             enterCommand(view.state, view.dispatch, view);
           }
+          return;
+        }
+
+        // Arrow/Home/End on the tabIndex container natively scroll the page
+        // scroller. Hidden PM is portaled to document.body, so it is not an
+        // ancestor of that scroller and never sees these keys unless we
+        // replay them. Same focus-recovery path as Enter/Backspace.
+        if (
+          isCaretNavigationKey(e.key, {
+            ctrl: e.ctrlKey,
+            meta: e.metaKey,
+            alt: e.altKey,
+            composing: e.nativeEvent.isComposing,
+          })
+        ) {
+          const view = hiddenPMRef.current?.getView();
+          if (!view || !shouldReplayKeyFromContainer(e.nativeEvent, view.dom)) {
+            return;
+          }
+          e.preventDefault();
+          view.someProp('handleKeyDown', (f: Function) => f(view, e.nativeEvent));
           return;
         }
 

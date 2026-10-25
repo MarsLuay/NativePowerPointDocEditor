@@ -533,6 +533,8 @@ const HiddenProseMirrorComponent = forwardRef<HiddenProseMirrorRef, HiddenProseM
     // preserve-mode selection updates (storeScrollPos / resetScrollStack) walk
     // ancestors and can clobber the document scroller — e.g. ArrowLeft after
     // scrollToParaId. See prosemirror-view updateStateInner (scroll === "preserve").
+    // Pair with PagedEditor: treat this host as in-editor focus, and replay
+    // caret keys from the tabIndex container so arrows cannot native-scroll.
     const browserDoc = globalThis.document;
     const portalTarget =
       browserDoc && 'body' in browserDoc && browserDoc.body != null ? browserDoc.body : null;
