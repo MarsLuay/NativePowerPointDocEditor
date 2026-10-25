@@ -1,6 +1,7 @@
 import { App, Component, Modal, TFile } from 'obsidian';
 import type { ChartDataGrid, ChartDataUpdate } from './ChartData';
 import { compileEquation, type CompiledEquation, type EquationDisplay } from './equation/compileEquation';
+import { getLatexSuiteHost } from './latexSuite/host';
 import type { TranslateFn } from './i18n/translate';
 import { pptT } from './i18n/powerpointNotify';
 import { createCheckboxRow } from './menuControls';
@@ -300,6 +301,12 @@ export class InsertEquationModal extends Modal {
     });
     insertButton.disabled = true;
 
+    this.domScope.registerDomEvent(sourceInput, 'keydown', (event) => {
+      if (getLatexSuiteHost()?.handleTextareaKeydown(event, sourceInput, refreshPreview)) {
+        event.preventDefault();
+        insertButton.disabled = sourceInput.value.trim().length === 0;
+      }
+    });
     this.domScope.registerDomEvent(sourceInput, 'input', () => {
       insertButton.disabled = sourceInput.value.trim().length === 0;
       refreshPreview();

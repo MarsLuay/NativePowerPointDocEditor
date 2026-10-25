@@ -135,6 +135,12 @@
 			"description": "Sprawdzaj gramatykę w otwartych dokumentach. Word i PowerPoint używają jednego sprawdzania."
 		}
 	},
+	"latexSuite": {
+		"enableLatexSuite": {
+			"name": "LaTeX Suite w plikach Office",
+			"description": "Domyślnie wyłączone. Gdy włączone, fragmenty i skróty LaTeX Suite działają podczas pisania w plikach DOCX i PowerPoint. Widoczne tylko, gdy wtyczka LaTeX Suite jest zainstalowana."
+		}
+	},
 	"debug": {
 		"copyFullLog": {
 			"name": "Kopiuj pełny dziennik debugowania",

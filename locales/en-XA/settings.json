@@ -135,6 +135,12 @@
       "description": "[Ćhęćk ğrąmmąr įñ ǫpęñ ḑǫćųmęñţş. Wǫrḑ ąñḑ PǫwęrPǫįñţ şhąrę ǫñę ćhęćkęr.]"
     }
   },
+  "latexSuite": {
+    "enableLatexSuite": {
+      "name": "[ŁąŢęX Şųįţę įñ Ǫffįćę fįſęş]",
+      "description": "[Ǫff bÿ ḑęfąųſţ. Whęñ ǫñ, ŁąŢęX Şųįţę şñįppęţş ąñḑ şhǫrţćųţş wǫrk whįſę ţÿpįñğ įñ ḐǪĆX ąñḑ PǫwęrPǫįñţ fįſęş. Şhǫwñ ǫñſÿ įf ŁąŢęX Şųįţę įş įñşţąſſęḑ.]"
+    }
+  },
   "debug": {
     "copyFullLog": {
       "name": "[Ćǫpÿ fųſſ ḑębųğ ſǫğ]",

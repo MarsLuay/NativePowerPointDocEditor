@@ -64,6 +64,7 @@ import {
   stripEmptyParagraphRenderAnchors,
 } from '../drawingmlText';
 import { debugLog, errorLog, logPptxAction, warnLog } from '../../logger';
+import { getLatexSuiteHost } from '../../latexSuite/host';
 import type { CopiedLogEditorViewSnapshot } from '../../debugLogCopy';
 import { aiUndoStore } from '../../ai/aiUndoStore';
 import { renameFileToSiblingName } from '../../vault/renameFlow';
@@ -7672,6 +7673,10 @@ export class NativePowerPointView extends FileView {
     editor.addEventListener('select', updateCaret);
     editor.addEventListener('keydown', (event) => {
       inputLatency.begin(event, 'keydown');
+      if (getLatexSuiteHost()?.handleTextareaKeydown(event, editor, () => queueCaretUpdate())) {
+        event.preventDefault();
+        return;
+      }
       const isVerticalArrow = event.key === 'ArrowUp' || event.key === 'ArrowDown';
       const isCaretNavKey = isVerticalArrow
         || event.key === 'ArrowLeft'

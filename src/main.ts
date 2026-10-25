@@ -21,6 +21,7 @@ import {
 } from './logger';
 import { createGrammarCheckingCoordinator, type GrammarCheckingCoordinator } from './harper/grammarCheckingCoordinator';
 import { createHarperGrammarService } from './harper/harperGrammarService';
+import { bindLatexSuiteHost, LatexSuiteHost } from './latexSuite/host';
 import { configureObsidianRuntime, configureChromiumVersionReader } from './obsidianRuntime';
 import { loadDocxEditorLocale, preloadDocxEditorLocale, resolveAutomaticDocxEditorLanguage, type NativePowerPointDocEditorLanguage } from './locales';
 import { initPluginI18n, resolvePluginLocale } from './i18n/pluginI18n';
@@ -180,6 +181,7 @@ function getCopiedLogDiagnostics(app: unknown): CopiedLogDiagnostics {
 export default class NativePowerPointDocEditorPlugin extends Plugin {
 	pluginSettings!: NativePowerPointDocEditorSettings;
 	private grammarChecking: GrammarCheckingCoordinator | null = null;
+	private latexSuiteHost: LatexSuiteHost | null = null;
 	i18n: PluginI18nService | null = null;
 	private docxSearchIndex: DocxSearchIndex | null = null;
 	private forceJsBackendDevOverride = false;
@@ -223,6 +225,7 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 	async onload() {
 		await this.loadSettings();
 		this.setupGrammarChecking();
+		this.setupLatexSuite();
 		this.initializeDocumentWordCountStatus();
 		await initPluginI18n(this, await resolvePluginLocale(this));
 		const docxLanguage = this.getResolvedDocxEditorLanguage();
@@ -417,10 +420,17 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 		setNativePowerPointDocEditorLogSink(null);
 		void this.grammarChecking?.dispose();
 		this.grammarChecking = null;
+		this.latexSuiteHost?.destroy();
+		this.latexSuiteHost = null;
+		bindLatexSuiteHost(null);
 	}
 
 	applyGrammarChecking(): void {
 		this.grammarChecking?.setEnabled(this.pluginSettings.enableGrammarChecking);
+	}
+
+	applyLatexSuite(): void {
+		this.latexSuiteHost?.setEnabled(this.pluginSettings.enableLatexSuite);
 	}
 
 	requestGrammarLint(text: string) {
@@ -447,6 +457,13 @@ export default class NativePowerPointDocEditorPlugin extends Plugin {
 			},
 		});
 		this.grammarChecking.setEnabled(this.pluginSettings.enableGrammarChecking);
+	}
+
+	private setupLatexSuite(): void {
+		this.latexSuiteHost = new LatexSuiteHost(this.app, () => this.pluginSettings.enableLatexSuite);
+		bindLatexSuiteHost(this.latexSuiteHost);
+		this.latexSuiteHost.setEnabled(this.pluginSettings.enableLatexSuite);
+		this.app.workspace.onLayoutReady(() => this.applyLatexSuite());
 	}
 
 	private initializeDocumentWordCountStatus() {

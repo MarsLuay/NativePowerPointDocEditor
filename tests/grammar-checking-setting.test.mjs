@@ -25,7 +25,7 @@ test('old settings migrate grammar checking on and keep other preferences', asyn
 test('grammar checking is one settings-tab toggle and is not copied into the DOCX menu', async () => {
 	const catalog = await readFile(path.join(projectRoot, 'src/i18n/settingsCatalog.ts'), 'utf8');
 	const tabSections = catalog.slice(catalog.indexOf('export function getNativePowerPointDocEditorSettingsTabSections'), catalog.indexOf('export function getDocxEditorSettingSectionLabels'));
-	assert.match(tabSections, /\['editorTheme', 'showRuler', 'enableGrammarChecking', 'defaultZoom'\]/);
+	assert.match(tabSections, /\['editorTheme', 'showRuler', 'enableGrammarChecking', 'enableLatexSuite', 'defaultZoom'\]/);
 	const docxMenu = catalog.slice(catalog.indexOf('export function getDocxEditorSettingsMenuSections'));
 	assert.doesNotMatch(docxMenu, /enableGrammarChecking/);
 	const english = JSON.parse(await readFile(path.join(projectRoot, 'locales/en/settings.json'), 'utf8'));

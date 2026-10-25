@@ -135,6 +135,12 @@
       "description": "‫.rekcehc eno erahs tnioPrewoP dna droW .stnemucod nepo ni rammarg kcehC"
     }
   },
+  "latexSuite": {
+    "enableLatexSuite": {
+      "name": "‫selif eciffO ni etiuS XeTaL",
+      "description": "‫.dellatsni si etiuS XeTaL fi ylno nwohS .selif tnioPrewoP dna XCOD ni gnipyt elihw krow stuctrohs dna steppins etiuS XeTaL ,no nehW .tluafed yb ffO"
+    }
+  },
   "debug": {
     "copyFullLog": {
       "name": "‫gol gubed lluf ypoC",

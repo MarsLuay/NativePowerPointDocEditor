@@ -135,6 +135,12 @@
 			"description": "Check grammar in open documents. Word and PowerPoint share one checker."
 		}
 	},
+	"latexSuite": {
+		"enableLatexSuite": {
+			"name": "LaTeX Suite in Office files",
+			"description": "Off by default. When on, LaTeX Suite snippets and shortcuts work while typing in DOCX and PowerPoint files. Shown only if LaTeX Suite is installed."
+		}
+	},
 	"debug": {
 		"copyFullLog": {
 			"name": "Copy full debug log",

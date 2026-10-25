@@ -54,6 +54,7 @@ import {
 } from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
 import { compileEquation, type EquationDisplay } from './equation/compileEquation';
+import { getLatexSuiteHost } from './latexSuite/host';
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
 import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
 import { getSharedContinuousInteractionProfiler } from './continuousInteractionProfiler';
@@ -1496,6 +1497,10 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 				return finishInputHandler(false);
 			}
 
+			if (getLatexSuiteHost()?.handleDocxKeydown(view, event)) {
+				return finishInputHandler(true);
+			}
+
 			if (event.key === 'Backspace' || event.key === 'Delete') {
 				const { selection } = view.state;
 				const paragraph = selection.$from.parent;
@@ -1565,6 +1570,13 @@ function createPreserveTypedSpacePlugin(inputDiagnostics: DocxInputDiagnosticTra
 		handleTextInput(view, from, to, text) {
 			if (!text || /[\r\n]/.test(text)) {
 				return false;
+			}
+
+			if (text.length === 1) {
+				const latexEvent = new KeyboardEvent('keydown', { key: text, bubbles: true, cancelable: true });
+				if (getLatexSuiteHost()?.handleDocxKeydown(view, latexEvent)) {
+					return true;
+				}
 			}
 
 			const handled = insertPlainTypedText(view, text, from, to);
@@ -2475,6 +2487,13 @@ const EquationDialog = ({ isOpen, labels, onClose, onInsert }: EquationDialogPro
 						aria-label={labels.title}
 						autoFocus
 						placeholder={labels.placeholder}
+						onKeyDown={(evt) => {
+							if (getLatexSuiteHost()?.handleTextareaKeydown(evt.nativeEvent, evt.currentTarget, () => {
+								setSource(evt.currentTarget.value);
+							})) {
+								evt.preventDefault();
+							}
+						}}
 						onChange={(evt) => setSource(evt.currentTarget.value)}
 					/>
 				</label>

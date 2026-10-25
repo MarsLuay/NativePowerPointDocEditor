@@ -8,6 +8,7 @@ import {
 	getEditorThemeSettingOptions as getEditorThemeSettingOptionsI18n,
 } from './i18n/settingsCatalog';
 import { showI18nNotice } from './i18n/notify';
+import { isLatexSuiteInstalled } from './latexSuite/detect';
 
 export type {
 	DocxEditorSettingDescriptor,
@@ -76,6 +77,7 @@ export interface NativePowerPointDocEditorSettings {
 	enableAiInterfacing: boolean;
 	addAiSkill: boolean;
 	enableGrammarChecking: boolean;
+	enableLatexSuite: boolean;
 }
 
 export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
@@ -97,6 +99,7 @@ export const DEFAULT_SETTINGS: NativePowerPointDocEditorSettings = {
 	enableAiInterfacing: false,
 	addAiSkill: false,
 	enableGrammarChecking: true,
+	enableLatexSuite: false,
 };
 
 export type NativePowerPointDocEditorSettingSectionId =
@@ -130,6 +133,7 @@ export type NativePowerPointDocEditorSettingId =
 	| 'enableAiInterfacing'
 	| 'addAiSkill'
 	| 'enableGrammarChecking'
+	| 'enableLatexSuite'
 	| 'debugLogging'
 	| 'copyDocxLog'
 	| 'copyPptxLog'
@@ -226,6 +230,7 @@ export function mergeNativePowerPointDocEditorSettings(
 	const normalizedEnableAiInterfacing = raw.enableAiInterfacing === true;
 	const normalizedAddAiSkill = raw.addAiSkill === true;
 	const normalizedEnableGrammarChecking = raw.enableGrammarChecking !== false;
+	const normalizedEnableLatexSuite = raw.enableLatexSuite === true;
 
 	const settings: NativePowerPointDocEditorSettings = {
 		authorName: readString(raw.authorName, DEFAULT_SETTINGS.authorName),
@@ -246,6 +251,7 @@ export function mergeNativePowerPointDocEditorSettings(
 		enableAiInterfacing: normalizedEnableAiInterfacing,
 		addAiSkill: normalizedAddAiSkill,
 		enableGrammarChecking: normalizedEnableGrammarChecking,
+		enableLatexSuite: normalizedEnableLatexSuite,
 	};
 
 	const shouldPersistSettings = hadLegacyEditorLanguage
@@ -264,7 +270,8 @@ export function mergeNativePowerPointDocEditorSettings(
 		|| raw.disablePowerPointFiles !== normalizedDisablePowerPointFiles
 		|| raw.enableAiInterfacing !== normalizedEnableAiInterfacing
 		|| raw.addAiSkill !== normalizedAddAiSkill
-		|| raw.enableGrammarChecking !== normalizedEnableGrammarChecking;
+		|| raw.enableGrammarChecking !== normalizedEnableGrammarChecking
+		|| raw.enableLatexSuite !== normalizedEnableLatexSuite;
 
 	return {
 		settings,
@@ -433,6 +440,13 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 						desc: descriptors.enableGrammarChecking.description,
 						control: { type: 'toggle', key: 'enableGrammarChecking' },
 					},
+					...(isLatexSuiteInstalled(this.app)
+						? [{
+							name: descriptors.enableLatexSuite.name,
+							desc: descriptors.enableLatexSuite.description,
+							control: { type: 'toggle' as const, key: 'enableLatexSuite' },
+						}]
+						: []),
 					{
 						name: descriptors.defaultZoom.name,
 						desc: descriptors.defaultZoom.description,
@@ -689,6 +703,11 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 				await this.plugin.saveSettings();
 				this.plugin.applyGrammarChecking();
 				return;
+			case 'enableLatexSuite':
+				settings.enableLatexSuite = Boolean(value);
+				await this.plugin.saveSettings();
+				this.plugin.applyLatexSuite();
+				return;
 			case 'defaultZoom':
 				settings.defaultZoom = normalizeDefaultZoom(value);
 				break;
@@ -872,6 +891,19 @@ export class NativePowerPointDocEditorSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.applyGrammarChecking();
 				}));
+
+		if (isLatexSuiteInstalled(this.app)) {
+			new Setting(containerEl)
+				.setName(settingDescriptors.enableLatexSuite.name)
+				.setDesc(settingDescriptors.enableLatexSuite.description)
+				.addToggle(toggle => toggle
+					.setValue(this.plugin.pluginSettings.enableLatexSuite)
+					.onChange(async (value) => {
+						this.plugin.pluginSettings.enableLatexSuite = value;
+						await this.plugin.saveSettings();
+						this.plugin.applyLatexSuite();
+					}));
+		}
 
 		const zoomSetting = new Setting(containerEl)
 			.setName(settingDescriptors.defaultZoom.name)

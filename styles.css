@@ -885,6 +885,17 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	font-style: italic;
 }
 
+.native-powerpoint-latex-suite-host {
+	height: 160px;
+	left: -10000px;
+	opacity: 0;
+	overflow: hidden;
+	pointer-events: none;
+	position: fixed;
+	top: 0;
+	width: 640px;
+}
+
 /* Match the editor's header/footer behavior so typed spaces stay visible in body text. */
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-page-content] .ProseMirror p,
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-run-editable[contenteditable='true'] {
