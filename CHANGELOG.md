@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - DOCX arrow keys move the caret instead of the page scrollbar. The hidden editor is portaled off the page scroller; focusing it no longer hides the caret overlay, and Arrow/Home/End on the page surface are replayed into the editor.
+- Rapid Enter taps each insert a new line. The iPad duplicate-Enter guard only drops a second Enter that arrives before keyup; PowerPoint queues extra Enters that land while a split is still in flight.
 
 ## [1.2.0] - 2026-10-06
 

@@ -1,7 +1,8 @@
 /**
  * One physical Enter on iPad was reaching the editor twice, about 200ms apart,
  * and each delivery split a paragraph. Key repeat stays allowed. A second
- * non-repeat Enter inside the window is the duplicate path proven by those pairs.
+ * non-repeat Enter with no keyup in between is the duplicate path. A real tap
+ * always keyups first, so five quick Enters still make five lines.
  */
 
 export const DUPLICATE_ENTER_WINDOW_MS = 350;
@@ -30,6 +31,7 @@ export interface DuplicateEnterGuard {
 		now: number,
 		paragraphCount: number | null,
 	): 'allow' | 'suppress';
+	observeKeyUp(event: ParagraphEnterLike): void;
 	observeBeforeInput(
 		event: ParagraphEnterLike,
 		paragraphCount: number,
@@ -52,6 +54,7 @@ export function isPlainEnterKey(event: ParagraphEnterLike): boolean {
 export function createDuplicateEnterGuard(): DuplicateEnterGuard {
 	let armedUntil = 0;
 	let paragraphCountAtArm: number | null = null;
+	let waitingForKeyUp = false;
 
 	return {
 		observeKeyDown(event, now, paragraphCount) {
@@ -61,12 +64,19 @@ export function createDuplicateEnterGuard(): DuplicateEnterGuard {
 			if (event.repeat === true) {
 				return 'allow';
 			}
-			if (now < armedUntil) {
+			if (waitingForKeyUp && now < armedUntil) {
 				return 'suppress';
 			}
+			waitingForKeyUp = true;
 			armedUntil = now + DUPLICATE_ENTER_WINDOW_MS;
 			paragraphCountAtArm = paragraphCount;
 			return 'allow';
+		},
+		observeKeyUp(event) {
+			if (!isPlainEnterKey(event)) {
+				return;
+			}
+			waitingForKeyUp = false;
 		},
 		observeBeforeInput(event, paragraphCount, now) {
 			if (event.isComposing || event.inputType !== 'insertParagraph') {

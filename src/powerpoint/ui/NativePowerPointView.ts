@@ -322,6 +322,8 @@ export class NativePowerPointView extends FileView {
   private textCommitPromise: Promise<void> | null = null;
   /** Prevent repeated Enter presses from racing a structural text mutation. */
   private paragraphSplitPromise: Promise<void> | null = null;
+  /** Extra Enters that arrived while a split was in flight. */
+  private pendingParagraphSplits = 0;
   /** Prevent repeated Backspace presses from racing a structural text mutation. */
   private paragraphRemovalPromise: Promise<void> | null = null;
   /** Prevent repeated Delete/Backspace presses from racing an inline range mutation. */
@@ -5431,11 +5433,21 @@ export class NativePowerPointView extends FileView {
    * in the textarea's normal path and is intentionally persisted as `<a:br/>`.
    */
   private startInlineParagraphSplit(editor: HTMLTextAreaElement, target: ShapeTextEditTarget): void {
-    if (this.paragraphSplitPromise || this.paragraphRemovalPromise || this.rangeDeletionPromise) {
-      debugLog('text-edit', 'Ignored repeated paragraph split while one is pending', {
+    if (this.paragraphRemovalPromise || this.rangeDeletionPromise) {
+      debugLog('text-edit', 'Ignored paragraph split while another structural text mutation is pending', {
         slide: this.currentSlide,
         shapeIndex: target.shapeIndex,
         paragraphIndex: target.paragraphIndex,
+      });
+      return;
+    }
+    if (this.paragraphSplitPromise) {
+      this.pendingParagraphSplits = Math.min(32, this.pendingParagraphSplits + 1);
+      debugLog('text-edit', 'Queued paragraph split while one is pending', {
+        slide: this.currentSlide,
+        shapeIndex: target.shapeIndex,
+        paragraphIndex: target.paragraphIndex,
+        queued: this.pendingParagraphSplits,
       });
       return;
     }
@@ -5446,6 +5458,17 @@ export class NativePowerPointView extends FileView {
       if (this.paragraphSplitPromise === operation) {
         this.paragraphSplitPromise = null;
       }
+      if (this.pendingParagraphSplits <= 0) {
+        return;
+      }
+      this.pendingParagraphSplits -= 1;
+      const nextEditor = this.activeEditor;
+      const nextTarget = this.activeShapeTextTarget;
+      if (!nextEditor || nextTarget?.kind !== 'shape-paragraph') {
+        this.pendingParagraphSplits = 0;
+        return;
+      }
+      this.startInlineParagraphSplit(nextEditor, nextTarget);
     });
   }
 

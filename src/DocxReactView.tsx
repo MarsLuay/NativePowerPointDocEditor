@@ -2680,6 +2680,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				repeat: event.repeat,
 			});
 		};
+		const onKeyUp = (event: KeyboardEvent) => {
+			if (!isDocxEditingTarget(event.target)) {
+				return;
+			}
+			guard.observeKeyUp(event);
+		};
 		const onBeforeInput = (event: Event) => {
 			if (!isDocxEditingTarget(event.target)) {
 				return;
@@ -2701,9 +2707,11 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 			});
 		};
 		ownerDocument.addEventListener('keydown', onKeyDown, true);
+		ownerDocument.addEventListener('keyup', onKeyUp, true);
 		ownerDocument.addEventListener('beforeinput', onBeforeInput, true);
 		return () => {
 			ownerDocument.removeEventListener('keydown', onKeyDown, true);
+			ownerDocument.removeEventListener('keyup', onKeyUp, true);
 			ownerDocument.removeEventListener('beforeinput', onBeforeInput, true);
 		};
 	}, [hostDocument]);
