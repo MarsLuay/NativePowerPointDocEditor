@@ -8,8 +8,9 @@ const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const syncStandardLimitBytes = 5_000_000;
 // main.js embeds the optional runtime payloads for community installs. Keep a
 // measured headroom budget for that bundle while retaining the strict Sync
-// limit for every materialized sidecar.
-const embeddedMainBundleLimitBytes = 5_100_000;
+// limit for every materialized sidecar. 5.15 MB covers the LaTeX/OMML
+// equation compiler without raising sidecar files past the 5 MB Sync cap.
+const embeddedMainBundleLimitBytes = 5_150_000;
 const runtimeArtifacts = [
   'main.js',
   'pptx-js-engine.mjs',

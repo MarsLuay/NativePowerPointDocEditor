@@ -1,3 +1,4 @@
+import type { CompiledEquation } from '../../equation/compileEquation';
 import type { EditorMode } from '../runtime/contract';
 import type { EditorView } from 'prosemirror-view';
 import type {
@@ -17,6 +18,7 @@ export interface FakeDocxEditorAdapterOptions {
 	replace?: (match: DocxFindMatch, replacement: string) => boolean;
 	replaceAll?: (matches: readonly DocxFindMatch[], replacement: string) => boolean;
 	insertImage?: (file: File) => Promise<{ width: number; height: number } | null>;
+	insertEquation?: (equation: CompiledEquation) => boolean;
 }
 
 /** In-memory adapter for session and view tests. */
@@ -86,5 +88,9 @@ export class FakeDocxEditorAdapter implements DocxEditorAdapter {
 
 	insertImage(file: File): Promise<{ width: number; height: number } | null> {
 		return this.options.insertImage?.(file) ?? Promise.resolve(null);
+	}
+
+	insertEquation(equation: CompiledEquation): boolean {
+		return this.options.insertEquation?.(equation) ?? false;
 	}
 }

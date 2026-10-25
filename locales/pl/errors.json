@@ -15,6 +15,7 @@
 	"fontImportFileFailed": "Nie udało się zaimportować {fileName}.",
 	"fontImportFailed": "Nie udało się zaimportować czcionki: {message}",
 	"insertImageFailed": "Nie udało się wstawić obrazu: {message}",
+	"insertEquationFailed": "Nie udało się wstawić równania: {message}",
 	"renderFailed": "Nie udało się wyrenderować {fileName}: {message}",
 	"loadFailed": "{message}"
 }

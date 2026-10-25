@@ -36,6 +36,11 @@
     "searchOptions": "‫snoitpo rotide hcraeS",
     "settings": "‫sgnitteS",
     "insertImage": "‫...egami tresnI",
+    "insertEquation": "‫...noitauqe tresnI",
+    "equationHint": "‫.noitauqe na sa siht sevas droW .htam edocinU ro XeTaL epyT",
+    "equationPlaceholder": "‫carf\\ .g.e{a}{b}2^z = 2^y + 2^x ro ",
+    "equationPreview": "‫weiverP",
+    "displayEquation": "‫enil nwo sti no noitauqe yalpsiD",
     "searchOptionsPlaceholder": "‫snoitpo hcraeS"
   },
   "menu": {
@@ -92,6 +97,9 @@
     "switchToEditForImage": "‫.egami na tresni ot edom gnitide ot hctiwS",
     "openLoadedToInsertImage": "‫.egami na tresni ot elif xcod dedaol a nepO",
     "cannotInsertImageHere": "‫.ereh segami tresni tonnac rotide XCOD sihT",
-    "imagePickerNotReady": "‫.tey ydaer ton si rekcip egami ehT"
+    "imagePickerNotReady": "‫.tey ydaer ton si rekcip egami ehT",
+    "switchToEditForEquation": "‫.noitauqe na tresni ot edom gnitide ot hctiwS",
+    "openLoadedToInsertEquation": "‫.noitauqe na tresni ot elif xcod dedaol a nepO",
+    "cannotInsertEquationHere": "‫.ereh noitauqe na tresni tonnac rotide XCOD sihT"
   }
 }

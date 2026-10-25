@@ -95,6 +95,7 @@ type EditorOptionSearchActionId =
 	| 'find'
 	| 'find-replace'
 	| 'insert-image'
+	| 'insert-equation'
 	| 'custom-table'
 	| 'import-font'
 	| 'find-hidden-text'
@@ -175,6 +176,7 @@ const EDITOR_OPTION_SEARCH_BASE_ITEMS: readonly (EditorOptionSearchActionItem | 
 	{ kind: 'action', id: 'action:find', actionId: 'find', label: 'Find in document', keywords: ['search', 'text'] },
 	{ kind: 'action', id: 'action:find-replace', actionId: 'find-replace', label: 'Find and replace', keywords: ['replace', 'search'] },
 	{ kind: 'action', id: 'action:insert-image', actionId: 'insert-image', label: 'Insert image', keywords: ['picture', 'photo', 'media'] },
+	{ kind: 'action', id: 'action:insert-equation', actionId: 'insert-equation', label: 'Insert equation', keywords: ['math', 'latex', 'formula', 'omml'] },
 	{ kind: 'action', id: 'action:custom-table', actionId: 'custom-table', label: 'Custom table', keywords: ['insert table', 'rows', 'columns'] },
 	{ kind: 'action', id: 'action:import-font', actionId: 'import-font', label: 'Import font', keywords: ['typeface', 'ttf', 'otf', 'woff'] },
 	{ kind: 'action', id: 'action:find-hidden-text', actionId: 'find-hidden-text', label: 'Find hidden text', keywords: ['security', 'prompt injection', 'invisible'] },
@@ -1948,6 +1950,16 @@ export class DocxView extends FileView {
 		editor.openCustomTableDialog();
 	}
 
+	openInsertEquationDialog() {
+		const editor = this.getReactHandle();
+		if (!editor) {
+			this.showNotice('docx:notice.editorStillLoading');
+			return;
+		}
+
+		editor.openInsertEquationDialog();
+	}
+
 	openFontPicker() {
 		const editor = this.getReactHandle();
 		if (!editor) {
@@ -2191,6 +2203,9 @@ export class DocxView extends FileView {
 				break;
 			case 'insert-image':
 				this.openImagePicker();
+				break;
+			case 'insert-equation':
+				this.openInsertEquationDialog();
 				break;
 			case 'custom-table':
 				this.openCustomTableDialog();
@@ -3599,49 +3614,75 @@ export class DocxView extends FileView {
 						return;
 					}
 
-					takeUniqueMenuItem(
-						dropdown,
-						'insert-image-menu-item',
-						'native-powerpoint-doc-editor-insert-image-menu-item',
-					);
-					if (dropdown.querySelector(getDocxEditorDataAttrSelector('insert-image-menu-item'))) {
-						return;
-					}
-
 					const itemWrappers = Array.from(dropdown.children).filter((child): child is HTMLElement => isHTMLElement(child));
 					const sourceWrapper = itemWrappers.find((itemWrapper) => itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR));
-					const insertImageWrapper = sourceWrapper
-						? sourceWrapper.cloneNode(true) as HTMLElement
-						: this.createDetachedEditorChromeElement(dropdown, 'div', 'insert-image');
-					setDocxEditorDataAttr(insertImageWrapper, 'insert-image-menu-item');
-					insertImageWrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', 'native-powerpoint-doc-editor-insert-image-menu-item']);
 
-					const insertImageButton = insertImageWrapper.querySelector('button') ?? insertImageWrapper.createEl('button');
-					insertImageButton.textContent = this.docxT('docx:chrome.insertImage');
-					insertImageButton.removeAttribute('disabled');
-					insertImageButton.removeAttribute('aria-disabled');
-					configureMenuItemButton(insertImageButton, {
-						className: 'native-powerpoint-doc-editor-file-menu-button',
-						preventMouseDown: true,
-						preventDefaultOnClick: true,
-						stopClickPropagation: true,
-						onClick: (evt) => {
-							evt.stopImmediatePropagation();
-							activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-							this.openImagePicker();
-						},
-					});
+					const bindInsertMenuItem = (
+						suffix: string,
+						className: string,
+						fallbackMenu: string,
+						label: string,
+						onClick: () => void,
+					): HTMLElement => {
+						const existing = takeUniqueMenuItem(dropdown, suffix, className);
+						if (existing) {
+							return existing;
+						}
 
+						const wrapper = sourceWrapper
+							? sourceWrapper.cloneNode(true) as HTMLElement
+							: this.createDetachedEditorChromeElement(dropdown, 'div', fallbackMenu);
+						setDocxEditorDataAttr(wrapper, suffix);
+						wrapper.addClasses(['native-powerpoint-doc-editor-file-menu-item', className]);
+
+						const button = wrapper.querySelector('button') ?? wrapper.createEl('button');
+						button.textContent = label;
+						button.removeAttribute('disabled');
+						button.removeAttribute('aria-disabled');
+						configureMenuItemButton(button, {
+							className: 'native-powerpoint-doc-editor-file-menu-button',
+							preventMouseDown: true,
+							preventDefaultOnClick: true,
+							stopClickPropagation: true,
+							onClick: (evt) => {
+								evt.stopImmediatePropagation();
+								activeDocument.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+								onClick();
+							},
+						});
+						dropdown.appendChild(wrapper);
+						return wrapper;
+					};
+
+					const insertImageWrapper = bindInsertMenuItem(
+						'insert-image-menu-item',
+						'native-powerpoint-doc-editor-insert-image-menu-item',
+						'insert-image',
+						this.docxT('docx:chrome.insertImage'),
+						() => this.openImagePicker(),
+					);
 					const imageLikeWrapper = itemWrappers.find((itemWrapper) => {
+						if (itemWrapper === insertImageWrapper) {
+							return false;
+						}
 						const button = itemWrapper.querySelector(DOCX_EDITOR_MENU_ITEM_BUTTON_SELECTOR);
 						const text = normalizeMenuText(button?.textContent ?? '');
 						return text.includes('image') || text.includes('picture');
 					});
 					if (imageLikeWrapper) {
 						imageLikeWrapper.replaceWith(insertImageWrapper);
-					} else {
-						dropdown.appendChild(insertImageWrapper);
-				}
+					}
+
+					const insertEquationWrapper = bindInsertMenuItem(
+						'insert-equation-menu-item',
+						'native-powerpoint-doc-editor-insert-equation-menu-item',
+						'insert-equation',
+						this.docxT('docx:chrome.insertEquation'),
+						() => this.openInsertEquationDialog(),
+					);
+					if (insertEquationWrapper.previousElementSibling !== insertImageWrapper) {
+						insertImageWrapper.after(insertEquationWrapper);
+					}
 			});
 	}
 

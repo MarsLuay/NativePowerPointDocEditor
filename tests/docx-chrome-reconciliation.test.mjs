@@ -30,7 +30,11 @@ test('DOCX chrome fallback nodes use their parent owner document', async () => {
 	assert.match(view, /private createDetachedEditorChromeElement/);
 	assert.match(view, /createDetachedDocxEditorChromeElement\(parent, tagName\)/);
 	assert.doesNotMatch(view, /activeDocument\.create(?:El|Div|Span)\(/);
-	for (const menu of ['edit', 'search', 'settings', 'duplicate', 'export-as', 'find-hidden-text', 'insert-image']) {
-		assert.match(view, new RegExp(`createDetachedEditorChromeElement\\([^)]*'${menu}'\\)`));
+	for (const menu of ['edit', 'search', 'settings', 'duplicate', 'export-as', 'find-hidden-text', 'insert-image', 'insert-equation']) {
+		assert.match(view, new RegExp(`'${menu}'`));
+		assert.match(
+			view,
+			new RegExp(`createDetachedEditorChromeElement\\([^)]*(?:'${menu}'|fallbackMenu)\\)`),
+		);
 	}
 });

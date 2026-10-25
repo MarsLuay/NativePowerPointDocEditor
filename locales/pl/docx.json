@@ -36,6 +36,11 @@
 		"searchOptions": "Opcje wyszukiwania edytora",
 		"settings": "Ustawienia",
 		"insertImage": "Wstaw obraz...",
+		"insertEquation": "Wstaw równanie...",
+		"equationHint": "Wpisz LaTeX lub matematyczny Unicode. Word zapisze to jako równanie.",
+		"equationPlaceholder": "np. \\frac{a}{b} albo x^2 + y^2 = z^2",
+		"equationPreview": "Podgląd",
+		"displayEquation": "Równanie w osobnym wierszu",
 		"searchOptionsPlaceholder": "Szukaj opcji"
 	},
 	"menu": {
@@ -92,6 +97,9 @@
 		"switchToEditForImage": "Przełącz na tryb edycji, aby wstawić obraz.",
 		"openLoadedToInsertImage": "Otwórz załadowany plik docx, aby wstawić obraz.",
 		"cannotInsertImageHere": "Ten edytor DOCX nie może wstawiać obrazów w tym miejscu.",
-		"imagePickerNotReady": "Selektor obrazów nie jest jeszcze gotowy."
+		"imagePickerNotReady": "Selektor obrazów nie jest jeszcze gotowy.",
+		"switchToEditForEquation": "Przełącz na tryb edycji, aby wstawić równanie.",
+		"openLoadedToInsertEquation": "Otwórz załadowany plik docx, aby wstawić równanie.",
+		"cannotInsertEquationHere": "Ten edytor DOCX nie może wstawić równania w tym miejscu."
 	}
 }

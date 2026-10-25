@@ -53,6 +53,7 @@ import {
 	summarizeTransactionSteps,
 } from './docxPlainTextInsert';
 import { preserveDocxTableCellFontSizes } from './docxTableCellFontSizePreserver';
+import { compileEquation, type EquationDisplay } from './equation/compileEquation';
 import { createDocxInputDiagnostics, type DocxInputDiagnosticTracker } from './docxInputDiagnostics';
 import { createTextInputLatencyTracker, type TextInputLatencyTracker } from './textInputLatency';
 import { getSharedContinuousInteractionProfiler } from './continuousInteractionProfiler';
@@ -2286,6 +2287,48 @@ interface CustomTableDialogProps {
 	onInsert: (rows: number, columns: number) => void;
 }
 
+interface EquationDialogLabels {
+	title: string;
+	hint: string;
+	placeholder: string;
+	preview: string;
+	display: string;
+	cancel: string;
+	insert: string;
+}
+
+interface EquationDialogProps {
+	isOpen: boolean;
+	labels: EquationDialogLabels;
+	onClose: () => void;
+	onInsert: (source: string, display: EquationDisplay) => void;
+}
+
+const FALLBACK_EQUATION_DIALOG_LABELS: EquationDialogLabels = {
+	title: 'Insert equation...',
+	hint: 'Type LaTeX or Unicode math. Word saves this as an equation.',
+	placeholder: 'e.g. \\frac{a}{b} or x^2 + y^2 = z^2',
+	preview: 'Preview',
+	display: 'Display equation on its own line',
+	cancel: 'Cancel',
+	insert: 'Insert',
+};
+
+function createEquationDialogLabels(i18n: I18nService | null): EquationDialogLabels {
+	if (!i18n) {
+		return FALLBACK_EQUATION_DIALOG_LABELS;
+	}
+	return {
+		title: i18n.t('docx:chrome.insertEquation'),
+		hint: i18n.t('docx:chrome.equationHint'),
+		placeholder: i18n.t('docx:chrome.equationPlaceholder'),
+		preview: i18n.t('docx:chrome.equationPreview'),
+		display: i18n.t('docx:chrome.displayEquation'),
+		cancel: i18n.t('common:actions.cancel'),
+		insert: i18n.t('common:actions.insert'),
+	};
+}
+
 const CustomTableDialog = ({ isOpen, onClose, onInsert }: CustomTableDialogProps) => {
 	const [rows, setRows] = useState(3);
 	const [columns, setColumns] = useState(3);
@@ -2364,6 +2407,105 @@ const CustomTableDialog = ({ isOpen, onClose, onInsert }: CustomTableDialogProps
 	);
 };
 
+const EquationDialog = ({ isOpen, labels, onClose, onInsert }: EquationDialogProps) => {
+	const [source, setSource] = useState('');
+	const [display, setDisplay] = useState(false);
+
+	useEffect(() => {
+		if (isOpen) {
+			setSource('');
+			setDisplay(false);
+		}
+	}, [isOpen]);
+
+	const compiled = useMemo(() => {
+		const trimmed = source.trim();
+		if (!trimmed) {
+			return null;
+		}
+		try {
+			return compileEquation(trimmed, display ? 'block' : 'inline');
+		} catch {
+			return null;
+		}
+	}, [display, source]);
+
+	const submit = useCallback(() => {
+		if (!source.trim()) {
+			return;
+		}
+		onInsert(source, display ? 'block' : 'inline');
+	}, [display, onInsert, source]);
+
+	if (!isOpen) {
+		return null;
+	}
+
+	return (
+		<div
+			className="native-powerpoint-doc-editor-equation-backdrop"
+			onMouseDown={(evt) => {
+				if (evt.target === evt.currentTarget) {
+					onClose();
+				}
+			}}
+			onKeyDown={(evt) => {
+				if (evt.key === 'Escape') {
+					evt.preventDefault();
+					onClose();
+				}
+				if (evt.key === 'Enter' && (evt.metaKey || evt.ctrlKey)) {
+					evt.preventDefault();
+					submit();
+				}
+			}}
+		>
+			<div
+				className="native-powerpoint-doc-editor-equation-dialog"
+				role="dialog"
+				aria-modal="true"
+				aria-label={labels.title}
+				onMouseDown={(evt) => evt.stopPropagation()}
+			>
+				<div className="native-powerpoint-doc-editor-equation-title">{labels.title}</div>
+				<div className="native-powerpoint-doc-editor-equation-hint">{labels.hint}</div>
+				<label className="native-powerpoint-doc-editor-equation-field">
+					<textarea
+						value={source}
+						aria-label={labels.title}
+						autoFocus
+						placeholder={labels.placeholder}
+						onChange={(evt) => setSource(evt.currentTarget.value)}
+					/>
+				</label>
+				<label className="native-powerpoint-doc-editor-equation-display">
+					<input
+						type="checkbox"
+						checked={display}
+						onChange={(evt) => setDisplay(evt.currentTarget.checked)}
+					/>
+					<span>{labels.display}</span>
+				</label>
+				<div className="native-powerpoint-doc-editor-equation-preview" aria-live="polite">
+					<span>{labels.preview}</span>
+					<code>{compiled?.plainText || '—'}</code>
+				</div>
+				<div className="native-powerpoint-doc-editor-equation-actions">
+					<button type="button" onClick={onClose}>{labels.cancel}</button>
+					<button
+						type="button"
+						className="native-powerpoint-doc-editor-equation-primary"
+						disabled={!source.trim()}
+						onClick={submit}
+					>
+						{labels.insert}
+					</button>
+				</div>
+			</div>
+		</div>
+	);
+};
+
 export interface DocxReactViewProps {
 	file: TFile | null;
 	buffer: ArrayBuffer | null;
@@ -2404,6 +2546,7 @@ export interface DocxReactViewHandle {
 	openFindReplace: () => void;
 	openImagePicker: () => void;
 	openCustomTableDialog: () => void;
+	openInsertEquationDialog: () => void;
 	openFontPicker: () => void;
 	setMode: (mode: EditorMode) => void;
 	setZoom: (zoom: number) => void;
@@ -2576,10 +2719,15 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 	const [currentFindIndex, setCurrentFindIndex] = useState(0);
 	const [importedFonts, setImportedFonts] = useState<FontOption[]>([]);
 	const [customTableDialogOpen, setCustomTableDialogOpen] = useState(false);
+	const [equationDialogOpen, setEquationDialogOpen] = useState(false);
 	const [commentsSidebarOpen, setCommentsSidebarOpen] = useState(false);
 	const filePath = file?.path ?? null;
 	const findReplaceLabels = useMemo(
 		() => (pluginI18n ? createFindReplaceLabels(pluginI18n) : null),
+		[pluginI18n],
+	);
+	const equationDialogLabels = useMemo(
+		() => createEquationDialogLabels(pluginI18n),
 		[pluginI18n],
 	);
 	const fontFamilies = useMemo<FontOption[]>(() => [
@@ -4104,6 +4252,50 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		setCustomTableDialogOpen(true);
 	}, []);
 
+	const insertEquation = useCallback((source: string, display: EquationDisplay) => {
+		if (editorMode === 'viewing') {
+			showNotice('docx:notice.switchToEditForEquation');
+			return;
+		}
+
+		if (!file || !buffer) {
+			showNotice('docx:notice.openLoadedToInsertEquation');
+			return;
+		}
+
+		try {
+			const equation = compileEquation(source, display);
+			if (!editorAdapter.insertEquation(equation)) {
+				showNotice('docx:notice.cannotInsertEquationHere');
+				return;
+			}
+			debugLog('editor', 'Inserted DOCX equation', {
+				file: filePath,
+				display: equation.display,
+				plainText: equation.plainText,
+			});
+			setEquationDialogOpen(false);
+		} catch (insertError) {
+			const message = insertError instanceof Error ? insertError.message : 'Unknown equation insert error';
+			errorLog('editor', `Could not insert equation into ${file.name}`, insertError);
+			showNotice('errors:insertEquationFailed', { message });
+		}
+	}, [buffer, editorAdapter, editorMode, file, filePath, showNotice]);
+
+	const openInsertEquationDialog = useCallback(() => {
+		if (editorMode === 'viewing') {
+			showNotice('docx:notice.switchToEditForEquation');
+			return;
+		}
+
+		if (!file || !buffer) {
+			showNotice('docx:notice.openLoadedToInsertEquation');
+			return;
+		}
+
+		setEquationDialogOpen(true);
+	}, [buffer, editorMode, file, showNotice]);
+
 	const decorateTableSizeDropdown = useCallback(() => {
 		activeDocument.querySelectorAll<HTMLElement>('[role="grid"]').forEach((grid) => {
 			appendCustomTableOption(grid, openCustomTableDialog);
@@ -4900,13 +5092,14 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 		openFindReplace: () => openFindReplaceDialog('replace'),
 		openImagePicker,
 		openCustomTableDialog,
+		openInsertEquationDialog,
 		openFontPicker,
 		setMode,
 		setZoom: (zoom: number) => {
 			debugLog('editor', 'DOCX zoom changed', { file: filePath, zoom });
 			editorRef.current?.setZoom(zoom);
 		},
-	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, flushPendingSave, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, prepareForExternalReload, saveDocument, setMode]);
+	}), [exportDocumentBuffer, exportRenderedPdfBuffer, filePath, flushPendingSave, openCustomTableDialog, openFindReplaceDialog, openFontPicker, openImagePicker, openInsertEquationDialog, prepareForExternalReload, saveDocument, setMode]);
 
 	if (isLoading) {
 		return null;
@@ -5117,6 +5310,12 @@ export const DocxReactView = forwardRef<DocxReactViewHandle, DocxReactViewProps>
 				isOpen={customTableDialogOpen}
 				onClose={() => setCustomTableDialogOpen(false)}
 				onInsert={insertCustomTable}
+			/>
+			<EquationDialog
+				isOpen={equationDialogOpen}
+				labels={equationDialogLabels}
+				onClose={() => setEquationDialogOpen(false)}
+				onInsert={insertEquation}
 			/>
 			{pluginI18n && findReplaceLabels ? (
 			<FindReplaceDialog

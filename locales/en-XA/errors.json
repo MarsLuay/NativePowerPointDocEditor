@@ -15,6 +15,7 @@
   "fontImportFileFailed": "[Ćǫųſḑ ñǫţ įmpǫrţ {fileName}.]",
   "fontImportFailed": "[Ćǫųſḑ ñǫţ įmpǫrţ fǫñţ: {message}]",
   "insertImageFailed": "[Ćǫųſḑ ñǫţ įñşęrţ įmąğę: {message}]",
+  "insertEquationFailed": "[Ćǫųſḑ ñǫţ įñşęrţ ęqųąţįǫñ: {message}]",
   "renderFailed": "[Ćǫųſḑ ñǫţ ręñḑęr {fileName}: {message}]",
   "loadFailed": "[{message}]"
 }

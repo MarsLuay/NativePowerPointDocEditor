@@ -742,6 +742,149 @@ body.native-powerpoint-doc-editor-theme-resolved-light.native-powerpoint-doc-edi
 	border-color: var(--npde-dialog-primary-bg-hover);
 }
 
+.native-powerpoint-doc-editor-equation-backdrop {
+	align-items: center;
+	background: var(--npde-chrome-overlay);
+	display: flex;
+	inset: 0;
+	justify-content: center;
+	padding: 20px;
+	position: fixed;
+	z-index: 100070;
+}
+
+.native-powerpoint-doc-editor-equation-dialog.native-powerpoint-doc-editor-equation-dialog {
+	background: var(--npde-dialog-bg);
+	border: 1px solid var(--npde-dialog-border);
+	border-radius: 8px;
+	box-shadow: var(--npde-dialog-shadow);
+	color: var(--npde-dialog-text);
+	color-scheme: light;
+	display: grid;
+	gap: 12px;
+	min-width: 360px;
+	padding: 14px;
+}
+
+.native-powerpoint-doc-editor-equation-title {
+	font-size: 14px;
+	font-weight: 600;
+}
+
+.native-powerpoint-doc-editor-equation-hint {
+	color: var(--npde-dialog-text-muted);
+	font-size: 12px;
+}
+
+.native-powerpoint-doc-editor-equation-field textarea {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
+	border-radius: 6px;
+	color: var(--npde-dialog-text);
+	font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: 13px;
+	min-height: 88px;
+	padding: 8px;
+	resize: vertical;
+	width: 100%;
+}
+
+.native-powerpoint-doc-editor-equation-display {
+	align-items: center;
+	color: var(--npde-dialog-text);
+	display: flex;
+	font-size: 13px;
+	gap: 8px;
+}
+
+.native-powerpoint-doc-editor-equation-preview {
+	color: var(--npde-dialog-text-muted);
+	display: grid;
+	font-size: 12px;
+	gap: 4px;
+}
+
+.native-powerpoint-doc-editor-equation-preview code {
+	color: var(--npde-dialog-text);
+	font-family: "Cambria Math", "Latin Modern Math", serif;
+	font-size: 16px;
+	font-style: italic;
+}
+
+.native-powerpoint-doc-editor-equation-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+	margin-top: 2px;
+}
+
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions button {
+	background: var(--npde-dialog-button-bg);
+	border: 1px solid var(--npde-dialog-border);
+	border-radius: 6px;
+	color: var(--npde-dialog-text);
+	cursor: pointer;
+	font-size: 13px;
+	height: 32px;
+	padding: 0 12px;
+}
+
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions button:hover,
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions button:focus {
+	background: var(--npde-dialog-button-hover-bg);
+	outline: none;
+}
+
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions .native-powerpoint-doc-editor-equation-primary {
+	background: var(--npde-dialog-primary-bg);
+	border-color: var(--npde-dialog-primary-bg);
+	color: var(--npde-chrome-on-accent);
+}
+
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions .native-powerpoint-doc-editor-equation-primary:hover,
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions .native-powerpoint-doc-editor-equation-primary:focus {
+	background: var(--npde-dialog-primary-bg-hover);
+	border-color: var(--npde-dialog-primary-bg-hover);
+}
+
+.native-powerpoint-doc-editor-equation-actions.native-powerpoint-doc-editor-equation-actions .native-powerpoint-doc-editor-equation-primary:disabled {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+.native-powerpoint-insert-equation-form textarea {
+	background: var(--npde-dialog-input-bg);
+	border: 1px solid var(--npde-dialog-input-border);
+	border-radius: 6px;
+	color: var(--npde-dialog-text);
+	font-family: var(--font-monospace, ui-monospace, SFMono-Regular, Menlo, monospace);
+	font-size: 13px;
+	min-height: 88px;
+	padding: 8px;
+	resize: vertical;
+	width: 100%;
+}
+
+.native-powerpoint-insert-equation-display {
+	align-items: center;
+	display: flex;
+	gap: 8px;
+}
+
+.native-powerpoint-insert-equation-preview {
+	color: var(--npde-dialog-text-muted);
+	display: grid;
+	font-size: 12px;
+	gap: 4px;
+}
+
+.native-powerpoint-insert-equation-preview code {
+	color: var(--npde-dialog-text);
+	font-family: "Cambria Math", "Latin Modern Math", serif;
+	font-size: 16px;
+	font-style: italic;
+}
+
 /* Match the editor's header/footer behavior so typed spaces stay visible in body text. */
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] [data-native-powerpoint-doc-editor-page-content] .ProseMirror p,
 .native-powerpoint-doc-editor-host [data-native-powerpoint-doc-editor-root] .docx-run-editable[contenteditable='true'] {
@@ -4491,6 +4634,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark .native-powerpoint-light-s
 
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-equation-dialog,
 	.native-powerpoint-doc-editor-find-dialog,
 	.native-powerpoint-doc-editor-editor-settings-menu,
 	.native-powerpoint-doc-editor-option-search-menu
@@ -4667,6 +4811,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 	.native-powerpoint-doc-editor-light-menu-surface,
 	[data-native-powerpoint-doc-editor-mode-menu='true'],
 	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-equation-dialog,
 	.native-powerpoint-doc-editor-find-dialog,
 	.native-powerpoint-doc-editor-export-submenu,
 	.native-powerpoint-doc-editor-hidden-text-shell,
@@ -4699,6 +4844,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 	.native-powerpoint-doc-editor-light-menu-surface,
 	[data-native-powerpoint-doc-editor-mode-menu='true'],
 	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-equation-dialog,
 	.native-powerpoint-doc-editor-find-dialog,
 	.native-powerpoint-doc-editor-export-submenu,
 	.native-powerpoint-doc-editor-editor-settings-menu,
@@ -4714,6 +4860,7 @@ body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 	.native-powerpoint-doc-editor-light-menu-surface,
 	[data-native-powerpoint-doc-editor-mode-menu='true'],
 	.native-powerpoint-doc-editor-custom-table-dialog,
+	.native-powerpoint-doc-editor-equation-dialog,
 	.native-powerpoint-doc-editor-find-dialog,
 	.native-powerpoint-doc-editor-export-submenu,
 	.native-powerpoint-doc-editor-editor-settings-menu,
@@ -4797,6 +4944,8 @@ body.native-powerpoint-doc-editor-theme-resolved-dark
 
 body.native-powerpoint-doc-editor-theme-resolved-dark :is(
 	.native-powerpoint-doc-editor-custom-table-field span,
+	.native-powerpoint-doc-editor-equation-hint,
+	.native-powerpoint-doc-editor-equation-preview,
 	.native-powerpoint-doc-editor-editor-settings-section,
 	.native-powerpoint-doc-editor-editor-settings-desc,
 	.native-powerpoint-doc-editor-option-search-empty,

@@ -1631,6 +1631,7 @@ export class NativePowerPointView extends FileView {
       { label: this.tb('uploadImage'), icon: 'upload', onClick: () => this.imageFileInput?.click() },
       'separator',
       { label: this.tb('textBox'), icon: 'type', onClick: () => void this.insertController.insertTextBox(true) },
+      { label: this.tb('insertEquation'), icon: 'sigma', onClick: () => this.insertController.openInsertEquationDialog() },
       { label: this.tb('rectangle'), icon: 'square', onClick: () => void this.insertShape('rect') },
       { label: this.tb('ellipse'), icon: 'circle', onClick: () => void this.insertShape('ellipse') },
       { label: this.tb('line'), icon: 'minus', onClick: () => void this.insertShape('line') },

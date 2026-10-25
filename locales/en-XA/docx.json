@@ -36,6 +36,11 @@
     "searchOptions": "[Şęąrćh ęḑįţǫr ǫpţįǫñş]",
     "settings": "[Şęţţįñğş]",
     "insertImage": "[Įñşęrţ įmąğę...]",
+    "insertEquation": "[Įñşęrţ ęqųąţįǫñ...]",
+    "equationHint": "[Ţÿpę ŁąŢęX ǫr Ųñįćǫḑę mąţh. Wǫrḑ şąvęş ţhįş ąş ąñ ęqųąţįǫñ.]",
+    "equationPlaceholder": "[ę.ğ. \\frąć{a}{b} ǫr x^2 + ÿ^2 = z^2]",
+    "equationPreview": "[Pręvįęw]",
+    "displayEquation": "[Ḑįşpſąÿ ęqųąţįǫñ ǫñ įţş ǫwñ ſįñę]",
     "searchOptionsPlaceholder": "[Şęąrćh ǫpţįǫñş]"
   },
   "menu": {
@@ -92,6 +97,9 @@
     "switchToEditForImage": "[Şwįţćh ţǫ ęḑįţįñğ mǫḑę ţǫ įñşęrţ ąñ įmąğę.]",
     "openLoadedToInsertImage": "[Ǫpęñ ą ſǫąḑęḑ ḑǫćx fįſę ţǫ įñşęrţ ąñ įmąğę.]",
     "cannotInsertImageHere": "[Ţhįş ḐǪĆX ęḑįţǫr ćąññǫţ įñşęrţ įmąğęş hęrę.]",
-    "imagePickerNotReady": "[Ţhę įmąğę pįćkęr įş ñǫţ ręąḑÿ ÿęţ.]"
+    "imagePickerNotReady": "[Ţhę įmąğę pįćkęr įş ñǫţ ręąḑÿ ÿęţ.]",
+    "switchToEditForEquation": "[Şwįţćh ţǫ ęḑįţįñğ mǫḑę ţǫ įñşęrţ ąñ ęqųąţįǫñ.]",
+    "openLoadedToInsertEquation": "[Ǫpęñ ą ſǫąḑęḑ ḑǫćx fįſę ţǫ įñşęrţ ąñ ęqųąţįǫñ.]",
+    "cannotInsertEquationHere": "[Ţhįş ḐǪĆX ęḑįţǫr ćąññǫţ įñşęrţ ąñ ęqųąţįǫñ hęrę.]"
   }
 }

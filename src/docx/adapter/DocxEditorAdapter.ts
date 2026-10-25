@@ -1,4 +1,6 @@
 import { observeEditorChromeAttributes, type ChromeObservation } from '../../docxEditorChromeSync';
+import type { CompiledEquation } from '../../equation/compileEquation';
+import { insertMathNodeAtSelection } from '../../equation/insertMathNode';
 import { insertImageFromFile } from '../runtime/bridge.mjs';
 import type { DocxEditorRef, EditorMode } from '../runtime/contract';
 import type { Mark } from 'prosemirror-model';
@@ -41,6 +43,7 @@ export interface DocxEditorAdapter {
 	replace(match: DocxFindMatch, replacement: string): boolean;
 	replaceAll(matches: readonly DocxFindMatch[], replacement: string): boolean;
 	insertImage(file: File): Promise<{ width: number; height: number } | null>;
+	insertEquation(equation: CompiledEquation): boolean;
 }
 
 /**
@@ -141,6 +144,11 @@ export function createDocxEditorAdapter(chromeTarget: HTMLElement): DocxEditorAd
 					onInserted: (dimensions) => resolve(dimensions ?? null),
 				});
 			});
+		},
+		insertEquation(equation) {
+			const view = getView();
+			if (!view) return false;
+			return insertMathNodeAtSelection(view, equation);
 		},
 	};
 }

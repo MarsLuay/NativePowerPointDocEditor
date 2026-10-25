@@ -15,6 +15,7 @@
 	"fontImportFileFailed": "Could not import {fileName}.",
 	"fontImportFailed": "Could not import font: {message}",
 	"insertImageFailed": "Could not insert image: {message}",
+	"insertEquationFailed": "Could not insert equation: {message}",
 	"renderFailed": "Could not render {fileName}: {message}",
 	"loadFailed": "{message}"
 }

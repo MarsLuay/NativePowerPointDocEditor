@@ -7,8 +7,10 @@ import { isElement, isNode } from '../domGuards';
 import { debugLog, errorLog, logPptxAction } from '../logger';
 import { createMenuItem, createMenuSection, createPopoverShell, positionPopoverBelow } from '../menuControls';
 import type { InsertableShapeGeometry, ParagraphTextRange, PresentationEngine, TextBoxInsertOrigin } from '../PresentationEngine';
+import type { CompiledEquation } from '../equation/compileEquation';
 import {
   getImageMimeType,
+  InsertEquationModal,
   InsertTableModal,
   POWERPOINT_IMAGE_FILE_ACCEPT,
   VaultImageSuggestModal
@@ -179,6 +181,9 @@ export class InsertController {
       this.openChartTypePicker(chartButton)
     );
     this.insertChartButton = chartButton;
+    this.host.createEditIconButton(insertGroup, 'sigma', this.tb('insertEquation'), () =>
+      this.openInsertEquationDialog()
+    );
     this.host.createEditIconButton(insertGroup, 'list', this.tb('bulletedList'), () => void this.applyListStyle('bullet'));
     this.host.createEditIconButton(insertGroup, 'list-ordered', this.tb('numberedList'), () => void this.applyListStyle('number'));
   }
@@ -319,6 +324,56 @@ export class InsertController {
   openInsertTableModal(): void {
     if (!this.host.ensureEditable('insert table')) return;
     new InsertTableModal(this.host.app, (rows, cols) => void this.insertTable(rows, cols), this.host.t).open();
+  }
+
+  openInsertEquationDialog(): void {
+    if (!this.host.ensureEditable('insert equation')) return;
+    new InsertEquationModal(this.host.app, (equation) => void this.insertEquation(equation), this.host.t).open();
+  }
+
+  async insertEquation(equation: CompiledEquation): Promise<void> {
+    if (!this.getInsertEngine('insert equation', 'PowerPoint equation insertion failed')) return;
+
+    try {
+      const history = await this.host.captureHistoryEntry('Insert equation');
+      const shapeIndex = await this.host.session.applyCommand({
+        type: 'insert-text-box',
+        slideIndex: this.host.currentSlide,
+      }) as number;
+      await this.host.session.applyCommand({
+        type: 'update-paragraph-text',
+        slideIndex: this.host.currentSlide,
+        shapeIndex,
+        paragraphIndex: 0,
+        text: equation.plainText,
+      });
+      await this.host.session.applyCommand({
+        type: 'set-run-style',
+        slideIndex: this.host.currentSlide,
+        shapeIndex,
+        target: { paragraphIndex: 0, runIndex: 0 },
+        change: { italic: true, fontFamily: 'Cambria Math' },
+      });
+      this.host.recordHistoryEntry(history);
+      this.host.invalidateCachedSlideRenders(this.host.currentSlide);
+      const rendered = await this.host.renderCurrentSlide(false);
+      if (rendered) {
+        this.host.selectShape(shapeIndex);
+        await this.host.renderThumbnails();
+      }
+      debugLog('insert', 'Inserted PowerPoint equation', {
+        slide: this.host.currentSlide,
+        shapeIndex,
+        display: equation.display,
+        plainText: equation.plainText,
+      });
+    } catch (error) {
+      errorLog('insert', 'PowerPoint equation insertion failed', {
+        slide: this.host.currentSlide,
+        error,
+      });
+      this.notice('powerpoint:notice.couldNotInsertEquation', { message: cleanError(error) });
+    }
   }
 
   // Google Slides-style size picker: a hover grid that matches the look of the

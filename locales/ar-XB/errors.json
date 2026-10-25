@@ -15,6 +15,7 @@
   "fontImportFileFailed": "‫ tropmi ton dluoC{fileName}.",
   "fontImportFailed": "‫ :tnof tropmi ton dluoC{message}",
   "insertImageFailed": "‫ :egami tresni ton dluoC{message}",
+  "insertEquationFailed": "‫ :noitauqe tresni ton dluoC{message}",
   "renderFailed": "‫ redner ton dluoC{fileName} :{message}",
   "loadFailed": "‫{message}"
 }

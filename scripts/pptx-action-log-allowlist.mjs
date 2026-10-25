@@ -12,6 +12,7 @@ export const PPTX_ACTION_LOG_ALLOWLIST = {
 		'getInsertChartButton',
 		'openVaultImagePicker',
 		'openInsertTableModal',
+		'openInsertEquationDialog',
 		'openTableSizePicker',
 		'openChartTypePicker',
 	],

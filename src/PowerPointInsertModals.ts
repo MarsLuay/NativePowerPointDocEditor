@@ -1,5 +1,6 @@
 import { App, Component, Modal, TFile } from 'obsidian';
 import type { ChartDataGrid, ChartDataUpdate } from './ChartData';
+import { compileEquation, type CompiledEquation, type EquationDisplay } from './equation/compileEquation';
 import type { TranslateFn } from './i18n/translate';
 import { pptT } from './i18n/powerpointNotify';
 import { createCheckboxRow } from './menuControls';
@@ -224,6 +225,97 @@ export class InsertTableModal extends Modal {
       this.onSubmit(rows, cols);
     });
     insertButton.focus();
+    loadModalDomScope(this.domScope);
+  }
+
+  onClose(): void {
+    closeModalDomScope(this.domScope);
+    this.domScope = undefined;
+  }
+}
+
+export class InsertEquationModal extends Modal {
+  private domScope?: Component;
+
+  constructor(
+    app: App,
+    private readonly onSubmit: (equation: CompiledEquation) => void,
+    private readonly t: TranslateFn = pptT
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.domScope = openModalDomScope();
+    const { contentEl } = this;
+    this.modalEl.addClass('native-powerpoint-light-surface');
+    contentEl.empty();
+    contentEl.createEl('h2', { text: this.t('powerpoint:modal.insertEquation') });
+    contentEl.createEl('p', {
+      cls: 'native-powerpoint-field-hint',
+      text: this.t('powerpoint:modal.equationHint'),
+    });
+
+    const form = contentEl.createEl('form', { cls: 'native-powerpoint-insert-table-form native-powerpoint-insert-equation-form' });
+    const sourceField = form.createDiv({ cls: 'native-powerpoint-field' });
+    const sourceInput = sourceField.createEl('textarea', {
+      attr: {
+        'aria-label': this.t('powerpoint:modal.insertEquation'),
+        placeholder: this.t('powerpoint:modal.equationPlaceholder'),
+        rows: '4',
+      },
+    });
+
+    const displayField = form.createDiv({ cls: 'native-powerpoint-field' });
+    const displayLabel = displayField.createEl('label', { cls: 'native-powerpoint-insert-equation-display' });
+    const displayInput = displayLabel.createEl('input', { type: 'checkbox' });
+    displayLabel.createSpan({ text: this.t('powerpoint:modal.displayEquation') });
+
+    const preview = form.createDiv({ cls: 'native-powerpoint-insert-equation-preview' });
+    preview.createSpan({ text: this.t('powerpoint:modal.equationPreview') });
+    const previewValue = preview.createEl('code', { text: '—' });
+
+    const refreshPreview = () => {
+      const trimmed = sourceInput.value.trim();
+      if (!trimmed) {
+        previewValue.textContent = '—';
+        return;
+      }
+      try {
+        previewValue.textContent = compileEquation(
+          trimmed,
+          displayInput.checked ? 'block' : 'inline',
+        ).plainText;
+      } catch {
+        previewValue.textContent = trimmed;
+      }
+    };
+
+    const actions = form.createDiv({ cls: 'native-powerpoint-insert-table-actions' });
+    const cancelButton = actions.createEl('button', { text: this.t('common:actions.cancel'), type: 'button' });
+    const insertButton = actions.createEl('button', {
+      text: this.t('common:actions.insert'),
+      type: 'submit',
+      cls: 'native-powerpoint-inspector-button',
+    });
+    insertButton.disabled = true;
+
+    this.domScope.registerDomEvent(sourceInput, 'input', () => {
+      insertButton.disabled = sourceInput.value.trim().length === 0;
+      refreshPreview();
+    });
+    this.domScope.registerDomEvent(displayInput, 'change', refreshPreview);
+    this.domScope.registerDomEvent(cancelButton, 'click', () => this.close());
+    this.domScope.registerDomEvent(form, 'submit', (event) => {
+      event.preventDefault();
+      const trimmed = sourceInput.value.trim();
+      if (!trimmed) return;
+      const display: EquationDisplay = displayInput.checked ? 'block' : 'inline';
+      const equation = compileEquation(trimmed, display);
+      this.close();
+      this.onSubmit(equation);
+    });
+    sourceInput.focus();
     loadModalDomScope(this.domScope);
   }
 

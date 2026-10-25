@@ -36,6 +36,11 @@
 		"searchOptions": "Search editor options",
 		"settings": "Settings",
 		"insertImage": "Insert image...",
+		"insertEquation": "Insert equation...",
+		"equationHint": "Type LaTeX or Unicode math. Word saves this as an equation.",
+		"equationPlaceholder": "e.g. \\frac{a}{b} or x^2 + y^2 = z^2",
+		"equationPreview": "Preview",
+		"displayEquation": "Display equation on its own line",
 		"searchOptionsPlaceholder": "Search options"
 	},
 	"menu": {
@@ -92,6 +97,9 @@
 		"switchToEditForImage": "Switch to editing mode to insert an image.",
 		"openLoadedToInsertImage": "Open a loaded docx file to insert an image.",
 		"cannotInsertImageHere": "This DOCX editor cannot insert images here.",
-		"imagePickerNotReady": "The image picker is not ready yet."
+		"imagePickerNotReady": "The image picker is not ready yet.",
+		"switchToEditForEquation": "Switch to editing mode to insert an equation.",
+		"openLoadedToInsertEquation": "Open a loaded docx file to insert an equation.",
+		"cannotInsertEquationHere": "This DOCX editor cannot insert an equation here."
 	}
 }
