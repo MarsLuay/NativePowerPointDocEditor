@@ -6800,11 +6800,13 @@ export class NativePowerPointView extends FileView {
     // to the first line's length (for example 59), making the original
     // paragraph's highlight appear to disappear during a cross-paragraph drag.
     const paragraphIndexes: number[] = [];
+    const seenParagraphIndexes = new Set<number>();
     for (let index = startIndex; index <= endIndex; index++) {
       const paragraph = paragraphs[index];
       if (!paragraph || this.collectParagraphRuns(paragraph).length === 0) continue;
       const paragraphIndex = this.getParagraphIndexFromInlineElement(paragraph);
-      if (paragraphIndex !== null && !paragraphIndexes.includes(paragraphIndex)) {
+      if (paragraphIndex !== null && !seenParagraphIndexes.has(paragraphIndex)) {
+        seenParagraphIndexes.add(paragraphIndex);
         paragraphIndexes.push(paragraphIndex);
       }
     }
