@@ -661,7 +661,14 @@ export class FindReplaceController {
       searchIndex.push(indexSlide);
 
       if (performance.now() - yieldedAt >= FIND_INDEX_YIELD_BUDGET_MS) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+        await new Promise<void>((resolve) => {
+          const channel = new MessageChannel();
+          channel.port1.onmessage = () => {
+            channel.port1.close();
+            resolve();
+          };
+          channel.port2.postMessage(null);
+        });
         yieldedAt = performance.now();
       }
     }
