@@ -249,7 +249,7 @@ export class PptxPackageDocument {
       for (let slideIndex = 0; slideIndex < this._slideCount; slideIndex++) {
         try {
           const slideXml = this.getAuthoritativeSlideXml(slideIndex) ?? reader.getSlideOoxml(slideIndex);
-          if (slideXml.includes('</p:sld>')) {
+          if (slideXml.lastIndexOf('</p:sld>') !== -1) {
             modifications.set(getSlidePath(slideIndex), slideXml);
           }
         } catch {
@@ -299,7 +299,7 @@ export class PptxPackageDocument {
     for (let slideIndex = 0; slideIndex < this._slideCount; slideIndex++) {
       try {
         const slideXml = this.getAuthoritativeSlideXml(slideIndex) ?? reader.getSlideOoxml(slideIndex);
-        if (slideXml.includes('</p:sld>')) modifications.set(getSlidePath(slideIndex), slideXml);
+        if (slideXml.lastIndexOf('</p:sld>') !== -1) modifications.set(getSlidePath(slideIndex), slideXml);
       } catch {
         // Keep the renderer export for slides the runtime cannot serialize.
       }
